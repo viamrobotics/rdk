@@ -246,6 +246,7 @@ func TestServer(t *testing.T) {
 		resp, err := gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
+		//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 		test.That(t, resp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
 
 		_, err = gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failGantryName})

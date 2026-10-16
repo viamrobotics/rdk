@@ -3,22 +3,16 @@ package navigation
 import (
 	"context"
 
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
-// client implements NavigationServiceClient.
 type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
@@ -46,179 +40,516 @@ func NewClientFromConn(
 	return c, nil
 }
 
-func (c *client) Mode(ctx context.Context, extra map[string]interface{}) (Mode, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+func (c *client) AddLocation(ctx context.Context, req AddLocationReq) (Location, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
 	if err != nil {
-		return 0, err
+		return Location{}, err
 	}
-	resp, err := c.client.GetMode(ctx, &pb.GetModeRequest{Name: c.name, Extra: ext})
+	pos, err := optionalPositionToProtobuf(req.Position)
 	if err != nil {
-		return 0, err
+		return Location{}, err
 	}
-	pbMode := resp.GetMode()
-	switch pbMode {
-	case pb.Mode_MODE_MANUAL:
-		return ModeManual, nil
-	case pb.Mode_MODE_WAYPOINT:
-		return ModeWaypoint, nil
-	case pb.Mode_MODE_EXPLORE:
-		return ModeExplore, nil
-	case pb.Mode_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return 0, errors.New("mode error")
+	resp, err := c.client.AddLocation(ctx, &pb.AddLocationRequest{
+		Name:         c.name,
+		LocationName: req.Name,
+		Position:     pos,
+		Extra:        ext,
+	})
+	if err != nil {
+		return Location{}, err
 	}
+	return protobufToLocation(resp.GetLocation())
 }
 
-func (c *client) SetMode(ctx context.Context, mode Mode, extra map[string]interface{}) error {
+func (c *client) GetLocation(ctx context.Context, name string, extra map[string]interface{}) (Location, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Location{}, err
+	}
+	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{
+		Name:         c.name,
+		LocationName: name,
+		Extra:        ext,
+	})
+	if err != nil {
+		return Location{}, err
+	}
+	return protobufToLocation(resp.GetLocation())
+}
+
+func (c *client) ListLocations(ctx context.Context, extra map[string]interface{}) ([]Location, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.ListLocations(ctx, &pb.ListLocationsRequest{Name: c.name, Extra: ext})
+	if err != nil {
+		return nil, err
+	}
+	return protobufToLocations(resp.GetLocations())
+}
+
+func (c *client) UpdateLocation(ctx context.Context, req UpdateLocationReq) (Location, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Location{}, err
+	}
+	pos, err := optionalPositionToProtobuf(req.Position)
+	if err != nil {
+		return Location{}, err
+	}
+	resp, err := c.client.UpdateLocation(ctx, &pb.UpdateLocationRequest{
+		Name:         c.name,
+		LocationName: req.Name,
+		Position:     pos,
+		NewName:      req.NewName,
+		Extra:        ext,
+	})
+	if err != nil {
+		return Location{}, err
+	}
+	return protobufToLocation(resp.GetLocation())
+}
+
+func (c *client) DeleteLocation(ctx context.Context, name string, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
-	var pbMode pb.Mode
-	switch mode {
-	case ModeManual:
-		pbMode = pb.Mode_MODE_MANUAL
-	case ModeWaypoint:
-		pbMode = pb.Mode_MODE_WAYPOINT
-	case ModeExplore:
-		pbMode = pb.Mode_MODE_EXPLORE
-	default:
-		pbMode = pb.Mode_MODE_UNSPECIFIED
-	}
-	_, err = c.client.SetMode(ctx, &pb.SetModeRequest{Name: c.name, Mode: pbMode, Extra: ext})
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err = c.client.DeleteLocation(ctx, &pb.DeleteLocationRequest{
+		Name:         c.name,
+		LocationName: name,
+		Extra:        ext,
+	})
+	return err
 }
 
-func (c *client) Location(ctx context.Context, extra map[string]interface{}) (*spatialmath.GeoPose, error) {
+func (c *client) AddRoute(ctx context.Context, req AddRouteReq) (Route, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Route{}, err
+	}
+	wps, err := waypointsToProtobuf(req.Waypoints)
+	if err != nil {
+		return Route{}, err
+	}
+	resp, err := c.client.AddRoute(ctx, &pb.AddRouteRequest{
+		Name:      c.name,
+		RouteName: req.Name,
+		Waypoints: wps,
+		Extra:     ext,
+	})
+	if err != nil {
+		return Route{}, err
+	}
+	return protobufToRoute(resp.GetRoute())
+}
+
+func (c *client) GetRoute(ctx context.Context, name string, extra map[string]interface{}) (Route, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Route{}, err
+	}
+	resp, err := c.client.GetRoute(ctx, &pb.GetRouteRequest{
+		Name:      c.name,
+		RouteName: name,
+		Extra:     ext,
+	})
+	if err != nil {
+		return Route{}, err
+	}
+	return protobufToRoute(resp.GetRoute())
+}
+
+func (c *client) ListRoutes(ctx context.Context, extra map[string]interface{}) ([]Route, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{Name: c.name, Extra: ext})
+	resp, err := c.client.ListRoutes(ctx, &pb.ListRoutesRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return nil, err
 	}
-	geoPose := spatialmath.NewGeoPose(
-		geo.NewPoint(resp.GetLocation().GetLatitude(), resp.GetLocation().GetLongitude()),
-		resp.GetCompassHeading(),
-	)
-	return geoPose, nil
+	return protobufToRoutes(resp.GetRoutes())
 }
 
-func (c *client) Waypoints(ctx context.Context, extra map[string]interface{}) ([]Waypoint, error) {
-	ext, err := protoutils.StructToStructPb(extra)
+func (c *client) UpdateRoute(ctx context.Context, req UpdateRouteReq) (Route, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
 	if err != nil {
-		return nil, err
+		return Route{}, err
 	}
-	resp, err := c.client.GetWaypoints(ctx, &pb.GetWaypointsRequest{Name: c.name, Extra: ext})
-	if err != nil {
-		return nil, err
-	}
-	waypoints := resp.GetWaypoints()
-	result := make([]Waypoint, 0, len(waypoints))
-	for _, wpt := range waypoints {
-		id, err := primitive.ObjectIDFromHex(wpt.GetId())
-		if err != nil {
-			return nil, err
+	var wps *pb.WaypointList
+	if req.Waypoints != nil {
+		converted, convErr := waypointsToProtobuf(req.Waypoints)
+		if convErr != nil {
+			return Route{}, convErr
 		}
-		loc := wpt.GetLocation()
-		result = append(result, Waypoint{
-			ID:   id,
-			Lat:  loc.GetLatitude(),
-			Long: loc.GetLongitude(),
-		})
+		wps = &pb.WaypointList{Waypoints: converted}
 	}
-	return result, nil
+	resp, err := c.client.UpdateRoute(ctx, &pb.UpdateRouteRequest{
+		Name:      c.name,
+		RouteName: req.Name,
+		NewName:   req.NewName,
+		Waypoints: wps,
+		Extra:     ext,
+	})
+	if err != nil {
+		return Route{}, err
+	}
+	return protobufToRoute(resp.GetRoute())
 }
 
-func (c *client) AddWaypoint(ctx context.Context, point *geo.Point, extra map[string]interface{}) error {
+func (c *client) DeleteRoute(ctx context.Context, name string, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return err
 	}
-	loc := &commonpb.GeoPoint{
-		Latitude:  point.Lat(),
-		Longitude: point.Lng(),
+	_, err = c.client.DeleteRoute(ctx, &pb.DeleteRouteRequest{
+		Name:      c.name,
+		RouteName: name,
+		Extra:     ext,
+	})
+	return err
+}
+
+func (c *client) AddZone(ctx context.Context, req AddZoneReq) (Zone, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Zone{}, err
 	}
-	req := &pb.AddWaypointRequest{
+	resp, err := c.client.AddZone(ctx, &pb.AddZoneRequest{
 		Name:     c.name,
-		Location: loc,
+		ZoneName: req.Name,
+		Type:     req.Type,
+		Geometry: req.Geometry,
+		MaxSpeed: req.MaxSpeed,
 		Extra:    ext,
-	}
-	_, err = c.client.AddWaypoint(ctx, req)
+	})
 	if err != nil {
-		return err
+		return Zone{}, err
 	}
-	return nil
+	return protobufToZone(resp.GetZone())
 }
 
-func (c *client) RemoveWaypoint(ctx context.Context, id primitive.ObjectID, extra map[string]interface{}) error {
+func (c *client) GetZone(ctx context.Context, name string, extra map[string]interface{}) (Zone, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return err
+		return Zone{}, err
 	}
-	req := &pb.RemoveWaypointRequest{Name: c.name, Id: id.Hex(), Extra: ext}
-	_, err = c.client.RemoveWaypoint(ctx, req)
+	resp, err := c.client.GetZone(ctx, &pb.GetZoneRequest{
+		Name:     c.name,
+		ZoneName: name,
+		Extra:    ext,
+	})
 	if err != nil {
-		return err
+		return Zone{}, err
 	}
-	return nil
+	return protobufToZone(resp.GetZone())
 }
 
-func (c *client) Obstacles(ctx context.Context, extra map[string]interface{}) ([]*spatialmath.GeoGeometry, error) {
-	ext, err := protoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, err
-	}
-	req := &pb.GetObstaclesRequest{Name: c.name, Extra: ext}
-	resp, err := c.client.GetObstacles(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	protoObs := resp.GetObstacles()
-	geos := []*spatialmath.GeoGeometry{}
-	for _, o := range protoObs {
-		obstacle, err := referenceframe.GeoGeometryFromProtobuf(o)
-		if err != nil {
-			return nil, err
-		}
-		geos = append(geos, obstacle)
-	}
-	return geos, nil
-}
-
-func (c *client) Paths(ctx context.Context, extra map[string]interface{}) ([]*Path, error) {
+func (c *client) ListZones(ctx context.Context, zoneType string, extra map[string]interface{}) ([]Zone, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
-	req := &pb.GetPathsRequest{Name: c.name, Extra: ext}
-	resp, err := c.client.GetPaths(ctx, req)
+	resp, err := c.client.ListZones(ctx, &pb.ListZonesRequest{
+		Name:  c.name,
+		Type:  zoneType,
+		Extra: ext,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return ProtoSliceToPaths(resp.GetPaths())
+	return protobufToZones(resp.GetZones())
 }
 
-func (c *client) Properties(ctx context.Context) (Properties, error) {
+func (c *client) UpdateZone(ctx context.Context, req UpdateZoneReq) (Zone, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Zone{}, err
+	}
+	resp, err := c.client.UpdateZone(ctx, &pb.UpdateZoneRequest{
+		Name:     c.name,
+		ZoneName: req.Name,
+		Type:     req.Type,
+		Geometry: req.Geometry,
+		MaxSpeed: req.MaxSpeed,
+		NewName:  req.NewName,
+		Extra:    ext,
+	})
+	if err != nil {
+		return Zone{}, err
+	}
+	return protobufToZone(resp.GetZone())
+}
+
+func (c *client) DeleteZone(ctx context.Context, name string, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.DeleteZone(ctx, &pb.DeleteZoneRequest{
+		Name:     c.name,
+		ZoneName: name,
+		Extra:    ext,
+	})
+	return err
+}
+
+func (c *client) NavigateToLocation(ctx context.Context, name string, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.NavigateToLocation(ctx, &pb.NavigateToLocationRequest{
+		Name:         c.name,
+		LocationName: name,
+		Extra:        ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) NavigateToPoint(ctx context.Context, destination Position, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	dest, err := positionToProtobuf(destination)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.NavigateToPoint(ctx, &pb.NavigateToPointRequest{
+		Name:        c.name,
+		Destination: dest,
+		Extra:       ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) NavigateRoute(ctx context.Context, req NavigateRouteReq) (Status, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Status{}, err
+	}
+	wps, err := waypointsToProtobuf(req.Waypoints)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.NavigateRoute(ctx, &pb.NavigateRouteRequest{
+		Name:         c.name,
+		RouteName:    req.Name,
+		Waypoints:    wps,
+		StartIndex:   req.StartIndex,
+		StartNearest: req.StartNearest,
+		Loop:         req.Loop,
+		Wait:         req.Wait,
+		Extra:        ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) PlanToPoint(ctx context.Context, req PlanToPointReq) (Plan, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Plan{}, err
+	}
+	dest, err := positionToProtobuf(req.Destination)
+	if err != nil {
+		return Plan{}, err
+	}
+	start, err := optionalPositionToProtobuf(req.Start)
+	if err != nil {
+		return Plan{}, err
+	}
+	resp, err := c.client.PlanToPoint(ctx, &pb.PlanToPointRequest{
+		Name:        c.name,
+		Destination: dest,
+		Start:       start,
+		Extra:       ext,
+	})
+	if err != nil {
+		return Plan{}, err
+	}
+	return protobufToPlan(resp.GetPlan())
+}
+
+func (c *client) PlanToLocation(ctx context.Context, req PlanToLocationReq) (Plan, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Plan{}, err
+	}
+	start, err := optionalPositionToProtobuf(req.Start)
+	if err != nil {
+		return Plan{}, err
+	}
+	resp, err := c.client.PlanToLocation(ctx, &pb.PlanToLocationRequest{
+		Name:         c.name,
+		LocationName: req.Name,
+		Start:        start,
+		Extra:        ext,
+	})
+	if err != nil {
+		return Plan{}, err
+	}
+	return protobufToPlan(resp.GetPlan())
+}
+
+func (c *client) ExecutePlan(ctx context.Context, plan Plan, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	pbPlan, err := planToProtobuf(plan)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.ExecutePlan(ctx, &pb.ExecutePlanRequest{
+		Name:  c.name,
+		Plan:  pbPlan,
+		Extra: ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) GoToLocation(ctx context.Context, req GoToLocationReq) (Status, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.GoToLocation(ctx, &pb.GoToLocationRequest{
+		Name:          c.name,
+		LocationName:  req.Name,
+		Wait:          req.Wait,
+		LinearMPerSec: req.LinearMPerSec,
+		Extra:         ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) GoToPoint(ctx context.Context, req GoToPointReq) (Status, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
+	if err != nil {
+		return Status{}, err
+	}
+	dest, err := positionToProtobuf(req.Destination)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.GoToPoint(ctx, &pb.GoToPointRequest{
+		Name:          c.name,
+		Destination:   dest,
+		Wait:          req.Wait,
+		LinearMPerSec: req.LinearMPerSec,
+		Extra:         ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) Suspend(ctx context.Context, reason string, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.Suspend(ctx, &pb.SuspendRequest{
+		Name:   c.name,
+		Reason: reason,
+		Extra:  ext,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) Resume(ctx context.Context, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.Resume(ctx, &pb.ResumeRequest{Name: c.name, Extra: ext})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) Cancel(ctx context.Context, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.Cancel(ctx, &pb.CancelRequest{Name: c.name, Extra: ext})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) GetPosition(ctx context.Context, extra map[string]interface{}) (Position, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Position{}, err
+	}
+	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{Name: c.name, Extra: ext})
+	if err != nil {
+		return Position{}, err
+	}
+	return protobufToPosition(resp.GetPosition())
+}
+
+func (c *client) GetNavigationStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Status{}, err
+	}
+	resp, err := c.client.GetNavigationStatus(ctx, &pb.GetNavigationStatusRequest{Name: c.name, Extra: ext})
+	if err != nil {
+		return Status{}, err
+	}
+	return protobufToStatus(resp.GetStatus())
+}
+
+func (c *client) GetProperties(ctx context.Context) (Properties, error) {
 	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{Name: c.name})
 	if err != nil {
 		return Properties{}, errors.Wrapf(err, "failure to get properties")
 	}
+	return protobufToProperties(resp.GetProperties())
+}
 
-	mapType, err := protobufToMapType(resp.MapType)
+func (c *client) GetCostmap(ctx context.Context, req CostmapReq) (Costmap, error) {
+	ext, err := protoutils.StructToStructPb(req.Extra)
 	if err != nil {
-		return Properties{}, err
+		return Costmap{}, err
 	}
-
-	prop := Properties{
-		MapType: mapType,
+	resp, err := c.client.GetCostmap(ctx, &pb.GetCostmapRequest{
+		Name:   c.name,
+		Layer:  req.Layer,
+		Stride: req.Stride,
+		Extra:  ext,
+	})
+	if err != nil {
+		return Costmap{}, err
 	}
-	return prop, nil
+	return protobufToCostmap(resp), nil
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

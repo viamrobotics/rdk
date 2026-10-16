@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	v1 "go.viam.com/api/app/v1"
@@ -92,6 +93,133 @@ func TestValidateModelAPI(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	err = validateModelAPI("other:component:x_")
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestValidateManifestLimits(t *testing.T) {
+	atLimit := strings.Repeat("a", maxModelDescriptionLength)
+	overLimit := strings.Repeat("a", maxModelDescriptionLength+1)
+
+	tests := []struct {
+		name    string
+		models  []ModuleComponent
+		wantErr []string
+	}{
+		{
+			name:   "no description",
+			models: []ModuleComponent{{API: "rdk:component:sensor", Model: "acme:demo:a"}},
+		},
+		{
+			name:   "description at limit",
+			models: []ModuleComponent{{API: "rdk:component:sensor", Model: "acme:demo:a", Description: &atLimit}},
+		},
+		{
+			name: "descriptions over limit",
+			models: []ModuleComponent{
+				{API: "rdk:component:sensor", Model: "acme:demo:a", Description: &overLimit},
+				{API: "rdk:component:sensor", Model: "acme:demo:b", Description: &atLimit},
+				{API: "rdk:component:sensor", Model: "acme:demo:c", Description: &overLimit},
+			},
+			wantErr: []string{"acme:demo:a", "acme:demo:c"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateManifestLimits(&ModuleManifest{Models: tc.models})
+			if tc.wantErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				return
+			}
+			test.That(t, err, test.ShouldNotBeNil)
+			for _, model := range tc.wantErr {
+				test.That(t, err.Error(), test.ShouldContainSubstring, model)
+			}
+			test.That(t, err.Error(), test.ShouldNotContainSubstring, "acme:demo:b")
+		})
+	}
+}
+
+func TestValidateManifestApplicationLimits(t *testing.T) {
+	picker := func(heading, subheading string) AppComponent {
+		return AppComponent{
+			Name: "demo",
+			Customizations: &AppCustomizations{
+				MachinePicker: &MachinePickerCustomizations{Heading: heading, Subheading: subheading},
+			},
+		}
+	}
+
+	tests := []struct {
+		name    string
+		apps    []AppComponent
+		wantErr []string
+	}{
+		{
+			name: "no customizations",
+			apps: []AppComponent{{Name: "demo"}},
+		},
+		{
+			name: "branding at limits",
+			apps: []AppComponent{picker(
+				strings.Repeat("a", maxMachinePickerHeadingLength),
+				strings.Repeat("a", maxMachinePickerSubheadingLength),
+			)},
+		},
+		{
+			name:    "heading over limit",
+			apps:    []AppComponent{picker(strings.Repeat("a", maxMachinePickerHeadingLength+1), "")},
+			wantErr: []string{"heading for application demo", "maximum length of 60"},
+		},
+		{
+			name:    "subheading over limit",
+			apps:    []AppComponent{picker("", strings.Repeat("a", maxMachinePickerSubheadingLength+1))},
+			wantErr: []string{"subheading for application demo", "maximum length of 256"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateManifestLimits(&ModuleManifest{Apps: tc.apps})
+			if tc.wantErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				return
+			}
+			test.That(t, err, test.ShouldNotBeNil)
+			for _, want := range tc.wantErr {
+				test.That(t, err.Error(), test.ShouldContainSubstring, want)
+			}
+		})
+	}
+}
+
+func TestLintManifestAction(t *testing.T) {
+	writeManifest := func(t *testing.T, description string) string {
+		t.Helper()
+		metaPath := filepath.Join(t.TempDir(), "meta.json")
+		manifest := ModuleManifest{
+			ModuleID:    "acme:demo",
+			Visibility:  "public",
+			Description: "demo module",
+			Models:      []ModuleComponent{{API: "rdk:component:sensor", Model: "acme:demo:a", Description: &description}},
+		}
+		bytes, err := json.Marshal(manifest)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(metaPath, bytes, 0o600), test.ShouldBeNil)
+		return metaPath
+	}
+
+	t.Run("no problems", func(t *testing.T) {
+		cCtx, _, out, _ := setup(&inject.AppServiceClient{}, nil, nil, map[string]any{"module": writeManifest(t, "ok")}, "")
+		err := LintManifestAction(context.Background(), cCtx, parseStructFromCtx[lintManifestArgs](cCtx))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "no problems found")
+	})
+
+	t.Run("description too long", func(t *testing.T) {
+		metaPath := writeManifest(t, strings.Repeat("a", maxModelDescriptionLength+1))
+		cCtx, _, _, _ := setup(&inject.AppServiceClient{}, nil, nil, map[string]any{"module": metaPath}, "")
+		err := LintManifestAction(context.Background(), cCtx, parseStructFromCtx[lintManifestArgs](cCtx))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "exceeds maximum length of 100")
+	})
 }
 
 func TestModelTripleToMarkdownFilename(t *testing.T) {

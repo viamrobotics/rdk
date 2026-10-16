@@ -3907,6 +3907,21 @@ Run this command from within the module directory.`,
 					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
+					Name: "lint-manifest",
+					Usage: "check meta.json for format errors and registry limits offline; " +
+						"passing does not guarantee an upload will succeed",
+					UsageText: createUsageText("module lint-manifest", nil, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
+						},
+					},
+					Action: createActionCommandWithT[lintManifestArgs](LintManifestAction),
+				},
+				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
 					UsageText: createUsageText("module update-models", []string{}, true, false),
