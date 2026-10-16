@@ -180,3 +180,154 @@ func TestMimicJSONRoundTrip(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: 0, Y: 0, Z: 30}, defaultFloatPrecision), test.ShouldBeTrue)
 }
+
+// A link carries every collision geometry its config lists. An unlabelled geometry is named after
+// the link when it is the only one and <link>_collision_<i> otherwise, a label in the file is kept,
+// and the model's JSON writes the first geometry back into the field an old reader knows.
+func TestSeveralGeometriesPerLink(t *testing.T) {
+	data := []byte(`{
+		"name": "arm",
+		"links": [
+			{"id": "base", "parent": "world",
+			 "geometry": {"type": "sphere", "r": 1, "translation": {"x": 10}},
+			 "geometries": [
+				{"type": "sphere", "r": 1, "translation": {"x": 20}, "label": "named"},
+				{"type": "sphere", "r": 1, "translation": {"x": 30}}
+			 ]},
+			{"id": "tip", "parent": "base", "translation": {"z": 100},
+			 "geometry": {"type": "sphere", "r": 1, "translation": {"x": 40}}}
+		],
+		"output_frames": ["tip"]
+	}`)
+	model, err := UnmarshalModelJSON(data, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	labelsAndX := func(m Model) map[string]float64 {
+		gif, err := m.Geometries(nil)
+		test.That(t, err, test.ShouldBeNil)
+		out := map[string]float64{}
+		for _, g := range gif.Geometries() {
+			out[g.Label()] = g.Pose().Point().X
+		}
+		return out
+	}
+	want := map[string]float64{"arm:base_collision_0": 10, "arm:named": 20, "arm:base_collision_2": 30, "arm:tip": 40}
+	test.That(t, labelsAndX(model), test.ShouldResemble, want)
+
+	// the config holds the split the file used, and a frame built from it writes the same split back
+	sm, ok := model.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	frame := sm.internalFS.Frame("base")
+	lc, err := NewLinkConfig(frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lc.Geometry.TranslationOffset.X, test.ShouldEqual, 10)
+	test.That(t, len(lc.Geometries), test.ShouldEqual, 2)
+	test.That(t, lc.Geometries[0].Label, test.ShouldEqual, "named")
+	frameJSON, err := json.Marshal(frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(frameJSON), test.ShouldContainSubstring, `"geometries":`)
+	tipJSON, err := json.Marshal(sm.internalFS.Frame("tip"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(tipJSON), test.ShouldNotContainSubstring, `"geometries":`)
+
+	// a LinkInFrame holds one geometry, so the config refuses to become one, while a lone entry
+	// under geometries is still one geometry
+	_, err = lc.ParseConfig()
+	test.That(t, err, test.ShouldNotBeNil)
+	lone := &LinkConfig{ID: "lone", Parent: World, Geometries: []spatial.GeometryConfig{{Type: spatial.SphereType, R: 1}}}
+	lif, err := lone.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lif.Geometry().Label(), test.ShouldEqual, "lone")
+
+	reread := &SimpleModel{}
+	test.That(t, json.Unmarshal(mustMarshal(t, model), reread), test.ShouldBeNil)
+	test.That(t, labelsAndX(reread), test.ShouldResemble, want)
+}
+
+// A translational frame carries its geometries along the axis and names them the same way, but
+// its JSON form is a prismatic joint with room for one.
+func TestTranslationalFrameWithSeveralGeometries(t *testing.T) {
+	a, err := spatial.NewSphere(spatial.NewZeroPose(), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	b, err := spatial.NewSphere(spatial.NewPoseFromPoint(r3.Vector{Y: 5}), 1, "b")
+	test.That(t, err, test.ShouldBeNil)
+	frame, err := NewTranslationalFrameWithGeometries("slide", r3.Vector{X: 1}, Limit{Min: 0, Max: 100}, []spatial.Geometry{a, b})
+	test.That(t, err, test.ShouldBeNil)
+
+	gif, err := frame.Geometries([]Input{7})
+	test.That(t, err, test.ShouldBeNil)
+	geometries := gif.Geometries()
+	test.That(t, len(geometries), test.ShouldEqual, 2)
+	test.That(t, geometries[0].Label(), test.ShouldEqual, "slide_collision_0")
+	test.That(t, geometries[0].Pose().Point(), test.ShouldResemble, r3.Vector{X: 7})
+	test.That(t, geometries[1].Label(), test.ShouldEqual, "b")
+	test.That(t, geometries[1].Pose().Point(), test.ShouldResemble, r3.Vector{X: 7, Y: 5})
+
+	_, err = json.Marshal(frame)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func mustMarshal(t *testing.T, v interface{}) []byte {
+	t.Helper()
+	data, err := json.Marshal(v)
+	test.That(t, err, test.ShouldBeNil)
+	return data
+}
+
+// Collision checking keys on the label, so a model is refused when two geometries share one or a
+// geometry is labelled with another frame's name.
+func TestGeometryLabelsMustBeUnique(t *testing.T) {
+	model := func(baseLabel, tipLabel string) []byte {
+		return []byte(`{
+			"name": "arm",
+			"links": [
+				{"id": "base", "parent": "world", "geometry": {"type": "sphere", "r": 1, "label": "` + baseLabel + `"}},
+				{"id": "tip", "parent": "base", "geometry": {"type": "sphere", "r": 1, "label": "` + tipLabel + `"}}
+			],
+			"output_frames": ["tip"]
+		}`)
+	}
+	_, err := UnmarshalModelJSON(model("", ""), "")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = UnmarshalModelJSON(model("shared", "shared"), "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `label "shared" is used on frames "base" and "tip"`)
+	_, err = UnmarshalModelJSON(model("tip", ""), "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "the name of another frame")
+	_, err = UnmarshalModelJSON(model("world", ""), "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "reserved")
+}
+
+// A prismatic joint in a kinematics file carries its geometry along the axis, the way the frame
+// JSON path always has.
+func TestPrismaticJointGeometryFromFile(t *testing.T) {
+	data := []byte(`{
+		"name": "slider",
+		"links": [{"id": "base", "parent": "world"}, {"id": "tip", "parent": "slide"}],
+		"joints": [{"id": "slide", "parent": "base", "type": "prismatic", "axis": {"x": 1}, "min": 0, "max": 100,
+			"geometry": {"type": "sphere", "r": 1}}],
+		"output_frames": ["tip"]
+	}`)
+	model, err := UnmarshalModelJSON(data, "")
+	test.That(t, err, test.ShouldBeNil)
+	gif, err := model.Geometries([]Input{7})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(gif.Geometries()), test.ShouldEqual, 1)
+	test.That(t, gif.Geometries()[0].Label(), test.ShouldEqual, "slider:slide")
+	test.That(t, gif.Geometries()[0].Pose().Point(), test.ShouldResemble, r3.Vector{X: 7})
+}
+
+func TestFrameConstructorsRefuseNilGeometry(t *testing.T) {
+	_, err := NewStaticFrameWithGeometries("a", spatial.NewZeroPose(), []spatial.Geometry{nil})
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = NewTranslationalFrameWithGeometries("a", r3.Vector{X: 1}, Limit{Min: 0, Max: 1}, []spatial.Geometry{nil})
+	test.That(t, err, test.ShouldNotBeNil)
+	// a caller's unlabelled geometry is copied before it is named, so the caller's stays as given
+	sphere, err := spatial.NewSphere(spatial.NewZeroPose(), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = NewStaticFrameWithGeometries("a", spatial.NewZeroPose(), []spatial.Geometry{sphere})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sphere.Label(), test.ShouldEqual, "")
+}
