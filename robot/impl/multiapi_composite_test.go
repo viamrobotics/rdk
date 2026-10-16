@@ -787,10 +787,10 @@ func TestCompositeRemoteResource(t *testing.T) {
 	}
 }
 
-// TestCompositeRemoteMachineStatusSingleRow asserts a remote composite reports one MachineStatus row,
-// matching a local composite. Both are a single graph node, so Status() yields one row per device
-// rather than one per co-equal API.
-func TestCompositeRemoteMachineStatusSingleRow(t *testing.T) {
+// TestCompositeRemoteMachineStatusPerAPI asserts a remote composite reports one status per co-equal
+// API, matching a local composite. Status() expands a composite the same way ResourceNames does, and
+// each status carries the one node's state.
+func TestCompositeRemoteMachineStatusPerAPI(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	model := registerComboModel(t, "composite-sensor-remote-status", nil)
@@ -805,8 +805,7 @@ func TestCompositeRemoteMachineStatusSingleRow(t *testing.T) {
 		Remotes: []config.Remote{{Name: "rem", Address: addr}},
 	}, logger.Sublogger("main"))
 
-	// The remote composite is reachable under both co-equal APIs on main, so the single status
-	// row below reflects one-node-per-device, not the composite being absent.
+	// The remote composite is reachable under both co-equal APIs on main.
 	_, err := main.ResourceByName(sensor.Named("rem:combo"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = main.ResourceByName(resource.NewName(generic.API, "rem:combo"))
@@ -815,11 +814,14 @@ func TestCompositeRemoteMachineStatusSingleRow(t *testing.T) {
 	ms, err := main.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	var comboRows []resource.Name
+	// One status per co-equal API the composite serves, all under the one shared name.
+	var comboAPIs []resource.API
 	for _, rs := range ms.Resources {
 		if rs.Name.Name == "combo" {
-			comboRows = append(comboRows, rs.Name)
+			comboAPIs = append(comboAPIs, rs.Name.API)
 		}
 	}
-	test.That(t, len(comboRows), test.ShouldEqual, 1)
+	test.That(t, comboAPIs, test.ShouldHaveLength, 2)
+	test.That(t, comboAPIs, test.ShouldContain, sensor.API)
+	test.That(t, comboAPIs, test.ShouldContain, generic.API)
 }
