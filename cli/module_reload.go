@@ -590,17 +590,19 @@ func partReportsModuleStatus(part *apppb.RobotPart) bool {
 	return !version.LessThan(moduleStatusVersionSupported)
 }
 
+const reloadWithoutModuleStatusMessage = "An upgrade to viam-server is recommended. " +
+	"The machine applied the reload config but does not report module status (viam-server older than 1.1.0); " +
+	"Check the logs to ensure the module has downloaded and restarted."
+
+var errReloadWithoutModuleStatus = errors.New("module status not reported")
+
 func assumedReloadComplete(moduleName string, lastUpdated time.Time) modulestatus.Status {
 	return modulestatus.Status{
 		Name:        moduleName,
 		State:       modulestatus.ModuleStateReady,
 		LastUpdated: lastUpdated,
+		Error:       errReloadWithoutModuleStatus,
 	}
-}
-
-func warnReloadWithoutModuleStatus(cmd *cli.Command) {
-	warningf(cmd.Root().ErrWriter,
-		"An upgrade to viam-server is recommended. The machine applied the reload config but does not report module status (viam-server older than 1.1.0); Check the logs to ensure the module has downloaded and restarted.")
 }
 
 func machineStatusUnsupported(err error) bool {
@@ -681,7 +683,6 @@ func (c *viamClient) waitForModuleReload(
 		return waitForModuleReloadHook(c, ctx, cmd, part, moduleName, reloadTime, logger)
 	}
 	if !partReportsModuleStatus(part) {
-		warnReloadWithoutModuleStatus(cmd)
 		return assumedReloadComplete(moduleName, time.Time{}), nil
 	}
 	args, err := getGlobalArgs(cmd)
@@ -712,7 +713,6 @@ func (c *viamClient) waitForModuleReload(
 		}
 		if time.Now().After(deadline) {
 			if machineOmitsModuleStatus(lastStatus) {
-				warnReloadWithoutModuleStatus(cmd)
 				return assumedReloadComplete(moduleName, lastStatus.Config.LastUpdated), nil
 			}
 			return modulestatus.Status{}, errors.Errorf(
@@ -725,7 +725,6 @@ func (c *viamClient) waitForModuleReload(
 		machineStatus, statusErr := robotClient.MachineStatus(ctx)
 		if statusErr != nil {
 			if machineStatusUnsupported(statusErr) {
-				warnReloadWithoutModuleStatus(cmd)
 				return assumedReloadComplete(moduleName, time.Time{}), nil
 			}
 			return modulestatus.Status{}, statusErr
@@ -740,7 +739,6 @@ func (c *viamClient) waitForModuleReload(
 				noStatusSince = time.Now()
 			}
 			if time.Since(noStatusSince) >= moduleReloadNoStatusGrace {
-				warnReloadWithoutModuleStatus(cmd)
 				return assumedReloadComplete(moduleName, lastStatus.Config.LastUpdated), nil
 			}
 		} else {
