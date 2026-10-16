@@ -1015,11 +1015,7 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	logger.Info("got packets")
 
 	logger.Info("calling close")
-	// Stop serving before tearing the robot down, the same order a real viam-server shuts down in.
-	// A web service still answering for an already closed robot advertises an empty resource list,
-	// which remote-1 reads as "the camera was removed" rather than "the machine went offline". That
-	// removal propagates to main, which closes its camera client and terminates the subscription
-	// this test asserts stays alive.
+	// Web service before robot: matches real viam-server shutdown; prevents remote-1 misreading an empty resource list as removal.
 	test.That(t, remoteWebSvc2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, remoteRobot2.Close(context.Background()), test.ShouldBeNil)
 	logger.Info("close called")
@@ -1167,9 +1163,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	logger.Info("got packets")
 
 	logger.Info("calling close")
-	// Stop serving before tearing the robot down. See the equivalent comment in
-	// TestWhyMustTimeoutOnReadRTP: the reverse order lets remote-1 observe an empty resource list
-	// from a still-serving but closed remote-2, which tears down main's subscription.
+	// Web service before robot; see TestWhyMustTimeoutOnReadRTP for why order matters.
 	test.That(t, remoteWebSvc2.Close(remote2Ctx), test.ShouldBeNil)
 	test.That(t, remoteRobot2.Close(remote2Ctx), test.ShouldBeNil)
 	logger.Info("close called")
