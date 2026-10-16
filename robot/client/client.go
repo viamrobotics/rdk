@@ -985,7 +985,7 @@ func (rc *RobotClient) newCompositeLocked(name resource.Name, apis []resource.AP
 		}
 		byAPI[api] = sub
 	}
-	return resource.NewMultiAPIResource(name.AsAPI(apis[0]), apis, byAPI), nil
+	return resource.NewMultiAPIResource(name.AsAPI(apis[0]), byAPI), nil
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
