@@ -20,7 +20,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags s as the summation sub-resource of a composite, for resource.Compose.
-func AsSub(s Summation) resource.Sub { return resource.AsSub[Summation](API, s) }
+func AsSub(s Summation) resource.Sub { return resource.AsSub(API, s) }
 
 // FromProvider is a helper for getting the named Summation
 // from a resource Provider (collection of Dependencies or a Robot).

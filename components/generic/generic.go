@@ -43,7 +43,7 @@ func Named(name string) resource.Name {
 // AsSub tags r as the generic sub-resource of a composite, for resource.Compose. Generic's API is
 // resource.Resource, so this wraps resource.AsSub with the generic API for call-site symmetry with
 // the other component packages.
-func AsSub(r resource.Resource) resource.Sub { return resource.AsSub[resource.Resource](API, r) }
+func AsSub(r resource.Resource) resource.Sub { return resource.AsSub(API, r) }
 
 // Deprecated: FromDependencies is a helper for getting the named generic from a collection of
 // dependencies. Use FromProvider instead.
