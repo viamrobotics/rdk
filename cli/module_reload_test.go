@@ -1264,17 +1264,24 @@ func TestIsModuleReloadComplete(t *testing.T) {
 }
 
 func TestMachineOmitsModuleStatus(t *testing.T) {
-	reloadTime := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC)
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{}), test.ShouldBeTrue)
 	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
-		Config: rdkConfig.Revision{LastUpdated: reloadTime.Add(time.Second)},
-	}, reloadTime), test.ShouldBeTrue)
-	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
-		Config:  rdkConfig.Revision{LastUpdated: reloadTime.Add(time.Second)},
 		Modules: []modulestatus.Status{{Name: "mod"}},
-	}, reloadTime), test.ShouldBeFalse)
-	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
-		Config: rdkConfig.Revision{LastUpdated: reloadTime.Add(-time.Second)},
-	}, reloadTime), test.ShouldBeFalse)
+	}), test.ShouldBeFalse)
+}
+
+func TestPartReportsModuleStatus(t *testing.T) {
+	partWithVersion := func(version string) *apppb.RobotPart {
+		info, err := structpb.NewStruct(map[string]any{"version": version})
+		test.That(t, err, test.ShouldBeNil)
+		return &apppb.RobotPart{UserSuppliedInfo: info}
+	}
+	test.That(t, partReportsModuleStatus(partWithVersion("1.0.0")), test.ShouldBeFalse)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.0.9")), test.ShouldBeFalse)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.1.0")), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.2.0")), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(&apppb.RobotPart{}), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(partWithVersion("dev-unknown")), test.ShouldBeTrue)
 }
 
 func TestMachineStatusUnsupported(t *testing.T) {
