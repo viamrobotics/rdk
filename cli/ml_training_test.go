@@ -43,7 +43,7 @@ func TestValidateRegistryModuleResources(t *testing.T) {
 	})
 
 	t.Run("triple must have three segments", func(t *testing.T) {
-		for _, resource := range []string{"not-a-triple", "a:b:", ":b:c", "a::c", "a:b:c:d"} {
+		for _, resource := range []string{"not-a-triple", "policy", "a:b:", ":b:c", "a::c", "a:b:c:d"} {
 			err := validateRegistryModuleResources(mlTrainingFlagFramework, string(ModelFrameworkRegistry), []string{resource})
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "model triple")
@@ -110,22 +110,23 @@ func TestPackageUploadRegistryMetadata(t *testing.T) {
 
 func TestUpdateTrainingScriptModuleResources(t *testing.T) {
 	var got *v1.UpdateRegistryItemRequest
+	item := &v1.RegistryItem{
+		Type:        packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING,
+		Description: "keep me",
+		Metadata: &v1.RegistryItem_MlTrainingMetadata{
+			MlTrainingMetadata: &v1.MLTrainingMetadata{
+				ModelType:                  mltrainingpb.ModelType_MODEL_TYPE_OBJECT_DETECTION,
+				ModelFramework:             mltrainingpb.ModelFramework_MODEL_FRAMEWORK_PYTORCH,
+				Draft:                      true,
+				DeploymentModularResources: []string{"old:mod:model"},
+			},
+		},
+	}
 	asc := &inject.AppServiceClient{
 		GetRegistryItemFunc: func(
 			ctx context.Context, in *v1.GetRegistryItemRequest, opts ...grpc.CallOption,
 		) (*v1.GetRegistryItemResponse, error) {
-			return &v1.GetRegistryItemResponse{Item: &v1.RegistryItem{
-				Type:        packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING,
-				Description: "keep me",
-				Metadata: &v1.RegistryItem_MlTrainingMetadata{
-					MlTrainingMetadata: &v1.MLTrainingMetadata{
-						ModelType:                  mltrainingpb.ModelType_MODEL_TYPE_OBJECT_DETECTION,
-						ModelFramework:             mltrainingpb.ModelFramework_MODEL_FRAMEWORK_PYTORCH,
-						Draft:                      true,
-						DeploymentModularResources: []string{"old:mod:model"},
-					},
-				},
-			}}, nil
+			return &v1.GetRegistryItemResponse{Item: item}, nil
 		},
 		UpdateRegistryItemFunc: func(
 			ctx context.Context, in *v1.UpdateRegistryItemRequest, opts ...grpc.CallOption,
@@ -160,4 +161,23 @@ func TestUpdateTrainingScriptModuleResources(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "--module-resource requires --framework registry")
+
+	err = client.updateTrainingScript(
+		context.Background(), "org", "script", "private", "", "",
+		"", []string{"viam-labs:arm-policy:policy"},
+	)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "--module-resource requires --framework registry")
+
+	item.GetMlTrainingMetadata().ModelFramework = mltrainingpb.ModelFramework_MODEL_FRAMEWORK_REGISTRY
+	err = client.updateTrainingScript(
+		context.Background(), "org", "script", "private", "", "",
+		"", []string{"viam-labs:arm-policy:policy"},
+	)
+	test.That(t, err, test.ShouldBeNil)
+	meta = got.GetUpdateMlTrainingMetadata()
+	test.That(t, meta.GetModelFramework(), test.ShouldEqual, mltrainingpb.ModelFramework_MODEL_FRAMEWORK_REGISTRY)
+	test.That(t, meta.GetDeploymentModularResources(), test.ShouldResemble, []string{"viam-labs:arm-policy:policy"})
+	test.That(t, meta.GetModelType(), test.ShouldEqual, mltrainingpb.ModelType_MODEL_TYPE_OBJECT_DETECTION)
+	test.That(t, meta.GetDraft(), test.ShouldBeTrue)
 }

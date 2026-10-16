@@ -22,6 +22,8 @@ import (
 	packagespb "go.viam.com/api/app/packages/v1"
 	v1 "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -665,6 +667,10 @@ func (c *viamClient) updateTrainingScript(
 		Url:         stringURL,
 	}
 	if framework != "" || len(moduleResources) > 0 {
+		existing := resp.GetItem().GetMlTrainingMetadata()
+		if framework == "" && existing != nil {
+			framework = strings.ToLower(strings.TrimPrefix(existing.GetModelFramework().String(), "MODEL_FRAMEWORK_"))
+		}
 		resolvedFramework, err := findValueOrSetDefault(modelFrameworks, framework, "")
 		if err != nil {
 			return err
@@ -682,7 +688,7 @@ func (c *viamClient) updateTrainingScript(
 		}
 		// Keep the task type and draft bit already stored on the script. This update only
 		// replaces the framework and the module resources to deploy.
-		if existing := resp.GetItem().GetMlTrainingMetadata(); existing != nil {
+		if existing != nil {
 			meta.ModelType = existing.GetModelType()
 			meta.Draft = existing.GetDraft()
 		}
@@ -742,10 +748,14 @@ func validateRegistryModuleResources(frameworkFlag, framework string, resources 
 	} else if len(resources) > 0 {
 		return fmt.Errorf("--%s requires --%s %s", mlTrainingFlagModuleResource, frameworkFlag, ModelFrameworkRegistry)
 	}
-	for _, resource := range resources {
-		parts := strings.Split(resource, ":")
-		if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
-			return fmt.Errorf("--%s %q must be a model triple (namespace:module:model)", mlTrainingFlagModuleResource, resource)
+	for _, value := range resources {
+		model, err := resource.NewModelFromString(value)
+		if err == nil {
+			err = model.Validate()
+		}
+		// A bare name parses as rdk:builtin:<name>, so require the round trip to match.
+		if err != nil || model.String() != value {
+			return fmt.Errorf("--%s %q must be a model triple (namespace:module:model)", mlTrainingFlagModuleResource, value)
 		}
 	}
 	return nil

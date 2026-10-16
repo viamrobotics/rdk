@@ -2482,7 +2482,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name: mlTrainingFlagModuleResource,
+											Name:  mlTrainingFlagModuleResource,
 											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 										},
 										&cli.StringFlag{
@@ -4528,7 +4528,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							),
 						},
 						&cli.StringSliceFlag{
-							Name: mlTrainingFlagModuleResource,
+							Name:  mlTrainingFlagModuleResource,
 							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
@@ -4572,7 +4572,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringSliceFlag{
-							Name: mlTrainingFlagModuleResource,
+							Name:  mlTrainingFlagModuleResource,
 							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
@@ -4629,7 +4629,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: formatAcceptedValues("framework of the ML training script", modelFrameworks...),
 						},
 						&cli.StringSliceFlag{
-							Name: mlTrainingFlagModuleResource,
+							Name:  mlTrainingFlagModuleResource,
 							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
