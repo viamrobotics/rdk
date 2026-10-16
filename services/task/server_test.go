@@ -9,7 +9,6 @@ import (
 	pb "go.viam.com/api/service/task/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -18,19 +17,6 @@ import (
 	"go.viam.com/rdk/services/task"
 	"go.viam.com/rdk/testutils/inject"
 )
-
-type testRunServer struct {
-	grpc.ServerStream
-	ctx  context.Context
-	sent []*pb.RunResponse
-}
-
-func (x *testRunServer) Context() context.Context { return x.ctx }
-
-func (x *testRunServer) Send(m *pb.RunResponse) error {
-	x.sent = append(x.sent, m)
-	return nil
-}
 
 func newServer(t *testing.T) (pb.TaskServiceServer, *inject.Task) {
 	t.Helper()
@@ -44,50 +30,40 @@ func TestServerRun(t *testing.T) {
 	server, injectTask := newServer(t)
 
 	t.Run("not found", func(t *testing.T) {
-		err := server.Run(&pb.RunRequest{Name: "nope"}, &testRunServer{ctx: context.Background()})
+		_, err := server.Run(context.Background(), &pb.RunRequest{Name: "nope"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 	})
 
-	t.Run("progress and result", func(t *testing.T) {
-		injectTask.RunFunc = func(
-			ctx context.Context, input map[string]interface{}, onProgress task.ProgressFunc, extra map[string]interface{},
-		) (task.Result, error) {
+	t.Run("result", func(t *testing.T) {
+		injectTask.RunFunc = func(ctx context.Context, input, extra map[string]interface{}) (task.Result, error) {
 			test.That(t, input["a"], test.ShouldEqual, 1.0)
 			test.That(t, extra["e"], test.ShouldEqual, true)
-			onProgress(task.Progress{Message: "m", Fraction: 0.5})
 			return task.Result{Outcome: "no_glass", Output: map[string]interface{}{"k": "v"}}, nil
 		}
 		input, err := protoutils.StructToStructPb(map[string]interface{}{"a": 1.0})
 		test.That(t, err, test.ShouldBeNil)
 		extra, err := protoutils.StructToStructPb(map[string]interface{}{"e": true})
 		test.That(t, err, test.ShouldBeNil)
-		stream := &testRunServer{ctx: context.Background()}
-		err = server.Run(&pb.RunRequest{Name: "task1", Input: input, Extra: extra}, stream)
+		resp, err := server.Run(context.Background(), &pb.RunRequest{Name: "task1", Input: input, Extra: extra})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, stream.sent, test.ShouldHaveLength, 2)
-		test.That(t, stream.sent[0].GetProgress().Message, test.ShouldEqual, "m")
-		test.That(t, stream.sent[1].GetResult().Outcome, test.ShouldEqual, "no_glass")
-		test.That(t, stream.sent[1].GetResult().Output.AsMap(), test.ShouldResemble, map[string]interface{}{"k": "v"})
+		test.That(t, resp.Result.Outcome, test.ShouldEqual, "no_glass")
+		test.That(t, resp.Result.Output.AsMap(), test.ShouldResemble, map[string]interface{}{"k": "v"})
 	})
 
 	t.Run("already running maps to failed precondition", func(t *testing.T) {
-		injectTask.RunFunc = func(
-			ctx context.Context, input map[string]interface{}, onProgress task.ProgressFunc, extra map[string]interface{},
-		) (task.Result, error) {
+		injectTask.RunFunc = func(ctx context.Context, input, extra map[string]interface{}) (task.Result, error) {
 			return task.Result{}, task.ErrAlreadyRunning
 		}
-		err := server.Run(&pb.RunRequest{Name: "task1"}, &testRunServer{ctx: context.Background()})
+		_, err := server.Run(context.Background(), &pb.RunRequest{Name: "task1"})
 		test.That(t, status.Code(err), test.ShouldEqual, codes.FailedPrecondition)
 	})
 
 	t.Run("other errors pass through", func(t *testing.T) {
-		injectTask.RunFunc = func(
-			ctx context.Context, input map[string]interface{}, onProgress task.ProgressFunc, extra map[string]interface{},
-		) (task.Result, error) {
+		injectTask.RunFunc = func(ctx context.Context, input, extra map[string]interface{}) (task.Result, error) {
 			return task.Result{}, errors.New("boom")
 		}
-		err := server.Run(&pb.RunRequest{Name: "task1"}, &testRunServer{ctx: context.Background()})
+		_, err := server.Run(context.Background(), &pb.RunRequest{Name: "task1"})
 		test.That(t, err, test.ShouldBeError, errors.New("boom"))
 	})
 }

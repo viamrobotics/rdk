@@ -32,12 +32,9 @@ func TestRunnerOneAtATime(t *testing.T) {
 	test.That(t, st.Phase, test.ShouldEqual, task.PhaseIdle)
 	test.That(t, st.LastResult, test.ShouldBeNil)
 
-	var progress []task.Progress
 	resultCh := make(chan task.Result, 1)
 	go func() {
-		res, err := svc.Run(context.Background(), map[string]interface{}{"x": 1.0}, func(p task.Progress) {
-			progress = append(progress, p)
-		}, nil)
+		res, err := svc.Run(context.Background(), map[string]interface{}{"x": 1.0}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		resultCh <- res
 	}()
@@ -49,14 +46,13 @@ func TestRunnerOneAtATime(t *testing.T) {
 	test.That(t, st.StartedAt.IsZero(), test.ShouldBeFalse)
 	test.That(t, st.Progress, test.ShouldResemble, &task.Progress{Message: "half", Fraction: 0.5})
 
-	_, err = svc.Run(context.Background(), nil, nil, nil)
+	_, err = svc.Run(context.Background(), nil, nil)
 	test.That(t, errors.Is(err, task.ErrAlreadyRunning), test.ShouldBeTrue)
 
 	close(release)
 	res := <-resultCh
 	test.That(t, res.Outcome, test.ShouldEqual, task.OutcomeDone)
 	test.That(t, res.Output["echo"], test.ShouldEqual, 1.0)
-	test.That(t, progress, test.ShouldHaveLength, 1)
 
 	st, err = svc.GetStatus(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -77,7 +73,7 @@ func TestRunnerErrorAndCancel(t *testing.T) {
 		return task.Result{}, ctx.Err()
 	})
 
-	_, err := svc.Run(context.Background(), map[string]interface{}{"fail": true}, nil, nil)
+	_, err := svc.Run(context.Background(), map[string]interface{}{"fail": true}, nil)
 	test.That(t, errors.Is(err, errBoom), test.ShouldBeTrue)
 	st, err := svc.GetStatus(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -87,7 +83,7 @@ func TestRunnerErrorAndCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
 	go func() {
-		_, err := svc.Run(ctx, nil, nil, nil)
+		_, err := svc.Run(ctx, nil, nil)
 		errCh <- err
 	}()
 	time.Sleep(20 * time.Millisecond)
@@ -95,7 +91,7 @@ func TestRunnerErrorAndCancel(t *testing.T) {
 	test.That(t, errors.Is(<-errCh, context.Canceled), test.ShouldBeTrue)
 
 	go func() {
-		_, err := svc.Run(context.Background(), nil, nil, nil)
+		_, err := svc.Run(context.Background(), nil, nil)
 		errCh <- err
 	}()
 	time.Sleep(20 * time.Millisecond)

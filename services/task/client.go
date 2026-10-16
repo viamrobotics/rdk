@@ -3,7 +3,6 @@ package task
 import (
 	"context"
 	"errors"
-	"io"
 
 	pb "go.viam.com/api/service/task/v1"
 	"go.viam.com/utils/protoutils"
@@ -41,12 +40,7 @@ func NewClientFromConn(
 	}, nil
 }
 
-func (c *client) Run(
-	ctx context.Context,
-	input map[string]interface{},
-	onProgress ProgressFunc,
-	extra map[string]interface{},
-) (Result, error) {
+func (c *client) Run(ctx context.Context, input, extra map[string]interface{}) (Result, error) {
 	inputPb, err := protoutils.StructToStructPb(input)
 	if err != nil {
 		return Result{}, err
@@ -55,32 +49,17 @@ func (c *client) Run(
 	if err != nil {
 		return Result{}, err
 	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	stream, err := c.client.Run(ctx, &pb.RunRequest{Name: c.name, Input: inputPb, Extra: ext})
+	resp, err := c.client.Run(ctx, &pb.RunRequest{Name: c.name, Input: inputPb, Extra: ext})
 	if err != nil {
+		if status.Code(err) == codes.FailedPrecondition {
+			return Result{}, errors.Join(ErrAlreadyRunning, err)
+		}
 		return Result{}, err
 	}
-	for {
-		resp, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			return Result{}, errors.New("task stream ended without a result")
-		}
-		if err != nil {
-			if status.Code(err) == codes.FailedPrecondition {
-				return Result{}, errors.Join(ErrAlreadyRunning, err)
-			}
-			return Result{}, err
-		}
-		switch u := resp.Update.(type) {
-		case *pb.RunResponse_Progress:
-			if onProgress != nil && u.Progress != nil {
-				onProgress(*ProgressFromProto(u.Progress))
-			}
-		case *pb.RunResponse_Result:
-			return *ResultFromProto(u.Result), nil
-		}
+	if resp.Result == nil {
+		return Result{}, errors.New("task returned no result")
 	}
+	return *ResultFromProto(resp.Result), nil
 }
 
 func (c *client) GetStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {

@@ -36,12 +36,7 @@ func NewRunner(fn RunFunc) *Runner {
 
 // Run executes the task once. It returns ErrAlreadyRunning if an execution is
 // already in flight.
-func (r *Runner) Run(
-	ctx context.Context,
-	input map[string]interface{},
-	onProgress ProgressFunc,
-	extra map[string]interface{},
-) (Result, error) {
+func (r *Runner) Run(ctx context.Context, input, extra map[string]interface{}) (Result, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -63,9 +58,6 @@ func (r *Runner) Run(
 		pCopy := p
 		r.progress = &pCopy
 		r.mu.Unlock()
-		if onProgress != nil {
-			onProgress(p)
-		}
 	}
 
 	res, err := r.fn(ctx, input, report)
@@ -90,7 +82,7 @@ func (r *Runner) Run(
 	return res, err
 }
 
-// GetStatus reports the runner's phase, last result, start time and progress.
+// GetStatus reports the runner's phase, last result, start time and latest progress.
 func (r *Runner) GetStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -41,32 +41,24 @@ type commandResult struct {
 // execution is one run of a state's task.
 type execution struct {
 	node    *node
+	svc     task.Service
 	attempt int
 	cancel  context.CancelFunc
 	// done is closed once the task has returned, before taskDone is sent.
 	done chan struct{}
-
-	mu       sync.Mutex
-	progress *task.Progress
 }
 
-func (e *execution) report(p task.Progress) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.progress = &p
-}
-
-func (e *execution) latest() *task.Progress {
-	if e == nil {
+// progress asks a running task resource for its latest progress. Built-in
+// tasks report none.
+func (e *execution) progress(ctx context.Context) *task.Progress {
+	if e == nil || e.svc == nil {
 		return nil
 	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	if e.progress == nil {
+	st, err := e.svc.GetStatus(ctx, nil)
+	if err != nil || st.Phase != task.PhaseRunning {
 		return nil
 	}
-	p := *e.progress
-	return &p
+	return st.Progress
 }
 
 type taskDone struct {
@@ -89,7 +81,7 @@ type builtIn struct {
 	conf          *Config
 	definition    map[string]interface{}
 	root          *node
-	runners       map[*node]runFunc
+	runners       map[*node]*runner
 	watchers      map[*node][]*watcher
 	cancelTimeout time.Duration
 	historyLimit  int
@@ -141,7 +133,7 @@ func NewBuiltIn(
 		conf:           cfg,
 		definition:     map[string]interface{}(conf.Attributes),
 		root:           root,
-		runners:        map[*node]runFunc{},
+		runners:        map[*node]*runner{},
 		watchers:       map[*node][]*watcher{},
 		cancelTimeout:  cancelTimeout,
 		historyLimit:   cfg.historyLimit(),
@@ -157,7 +149,7 @@ func NewBuiltIn(
 			return
 		}
 		if n.task != nil {
-			var r runFunc
+			var r *runner
 			if r, err = buildRunner(n.task, deps); err != nil {
 				return
 			}
@@ -409,7 +401,7 @@ func (b *builtIn) startTask(leaf *node, payload map[string]interface{}, attempt 
 	if leaf.timeout > 0 {
 		ctx, cancel = context.WithTimeout(ctx, leaf.timeout)
 	}
-	exec := &execution{node: leaf, attempt: attempt, cancel: cancel, done: make(chan struct{})}
+	exec := &execution{node: leaf, svc: run.svc, attempt: attempt, cancel: cancel, done: make(chan struct{})}
 	b.exec = exec
 	b.publish()
 
@@ -425,7 +417,7 @@ func (b *builtIn) startTask(leaf *node, payload map[string]interface{}, attempt 
 			}
 		}
 		if ctx.Err() == nil {
-			d.res, d.err = run(ctx, input, exec.report)
+			d.res, d.err = run.run(ctx, input)
 		} else {
 			d.err = ctx.Err()
 		}
@@ -523,11 +515,12 @@ func (b *builtIn) send(ctx context.Context, c command) (commandResult, error) {
 
 func (b *builtIn) GetState(ctx context.Context, extra map[string]interface{}) (statemachine.State, error) {
 	b.snapMu.RLock()
-	defer b.snapMu.RUnlock()
 	st := b.snap
+	exec := b.snapExec
+	b.snapMu.RUnlock()
 	st.Path = append([]string{}, st.Path...)
 	st.Context = copyMap(st.Context)
-	st.TaskProgress = b.snapExec.latest()
+	st.TaskProgress = exec.progress(ctx)
 	return st, nil
 }
 

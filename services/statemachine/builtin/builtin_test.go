@@ -29,13 +29,14 @@ type controlledTask struct {
 
 func newControlledTask(name string) *controlledTask {
 	ct := &controlledTask{Task: inject.NewTask(name), started: make(chan struct{}, 16), release: make(chan task.Result)}
-	ct.RunFunc = func(
-		ctx context.Context, input map[string]interface{}, onProgress task.ProgressFunc, _ map[string]interface{},
+	// A real Runner underneath, so GetStatus reports phase and progress.
+	ct.Service = task.NewFromFunc(task.Named(name), func(
+		ctx context.Context, input map[string]interface{}, report task.ProgressFunc,
 	) (task.Result, error) {
 		ct.runs.Add(1)
 		ct.lastInput = input
 		ct.started <- struct{}{}
-		onProgress(task.Progress{Message: "working", Fraction: 0.5})
+		report(task.Progress{Message: "working", Fraction: 0.5})
 		select {
 		case <-ctx.Done():
 			return task.Result{}, ctx.Err()
@@ -45,7 +46,7 @@ func newControlledTask(name string) *controlledTask {
 			}
 			return res, nil
 		}
-	}
+	})
 	return ct
 }
 
@@ -309,9 +310,7 @@ func TestPreemption(t *testing.T) {
 func TestPreemptionTimeoutFaults(t *testing.T) {
 	stubborn := inject.NewTask("stubborn")
 	release := make(chan struct{})
-	stubborn.RunFunc = func(
-		ctx context.Context, _ map[string]interface{}, _ task.ProgressFunc, _ map[string]interface{},
-	) (task.Result, error) {
+	stubborn.RunFunc = func(ctx context.Context, _, _ map[string]interface{}) (task.Result, error) {
 		<-release
 		return task.Done(nil), nil
 	}

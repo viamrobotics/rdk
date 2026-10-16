@@ -10,31 +10,35 @@ import (
 	"go.viam.com/rdk/services/task"
 )
 
-// runFunc is what a state runs: a task resource, or one of the built-in task
+// runner is what a state runs: a task resource, or one of the built-in task
 // types bound to a resource at construction.
-type runFunc func(ctx context.Context, input map[string]interface{}, onProgress task.ProgressFunc) (task.Result, error)
+type runner struct {
+	run func(ctx context.Context, input map[string]interface{}) (task.Result, error)
+	// svc is set for task resources, so GetState can report their progress.
+	svc task.Service
+}
 
-func buildRunner(tc *TaskConfig, deps resource.Dependencies) (runFunc, error) {
+func buildRunner(tc *TaskConfig, deps resource.Dependencies) (*runner, error) {
 	switch tc.Type {
 	case TaskTypeResource:
 		svc, err := task.FromProvider(deps, tc.Name)
 		if err != nil {
 			return nil, err
 		}
-		return func(ctx context.Context, input map[string]interface{}, onProgress task.ProgressFunc) (task.Result, error) {
+		return &runner{svc: svc, run: func(ctx context.Context, input map[string]interface{}) (task.Result, error) {
 			if static, ok := resolveRefs(tc.Input, input).(map[string]interface{}); ok {
 				for k, v := range static {
 					input[k] = v
 				}
 			}
-			return svc.Run(ctx, input, onProgress, nil)
-		}, nil
+			return svc.Run(ctx, input, nil)
+		}}, nil
 	case TaskTypeDoCommand:
 		res, err := findResource(deps, tc.Resource)
 		if err != nil {
 			return nil, err
 		}
-		return func(ctx context.Context, input map[string]interface{}, _ task.ProgressFunc) (task.Result, error) {
+		return &runner{run: func(ctx context.Context, input map[string]interface{}) (task.Result, error) {
 			cmd, _ := resolveRefs(tc.Command, input).(map[string]interface{})
 			resp, err := res.DoCommand(ctx, cmd)
 			if err != nil {
@@ -45,19 +49,19 @@ func buildRunner(tc *TaskConfig, deps resource.Dependencies) (runFunc, error) {
 				outcome = o
 			}
 			return task.Result{Outcome: outcome, Output: resp}, nil
-		}, nil
+		}}, nil
 	case TaskTypeCall:
 		res, err := findResource(deps, tc.Resource)
 		if err != nil {
 			return nil, err
 		}
-		return func(ctx context.Context, input map[string]interface{}, _ task.ProgressFunc) (task.Result, error) {
+		return &runner{run: func(ctx context.Context, input map[string]interface{}) (task.Result, error) {
 			out, err := invoke(ctx, res, tc.Method, resolveRefs(tc.Args, input))
 			if err != nil {
 				return task.Result{}, err
 			}
 			return task.Done(out), nil
-		}, nil
+		}}, nil
 	case TaskTypeWaitFor:
 		res, err := findResource(deps, tc.Resource)
 		if err != nil {
@@ -67,7 +71,7 @@ func buildRunner(tc *TaskConfig, deps resource.Dependencies) (runFunc, error) {
 		if err != nil {
 			return nil, err
 		}
-		return func(ctx context.Context, input map[string]interface{}, _ task.ProgressFunc) (task.Result, error) {
+		return &runner{run: func(ctx context.Context, input map[string]interface{}) (task.Result, error) {
 			args := resolveRefs(tc.Args, input)
 			for {
 				out, err := invoke(ctx, res, tc.Method, args)
@@ -83,7 +87,7 @@ func buildRunner(tc *TaskConfig, deps resource.Dependencies) (runFunc, error) {
 				case <-time.After(poll):
 				}
 			}
-		}, nil
+		}}, nil
 	default:
 		return nil, fmt.Errorf("unknown task type %q", tc.Type)
 	}

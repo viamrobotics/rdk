@@ -76,15 +76,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() { test.That(t, conn.Close(), test.ShouldBeNil) }()
 
-	t.Run("run streams progress then result", func(t *testing.T) {
-		var progress []task.Progress
-		res, err := client.Run(context.Background(), map[string]interface{}{"x": "y"}, func(p task.Progress) {
-			progress = append(progress, p)
-		}, nil)
+	t.Run("run returns the result", func(t *testing.T) {
+		res, err := client.Run(context.Background(), map[string]interface{}{"x": "y"}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, res.Outcome, test.ShouldEqual, "custom")
 		test.That(t, res.Output, test.ShouldResemble, map[string]interface{}{"echo": "y"})
-		test.That(t, progress, test.ShouldResemble, []task.Progress{{Message: "step 1", Fraction: 0.25}})
 
 		st, err := client.GetStatus(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -93,16 +89,16 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("run error", func(t *testing.T) {
-		_, err := client.Run(context.Background(), map[string]interface{}{"fail": true}, nil, nil)
+		_, err := client.Run(context.Background(), map[string]interface{}{"fail": true}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "task failed")
 	})
 
-	t.Run("cancel and already running", func(t *testing.T) {
+	t.Run("progress via status, cancel and already running", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		errCh := make(chan error, 1)
 		go func() {
-			_, err := client.Run(ctx, map[string]interface{}{"block": true}, nil, nil)
+			_, err := client.Run(ctx, map[string]interface{}{"block": true}, nil)
 			errCh <- err
 		}()
 		utilstestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -114,7 +110,7 @@ func TestClient(t *testing.T) {
 			test.That(tb, st.Progress, test.ShouldResemble, &task.Progress{Message: "step 1", Fraction: 0.25})
 		})
 
-		_, err := client.Run(context.Background(), nil, nil, nil)
+		_, err := client.Run(context.Background(), nil, nil)
 		test.That(t, errors.Is(err, task.ErrAlreadyRunning), test.ShouldBeTrue)
 
 		cancel()

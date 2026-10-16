@@ -10,13 +10,8 @@ import (
 // Task is an injected task service for testing.
 type Task struct {
 	task.Service
-	name    resource.Name
-	RunFunc func(
-		ctx context.Context,
-		input map[string]interface{},
-		onProgress task.ProgressFunc,
-		extra map[string]interface{},
-	) (task.Result, error)
+	name          resource.Name
+	RunFunc       func(ctx context.Context, input, extra map[string]interface{}) (task.Result, error)
 	GetStatusFunc func(ctx context.Context, extra map[string]interface{}) (task.Status, error)
 	DoFunc        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	CloseFunc     func(ctx context.Context) error
@@ -33,16 +28,11 @@ func (t *Task) Name() resource.Name {
 }
 
 // Run calls the injected RunFunc or the real version.
-func (t *Task) Run(
-	ctx context.Context,
-	input map[string]interface{},
-	onProgress task.ProgressFunc,
-	extra map[string]interface{},
-) (task.Result, error) {
+func (t *Task) Run(ctx context.Context, input, extra map[string]interface{}) (task.Result, error) {
 	if t.RunFunc == nil {
-		return t.Service.Run(ctx, input, onProgress, extra)
+		return t.Service.Run(ctx, input, extra)
 	}
-	return t.RunFunc(ctx, input, onProgress, extra)
+	return t.RunFunc(ctx, input, extra)
 }
 
 // GetStatus calls the injected GetStatusFunc or the real version.

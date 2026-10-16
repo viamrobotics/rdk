@@ -100,21 +100,21 @@ type Status struct {
 	Progress *Progress
 }
 
-// ProgressFunc receives progress updates while a task runs. It may be called
-// from any goroutine and must not block for long.
+// ProgressFunc is how a running task reports progress; GetStatus returns the
+// latest report. It may be called from any goroutine and must not block.
 type ProgressFunc func(Progress)
 
 // Service is a task: a unit of work that runs once, reports progress and
 // returns an outcome.
 type Service interface {
 	resource.Resource
-	// Run performs one execution and returns when it is finished. onProgress,
-	// when not nil, receives progress as the task reports it. Cancelling ctx
-	// cancels the task, which must leave the hardware in a safe state before
-	// returning. A second Run while one is in flight returns ErrAlreadyRunning.
-	Run(ctx context.Context, input map[string]interface{}, onProgress ProgressFunc, extra map[string]interface{}) (Result, error)
-	// GetStatus reports whether the task is running and its last result. It
-	// never drives lifecycle.
+	// Run performs one execution and returns its result when it is finished.
+	// Cancelling ctx cancels the task, which must leave the hardware in a safe
+	// state before returning. A second Run while one is in flight returns
+	// ErrAlreadyRunning.
+	Run(ctx context.Context, input, extra map[string]interface{}) (Result, error)
+	// GetStatus reports whether the task is running, its progress and its last
+	// result. It never drives lifecycle.
 	GetStatus(ctx context.Context, extra map[string]interface{}) (Status, error)
 }
 
