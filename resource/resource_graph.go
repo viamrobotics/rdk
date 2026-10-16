@@ -1170,10 +1170,6 @@ func (g *Graph) Status() []NodeStatus {
 			switch {
 			case visible[status.Name]:
 				status.Reachability = reachability(n)
-			case v.local != nil:
-				status.Reachability = ReachabilityShadowedByLocal
-			case len(v.remote) > 1:
-				status.Reachability = ReachabilityAmbiguousRemote
 			case localNames[k.name]:
 				status.Reachability = ReachabilityShadowedByLocal
 			default:

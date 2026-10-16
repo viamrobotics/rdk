@@ -1343,6 +1343,9 @@ func TestStatusReachability(t *testing.T) {
 	add(Name{API: svcB, Name: "crossAPILocal", Remote: "r1"}, newNode())
 	add(Name{API: compA, Name: "crossAPIRemotes", Remote: "r1"}, newNode())
 	add(Name{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}, newNode())
+	add(Name{API: compA, Name: "crossAPILocalAndRemotes"}, newNode())
+	add(Name{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r1"}, newNode())
+	add(Name{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r2"}, newNode())
 	// Disconnected.
 	add(Name{API: compA, Name: "gone", Remote: "r1"}, disconnected())
 	add(Name{API: compA, Name: "goneAndShadowed"}, newNode())
@@ -1364,19 +1367,22 @@ func TestStatusReachability(t *testing.T) {
 		got[s.Name] = s.Reachability
 	}
 	test.That(t, got, test.ShouldResemble, map[Name]Reachability{
-		{API: compA, Name: "solo"}:                          ReachabilityReachable,
-		{API: compA, Name: "remoteSolo", Remote: "r1"}:      ReachabilityReachable,
-		{API: compA, Name: "sameAPILocal"}:                  ReachabilityReachable,
-		{API: compA, Name: "sameAPILocal", Remote: "r1"}:    ReachabilityShadowedByLocal,
-		{API: compA, Name: "sameAPIRemotes", Remote: "r1"}:  ReachabilityAmbiguousRemote,
-		{API: compA, Name: "sameAPIRemotes", Remote: "r2"}:  ReachabilityAmbiguousRemote,
-		{API: compA, Name: "crossAPILocal"}:                 ReachabilityReachable,
-		{API: svcB, Name: "crossAPILocal", Remote: "r1"}:    ReachabilityShadowedByLocal,
-		{API: compA, Name: "crossAPIRemotes", Remote: "r1"}: ReachabilityAmbiguousRemote,
-		{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}:  ReachabilityAmbiguousRemote,
-		{API: compA, Name: "gone", Remote: "r1"}:            ReachabilityRemoteDisconnected,
-		{API: compA, Name: "goneAndShadowed"}:               ReachabilityReachable,
-		{API: compA, Name: "goneAndShadowed", Remote: "r1"}: ReachabilityShadowedByLocal,
+		{API: compA, Name: "solo"}:                                 ReachabilityReachable,
+		{API: compA, Name: "remoteSolo", Remote: "r1"}:             ReachabilityReachable,
+		{API: compA, Name: "sameAPILocal"}:                         ReachabilityReachable,
+		{API: compA, Name: "sameAPILocal", Remote: "r1"}:           ReachabilityShadowedByLocal,
+		{API: compA, Name: "sameAPIRemotes", Remote: "r1"}:         ReachabilityAmbiguousRemote,
+		{API: compA, Name: "sameAPIRemotes", Remote: "r2"}:         ReachabilityAmbiguousRemote,
+		{API: compA, Name: "crossAPILocal"}:                        ReachabilityReachable,
+		{API: svcB, Name: "crossAPILocal", Remote: "r1"}:           ReachabilityShadowedByLocal,
+		{API: compA, Name: "crossAPIRemotes", Remote: "r1"}:        ReachabilityAmbiguousRemote,
+		{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}:         ReachabilityAmbiguousRemote,
+		{API: compA, Name: "crossAPILocalAndRemotes"}:              ReachabilityReachable,
+		{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r1"}: ReachabilityShadowedByLocal,
+		{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r2"}: ReachabilityShadowedByLocal,
+		{API: compA, Name: "gone", Remote: "r1"}:                   ReachabilityRemoteDisconnected,
+		{API: compA, Name: "goneAndShadowed"}:                      ReachabilityReachable,
+		{API: compA, Name: "goneAndShadowed", Remote: "r1"}:        ReachabilityShadowedByLocal,
 		r3:             ReachabilityRemoteDisconnected,
 		onR3:           ReachabilityRemoteDisconnected,
 		localDependent: ReachabilityReachable,
