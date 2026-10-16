@@ -128,6 +128,7 @@ const (
 
 	mlTrainingFlagName           = "script-name"
 	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagModuleResource = "module-resource"
 	mlTrainingFlagDraft          = "draft"
 	mlTrainingFlagVisibility     = "visibility"
 	mlTrainingFlagDescription    = "description"
@@ -2480,6 +2481,10 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 											Required: true,
 										},
+										&cli.StringSliceFlag{
+											Name:  mlTrainingFlagModuleResource,
+											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
@@ -4522,6 +4527,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+						},
 					},
 					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
@@ -4561,6 +4570,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:     mlTrainingFlagFramework,
 							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -4610,6 +4623,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
+						},
+						&cli.StringFlag{
+							Name:  mlTrainingFlagFramework,
+							Usage: formatAcceptedValues("framework of the ML training script", modelFrameworks...),
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
 					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),

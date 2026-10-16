@@ -39,6 +39,8 @@ const (
 	ModelFrameworkPyTorch
 	// ModelFrameworkONNX specifies a ONNX model framework.
 	ModelFrameworkONNX
+	// ModelFrameworkRegistry specifies modular registry resources as the deploy target.
+	ModelFrameworkRegistry
 )
 
 func modelTypeFromProto(modelType mltrainingpb.ModelType) ModelType {
@@ -81,6 +83,8 @@ func modelFrameworkFromProto(framework mltrainingpb.ModelFramework) ModelFramewo
 		return ModelFrameworkPyTorch
 	case mltrainingpb.ModelFramework_MODEL_FRAMEWORK_ONNX:
 		return ModelFrameworkONNX
+	case mltrainingpb.ModelFramework_MODEL_FRAMEWORK_REGISTRY:
+		return ModelFrameworkRegistry
 	}
 	return ModelFrameworkUnspecified
 }
