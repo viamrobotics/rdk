@@ -371,7 +371,7 @@ func composeSingleStructComposite(model Model) {
 			for _, a := range sorted {
 				byAPI[a] = res
 			}
-			return NewMultiAPIResource(conf.ResourceName(), sorted, byAPI), nil
+			return NewMultiAPIResource(conf.ResourceName(), byAPI), nil
 		}
 		registry[apiModel] = stored
 	}

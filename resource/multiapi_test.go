@@ -91,7 +91,6 @@ func TestAsTypeResolvesExactAPISub(t *testing.T) {
 	baseSub := &combo{Named: NewName(baseAPI, "dev").AsNamed()}
 	composite := NewMultiAPIResource(
 		NewName(superAPI, "dev"), // configured under the canonical (sorted-first) super API
-		[]API{superAPI, baseAPI},
 		map[API]Resource{superAPI: superSub, baseAPI: baseSub},
 	)
 
@@ -122,7 +121,6 @@ func TestCompositeRoutingToCanonical(t *testing.T) {
 	sens := &combo{Named: NewName(testSensAPI, "dev").AsNamed()}
 	composite := NewMultiAPIResource(
 		NewName(testCamAPI, "dev"),
-		[]API{testCamAPI, testSensAPI},
 		map[API]Resource{testCamAPI: cam, testSensAPI: sens},
 	)
 
@@ -155,7 +153,6 @@ func TestCompositeCloseOnce(t *testing.T) {
 	sens := &combo{Named: NewName(testSensAPI, "dev").AsNamed()}
 	composite2 := NewMultiAPIResource(
 		NewName(testCamAPI, "dev"),
-		[]API{testCamAPI, testSensAPI},
 		map[API]Resource{testCamAPI: cam, testSensAPI: sens},
 	)
 	test.That(t, composite2.Close(context.Background()), test.ShouldBeNil)
@@ -165,13 +162,8 @@ func TestCompositeCloseOnce(t *testing.T) {
 
 func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
 	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
-	apis := []API{testCamAPI, testSensAPI}
 	byAPI := map[API]Resource{testCamAPI: c, testSensAPI: c}
-	composite := NewMultiAPIResource(NewName(testCamAPI, "dev"), apis, byAPI)
-
-	// mutating the caller's slice must not change the composite's stable API order/canonical api
-	apis[0] = testMotorAPI
-	test.That(t, composite.APIs(), test.ShouldResemble, []API{testCamAPI, testSensAPI})
+	composite := NewMultiAPIResource(NewName(testCamAPI, "dev"), byAPI)
 
 	// mutating the caller's map must not rewire the composite's routing
 	byAPI[testCamAPI] = &combo{Named: NewName(testMotorAPI, "other").AsNamed()}
@@ -186,16 +178,9 @@ func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
 }
 
 func TestNewMultiAPIResourceValidates(t *testing.T) {
-	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
-
-	// no apis is a programmer error and panics.
+	// an empty byAPI is a programmer error and panics.
 	test.That(t, func() {
-		NewMultiAPIResource(NewName(testCamAPI, "dev"), nil, map[API]Resource{})
-	}, test.ShouldPanic)
-
-	// an api with no byAPI entry panics.
-	test.That(t, func() {
-		NewMultiAPIResource(NewName(testCamAPI, "dev"), []API{testCamAPI, testSensAPI}, map[API]Resource{testCamAPI: c})
+		NewMultiAPIResource(NewName(testCamAPI, "dev"), map[API]Resource{})
 	}, test.ShouldPanic)
 }
 
@@ -446,7 +431,6 @@ func TestCompositeExtractionAndAPIsOf(t *testing.T) {
 	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	composite := NewMultiAPIResource(
 		NewName(testCamAPI, "dev"),
-		[]API{testCamAPI, testSensAPI},
 		map[API]Resource{testCamAPI: c, testSensAPI: c},
 	)
 
@@ -478,7 +462,6 @@ func TestNamedFromProvider(t *testing.T) {
 	c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	composite := NewMultiAPIResource(
 		NewName(testCamAPI, "combo"),
-		[]API{testCamAPI, testSensAPI},
 		map[API]Resource{testCamAPI: c, testSensAPI: c},
 	)
 	// The provider is keyed by the bare (API-less) SimpleName, as NamedFromProvider looks it up.
@@ -497,7 +480,6 @@ func TestProviderUnwrapsComposite(t *testing.T) {
 		c := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 		return NewMultiAPIResource(
 			NewName(testCamAPI, "dev"),
-			[]API{testCamAPI, testSensAPI},
 			map[API]Resource{testCamAPI: c, testSensAPI: c},
 		)
 	}
