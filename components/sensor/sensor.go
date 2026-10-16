@@ -45,7 +45,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags s as the sensor sub-resource of a composite, for resource.Compose.
-func AsSub(s Sensor) resource.Sub { return resource.AsSub[Sensor](API, s) }
+func AsSub(s Sensor) resource.Sub { return resource.AsSub(API, s) }
 
 // A Sensor represents a general purpose sensors that can give arbitrary readings
 // of some thing that it is sensing.

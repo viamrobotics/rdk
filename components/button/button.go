@@ -40,7 +40,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags r as the button sub-resource of a composite, for resource.Compose.
-func AsSub(r Button) resource.Sub { return resource.AsSub[Button](API, r) }
+func AsSub(r Button) resource.Sub { return resource.AsSub(API, r) }
 
 // A Button represents a physical button.
 // For more information, see the [Button component docs].

@@ -176,7 +176,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags r as the motor sub-resource of a composite, for resource.Compose.
-func AsSub(r Motor) resource.Sub { return resource.AsSub[Motor](API, r) }
+func AsSub(r Motor) resource.Sub { return resource.AsSub(API, r) }
 
 // Deprecated: FromDependencies is a helper for getting the named motor from a collection of
 // dependencies. Use FromProvider instead.

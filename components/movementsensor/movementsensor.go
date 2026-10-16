@@ -76,7 +76,7 @@ func Named(name string) resource.Name {
 }
 
 // AsSub tags ms as the movement-sensor sub-resource of a composite, for resource.Compose.
-func AsSub(ms MovementSensor) resource.Sub { return resource.AsSub[MovementSensor](API, ms) }
+func AsSub(ms MovementSensor) resource.Sub { return resource.AsSub(API, ms) }
 
 // A MovementSensor reports information about the robot's direction, position and speed.
 // For more information, see the [movement sensor component docs].
