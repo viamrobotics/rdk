@@ -49,7 +49,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	wrapCam := &plainComp{Named: resource.NewName(camAPI, "wrap").AsNamed()}
 	wrapper := resource.NewMultiAPIResource(
 		resource.NewName(armAPI, "wrap"),
-		[]resource.API{armAPI, camAPI},
 		map[resource.API]resource.Resource{armAPI: wrapArm, camAPI: wrapCam},
 	)
 
@@ -59,7 +58,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	ncGantry := &kinematicComp{Named: resource.NewName(gantryAPI, "noncanon").AsNamed()}
 	ncWrapper := resource.NewMultiAPIResource(
 		resource.NewName(camAPI, "noncanon"),
-		[]resource.API{camAPI, gantryAPI},
 		map[resource.API]resource.Resource{camAPI: ncCam, gantryAPI: ncGantry},
 	)
 
@@ -69,7 +67,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	svcVision := inject.NewVisionService("svccombo")
 	svcWrapper := resource.NewMultiAPIResource(
 		resource.NewName(armAPI, "svccombo"),
-		[]resource.API{armAPI, vision.API},
 		map[resource.API]resource.Resource{armAPI: svcArm, vision.API: svcVision},
 	)
 
@@ -122,7 +119,6 @@ func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	shared := &kinematicComp{Named: resource.NewName(armAPI, "combo").AsNamed()}
 	wrapper := resource.NewMultiAPIResource(
 		resource.NewName(armAPI, "combo"),
-		[]resource.API{armAPI, gantryAPI},
 		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
 	)
 	deps := resource.Dependencies{
