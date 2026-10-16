@@ -1509,6 +1509,9 @@ func reloadModuleActionInner(
 	if err != nil {
 		return err
 	}
+	// --name is a module-restart selector. With a manifest, reload restarts that module by ID;
+	// say so before the build so a resource-name typo isn't discovered at the restart RPC.
+	warnIgnoredReloadName(cmd, manifest)
 	part, err := vc.getRobotPart(ctx, partID)
 	if err != nil {
 		return err
@@ -1821,7 +1824,15 @@ func reloadModuleActionInner(
 		if err := pm.Start("restart"); err != nil {
 			return err
 		}
-		if err = restartModule(ctx, cmd, vc, part.Part, manifest, logger); err != nil {
+		// Restart the module configureModule just wrote. resolveTargetModule would prefer a raw
+		// --name, which is matched against the config name and misses the manifest's module.
+		restartReq, err := reloadRestartRequest(cmd, manifest)
+		if err != nil {
+			_ = pm.Fail("restart", err)                              //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		if err = restartModule(ctx, cmd, vc, part.Part, restartReq, logger); err != nil {
 			_ = pm.Fail("restart", err)                              //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 			return err
@@ -1979,6 +1990,10 @@ type resolveTargetModuleArgs struct {
 }
 
 // resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
+// Used by `viam module restart`, where --name and --id are the way to choose a module.
+// Reload must not use this when meta.json is present: --name is matched by exact string
+// against the config module name, which is derived from the module ID (and, on configs
+// written by older CLIs, a "_from_reload" suffix) rather than the flag value.
 func resolveTargetModule(cmd *cli.Command, manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
 	args := parseStructFromCtx[resolveTargetModuleArgs](cmd)
 	modName := args.Name
@@ -1999,6 +2014,33 @@ func resolveTargetModule(cmd *cli.Command, manifest *ModuleManifest) (*robot.Res
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
+}
+
+// reloadRestartRequest identifies the module to restart after a reload.
+// The config edit finds the module by manifest.ModuleID, so the restart has to use that
+// same ID. --name and --id are only a fallback when there is no meta.json.
+func reloadRestartRequest(cmd *cli.Command, manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
+	if manifest != nil {
+		return &robot.RestartModuleRequest{ModuleID: manifest.ModuleID}, nil
+	}
+	return resolveTargetModule(cmd, nil)
+}
+
+// warnIgnoredReloadName warns when --name is combined with a meta.json.
+// Reload restarts the manifest module; --name does not select it (and is the flag people
+// reach for when they meant --resource-name).
+func warnIgnoredReloadName(cmd *cli.Command, manifest *ModuleManifest) {
+	if cmd == nil || manifest == nil {
+		return
+	}
+	name := cmd.String(generalFlagName)
+	if name == "" {
+		return
+	}
+	warningf(cmd.Root().ErrWriter,
+		"--%s %q does not select the module to restart when meta.json is present; "+
+			"reload restarts %q. To name a resource added with --%s, use --%s",
+		generalFlagName, name, manifest.ModuleID, generalFlagModelName, generalFlagResourceName)
 }
 
 type moduleRestartArgs struct {
@@ -2030,7 +2072,11 @@ func ModuleRestartAction(ctx context.Context, cmd *cli.Command, args moduleResta
 	}
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 
-	return restartModule(ctx, cmd, client, part.Part, manifest, logger)
+	restartReq, err := resolveTargetModule(cmd, manifest)
+	if err != nil {
+		return err
+	}
+	return restartModule(ctx, cmd, client, part.Part, restartReq, logger)
 }
 
 // restartModule restarts a module on a robot.
@@ -2039,14 +2085,10 @@ func restartModule(
 	cmd *cli.Command,
 	vc *viamClient,
 	part *apppb.RobotPart,
-	manifest *ModuleManifest,
+	restartReq *robot.RestartModuleRequest,
 	logger logging.Logger,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
-	restartReq, err := resolveTargetModule(cmd, manifest)
-	if err != nil {
-		return err
-	}
 	if err := vc.redialApp(ctx); err != nil {
 		return err
 	}
