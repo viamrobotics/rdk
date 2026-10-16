@@ -1,0 +1,125 @@
+package resource
+
+import (
+	"context"
+	"sort"
+
+	"github.com/pkg/errors"
+)
+
+// MultiAPIResource is a resource that serves more than one co-equal API from a single identity (a
+// "composite"). AsType (or an API package's FromProvider helper) returns the sub-resource for a given API.
+type MultiAPIResource interface {
+	Resource
+
+	// ResourceForAPI returns the sub-resource serving the given API, and whether this composite
+	// serves it. The returned sub-resource is the concrete typed client/instance for that API.
+	ResourceForAPI(api API) (Resource, bool)
+
+	// APIs returns the set of APIs this composite serves, in a stable order.
+	APIs() []API
+}
+
+// compositeResource is the default MultiAPIResource: one name and a typed sub-resource per API it
+// serves. The served APIs are byAPI's keys; the canonical API and APIs() are derived from them.
+type compositeResource struct {
+	name  Name
+	byAPI map[API]Resource
+}
+
+// NewMultiAPIResource assembles a composite from a name and a per-API set of sub-resources. byAPI maps
+// each served API to its sub-resource and must be non-empty (empty panics). The canonical API is the
+// sorted-first served API. byAPI is copied, so the caller may reuse or mutate it afterward without
+// affecting the composite.
+func NewMultiAPIResource(name Name, byAPI map[API]Resource) MultiAPIResource {
+	if len(byAPI) == 0 {
+		panic("NewMultiAPIResource requires at least one api")
+	}
+	subs := make(map[API]Resource, len(byAPI))
+	for api, sub := range byAPI {
+		subs[api] = sub
+	}
+	return &compositeResource{name: name, byAPI: subs}
+}
+
+// Sub is a sub-resource tagged with the API it serves within a composite. It is the input to Compose:
+// each Sub pairs one API with the implementation that carries that API's methods.
+type Sub struct {
+	API API
+	Res Resource
+}
+
+// AsSub tags res as the sub-resource serving api. Pair it with an API package's AsSub wrapper, whose
+// typed parameter checks at compile time that res implements that API's interface.
+func AsSub(api API, res Resource) Sub {
+	return Sub{API: api, Res: res}
+}
+
+// Compose assembles a composite MultiAPIResource from per-API sub-resources. It errors if no subs are
+// given, if two subs share an API, or if the subs disagree on their name. Compose is the ergonomic,
+// type-checked front door to NewMultiAPIResource (pair it with AsSub).
+func Compose(subs ...Sub) (MultiAPIResource, error) {
+	if len(subs) == 0 {
+		return nil, errors.New("Compose requires at least one sub-resource")
+	}
+	name := subs[0].Res.Name()
+	byAPI := make(map[API]Resource, len(subs))
+	for _, sub := range subs {
+		if sub.Res.Name() != name {
+			return nil, errors.Errorf("Compose given sub-resources with mismatched names: %q and %q", name, sub.Res.Name())
+		}
+		if _, dup := byAPI[sub.API]; dup {
+			return nil, errors.Errorf("Compose given duplicate sub-resources for api: %q", sub.API)
+		}
+		byAPI[sub.API] = sub.Res
+	}
+	return NewMultiAPIResource(name, byAPI), nil
+}
+
+func (c *compositeResource) Name() Name { return c.name }
+
+func (c *compositeResource) APIs() []API {
+	apis := make([]API, 0, len(c.byAPI))
+	for api := range c.byAPI {
+		apis = append(apis, api)
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return apis
+}
+
+func (c *compositeResource) ResourceForAPI(api API) (Resource, bool) {
+	sub, ok := c.byAPI[api]
+	return sub, ok
+}
+
+// canonicalAPI returns the composite's canonical API.
+func (c *compositeResource) canonicalAPI() API {
+	var canonical API
+	first := true
+	for api := range c.byAPI {
+		if first || api.String() < canonical.String() {
+			canonical, first = api, false
+		}
+	}
+	return canonical
+}
+
+// canonicalSub returns the sub-resource for the canonical API. byAPI is non-empty for a composite built
+// through the constructor, so this is always non-nil.
+func (c *compositeResource) canonicalSub() Resource {
+	return c.byAPI[c.canonicalAPI()]
+}
+
+func (c *compositeResource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return c.canonicalSub().DoCommand(ctx, cmd)
+}
+
+func (c *compositeResource) Status(ctx context.Context) (map[string]interface{}, error) {
+	return c.canonicalSub().Status(ctx)
+}
+
+// Close closes the composite once, through its canonical sub-resource. Its subs are either one shared
+// impl (closing each would double-close it) or per-API views the creator owns, so one Close is enough.
+func (c *compositeResource) Close(ctx context.Context) error {
+	return c.canonicalSub().Close(ctx)
+}
