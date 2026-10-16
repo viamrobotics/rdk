@@ -627,7 +627,7 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 		return byAPI[conf.API], nil
 	}
 	ar.subs = byAPI
-	return resource.NewMultiAPIResource(base, apis, byAPI), nil
+	return resource.NewMultiAPIResource(base, byAPI), nil
 }
 
 // Configs returns a slice of config.Module representing the currently managed
