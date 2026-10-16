@@ -16,38 +16,30 @@ type MultiAPIResource interface {
 	// serves it. The returned sub-resource is the concrete typed client/instance for that API.
 	ResourceForAPI(api API) (Resource, bool)
 
-	// APIs returns the set of APIs this composite serves, in a stable order whose first entry is the
-	// canonical API.
+	// APIs returns the set of APIs this composite serves, in a stable order.
 	APIs() []API
 }
 
 // compositeResource is the default MultiAPIResource: one name and a typed sub-resource per API it
-// serves — apis in canonical-first order, byAPI mapping each API to its sub-resource.
+// serves. The served APIs are byAPI's keys; the canonical API and APIs() are derived from them.
 type compositeResource struct {
 	name  Name
-	apis  []API
 	byAPI map[API]Resource
 }
 
-// NewMultiAPIResource assembles a composite from a name and a per-API set of sub-resources. apis
-// gives the stable order; the first entry is the canonical API that DoCommand, Status, and Close
-// route to. Every api in apis must have an entry in byAPI; violating that is a programmer error and
-// panics (callers should build byAPI to cover apis, as Compose and the robot client do). Both apis
-// and byAPI are copied, so the caller may reuse or mutate them afterward without affecting the
-// composite.
-func NewMultiAPIResource(name Name, apis []API, byAPI map[API]Resource) MultiAPIResource {
-	if len(apis) == 0 {
+// NewMultiAPIResource assembles a composite from a name and a per-API set of sub-resources. byAPI maps
+// each served API to its sub-resource and must be non-empty (empty panics). The canonical API is the
+// sorted-first served API. byAPI is copied, so the caller may reuse or mutate it afterward without
+// affecting the composite.
+func NewMultiAPIResource(name Name, byAPI map[API]Resource) MultiAPIResource {
+	if len(byAPI) == 0 {
 		panic("NewMultiAPIResource requires at least one api")
 	}
-	subs := make(map[API]Resource, len(apis))
-	for _, api := range apis {
-		sub, ok := byAPI[api]
-		if !ok {
-			panic(errors.Errorf("NewMultiAPIResource: no sub-resource for api: %q", api))
-		}
+	subs := make(map[API]Resource, len(byAPI))
+	for api, sub := range byAPI {
 		subs[api] = sub
 	}
-	return &compositeResource{name: name, apis: append([]API(nil), apis...), byAPI: subs}
+	return &compositeResource{name: name, byAPI: subs}
 }
 
 // Sub is a sub-resource tagged with the API it serves within a composite. It is the input to Compose:
@@ -58,22 +50,19 @@ type Sub struct {
 }
 
 // AsSub tags res as the sub-resource serving api, checking at compile time (via type parameter T) that
-// res implements the API's interface, so a facade wired to the wrong API fails to compile.
+// res implements the API's interface, so an implementation wired to the wrong API fails to compile.
 func AsSub[T Resource](api API, res T) Sub {
 	return Sub{API: api, Res: res}
 }
 
-// Compose assembles a composite MultiAPIResource from per-API sub-resources. The served APIs are
-// sorted by API string (matching RegisterMultiAPISet) so the first is a deterministic canonical API.
-// It errors if no subs are given, if two subs share an
-// API, or if the subs disagree on their name. Compose is the ergonomic, type-checked front door to
-// NewMultiAPIResource (pair it with AsSub).
+// Compose assembles a composite MultiAPIResource from per-API sub-resources. It errors if no subs are
+// given, if two subs share an API, or if the subs disagree on their name. Compose is the ergonomic,
+// type-checked front door to NewMultiAPIResource (pair it with AsSub).
 func Compose(subs ...Sub) (MultiAPIResource, error) {
 	if len(subs) == 0 {
 		return nil, errors.New("Compose requires at least one sub-resource")
 	}
 	name := subs[0].Res.Name()
-	apis := make([]API, 0, len(subs))
 	byAPI := make(map[API]Resource, len(subs))
 	for _, sub := range subs {
 		if sub.Res.Name() != name {
@@ -83,35 +72,48 @@ func Compose(subs ...Sub) (MultiAPIResource, error) {
 			return nil, errors.Errorf("Compose given duplicate sub-resources for api: %q", sub.API)
 		}
 		byAPI[sub.API] = sub.Res
-		apis = append(apis, sub.API)
 	}
-	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
-	return NewMultiAPIResource(name, apis, byAPI), nil
+	return NewMultiAPIResource(name, byAPI), nil
 }
 
 func (c *compositeResource) Name() Name { return c.name }
 
-// APIs returns a copy of the composite's served APIs in canonical-first order.
-func (c *compositeResource) APIs() []API { return append([]API(nil), c.apis...) }
+func (c *compositeResource) APIs() []API {
+	apis := make([]API, 0, len(c.byAPI))
+	for api := range c.byAPI {
+		apis = append(apis, api)
+	}
+	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	return apis
+}
 
 func (c *compositeResource) ResourceForAPI(api API) (Resource, bool) {
 	sub, ok := c.byAPI[api]
 	return sub, ok
 }
 
-// canonicalSub returns the sub-resource for the canonical API (apis[0]). NewMultiAPIResource
-// validates at construction that the canonical API has a byAPI entry, so this is always non-nil for a
-// composite built through the constructor.
-func (c *compositeResource) canonicalSub() Resource {
-	return c.byAPI[c.apis[0]]
+// canonicalAPI returns the composite's canonical API.
+func (c *compositeResource) canonicalAPI() API {
+	var canonical API
+	first := true
+	for api := range c.byAPI {
+		if first || api.String() < canonical.String() {
+			canonical, first = api, false
+		}
+	}
+	return canonical
 }
 
-// DoCommand routes the command to the canonical sub-resource.
+// canonicalSub returns the sub-resource for the canonical API. byAPI is non-empty for a composite built
+// through the constructor, so this is always non-nil.
+func (c *compositeResource) canonicalSub() Resource {
+	return c.byAPI[c.canonicalAPI()]
+}
+
 func (c *compositeResource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return c.canonicalSub().DoCommand(ctx, cmd)
 }
 
-// Status routes to the canonical sub-resource.
 func (c *compositeResource) Status(ctx context.Context) (map[string]interface{}, error) {
 	return c.canonicalSub().Status(ctx)
 }
