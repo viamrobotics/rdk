@@ -106,6 +106,26 @@ type Config struct {
 	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
 	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
+
+	// CableConstraint, MaxCableTwistDegs and CableTwistReferenceDegs are the defaults for the
+	// planner options of the same names; a Move request's extra overrides each one it sets.
+	CableConstraint         bool                 `json:"cable_constraint"`
+	MaxCableTwistDegs       float64              `json:"max_cable_twist_degs"`
+	CableTwistReferenceDegs map[string][]float64 `json:"cable_twist_reference_degs"`
+}
+
+// applyCableConstraintDefaults copies the configured cable-constraint settings into opts for
+// every one the request's extra leaves unset.
+func (c *Config) applyCableConstraintDefaults(opts *armplanning.PlannerOptions, extra map[string]interface{}) {
+	if _, ok := extra["cable_constraint"]; !ok {
+		opts.CableConstraint = c.CableConstraint
+	}
+	if _, ok := extra["max_cable_twist_degs"]; !ok && c.MaxCableTwistDegs > 0 {
+		opts.MaxCableTwistDegs = c.MaxCableTwistDegs
+	}
+	if _, ok := extra["cable_twist_reference_degs"]; !ok && c.CableTwistReferenceDegs != nil {
+		opts.CableTwistReferenceDegs = c.CableTwistReferenceDegs
+	}
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -134,6 +154,10 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
 	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
+	}
+
+	if c.MaxCableTwistDegs < 0 {
+		return nil, nil, fmt.Errorf("max_cable_twist_degs must be positive (0 selects the default), got %v", c.MaxCableTwistDegs)
 	}
 
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
@@ -529,6 +553,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	if err != nil {
 		return nil, err
 	}
+	ms.conf.applyCableConstraintDefaults(planOpts, req.Extra)
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
