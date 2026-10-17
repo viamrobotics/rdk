@@ -73,6 +73,8 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.CollisionBufferMM = defaultCollisionBufferMM
 	opt.RandomSeed = defaultRandomSeed
 
+	opt.MaxCableTwistDegs = motionplan.DefaultMaxCableTwistDegs
+
 	return opt
 }
 
@@ -133,6 +135,18 @@ type PlannerOptions struct {
 	// This includes SolutionNodes and ConstraintFailuresByType. Disabled by default because
 	// accumulating this data can be expensive for large solution sets.
 	CollectSolutionDiagnostics bool `json:"collect_solution_diagnostics"`
+
+	// CableConstraint keeps every rotational joint of each arm within MaxCableTwistDegs of
+	// CableTwistReferenceDegs so cables routed through the arm cannot wind up.
+	CableConstraint bool `json:"cable_constraint"`
+
+	// MaxCableTwistDegs is how far any rotational joint may rotate from its reference
+	// when CableConstraint is set.
+	MaxCableTwistDegs float64 `json:"max_cable_twist_degs"`
+
+	// CableTwistReferenceDegs maps a frame name to the joint positions, in degrees, at which
+	// its cables are untwisted. Frames that are absent use all zeros.
+	CableTwistReferenceDegs map[string][]float64 `json:"cable_twist_reference_degs"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters
@@ -152,6 +166,9 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 
 	if opt.CollisionBufferMM <= 0 {
 		return nil, errors.New("collision_buffer_mm has to be positive")
+	}
+	if opt.CableConstraint && opt.MaxCableTwistDegs <= 0 {
+		return nil, errors.New("max_cable_twist_degs has to be positive")
 	}
 
 	return opt, nil
