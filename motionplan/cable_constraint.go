@@ -36,6 +36,10 @@ type CableConstraint struct {
 	// protobuf units (degrees for rotational joints), at which its cables are
 	// untwisted. Frames that are absent use all zeros.
 	ReferenceDegs map[string][]float64
+
+	// Frames limits the constraint to the named kinematic models. Empty means
+	// every model in the frame system.
+	Frames []string
 }
 
 type cableJointBand struct {
@@ -64,8 +68,18 @@ func newCableConstraintCheck(
 		}
 	}
 
+	names := cc.Frames
+	if len(names) == 0 {
+		names = fs.FrameNames()
+	}
+	for _, name := range cc.Frames {
+		if _, ok := fs.Frame(name).(referenceframe.Model); !ok {
+			return nil, fmt.Errorf("cable constraint frame %q is not a kinematic model in the frame system", name)
+		}
+	}
+
 	var bands []cableJointBand
-	for _, name := range fs.FrameNames() {
+	for _, name := range names {
 		frame, ok := fs.Frame(name).(referenceframe.Model)
 		if !ok {
 			continue

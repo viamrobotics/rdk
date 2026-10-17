@@ -147,6 +147,9 @@ type PlannerOptions struct {
 	// CableTwistReferenceDegs maps a frame name to the joint positions, in degrees, at which
 	// its cables are untwisted. Frames that are absent use all zeros.
 	CableTwistReferenceDegs map[string][]float64 `json:"cable_twist_reference_degs"`
+
+	// CableConstraintFrames limits CableConstraint to the named arms. Empty means every arm.
+	CableConstraintFrames []string `json:"cable_constraint_frames"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters

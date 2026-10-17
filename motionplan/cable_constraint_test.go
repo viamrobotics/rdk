@@ -72,5 +72,12 @@ func TestCableConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		err = c.AddCableConstraint(fs, cfg(0, 0), CableConstraint{ReferenceDegs: map[string][]float64{"nope": {0}}})
 		test.That(t, err, test.ShouldNotBeNil)
+		err = c.AddCableConstraint(fs, cfg(0, 0), CableConstraint{Frames: []string{"nope"}})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("frames limit which models are checked", func(t *testing.T) {
+		c := checkerFor(cfg(0, 0), CableConstraint{Frames: []string{m.Name()}})
+		test.That(t, errors.Is(check(c, 5, 190), ErrCableConstraintViolated), test.ShouldBeTrue)
 	})
 }
