@@ -202,7 +202,9 @@ func associateSession(
 		// a resource with a monitored method as long as no error happened.
 		defer func() {
 			if err == nil {
-				m.AssociateResource(sessID, safetyMonitoredResourceName)
+				if err = m.associateAfterStop(ctx, sessID, safetyMonitoredResourceName); err != nil {
+					nextCtx = nil
+				}
 			}
 		}()
 	}
