@@ -515,6 +515,10 @@ func newWithResources(
 		if statser, err := sys.NewNetUsageStatser(); err == nil {
 			ftdcWorker.Add("net", statser)
 		}
+		if statser, err := sys.NewHostUsageStatser(); err == nil {
+			ftdcWorker.Add("host", statser)
+		}
+		ftdcWorker.Add("proc.viam-server.runtime", sys.NewGoRuntimeStatser())
 	}
 
 	homeDir := utils.ViamDotDir
