@@ -1933,3 +1933,39 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }
+
+func TestHangModuleSIGQUIT(t *testing.T) {
+	// Verifies that a Golang module gets SIGQUIT and dumps its goroutines.
+	if runtime.GOOS == "windows" {
+		t.Skip("unix-only feature")
+	}
+
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule_hang")
+	logger, logs := logging.NewObservedTestLogger(t)
+	parentAddr := setupSocketWithRobot(t)
+
+	ctx := context.Background()
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+
+	modCfg := config.Module{
+		Name:    "hang-module",
+		ExePath: modPath,
+	}
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	_, err := mgr.Remove("hang-module")
+	test.That(t, err, test.ShouldBeNil)
+
+	// The hang module logs a line each time it ignores SIGTERM.
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("testmodule_hang: ignoring").Len(),
+			test.ShouldBeGreaterThan, 0)
+	})
+
+	// The Go runtime's SIGQUIT handler emits a stanza beginning with "goroutine" for each
+	// goroutine.
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, logs.FilterMessageSnippet("goroutine").Len(),
+			test.ShouldBeGreaterThan, 0)
+	})
+}
