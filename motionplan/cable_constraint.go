@@ -42,9 +42,16 @@ type CableConstraint struct {
 	Frames []string
 }
 
+// cableJointBand is the allowed range of one rotational joint of a kinematic model.
 type cableJointBand struct {
-	frame    string
-	idx      int
+	frame string
+
+	// idx is the joint's position in the frame's own DoF, so it indexes the slice returned by
+	// Configuration.Get(frame). It is neither an offset into the flattened LinearInputs nor a count
+	// of rotational joints: translational joints keep their slot, so the idx values of a frame's
+	// bands can skip numbers.
+	idx int
+
 	min, max float64 // input units (radians)
 }
 
@@ -82,6 +89,8 @@ func newCableConstraintCheck(
 	for _, name := range names {
 		frame, ok := fs.Frame(name).(referenceframe.Model)
 		if !ok {
+			// When `names = fs.FrameNames()`, we need to skip over non-model frames as the above
+			// check did not cover these frame names.
 			continue
 		}
 		dof := len(frame.DoF())
@@ -105,6 +114,8 @@ func newCableConstraintCheck(
 				continue
 			}
 			band := cableJointBand{frame: name, idx: i, min: ref[i] - maxTwistRads, max: ref[i] + maxTwistRads}
+			// Always true under the planner: collision detection requires a complete start
+			// state. This check only keeps direct callers from indexing past the end.
 			if i < len(startInputs) {
 				band.min = min(band.min, startInputs[i])
 				band.max = max(band.max, startInputs[i])
@@ -121,8 +132,11 @@ func newCableConstraintCheck(
 		for _, b := range bands {
 			inputs := state.Configuration.Get(b.frame)
 			if b.idx >= len(inputs) {
+				// Programmer error: the frame's inputs here no longer have the same shape the band
+				// was built from. Silently allow the constraint checking to continue.
 				continue
 			}
+
 			if v := inputs[b.idx]; v < b.min || v > b.max {
 				return fmt.Errorf("%s joint %d %w: %0.2f degs outside [%0.2f, %0.2f]",
 					b.frame, b.idx, ErrCableConstraintViolated,
@@ -151,7 +165,9 @@ func rotationalDoF(frame referenceframe.Model) []bool {
 }
 
 // AddCableConstraint adds a cable-twist check to the topological constraints,
-// evaluated ahead of them since it needs no forward kinematics.
+// evaluated ahead of them since it needs no forward kinematics. Call it only after the checker is
+// fully constructed: setting up the topological constraints replaces topoConstraint outright, so
+// a cable check added earlier would be silently dropped.
 func (c *ConstraintChecker) AddCableConstraint(
 	fs *referenceframe.FrameSystem,
 	start *referenceframe.LinearInputs,
