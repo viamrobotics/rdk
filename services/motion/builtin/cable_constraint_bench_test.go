@@ -46,7 +46,8 @@ func BenchmarkDoCommandPlan(b *testing.B) {
 	box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{1000, 1000, 1000}), r3.Vector{1, 1, 1}, "box")
 	test.That(b, err, test.ShouldBeNil)
 	worldState, err := referenceframe.NewWorldState(
-		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame("world", []spatialmath.Geometry{box})}, nil)
+		[]*referenceframe.GeometriesInFrame{referenceframe.NewGeometriesInFrame("world", []spatialmath.Geometry{box})}, nil,
+	)
 	test.That(b, err, test.ShouldBeNil)
 
 	planCommand := func(extra map[string]interface{}) map[string]interface{} {
