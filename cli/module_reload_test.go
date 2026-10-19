@@ -18,6 +18,8 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -1259,4 +1261,31 @@ func TestIsModuleReloadComplete(t *testing.T) {
 		test.That(t, complete, test.ShouldBeTrue)
 		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 	})
+}
+
+func TestMachineOmitsModuleStatus(t *testing.T) {
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{}), test.ShouldBeTrue)
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
+		Modules: []modulestatus.Status{{Name: "mod"}},
+	}), test.ShouldBeFalse)
+}
+
+func TestPartReportsModuleStatus(t *testing.T) {
+	partWithVersion := func(version string) *apppb.RobotPart {
+		info, err := structpb.NewStruct(map[string]any{"version": version})
+		test.That(t, err, test.ShouldBeNil)
+		return &apppb.RobotPart{UserSuppliedInfo: info}
+	}
+	test.That(t, partReportsModuleStatus(partWithVersion("1.0.0")), test.ShouldBeFalse)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.0.9")), test.ShouldBeFalse)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.1.0")), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.2.0")), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(&apppb.RobotPart{}), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(partWithVersion("dev-unknown")), test.ShouldBeTrue)
+}
+
+func TestMachineStatusUnsupported(t *testing.T) {
+	test.That(t, machineStatusUnsupported(status.Error(codes.Unimplemented, "GetMachineStatus")), test.ShouldBeTrue)
+	test.That(t, machineStatusUnsupported(status.Error(codes.Unavailable, "transient")), test.ShouldBeFalse)
+	test.That(t, machineStatusUnsupported(errors.New("dial failed")), test.ShouldBeFalse)
 }

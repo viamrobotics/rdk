@@ -127,6 +127,7 @@ func (l *Limit) GoodLimits() (float64, float64, float64) {
 	if math.IsInf(b, 1) {
 		b = rangeLimit
 	}
+
 	return a, b, b - a
 }
 

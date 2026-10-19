@@ -303,11 +303,6 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	if !ok {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
-	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
-
-	if isCameraResourceErr != nil {
-		return &streampb.RemoveStreamResponse{}, nil
-	}
 
 	if _, ok := server.activePeerStreams[pc][req.Name]; !ok {
 		return &streampb.RemoveStreamResponse{}, nil

@@ -1843,7 +1843,10 @@ func reloadModuleActionInner(
 			return err
 		}
 		waitMessage := "Machine applied reload"
-		if modStatus.State == modulestatus.ModuleStateUnhealthy {
+		switch {
+		case errors.Is(modStatus.Error, errReloadWithoutModuleStatus):
+			waitMessage = reloadWithoutModuleStatusMessage
+		case modStatus.State == modulestatus.ModuleStateUnhealthy:
 			waitMessage = "Machine applied reload (module unhealthy)"
 			if modStatus.Error != nil {
 				warningf(cmd.Root().ErrWriter, "module %q reloaded but is unhealthy: %v", moduleName, modStatus.Error)
