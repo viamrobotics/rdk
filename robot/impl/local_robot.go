@@ -1027,6 +1027,9 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
 	snapshot := make(map[resource.Name]int64)
+	// A composite is one node reached under each of its co-equal API names, and SubsByName fans all its
+	// subs in a single pass, so handle each node once instead of re-fanning it per name.
+	seenNodes := make(map[*resource.GraphNode]bool)
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
@@ -1040,6 +1043,10 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
+		if seenNodes[node] {
+			continue
+		}
+		seenNodes[node] = true
 		res, err := node.Resource()
 		if err != nil {
 			// Wrap as NotAvailableError to match the prior ResourceByName behavior
