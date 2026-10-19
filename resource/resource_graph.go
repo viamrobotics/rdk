@@ -92,6 +92,9 @@ type graphStorage struct {
 // compositeAPIsForNode returns the co-equal API set the node's composite serves, or nil if it is not a
 // composite.
 func compositeAPIsForNode(node *GraphNode) []API {
+	if node == nil {
+		return nil
+	}
 	// The built MultiAPIResource's own API set is authoritative for any composite once built. Fall back
 	// to the configured model for a configured-but-unbuilt local composite: its instance doesn't exist
 	// yet, but its model is known. A remote composite never needs the fallback — its client exists as
@@ -792,6 +795,7 @@ func (g *Graph) addNode(name Name, node *GraphNode) error {
 			return errors.Errorf("initialized node already exists with name %q; must swap instead", name)
 		}
 		prevPrefix := val.prefix
+		oldFTDCName := LogName(name, compositeAPIsForNode(val))
 		if err := val.replace(node); err != nil {
 			return err
 		}
@@ -799,11 +803,19 @@ func (g *Graph) addNode(name Name, node *GraphNode) error {
 		// Index now: replacing an uninitialized placeholder with its configured node is where the model,
 		// and thus the co-equal API set, first becomes known.
 		g.nodes.reindexCompositeAPIs(name, val)
+		// The model just became known, so the node may now be a composite. Its FTDC section was added
+		// under the placeholder's label, so re-key it if the label changed.
+		if g.ftdc != nil {
+			if newFTDCName := LogName(name, compositeAPIsForNode(val)); newFTDCName != oldFTDCName {
+				g.ftdc.Remove(oldFTDCName)
+				g.ftdc.Add(newFTDCName, val)
+			}
+		}
 		return nil
 	}
 	node.setGraphLogicalClock(g.logicalClock)
 	if g.ftdc != nil {
-		g.ftdc.Add(name.String(), node)
+		g.ftdc.Add(LogName(name, compositeAPIsForNode(node)), node)
 	}
 	g.nodes.Set(name, node)
 	g.nodes.reindexCompositeAPIs(name, node)
@@ -901,9 +913,10 @@ func (g *Graph) remove(node Name) {
 	delete(g.transitiveClosureMatrix, node)
 	delete(g.parents, node)
 	delete(g.children, node)
+	gn, _ := g.nodes.Get(node)
 	g.nodes.Delete(node)
 	if g.ftdc != nil {
-		g.ftdc.Remove(node.String())
+		g.ftdc.Remove(LogName(node, compositeAPIsForNode(gn)))
 	}
 }
 
