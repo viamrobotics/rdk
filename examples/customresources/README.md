@@ -92,4 +92,4 @@ This demo centers on a *composite*: a single resource reachable under several co
 * In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
 
 #### Notes
-In module.json the composite is a single component entry whose declared API is its canonical one (camera here); the server advertises it under every API the model is registered for, so the client sees one `combo` name under all three.
+In module.json the composite is a single component entry declared under one of its APIs — camera here, which is *not* the canonical (sorted-first) API; `acme:component:gizmo` sorts first, so gizmo is canonical. The configured API need not be the canonical one. The server advertises the composite under every API the model is registered for, so the client sees one `combo` name under all three.
