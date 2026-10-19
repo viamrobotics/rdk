@@ -190,7 +190,7 @@ func TestClientStreamed(t *testing.T) {
 			responses chan<- motion.TempStreamResponse,
 			extra map[string]interface{},
 		) error {
-			// The first acknowledgment reports a queue depth; the second reports nothing.
+			// The first acknowledgment reports a runway; the second leaves it unset, which must come back as nil, not 0.
 			ack := motion.TempStreamResponse{MotionSideCurrentRunwayMs: &queued}
 			for range targets {
 				responses <- ack

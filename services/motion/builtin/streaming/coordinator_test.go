@@ -122,8 +122,6 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	test.That(t, snap.ArmStreamOpen[0].TimestampMs, test.ShouldBeGreaterThan, 1e12)
 }
 
-// TestRunAcknowledgesEachTargetWithMotionSideCurrentRunwayMs covers acks: each target is acknowledged once it is
-// added to the trajectory, with the motion then queued inside trajex.
 func TestRunAcknowledgesEachTargetWithMotionSideCurrentRunwayMs(t *testing.T) {
 	inj, _ := newFakeStreamingArm()
 	jpCh := make(chan []referenceframe.Input)
@@ -155,7 +153,7 @@ func TestRunAcknowledgesEachTargetWithMotionSideCurrentRunwayMs(t *testing.T) {
 		t.Fatal("the second target was never acknowledged")
 	}
 	test.That(t, second.MotionSideCurrentRunwayMs, test.ShouldNotBeNil)
-	// The second move adds more trajectory than execution drained in between.
+	// The second move adds about 2s of trajectory; only the arm-side top-up (about 50ms) is sampled out in between.
 	test.That(t, *second.MotionSideCurrentRunwayMs, test.ShouldBeGreaterThan, *first.MotionSideCurrentRunwayMs)
 
 	close(jpCh)
