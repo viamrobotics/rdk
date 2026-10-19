@@ -4550,15 +4550,21 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 	// test that if MachineStatus returns correctly if the remote has a remote
 	// The topography is local -> remote1 -> remote2
 	// remote2 will always have cloud metadata, but this test will test behavior
-	// depending on whether remote1 is online and has cloud metadata
+	// depending on whether remote1 is online and has cloud metadata, and whether remote2 is online
 	logger := logging.NewTestLogger(t)
 
 	testCases := []struct {
-		name          string
-		remoteOffline bool
-		remoteCloudMd bool
-		remotePrefix  string
+		name           string
+		remoteOffline  bool
+		remote2Offline bool
+		remoteCloudMd  bool
+		remotePrefix   string
 	}{
+		{
+			name:           "remote2 is offline while remote1 is online",
+			remote2Offline: true,
+			remoteCloudMd:  true,
+		},
 		{
 			name:          "remote1 is online and has cloud metadata",
 			remoteOffline: false,
@@ -4671,6 +4677,8 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 				config.Remote{Name: remoteName1, Prefix: tc.remotePrefix},
 			)
 
+			remote2Dummy.SetOffline(tc.remote2Offline)
+			remote1.(*localRobot).manager.updateRemotesResourceNames(ctx)
 			remote1Dummy.SetOffline(tc.remoteOffline)
 			// even though the remote1 is now offline, resources will be kept in the resource graph
 			// but marked unreachable
@@ -4684,26 +4692,37 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 
 			expectedMd := cloud.Metadata{}
 			expectedRemote2Md := cloud.Metadata{}
+			expectedReachability := resource.ReachabilityReachable
+			expectedRemote2Reachability := resource.ReachabilityReachable
 			if !tc.remoteOffline {
 				if tc.remoteCloudMd {
 					expectedMd = md
 				}
-				expectedRemote2Md = remote2Md
+				if !tc.remote2Offline {
+					expectedRemote2Md = remote2Md
+				}
+			} else {
+				expectedReachability = resource.ReachabilityRemoteDisconnected
+			}
+			if tc.remoteOffline || tc.remote2Offline {
+				expectedRemote2Reachability = resource.ReachabilityRemoteDisconnected
 			}
 			expectedStatuses := rtestutils.ConcatResourceStatuses(
 				getExpectedDefaultStatuses("", cloud.Metadata{}),
 				[]resource.Status{
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  resource.NewName(client.RemoteAPI, remoteName1),
-							State: resource.NodeStateReady,
+							Name:         resource.NewName(client.RemoteAPI, remoteName1),
+							State:        resource.NodeStateReady,
+							Reachability: expectedReachability,
 						},
 						CloudMetadata: expectedMd,
 					},
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  resName1.PrependRemote(remoteName2).WithPrefix(tc.remotePrefix),
-							State: resource.NodeStateReady,
+							Name:         resName1.PrependRemote(remoteName2).WithPrefix(tc.remotePrefix),
+							State:        resource.NodeStateReady,
+							Reachability: expectedRemote2Reachability,
 						},
 						CloudMetadata: expectedRemote2Md,
 					},

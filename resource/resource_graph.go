@@ -434,7 +434,11 @@ func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
 func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+	return g.simpleNamesWhere(filter)
+}
 
+// simpleNamesWhere is [Graph.SimpleNamesWhere] without locking. Caller must hold g.mu.
+func (g *Graph) simpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 	type candidate struct {
 		name Name
 		node *GraphNode
@@ -1104,7 +1108,8 @@ func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	return subGraph, nil
 }
 
-// MarkReachability marks all nodes in the subgraph from the given [Name] node as either reachable [true] or unreachable [false].
+// MarkReachability marks the given remote-machine node and the remote resources depending on it as
+// either reachable [true] or unreachable [false]. Local dependents are left alone; they remain callable.
 func (g *Graph) MarkReachability(node Name, reachable bool) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -1113,16 +1118,36 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 	if err != nil {
 		return err
 	}
-	for node := range subGraph.nodes.Values() {
-		node.markReachability(reachable)
+	for name, n := range subGraph.nodes.All() {
+		if name == node || name.Remote != "" {
+			n.markReachability(reachable)
+		}
 	}
 	return nil
+}
+
+func reachability(n *GraphNode) Reachability {
+	if n.IsReachable() {
+		return ReachabilityReachable
+	}
+	return ReachabilityRemoteDisconnected
 }
 
 // Status returns a slice of all graph node statuses.
 func (g *Graph) Status() []NodeStatus {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
+
+	visible := make(map[Name]bool)
+	for _, n := range g.simpleNamesWhere(func(Name, *GraphNode) bool { return true }) {
+		visible[n] = true
+	}
+	localNames := make(map[string]bool)
+	for k, v := range g.nodes.simpleNameCache {
+		if v.local != nil && (k.api.IsComponent() || k.api.IsService()) {
+			localNames[k.name] = true
+		}
+	}
 
 	var result []NodeStatus
 	for k, v := range g.nodes.simpleNameCache {
@@ -1132,14 +1157,23 @@ func (g *Graph) Status() []NodeStatus {
 				API:  k.api,
 				Name: k.name,
 			}
+			status.Reachability = reachability(v.local)
 			result = append(result, status)
 		}
-		for remote, v := range v.remote {
-			status := v.Status()
+		for remote, n := range v.remote {
+			status := n.Status()
 			status.Name = Name{
 				API:    k.api,
 				Name:   k.name,
 				Remote: remote,
+			}
+			switch {
+			case visible[status.Name]:
+				status.Reachability = reachability(n)
+			case localNames[k.name]:
+				status.Reachability = ReachabilityShadowedByLocal
+			default:
+				status.Reachability = ReachabilityAmbiguousRemote
 			}
 			result = append(result, status)
 		}

@@ -1313,6 +1313,82 @@ func TestSimpleNamesWhereNameUniqueness(t *testing.T) {
 	}
 }
 
+func TestStatusReachability(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	svcB := APINamespace("namespace").WithServiceType("bapi")
+
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+	disconnected := func() *GraphNode {
+		n := newNode()
+		n.markReachability(false)
+		return n
+	}
+
+	g := NewGraph(logger)
+	add := func(name Name, node *GraphNode) {
+		test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+	}
+
+	add(Name{API: compA, Name: "solo"}, newNode())
+	add(Name{API: compA, Name: "remoteSolo", Remote: "r1"}, newNode())
+	// Same API.
+	add(Name{API: compA, Name: "sameAPILocal"}, newNode())
+	add(Name{API: compA, Name: "sameAPILocal", Remote: "r1"}, newNode())
+	add(Name{API: compA, Name: "sameAPIRemotes", Remote: "r1"}, newNode())
+	add(Name{API: compA, Name: "sameAPIRemotes", Remote: "r2"}, newNode())
+	// Across APIs.
+	add(Name{API: compA, Name: "crossAPILocal"}, newNode())
+	add(Name{API: svcB, Name: "crossAPILocal", Remote: "r1"}, newNode())
+	add(Name{API: compA, Name: "crossAPIRemotes", Remote: "r1"}, newNode())
+	add(Name{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}, newNode())
+	add(Name{API: compA, Name: "crossAPILocalAndRemotes"}, newNode())
+	add(Name{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r1"}, newNode())
+	add(Name{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r2"}, newNode())
+	// Disconnected.
+	add(Name{API: compA, Name: "gone", Remote: "r1"}, disconnected())
+	add(Name{API: compA, Name: "goneAndShadowed"}, newNode())
+	add(Name{API: compA, Name: "goneAndShadowed", Remote: "r1"}, disconnected())
+	// A remote-machine node going down marks itself and its remote resources, not local dependents.
+	remoteMachine := NewAPI("namespace", "remote", "")
+	r3 := Name{API: remoteMachine, Name: "r3"}
+	onR3 := Name{API: compA, Name: "onR3", Remote: "r3"}
+	localDependent := Name{API: compA, Name: "localDependent"}
+	add(r3, newNode())
+	add(onR3, newNode())
+	add(localDependent, newNode())
+	test.That(t, g.AddChild(onR3, r3), test.ShouldBeNil)
+	test.That(t, g.AddChild(localDependent, onR3), test.ShouldBeNil)
+	test.That(t, g.MarkReachability(r3, false), test.ShouldBeNil)
+
+	got := map[Name]Reachability{}
+	for _, s := range g.Status() {
+		got[s.Name] = s.Reachability
+	}
+	test.That(t, got, test.ShouldResemble, map[Name]Reachability{
+		{API: compA, Name: "solo"}:                                 ReachabilityReachable,
+		{API: compA, Name: "remoteSolo", Remote: "r1"}:             ReachabilityReachable,
+		{API: compA, Name: "sameAPILocal"}:                         ReachabilityReachable,
+		{API: compA, Name: "sameAPILocal", Remote: "r1"}:           ReachabilityShadowedByLocal,
+		{API: compA, Name: "sameAPIRemotes", Remote: "r1"}:         ReachabilityAmbiguousRemote,
+		{API: compA, Name: "sameAPIRemotes", Remote: "r2"}:         ReachabilityAmbiguousRemote,
+		{API: compA, Name: "crossAPILocal"}:                        ReachabilityReachable,
+		{API: svcB, Name: "crossAPILocal", Remote: "r1"}:           ReachabilityShadowedByLocal,
+		{API: compA, Name: "crossAPIRemotes", Remote: "r1"}:        ReachabilityAmbiguousRemote,
+		{API: svcB, Name: "crossAPIRemotes", Remote: "r2"}:         ReachabilityAmbiguousRemote,
+		{API: compA, Name: "crossAPILocalAndRemotes"}:              ReachabilityReachable,
+		{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r1"}: ReachabilityShadowedByLocal,
+		{API: svcB, Name: "crossAPILocalAndRemotes", Remote: "r2"}: ReachabilityShadowedByLocal,
+		{API: compA, Name: "gone", Remote: "r1"}:                   ReachabilityRemoteDisconnected,
+		{API: compA, Name: "goneAndShadowed"}:                      ReachabilityReachable,
+		{API: compA, Name: "goneAndShadowed", Remote: "r1"}:        ReachabilityShadowedByLocal,
+		r3:             ReachabilityRemoteDisconnected,
+		onR3:           ReachabilityRemoteDisconnected,
+		localDependent: ReachabilityReachable,
+	})
+}
+
 func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) string {
 	if len(expected) != 1 {
 		panic("takes exactly one argument")
