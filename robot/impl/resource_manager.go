@@ -947,7 +947,7 @@ func (manager *resourceManager) completeConfig(
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
 						gNode.InitializeLogger(
-							manager.logger, resName.String(),
+							manager.logger, resource.LogName(resName, resource.APIsForModel(conf.Model)),
 						)
 					} else {
 						verb = "rebuild"
