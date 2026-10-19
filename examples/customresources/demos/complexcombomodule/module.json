@@ -2,7 +2,7 @@
 	"modules": [
 		{
 			"name": "ComboModule",
-			"executable_path": "./combomodule"
+			"executable_path": "./complexcombomodule"
 		}
 	],
 	"components": [
