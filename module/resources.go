@@ -52,7 +52,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
 	}
 
-	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	resLogger := m.logger.Sublogger(resource.LogName(conf.ResourceName(), resource.APIsForModel(conf.Model)))
 	levelStr := req.Config.GetLogConfiguration().GetLevel()
 	// An unset LogConfiguration will materialize as an empty string.
 	if levelStr != "" {
@@ -383,13 +383,14 @@ func (m *Module) addResource(
 		}
 		return multierr.Combine(cause, res.Close(ctx))
 	}
-	for subName, sub := range resource.SubsByName(conf.ResourceName(), res) {
-		coll, ok := m.collections[subName.API]
+	for _, api := range resource.APIsForConfig(*conf) {
+		subName := conf.ResourceName().AsAPI(api)
+		coll, ok := m.collections[api]
 		if !ok {
-			return abort(fmt.Errorf("module cannot service api %q for model %q", subName.API, conf.Model))
+			return abort(fmt.Errorf("module cannot service api %q for model %q", api, conf.Model))
 		}
-		if err := coll.Add(subName, sub); err != nil {
-			return abort(fmt.Errorf("model %q does not implement declared api %q: %w", conf.Model, subName.API, err))
+		if err := coll.Add(subName, resource.SubresourceForAPI(res, api)); err != nil {
+			return abort(fmt.Errorf("model %q does not implement declared api %q: %w", conf.Model, api, err))
 		}
 		added = append(added, subName)
 	}
@@ -633,7 +634,8 @@ func (m *Module) rebuildResource(
 	// instance is the same Go type that already implemented every API at addResource, so each collection's
 	// type-check still passes.
 	m.registerMu.Lock()
-	for _, api := range resource.APIsOf(newRes) {
+	apis := resource.APIsForConfig(*conf)
+	for _, api := range apis {
 		if _, ok := m.collections[api]; !ok {
 			m.registerMu.Unlock()
 			return nil, multierr.Combine(
@@ -641,9 +643,9 @@ func (m *Module) rebuildResource(
 			)
 		}
 	}
-	for name, sub := range resource.SubsByName(conf.ResourceName(), newRes) {
+	for _, api := range apis {
 		//nolint:errcheck // cannot fail per the invariant above (collection exists under this lock, same-type instance).
-		m.collections[name.API].ReplaceOne(name, sub)
+		m.collections[api].ReplaceOne(conf.ResourceName().AsAPI(api), resource.SubresourceForAPI(newRes, api))
 	}
 
 	// We're modifying internal module maps now. We must not error out at this point without rolling
