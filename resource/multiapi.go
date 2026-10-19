@@ -21,10 +21,12 @@ type MultiAPIResource interface {
 }
 
 // compositeResource is the default MultiAPIResource: one name and a typed sub-resource per API it
-// serves. The served APIs are byAPI's keys; the canonical API and APIs() are derived from them.
+// serves. byAPI's keys are the served APIs; canonical (the sorted-first served API) is derived once at
+// construction, and APIs() derives the sorted set on demand.
 type compositeResource struct {
-	name  Name
-	byAPI map[API]Resource
+	name      Name
+	byAPI     map[API]Resource
+	canonical API
 }
 
 // NewMultiAPIResource assembles a composite from a name and a per-API set of sub-resources. byAPI maps
@@ -36,10 +38,15 @@ func NewMultiAPIResource(name Name, byAPI map[API]Resource) MultiAPIResource {
 		panic("NewMultiAPIResource requires at least one api")
 	}
 	subs := make(map[API]Resource, len(byAPI))
+	var canonical API
+	first := true
 	for api, sub := range byAPI {
 		subs[api] = sub
+		if first || api.String() < canonical.String() {
+			canonical, first = api, false
+		}
 	}
-	return &compositeResource{name: name, byAPI: subs}
+	return &compositeResource{name: name, byAPI: subs, canonical: canonical}
 }
 
 // Sub is a sub-resource tagged with the API it serves within a composite. It is the input to Compose:
@@ -53,6 +60,15 @@ type Sub struct {
 // typed parameter checks at compile time that res implements that API's interface.
 func AsSub(api API, res Resource) Sub {
 	return Sub{API: api, Res: res}
+}
+
+// LogName returns the logger and FTDC label for a resource serving apis. A composite is labeled
+// "composite/<name>"; an ordinary resource uses its full name.
+func LogName(name Name, apis []API) string {
+	if len(apis) >= 2 {
+		return "composite/" + name.ShortName()
+	}
+	return name.String()
 }
 
 // Compose assembles a composite MultiAPIResource from per-API sub-resources. It errors if no subs are
@@ -92,22 +108,10 @@ func (c *compositeResource) ResourceForAPI(api API) (Resource, bool) {
 	return sub, ok
 }
 
-// canonicalAPI returns the composite's canonical API.
-func (c *compositeResource) canonicalAPI() API {
-	var canonical API
-	first := true
-	for api := range c.byAPI {
-		if first || api.String() < canonical.String() {
-			canonical, first = api, false
-		}
-	}
-	return canonical
-}
-
 // canonicalSub returns the sub-resource for the canonical API. byAPI is non-empty for a composite built
 // through the constructor, so this is always non-nil.
 func (c *compositeResource) canonicalSub() Resource {
-	return c.byAPI[c.canonicalAPI()]
+	return c.byAPI[c.canonical]
 }
 
 func (c *compositeResource) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
