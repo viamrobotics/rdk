@@ -19,7 +19,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sync/errgroup"
 
-	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/grpc"
@@ -1726,8 +1725,10 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 // remote cycles from preventing this call from finishing.
 var defaultRemoteMachineStatusTimeout = time.Minute
 
-func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) map[resource.Name]cloud.Metadata {
-	resourceStatusMap := make(map[resource.Name]cloud.Metadata)
+// getRemoteResourceStatuses returns, keyed by this machine's name for each, the cloud metadata of every
+// remote and the status each remote reports for its resources.
+func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) map[resource.Name]resource.Status {
+	resourceStatusMap := make(map[resource.Name]resource.Status)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
 		gNode, _ := manager.resources.Node(resName)
 		res, err := gNode.Resource()
@@ -1747,20 +1748,23 @@ func (manager *resourceManager) getRemoteResourceMetadata(ctx context.Context) m
 		if err != nil {
 			manager.logger.Debugw("error getting remote cloud metadata", "remote", resName.Name, "err", err)
 		}
-		resourceStatusMap[resName] = md
+		resourceStatusMap[resName] = resource.Status{CloudMetadata: md}
 		machineStatus, err := remote.MachineStatus(ctx)
 		if err != nil {
 			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
 			continue
 		}
-		// TODO: update this doc comment
 		for _, remoteResource := range machineStatus.Resources {
+			// The remote's collided entries share a name with its winner; don't let them overwrite it.
+			if r := remoteResource.Reachability; r == resource.ReachabilityShadowedByLocal || r == resource.ReachabilityAmbiguousRemote {
+				continue
+			}
 			nameWithRemote := resource.Name{
 				Name:   remoteResource.Name.Name,
 				API:    remoteResource.Name.API,
 				Remote: resName.Name,
 			}.WithPrefix(remoteCfg.Prefix)
-			resourceStatusMap[nameWithRemote] = remoteResource.CloudMetadata
+			resourceStatusMap[nameWithRemote] = remoteResource
 		}
 	}
 	return resourceStatusMap

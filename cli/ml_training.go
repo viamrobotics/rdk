@@ -22,6 +22,8 @@ import (
 	packagespb "go.viam.com/api/app/packages/v1"
 	v1 "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -79,19 +81,20 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL          string
-	DatasetID    string
-	ModelName    string
-	ModelVersion string
-	Path         string
-	OrgID        string
-	ModelOrgID   string
-	ScriptName   string
-	Version      string
-	Framework    string
-	ModelType    string
-	ContainerID  string
-	Args         []string
+	URL            string
+	DatasetID      string
+	ModelName      string
+	ModelVersion   string
+	Path           string
+	OrgID          string
+	ModelOrgID     string
+	ScriptName     string
+	Version        string
+	Framework      string
+	ModelType      string
+	ContainerID    string
+	Args           []string
+	ModuleResource []string
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
@@ -109,7 +112,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 	}
 
 	resp, err := client.uploadTrainingScript(ctx, true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private", args.ModuleResource)
 	if err != nil {
 		return err
 	}
@@ -294,6 +297,13 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 	if !ok || modelFrameworkEnum == int32(mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED) {
 		return "", errors.Errorf("%s must be a valid ModelFramework, got %s. See `viam train submit --help` for supported options",
 			trainFlagModelFramework, modelFramework)
+	}
+	// Registry selects modular resources to deploy with a model. Managed training stays on tflite and tensorflow.
+	if mltrainingpb.ModelFramework(modelFrameworkEnum) == mltrainingpb.ModelFramework_MODEL_FRAMEWORK_REGISTRY {
+		return "", errors.Errorf(
+			"managed training does not support %s %q. See `viam train submit --help` for supported options",
+			trainFlagModelFramework, modelFramework,
+		)
 	}
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
@@ -515,15 +525,16 @@ func defaultTrainingStatus() string {
 }
 
 type mlTrainingUploadArgs struct {
-	Path       string
-	OrgID      string
-	ScriptName string
-	Version    string
-	Framework  string
-	Type       string
-	Draft      bool
-	URL        string
-	Visibility string
+	Path           string
+	OrgID          string
+	ScriptName     string
+	Version        string
+	Framework      string
+	Type           string
+	Draft          bool
+	URL            string
+	Visibility     string
+	ModuleResource []string
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
@@ -538,7 +549,7 @@ func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTraini
 
 	_, err = client.uploadTrainingScript(ctx, args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path, args.Visibility,
+		args.Version, args.Path, args.Visibility, args.ModuleResource,
 	)
 	if err != nil {
 		return err
@@ -557,10 +568,11 @@ func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTraini
 
 func (c *viamClient) uploadTrainingScript(
 	ctx context.Context, draft bool, modelType, framework, url, orgID, name, version, path, visibility string,
+	moduleResources []string,
 ) (
 	*packagespb.CreatePackageResponse, error,
 ) {
-	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
+	metadata, err := createMetadata(draft, modelType, framework, url, visibility, moduleResources)
 	if err != nil {
 		return nil, err
 	}
@@ -583,11 +595,13 @@ func (c *viamClient) uploadTrainingScript(
 }
 
 type mlTrainingUpdateArgs struct {
-	OrgID       string
-	ScriptName  string
-	Visibility  string
-	Description string
-	URL         string
+	OrgID          string
+	ScriptName     string
+	Visibility     string
+	Description    string
+	URL            string
+	Framework      string
+	ModuleResource []string
 }
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
@@ -601,7 +615,7 @@ func MLTrainingUpdateAction(ctx context.Context, cmd *cli.Command, args mlTraini
 	}
 
 	err = client.updateTrainingScript(ctx, args.OrgID, args.ScriptName,
-		args.Visibility, args.Description, args.URL,
+		args.Visibility, args.Description, args.URL, args.Framework, args.ModuleResource,
 	)
 	if err != nil {
 		return err
@@ -616,7 +630,9 @@ func MLTrainingUpdateAction(ctx context.Context, cmd *cli.Command, args mlTraini
 	return nil
 }
 
-func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visibility, description, url string) error {
+func (c *viamClient) updateTrainingScript(
+	ctx context.Context, orgID, name, visibility, description, url, framework string, moduleResources []string,
+) error {
 	// Get registry item
 	itemID := fmt.Sprintf("%s:%s", orgID, name)
 	resp, err := c.client.GetRegistryItem(ctx, &v1.GetRegistryItemRequest{
@@ -643,14 +659,44 @@ func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visi
 	} else {
 		stringURL = nil
 	}
-	// Update registry item
-	if _, err = c.client.UpdateRegistryItem(ctx, &v1.UpdateRegistryItemRequest{
+	req := &v1.UpdateRegistryItemRequest{
 		ItemId:      itemID,
 		Type:        resp.GetItem().GetType(),
 		Description: updatedDescription,
 		Visibility:  *visibilityProto,
 		Url:         stringURL,
-	}); err != nil {
+	}
+	if framework != "" || len(moduleResources) > 0 {
+		existing := resp.GetItem().GetMlTrainingMetadata()
+		if framework == "" && existing != nil {
+			framework = strings.ToLower(strings.TrimPrefix(existing.GetModelFramework().String(), "MODEL_FRAMEWORK_"))
+		}
+		resolvedFramework, err := findValueOrSetDefault(modelFrameworks, framework, "")
+		if err != nil {
+			return err
+		}
+		if err := validateRegistryModuleResources(mlTrainingFlagFramework, resolvedFramework, moduleResources); err != nil {
+			return err
+		}
+		frameworkEnum, err := modelFrameworkProto(resolvedFramework)
+		if err != nil {
+			return err
+		}
+		meta := &v1.UpdateMLTrainingMetadata{
+			ModelFramework:             frameworkEnum,
+			DeploymentModularResources: moduleResources,
+		}
+		// Keep the task type and draft bit already stored on the script. This update only
+		// replaces the framework and the module resources to deploy.
+		if existing != nil {
+			meta.ModelType = existing.GetModelType()
+			meta.Draft = existing.GetDraft()
+		}
+		req.Metadata = &v1.UpdateRegistryItemRequest_UpdateMlTrainingMetadata{
+			UpdateMlTrainingMetadata: meta,
+		}
+	}
+	if _, err = c.client.UpdateRegistryItem(ctx, req); err != nil {
 		return err
 	}
 	return nil
@@ -682,36 +728,75 @@ const (
 	ModelFrameworkTensorFlow  = ModelFramework("tensorflow")
 	ModelFrameworkPyTorch     = ModelFramework("pytorch")
 	ModelFrameworkONNX        = ModelFramework("onnx")
+	ModelFrameworkRegistry    = ModelFramework("registry")
 )
 
 var modelFrameworks = []string{
 	string(ModelFrameworkUnspecified), string(ModelFrameworkTFLite), string(ModelFrameworkTensorFlow),
-	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX),
+	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX), string(ModelFrameworkRegistry),
+}
+
+const deploymentModularResourcesKey = "deployment_modular_resources"
+
+// validateRegistryModuleResources checks that module resources are a non-empty list of model
+// triples when framework is registry, and are absent for every other framework.
+func validateRegistryModuleResources(frameworkFlag, framework string, resources []string) error {
+	if framework == string(ModelFrameworkRegistry) {
+		if len(resources) == 0 {
+			return fmt.Errorf("--%s is required when --%s is %s", mlTrainingFlagModuleResource, frameworkFlag, ModelFrameworkRegistry)
+		}
+	} else if len(resources) > 0 {
+		return fmt.Errorf("--%s requires --%s %s", mlTrainingFlagModuleResource, frameworkFlag, ModelFrameworkRegistry)
+	}
+	for _, value := range resources {
+		model, err := resource.NewModelFromString(value)
+		if err == nil {
+			err = model.Validate()
+		}
+		// A bare name parses as rdk:builtin:<name>, so require the round trip to match.
+		if err != nil || model.String() != value {
+			return fmt.Errorf("--%s %q must be a model triple (namespace:module:model)", mlTrainingFlagModuleResource, value)
+		}
+	}
+	return nil
+}
+
+func modelFrameworkProto(framework string) (mltrainingpb.ModelFramework, error) {
+	enum, ok := mltrainingpb.ModelFramework_value["MODEL_FRAMEWORK_"+strings.ToUpper(framework)]
+	if !ok {
+		return 0, errors.Errorf("framework must be one of: %s", strings.Join(modelFrameworks, ", "))
+	}
+	return mltrainingpb.ModelFramework(enum), nil
 }
 
 // MLMetadata struct stores package info for ML training packages.
 type MLMetadata struct {
-	Draft      bool
-	ModelType  string
-	Framework  string
-	URL        string
-	Visibility string
+	Draft           bool
+	ModelType       string
+	Framework       string
+	URL             string
+	Visibility      string
+	ModuleResources []string
 }
 
-func createMetadata(draft bool, modelType, framework, url, visibility string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url, visibility string, moduleResources []string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
 	if typeErr != nil || frameWorkErr != nil {
 		return nil, errors.Wrap(multierr.Combine(typeErr, frameWorkErr), "failed to set metadata")
 	}
+	if err := validateRegistryModuleResources(mlTrainingFlagFramework, f, moduleResources); err != nil {
+		return nil, err
+	}
 
 	return &MLMetadata{
-		Draft:      draft,
-		ModelType:  t,
-		Framework:  f,
-		URL:        url,
-		Visibility: visibility,
+		Draft:           draft,
+		ModelType:       t,
+		Framework:       f,
+		URL:             url,
+		Visibility:      visibility,
+		ModuleResources: moduleResources,
 	}, nil
 }
 
@@ -737,6 +822,19 @@ var (
 	visibilityKey     = "visibility"
 )
 
+// stringList converts a string slice to a form structpb.NewStruct accepts. An empty slice is
+// omitted so non-registry uploads do not write deployment_modular_resources.
+func stringList(values []string) []any {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]any, len(values))
+	for i, value := range values {
+		out[i] = value
+	}
+	return out
+}
+
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap := make(map[string]interface{})
 	metadataMap[modelTypeKey] = metadata.ModelType
@@ -744,6 +842,9 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[draftKey] = metadata.Draft
 	metadataMap[urlKey] = metadata.URL
 	metadataMap[visibilityKey] = metadata.Visibility
+	if resources := stringList(metadata.ModuleResources); resources != nil {
+		metadataMap[deploymentModularResourcesKey] = resources
+	}
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err

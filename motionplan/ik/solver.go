@@ -169,6 +169,18 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 	newLimits := []referenceframe.Limit{}
 	for i, s := range seed {
 		lmin, lmax, r := limits[i].GoodLimits()
+		// The below code is intended to narrow the range around "seed" (typically meaning where the
+		// arm currently is). If the seed is out of bounds, the below calculations produce unusable
+		// results (e.g: new minimum is smaller than the physical minimum, or the new minimum is
+		// larger than the new maximum).
+		//
+		// Here we'll ensure the seed starts out in bounds to get useful answers.
+		if s < lmin {
+			s = lmin
+		} else if s > lmax {
+			s = lmax
+		}
+
 		d := r * deltas[i]
 
 		// only the position bounds narrow, the joint's velocity and acceleration limits are
@@ -181,6 +193,9 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 			MaxVelocity:     limits[i].MaxVelocity,
 			MaxAcceleration: limits[i].MaxAcceleration,
 		}
+
+		// The following cases can happen when the input deltas are large, or an input seed is near
+		// one of its limits.
 		if varLimit.Min > varLimit.Max {
 			varLimit.Min = varLimit.Max - d
 		}

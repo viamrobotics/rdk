@@ -56,7 +56,7 @@ func robotSizedGraph(tb testing.TB) (*Graph, Name, Name) {
 	return g, remote, components[3]
 }
 
-// The remote refresh marks the remote and everything depending on it
+// The remote refresh marks the remote and the remote resources depending on it
 // reachable on every pass.
 func BenchmarkGraphMarkReachability(b *testing.B) {
 	g, remote, _ := robotSizedGraph(b)

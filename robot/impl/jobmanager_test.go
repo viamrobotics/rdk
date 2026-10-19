@@ -1569,8 +1569,8 @@ func TestJobManagerServices(t *testing.T) {
 	)
 	// navigation
 	dummyNav := inject.NewNavigationService("navigation")
-	dummyNav.ModeFunc = func(ctx context.Context, extra map[string]any) (navigation.Mode, error) {
-		return navigation.ModeExplore, nil
+	dummyNav.GetPropertiesFunc = func(ctx context.Context) (navigation.Properties, error) {
+		return navigation.Properties{MapType: navigation.GPSMap}, nil
 	}
 	resource.RegisterService(
 		navigation.API,
@@ -1737,7 +1737,7 @@ func TestJobManagerServices(t *testing.T) {
 					Name:     "nav job",
 					Schedule: "3s",
 					Resource: "navigation",
-					Method:   "GetMode",
+					Method:   "GetProperties",
 				},
 			},
 			{

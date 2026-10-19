@@ -56,8 +56,10 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
 	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
 	// exp.Kinematics is nil, but the struct in the struct PB
+	//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 	expKin, err := protoutils.StructToStructPb(exp.Kinematics)
 	test.That(t, err, test.ShouldBeNil)
+	//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 	test.That(t, result.Kinematics, test.ShouldResemble, expKin)
 	// return to FrameSystemPart
 	partAgain, err := ProtobufToFrameSystemPart(result)
@@ -99,6 +101,7 @@ func TestFrameModelPart(t *testing.T) {
 	}
 	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
 	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
+	//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 	test.That(t, result.Kinematics, test.ShouldNotBeNil)
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)
@@ -146,7 +149,9 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 
 	// The reconstructed model must be re-serializable with valid format.
 	kinResp := KinematicModelToProtobuf(restored.ModelFrame)
+	//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 	test.That(t, kinResp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	//nolint:staticcheck // SA1019: KinematicsData stays until clients read KinematicModel.
 	test.That(t, len(kinResp.KinematicsData), test.ShouldBeGreaterThan, 0)
 
 	// And that response must parse back into a working model.
@@ -198,6 +203,7 @@ func TestFrameSystemPartKinematicsBytes(t *testing.T) {
 			}
 			pbMsg, err := part.ToProtobuf()
 			test.That(t, err, test.ShouldBeNil)
+			//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 			originalFile := pbMsg.Kinematics.Fields["original_file"].GetStructValue()
 			test.That(t, originalFile.Fields["bytes"].GetStringValue(), test.ShouldNotBeEmpty)
 			// A list with one number per byte costs about 11 wire bytes per raw byte.
@@ -224,6 +230,7 @@ func TestProtobufToFrameSystemPartAcceptsByteLists(t *testing.T) {
 
 			frame, err := LinkInFrameToTransformProtobuf(NewLinkInFrame(World, spatial.NewZeroPose(), model.Name(), nil))
 			test.That(t, err, test.ShouldBeNil)
+			//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 			restored, err := ProtobufToFrameSystemPart(&robotpb.FrameSystemConfig{Frame: frame, Kinematics: legacy})
 			test.That(t, err, test.ShouldBeNil)
 			checkKinematicsPreserved(t, model, restored)

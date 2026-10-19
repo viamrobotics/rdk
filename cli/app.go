@@ -128,6 +128,7 @@ const (
 
 	mlTrainingFlagName           = "script-name"
 	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagModuleResource = "module-resource"
 	mlTrainingFlagDraft          = "draft"
 	mlTrainingFlagVisibility     = "visibility"
 	mlTrainingFlagDescription    = "description"
@@ -2480,6 +2481,10 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 											Required: true,
 										},
+										&cli.StringSliceFlag{
+											Name:  mlTrainingFlagModuleResource,
+											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
@@ -3907,6 +3912,21 @@ Run this command from within the module directory.`,
 					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
+					Name: "lint-manifest",
+					Usage: "check meta.json for format errors and registry limits offline; " +
+						"passing does not guarantee an upload will succeed",
+					UsageText: createUsageText("module lint-manifest", nil, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
+						},
+					},
+					Action: createActionCommandWithT[lintManifestArgs](LintManifestAction),
+				},
+				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
 					UsageText: createUsageText("module update-models", []string{}, true, false),
@@ -4522,6 +4542,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+						},
 					},
 					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
@@ -4561,6 +4585,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:     mlTrainingFlagFramework,
 							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -4610,6 +4638,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
+						},
+						&cli.StringFlag{
+							Name:  mlTrainingFlagFramework,
+							Usage: formatAcceptedValues("framework of the ML training script", modelFrameworks...),
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
 					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),

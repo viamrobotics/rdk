@@ -6125,7 +6125,10 @@ func (c *viamClient) connectToRobot(
 func partShellServiceName(ctx context.Context, r robot.Robot) (resource.Name, error) {
 	md, err := r.CloudMetadata(ctx)
 	if err != nil {
-		return resource.Name{}, fmt.Errorf("%w: %w", errShellRequiresCloud, err)
+		if s, ok := status.FromError(err); ok && s.Code() == codes.Unknown {
+			err = fmt.Errorf("%w: %w", errShellRequiresCloud, err)
+		}
+		return resource.Name{}, err
 	}
 	if md.MachinePartID == "" {
 		return resource.Name{}, errShellRequiresCloud

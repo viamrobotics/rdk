@@ -8,12 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 	goutils "go.viam.com/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -27,7 +30,16 @@ const (
 
 	moduleReloadPollingInterval = 2 * time.Second
 	moduleReloadPollingTimeout  = 5 * time.Minute
+	// Older viam-server versions apply reload configs but do not populate
+	// GetMachineStatus.modules (added in 1.1.0). If we see an empty modules
+	// list, wait this long for status to appear before treating the reload
+	// as complete. Do not require Config.LastUpdated: 1.0.x often leaves
+	// that timestamp stale, which previously kept the CLI waiting 5 minutes.
+	moduleReloadNoStatusGrace = 15 * time.Second
 )
+
+// moduleStatusVersionSupported is the first viam-server that fills GetMachineStatus.modules.
+var moduleStatusVersionSupported = semver.MustParse("1.1.0")
 
 // configureModule is the configuration step of module reloading. Returns (updated robotPart, needsRestart, error).
 // Mutates the passed part.RobotConfigJson.
@@ -550,6 +562,53 @@ func moduleStatusByName(modules []modulestatus.Status, name string) (modulestatu
 	return modulestatus.Status{}, false
 }
 
+func reloadConfigApplied(status robot.MachineStatus, reloadTime time.Time) bool {
+	return !status.Config.LastUpdated.IsZero() && !status.Config.LastUpdated.Before(reloadTime)
+}
+
+// machineOmitsModuleStatus reports GetMachineStatus responses with no module
+// entries. That is the shape returned by viam-server versions from before
+// module status was added (1.1.0).
+func machineOmitsModuleStatus(status robot.MachineStatus) bool {
+	return len(status.Modules) == 0
+}
+
+// partReportsModuleStatus is false when UserSuppliedInfo names a viam-server
+// older than 1.1.0. Unknown or unparseable versions return true so we still poll.
+func partReportsModuleStatus(part *apppb.RobotPart) bool {
+	if part == nil || part.UserSuppliedInfo == nil {
+		return true
+	}
+	raw, ok := part.UserSuppliedInfo.Fields["version"]
+	if !ok || raw.GetStringValue() == "" {
+		return true
+	}
+	version, err := semver.NewVersion(raw.GetStringValue())
+	if err != nil {
+		return true
+	}
+	return !version.LessThan(moduleStatusVersionSupported)
+}
+
+const reloadWithoutModuleStatusMessage = "An upgrade to viam-server is recommended. " +
+	"The machine applied the reload config but does not report module status (viam-server older than 1.1.0); " +
+	"Check the logs to ensure the module has downloaded and restarted."
+
+var errReloadWithoutModuleStatus = errors.New("module status not reported")
+
+func assumedReloadComplete(moduleName string, lastUpdated time.Time) modulestatus.Status {
+	return modulestatus.Status{
+		Name:        moduleName,
+		State:       modulestatus.ModuleStateReady,
+		LastUpdated: lastUpdated,
+		Error:       errReloadWithoutModuleStatus,
+	}
+}
+
+func machineStatusUnsupported(err error) bool {
+	return status.Code(err) == codes.Unimplemented
+}
+
 // isModuleReloadComplete reports whether the machine has ingested the reload config and the
 // target module has reached a terminal state for this reload.
 func isModuleReloadComplete(
@@ -623,6 +682,9 @@ func (c *viamClient) waitForModuleReload(
 	if waitForModuleReloadHook != nil {
 		return waitForModuleReloadHook(c, ctx, cmd, part, moduleName, reloadTime, logger)
 	}
+	if !partReportsModuleStatus(part) {
+		return assumedReloadComplete(moduleName, time.Time{}), nil
+	}
 	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return modulestatus.Status{}, err
@@ -644,25 +706,43 @@ func (c *viamClient) waitForModuleReload(
 	defer ticker.Stop()
 
 	var lastStatus robot.MachineStatus
+	var noStatusSince time.Time
 	for {
 		if err := ctx.Err(); err != nil {
 			return modulestatus.Status{}, err
 		}
 		if time.Now().After(deadline) {
-			configApplied := !lastStatus.Config.LastUpdated.IsZero() && !lastStatus.Config.LastUpdated.Before(reloadTime)
+			if machineOmitsModuleStatus(lastStatus) {
+				return assumedReloadComplete(moduleName, lastStatus.Config.LastUpdated), nil
+			}
 			return modulestatus.Status{}, errors.Errorf(
 				"timed out after %s waiting for machine to apply module reload (config applied: %t, module %q state: %s)",
-				moduleReloadPollingTimeout, configApplied, moduleName, moduleStatusStateLabel(lastStatus, moduleName),
+				moduleReloadPollingTimeout, reloadConfigApplied(lastStatus, reloadTime),
+				moduleName, moduleStatusStateLabel(lastStatus, moduleName),
 			)
 		}
 
-		lastStatus, err = robotClient.MachineStatus(ctx)
-		if err != nil {
-			return modulestatus.Status{}, err
+		machineStatus, statusErr := robotClient.MachineStatus(ctx)
+		if statusErr != nil {
+			if machineStatusUnsupported(statusErr) {
+				return assumedReloadComplete(moduleName, time.Time{}), nil
+			}
+			return modulestatus.Status{}, statusErr
 		}
+		lastStatus = machineStatus
 
 		if complete, modStatus := isModuleReloadComplete(lastStatus, moduleName, reloadTime); complete {
 			return modStatus, nil
+		}
+		if machineOmitsModuleStatus(lastStatus) {
+			if noStatusSince.IsZero() {
+				noStatusSince = time.Now()
+			}
+			if time.Since(noStatusSince) >= moduleReloadNoStatusGrace {
+				return assumedReloadComplete(moduleName, lastStatus.Config.LastUpdated), nil
+			}
+		} else {
+			noStatusSince = time.Time{}
 		}
 
 		debugf(cmd.Root().Writer, args.Debug,
