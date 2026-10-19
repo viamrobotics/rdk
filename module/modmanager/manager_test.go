@@ -1933,3 +1933,55 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 }
+
+func TestHangModuleSIGQUIT(t *testing.T) {
+	// Verifies that a Golang module gets SIGQUIT and dumps its goroutines.
+	if runtime.GOOS == "windows" {
+		t.Skip("unix-only feature")
+	}
+
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule_hang")
+
+	// Use a "blank" logger and just observe logs from it. The test will otherwise produce a
+	// long stack trace in test output.
+	observerCore, logs := observer.New(zapcore.DebugLevel)
+	logger := logging.NewBlankLogger(t.Name())
+	logger.AddAppender(observerCore)
+
+	parentAddr := setupSocketWithRobot(t)
+
+	ctx := context.Background()
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+
+	modCfg := config.Module{
+		Name:    "hang-module",
+		ExePath: modPath,
+	}
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	_, err := mgr.Remove("hang-module")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Prove the goroutine whole dump arrived by waiting for markers that land at different
+	// points in the output:
+	//   - "testmodule_hang: ignoring"            escalation reached our SIGTERM handler
+	//   - "goroutine "                           runtime started the dump
+	//   - "main.hangingGoroutine"                user-code frames landed (not just runtime)
+	//   - "Stopped module did not exit cleanly"  pexec logs this after cmd.Wait() returns
+	//                                            i.e. the goroutine dump has finished
+	markers := []string{
+		"testmodule_hang: ignoring",
+		"goroutine ",
+		"main.hangingGoroutine",
+		"Stopped module did not exit cleanly",
+	}
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		for _, m := range markers {
+			test.That(tb, logs.FilterMessageSnippet(m).Len(), test.ShouldBeGreaterThan, 0)
+		}
+	})
+
+	// Each of the three hangingGoroutine goroutines should appear in the dump.
+	test.That(t, logs.FilterMessageSnippet("main.hangingGoroutine").Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 3)
+}
