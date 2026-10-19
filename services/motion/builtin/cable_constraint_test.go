@@ -23,7 +23,7 @@ func TestApplyCableConstraintDefaults(t *testing.T) {
 	optsFor := func(c *Config, extra map[string]interface{}, cameraArms []string) *armplanning.PlannerOptions {
 		opts, err := armplanning.NewPlannerOptionsFromExtra(extra)
 		test.That(t, err, test.ShouldBeNil)
-		c.applyCableConstraintDefaults(opts, extra, cameraArms)
+		test.That(t, c.applyCableConstraintDefaults(opts, extra, cameraArms), test.ShouldBeNil)
 		return opts
 	}
 
@@ -60,6 +60,23 @@ func TestApplyCableConstraintDefaults(t *testing.T) {
 		test.That(t, opts.CableConstraint, test.ShouldBeFalse)
 		opts = optsFor(&Config{}, map[string]interface{}{"cable_constraint": false}, []string{"arm1"})
 		test.That(t, opts.CableConstraint, test.ShouldBeFalse)
+	})
+
+	t.Run("config frames scope an explicit enable and override the guess", func(t *testing.T) {
+		scoped := &Config{CableConstraint: &on, CableConstraintFrames: []string{"arm2"}}
+		opts := optsFor(scoped, map[string]interface{}{}, nil)
+		test.That(t, opts.CableConstraintFrames, test.ShouldResemble, []string{"arm2"})
+
+		opts = optsFor(&Config{CableConstraintFrames: []string{"arm2"}}, map[string]interface{}{}, []string{"arm1"})
+		test.That(t, opts.CableConstraint, test.ShouldBeTrue)
+		test.That(t, opts.CableConstraintFrames, test.ShouldResemble, []string{"arm2"})
+	})
+
+	t.Run("a non-positive max twist fails once the guess enables the constraint", func(t *testing.T) {
+		extra := map[string]interface{}{"max_cable_twist_degs": 0.}
+		opts, err := armplanning.NewPlannerOptionsFromExtra(extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, (&Config{}).applyCableConstraintDefaults(opts, extra, []string{"arm1"}), test.ShouldNotBeNil)
 	})
 
 	t.Run("negative max twist fails validation", func(t *testing.T) {
