@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -20,6 +21,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/testutils/inject"
@@ -943,4 +945,152 @@ func TestReloadingDestination(t *testing.T) {
 		test.ShouldEqual, "/opt/viam/packages-local/viam-labs_test-module-module.tar.gz")
 	test.That(t, reloadingDestination(manifest, legacyViamHomeDir),
 		test.ShouldEqual, "~/.viam/packages-local/viam-labs_test-module-module.tar.gz")
+}
+
+// runTestGit runs a git command in dir, failing the test if git does.
+func runTestGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	// a fixed identity and no signing keep the repo independent of the developer's git config
+	full := append([]string{
+		"-C", dir,
+		"-c", "user.name=test",
+		"-c", "user.email=test@viam.com",
+		"-c", "commit.gpgsign=false",
+	}, args...)
+	out, err := exec.CommandContext(context.Background(), "git", full...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v: %s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestReadGitRevision(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	ctx := context.Background()
+
+	t.Run("not a repo", func(t *testing.T) {
+		test.That(t, readGitRevision(ctx, t.TempDir()), test.ShouldBeEmpty)
+	})
+
+	t.Run("clean repo", func(t *testing.T) {
+		repo := t.TempDir()
+		runTestGit(t, repo, "init", "--quiet")
+		writeFile(t, filepath.Join(repo, "main.go"), "package main")
+		runTestGit(t, repo, "add", ".")
+		runTestGit(t, repo, "commit", "--quiet", "-m", "initial")
+
+		sha := runTestGit(t, repo, "rev-parse", "--short=8", "HEAD")
+		test.That(t, readGitRevision(ctx, repo), test.ShouldEqual, sha)
+
+		t.Run("subdirectory resolves to the same revision", func(t *testing.T) {
+			sub := filepath.Join(repo, "sub")
+			test.That(t, os.MkdirAll(sub, 0o755), test.ShouldBeNil)
+			test.That(t, readGitRevision(ctx, sub), test.ShouldEqual, sha)
+		})
+
+		t.Run("untracked files are not dirty", func(t *testing.T) {
+			// build artifacts, virtualenvs and the reload archive itself are untracked;
+			// like `git describe --dirty`, they don't count as changes.
+			writeFile(t, filepath.Join(repo, "module.tar.gz"), "artifact")
+			test.That(t, readGitRevision(ctx, repo), test.ShouldEqual, sha)
+		})
+
+		t.Run("modified tracked file is dirty", func(t *testing.T) {
+			writeFile(t, filepath.Join(repo, "main.go"), "package main // edited")
+			test.That(t, readGitRevision(ctx, repo), test.ShouldEqual, sha+"-dirty")
+		})
+	})
+}
+
+func TestGetReloadVersion(t *testing.T) {
+	test.That(t, getReloadVersion(reloadVersionPrefix, "part-123", 1700000000, ""),
+		test.ShouldEqual, "reload-part-123-1700000000")
+	test.That(t, getReloadVersion(reloadSourceVersionPrefix, "part-123", 1700000000, "a1b2c3d4"),
+		test.ShouldEqual, "reload-source-part-123-1700000000-a1b2c3d4")
+	test.That(t, getReloadVersion(reloadVersionPrefix, "part-123", 1700000000, "a1b2c3d4-dirty"),
+		test.ShouldEqual, "reload-part-123-1700000000-a1b2c3d4-dirty")
+	// the revision suffix must not hide the version from reload-version detection
+	test.That(t, IsReloadVersion(getReloadVersion(reloadVersionPrefix, "part-123", 1700000000, "a1b2c3d4")),
+		test.ShouldBeTrue)
+}
+
+// fakeReloadBuildStream is an in-memory test double for the
+// buildpb.BuildService_StartReloadBuildClient streaming RPC. It records every Send
+// call so tests can assert on the request shape.
+type fakeReloadBuildStream struct {
+	v1.BuildService_StartReloadBuildClient // embedded for unused methods
+	sends                                  []*v1.StartReloadBuildRequest
+	resp                                   *v1.StartReloadBuildResponse
+}
+
+func (s *fakeReloadBuildStream) Send(req *v1.StartReloadBuildRequest) error {
+	s.sends = append(s.sends, req)
+	return nil
+}
+
+func (s *fakeReloadBuildStream) CloseSend() error { return nil }
+
+func (s *fakeReloadBuildStream) CloseAndRecv() (*v1.StartReloadBuildResponse, error) {
+	return s.resp, nil
+}
+
+func TestTriggerCloudReloadBuild(t *testing.T) {
+	manifestPath := createTestManifest(t, "", nil)
+	manifest, err := loadManifest(manifestPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	archivePath := filepath.Join(t.TempDir(), "archive.tar.gz")
+	writeFile(t, archivePath, "archive contents")
+
+	userInfo, err := structpb.NewStruct(map[string]any{"platform": "linux/amd64"})
+	test.That(t, err, test.ShouldBeNil)
+	asc := mockAppServiceClientWithRobotPart(nil, userInfo)
+	asc.GetRobotFunc = func(ctx context.Context, req *apppb.GetRobotRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotResponse, error) {
+		return &apppb.GetRobotResponse{Robot: &apppb.Robot{Id: "robot-abc", Location: "location-xyz"}}, nil
+	}
+	asc.GetLocationFunc = func(ctx context.Context, req *apppb.GetLocationRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetLocationResponse, error) {
+		return &apppb.GetLocationResponse{Location: &apppb.Location{
+			Id:                 "location-xyz",
+			PrimaryOrgIdentity: &apppb.OrganizationIdentity{Id: "test-org-id"},
+		}}, nil
+	}
+
+	sourceVersion := func(t *testing.T, gitRev string) string {
+		t.Helper()
+		stream := &fakeReloadBuildStream{resp: &v1.StartReloadBuildResponse{BuildId: "build-xyz"}}
+		bsc := &inject.BuildServiceClient{
+			StartReloadBuildFunc: func(
+				ctx context.Context, opts ...grpc.CallOption,
+			) (v1.BuildService_StartReloadBuildClient, error) {
+				return stream, nil
+			},
+		}
+		cCtx, vc, _, _ := setup(asc, nil, bsc, map[string]any{moduleFlagPath: manifestPath}, "token")
+
+		buildID, err := vc.triggerCloudReloadBuild(
+			context.Background(), cCtx, reloadModuleArgs{Workdir: "."}, manifest, archivePath, "part-123", 1700000000, gitRev,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, buildID, test.ShouldEqual, "build-xyz")
+		// first send is the build info, second carries the package version
+		test.That(t, len(stream.sends), test.ShouldBeGreaterThanOrEqualTo, 2)
+		info := stream.sends[1].GetPackage().GetInfo()
+		test.That(t, info, test.ShouldNotBeNil)
+		return info.GetVersion()
+	}
+
+	t.Run("stamps the git revision on the package version", func(t *testing.T) {
+		test.That(t, sourceVersion(t, "a1b2c3d4-dirty"),
+			test.ShouldEqual, "reload-source-part-123-1700000000-a1b2c3d4-dirty")
+	})
+
+	t.Run("omits the suffix when the revision is unknown", func(t *testing.T) {
+		test.That(t, sourceVersion(t, ""), test.ShouldEqual, "reload-source-part-123-1700000000")
+	})
 }
