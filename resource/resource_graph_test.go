@@ -265,6 +265,21 @@ func TestResourceGraphSubGraph(t *testing.T) {
 		NewName(apiA, "F"),
 		NewName(apiA, "C"),
 	}...))
+
+	// D and F also depend on B and A, which are not in the sub-graph, so those edges are
+	// left out of it.
+	c, d, f := NewName(apiA, "C"), NewName(apiA, "D"), NewName(apiA, "F")
+	test.That(t, newResourceNameSet(sg.GetAllChildrenOf(c)...), test.ShouldResemble, newResourceNameSet(d, f))
+	test.That(t, sg.GetAllChildrenOf(d), test.ShouldBeEmpty)
+	test.That(t, sg.GetAllChildrenOf(f), test.ShouldBeEmpty)
+	test.That(t, sg.GetAllParentsOf(c), test.ShouldBeEmpty)
+	test.That(t, sg.GetAllParentsOf(d), test.ShouldResemble, []Name{c})
+	test.That(t, sg.GetAllParentsOf(f), test.ShouldResemble, []Name{c})
+	test.That(t, sg.transitiveClosureMatrix, test.ShouldResemble, transitiveClosureMatrix{
+		c: {c: 1, d: 0, f: 0},
+		d: {c: 1, d: 1, f: 0},
+		f: {c: 1, d: 0, f: 1},
+	})
 }
 
 func TestResourceGraphDepTree(t *testing.T) {
