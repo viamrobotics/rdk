@@ -735,8 +735,8 @@ func TestWeakDependencyOnNewRemoteResource(t *testing.T) {
 }
 
 // TestWeakDependencyOnComposite asserts a composite is wired into a weakly dependent resource under
-// each of the APIs the matcher matches, as the unwrapped sub for that API, not only under its
-// canonical API. The combomodule composite is configured under camera (its canonical API), so a weak
+// each of the APIs the matcher matches, not only under its canonical API. It is wired as the composite
+// wrapper. The combomodule composite is configured under camera (its canonical API), so a weak
 // dependency matcher must wire it under both camera and movement_sensor.
 func TestWeakDependencyOnComposite(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -773,7 +773,7 @@ func TestWeakDependencyOnComposite(t *testing.T) {
 	weak, err := resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Wired under both camera (canonical) and movement_sensor (noncanonical), each as the unwrapped sub.
+	// Wired under both camera (canonical) and movement_sensor (noncanonical), each as the composite wrapper.
 	camDep, ok := weak.resources[camera.Named("combo")]
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = resource.AsType[camera.Camera](camDep)
@@ -781,7 +781,7 @@ func TestWeakDependencyOnComposite(t *testing.T) {
 
 	msDep, ok := weak.resources[movementsensor.Named("combo")]
 	test.That(t, ok, test.ShouldBeTrue)
-	// It is the unwrapped movement_sensor sub, not the composite wrapper.
+	// It is the composite wrapper, which AsType resolves to the movement_sensor sub.
 	_, err = resource.AsType[movementsensor.MovementSensor](msDep)
 	test.That(t, err, test.ShouldBeNil)
 }
