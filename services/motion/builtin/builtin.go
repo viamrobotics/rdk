@@ -430,7 +430,7 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
 		}
 
-		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+		ms.logger.Debugf("limit override fName: %v mods: %v f: %v", fName, mods, f)
 
 		sm, ok := f.(*referenceframe.SimpleModel)
 		if !ok {
