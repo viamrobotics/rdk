@@ -56,6 +56,12 @@ func TestValidateRegistryModuleResources(t *testing.T) {
 	})
 }
 
+func TestCreateMetadataAcceptsRobotPolicy(t *testing.T) {
+	metadata, err := createMetadata(false, string(ModelTypeRobotPolicy), string(ModelFrameworkONNX), "", "private", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, metadata.ModelType, test.ShouldEqual, string(ModelTypeRobotPolicy))
+}
+
 func TestCreateMetadataRegistryResources(t *testing.T) {
 	metadata, err := createMetadata(false, string(ModelTypeObjectDetection), string(ModelFrameworkRegistry), "", "private", []string{
 		"viam-labs:arm-policy:policy",
