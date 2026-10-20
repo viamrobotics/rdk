@@ -815,6 +815,6 @@ func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 		fmt.Fprintf(&builder, "\t valid: %v\n", !inValid[idx])
 	}
 
-	sss.logger.Debugf(builder.String())
+	sss.logger.Debugf("%s", builder.String())
 	return nil
 }

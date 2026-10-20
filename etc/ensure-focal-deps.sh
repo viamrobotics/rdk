@@ -4,7 +4,7 @@
 set -euxo pipefail
 
 # GO_VERSION tracks the `go` directive in go.mod.
-GO_VERSION=1.25.9
+GO_VERSION=1.26.10
 NLOPT_VERSION=2.11.0
 CMAKE_VERSION=4.3.4
 # Zig is the C/C++ cross-compiler for the cgo-enabled Windows build
