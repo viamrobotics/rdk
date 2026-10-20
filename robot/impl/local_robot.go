@@ -70,8 +70,8 @@ const localConfigPartID = "local-config"
 // measured from the end of the previous attempt.
 const configTickerInterval = 5 * time.Second
 
-// remoteConnectionLogInterval is how often each connected remote's connection path is logged.
-const remoteConnectionLogInterval = 15 * time.Minute
+// relayedRemoteLogInterval is how often each relayed remote is logged.
+const relayedRemoteLogInterval = 15 * time.Minute
 
 var _ = robot.LocalRobot(&localRobot{})
 
@@ -680,7 +680,7 @@ func newWithResources(
 	}
 
 	r.activeBackgroundWorkers.Add(1)
-	goutils.ManagedGo(r.remoteConnectionLogWorker, r.activeBackgroundWorkers.Done)
+	goutils.ManagedGo(r.relayedRemoteLogWorker, r.activeBackgroundWorkers.Done)
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
@@ -1694,13 +1694,12 @@ func dialRobotClient(
 	return robotClient, nil
 }
 
-// remoteConnectionLogWorker periodically logs whether each connected remote is relayed, since
-// the path can change mid-connection without a reconnect.
-func (r *localRobot) remoteConnectionLogWorker() {
-	ticker := time.NewTicker(remoteConnectionLogInterval)
+// relayedRemoteLogWorker periodically warns about relayed remotes so the relay stays visible in logs.
+func (r *localRobot) relayedRemoteLogWorker() {
+	ticker := time.NewTicker(relayedRemoteLogInterval)
 	defer ticker.Stop()
 	for goutils.SelectContextOrWaitChan(r.closeContext, ticker.C) {
-		r.manager.logRemoteConnectionPaths()
+		r.manager.logRelayedRemotes()
 	}
 }
 

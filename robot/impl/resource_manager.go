@@ -1196,43 +1196,72 @@ func (manager *resourceManager) processRemote(
 	return robotClient, nil
 }
 
-// logRemoteConnectionPath logs whether a remote is connected through a TURN relay on the
-// user-facing manager logger; the remote's own networking logger is diagnostic-only in app.
+// logRemoteConnectionPath logs a remote's selected ICE candidate pair on the user-facing manager
+// logger, warning if it is relayed; the remote's own networking logger is diagnostic-only in app.
 func (manager *resourceManager) logRemoteConnectionPath(name string, rc *client.RobotClient) {
-	if addr, relayed := remoteRelayAddress(rc); relayed {
-		manager.logger.Infow("Connected to remote over relay", "remote", name, "relay_address", addr)
-		return
+	path, ok := remoteConnectionPath(rc.WebRTCStats())
+	switch {
+	case !ok:
+		manager.logger.Infow("Connected to remote", "remote", name)
+	case path.relayAddr != "":
+		manager.logger.Warnw("Connected to remote over relay", path.logFields(name)...)
+	default:
+		manager.logger.Infow("Connected to remote directly", path.logFields(name)...)
 	}
-	manager.logger.Infow("Connected to remote directly", "remote", name)
 }
 
-// logRemoteConnectionPaths logs the connection path of every connected remote.
-func (manager *resourceManager) logRemoteConnectionPaths() {
+// logRelayedRemotes warns about every connected remote that is relayed through a TURN server.
+func (manager *resourceManager) logRelayedRemotes() {
 	for _, name := range manager.RemoteNames() {
 		rr, ok := manager.RemoteByName(name)
 		if !ok {
 			continue
 		}
-		if rc, ok := rr.(*client.RobotClient); ok && rc.Connected() {
-			manager.logRemoteConnectionPath(name, rc)
+		rc, ok := rr.(*client.RobotClient)
+		if !ok || !rc.Connected() {
+			continue
+		}
+		if path, ok := remoteConnectionPath(rc.WebRTCStats()); ok && path.relayAddr != "" {
+			manager.logger.Warnw("Remote connection is relayed", path.logFields(name)...)
 		}
 	}
 }
 
-// remoteRelayAddress returns the TURN server address rc's WebRTC connection is relayed through,
-// and whether it is relayed at all. Non-WebRTC connections are never relayed.
-func remoteRelayAddress(rc *client.RobotClient) (string, bool) {
-	stats := rc.WebRTCStats()
+// remoteConnPath is the selected ICE candidate pair of a remote's WebRTC connection.
+type remoteConnPath struct {
+	local, remote webrtc.ICECandidateType
+	// relayAddr is the TURN server address, empty unless a side is relayed.
+	relayAddr string
+}
+
+func (p remoteConnPath) logFields(name string) []any {
+	fields := []any{"remote", name, "local_candidate", p.local.String(), "remote_candidate", p.remote.String()}
+	if p.relayAddr != "" {
+		fields = append(fields, "relay_address", p.relayAddr)
+	}
+	return fields
+}
+
+// remoteConnectionPath returns the selected ICE candidate pair in stats, and false if there is
+// none, as for a non-WebRTC connection.
+func remoteConnectionPath(stats webrtc.StatsReport) (remoteConnPath, bool) {
 	pair, ok := rpc.SelectedCandidatePair(stats)
 	if !ok {
-		return "", false
+		return remoteConnPath{}, false
 	}
-	for _, id := range []string{pair.LocalCandidateID, pair.RemoteCandidateID} {
-		if cand, ok := stats[id].(webrtc.ICECandidateStats); ok && cand.CandidateType == webrtc.ICECandidateTypeRelay {
-			return cand.IP, true
-		}
+	local, localOK := stats[pair.LocalCandidateID].(webrtc.ICECandidateStats)
+	remote, remoteOK := stats[pair.RemoteCandidateID].(webrtc.ICECandidateStats)
+	if !localOK || !remoteOK {
+		return remoteConnPath{}, false
 	}
-	return "", false
+	path := remoteConnPath{local: local.CandidateType, remote: remote.CandidateType}
+	switch {
+	case local.CandidateType == webrtc.ICECandidateTypeRelay:
+		path.relayAddr = local.IP
+	case remote.CandidateType == webrtc.ICECandidateTypeRelay:
+		path.relayAddr = remote.IP
+	}
+	return path, true
 }
 
 // RemoteByName returns the given remote robot by name, if it exists;
