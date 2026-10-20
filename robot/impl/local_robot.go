@@ -70,8 +70,8 @@ const localConfigPartID = "local-config"
 // measured from the end of the previous attempt.
 const configTickerInterval = 5 * time.Second
 
-// relayedRemoteLogInterval is how often each relayed remote is logged.
-const relayedRemoteLogInterval = 15 * time.Minute
+// remotePathRefreshInterval is how often remote connection paths are refreshed and relays warned about.
+const remotePathRefreshInterval = 15 * time.Minute
 
 var _ = robot.LocalRobot(&localRobot{})
 
@@ -608,6 +608,7 @@ func newWithResources(
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
 		r.ftdc.Add("large_messages", rprotoutils.LargeMessageStatser{})
+		r.ftdc.Add("remote_connections", remoteConnStatser{r.manager})
 	}
 	rprotoutils.SetLargeMessageLogger(logger.Sublogger("large_messages"))
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
@@ -680,7 +681,7 @@ func newWithResources(
 	}
 
 	r.activeBackgroundWorkers.Add(1)
-	goutils.ManagedGo(r.relayedRemoteLogWorker, r.activeBackgroundWorkers.Done)
+	goutils.ManagedGo(r.remotePathRefreshWorker, r.activeBackgroundWorkers.Done)
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
@@ -1694,12 +1695,12 @@ func dialRobotClient(
 	return robotClient, nil
 }
 
-// relayedRemoteLogWorker periodically warns about relayed remotes so the relay stays visible in logs.
-func (r *localRobot) relayedRemoteLogWorker() {
-	ticker := time.NewTicker(relayedRemoteLogInterval)
+// remotePathRefreshWorker periodically refreshes remote connection paths and warns about relays.
+func (r *localRobot) remotePathRefreshWorker() {
+	ticker := time.NewTicker(remotePathRefreshInterval)
 	defer ticker.Stop()
 	for goutils.SelectContextOrWaitChan(r.closeContext, ticker.C) {
-		r.manager.logRelayedRemotes()
+		r.manager.refreshRemotePaths()
 	}
 }
 

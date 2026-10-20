@@ -2403,3 +2403,28 @@ func TestRemoteConnectionPath(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.1")
 }
+
+func TestRemoteConnStats(t *testing.T) {
+	manager := newResourceManager(resourceManagerOptions{}, logging.NewTestLogger(t))
+	for _, name := range []string{"failed", "dropped"} {
+		test.That(t, manager.resources.AddNode(fromRemoteNameToRemoteNodeName(name), resource.NewUninitializedNode()), test.ShouldBeNil)
+	}
+	relayed := remoteConnPath{local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeRelay, relayAddr: "10.0.0.2"}
+	manager.remoteConns.Store("dropped", remoteConnState{path: relayed, connected: true})
+	manager.remoteConns.Store("removed", remoteConnState{connected: true})
+
+	statser := remoteConnStatser{manager}
+	test.That(t, statser.Stats(), test.ShouldResemble, map[string]remoteConnStats{
+		"failed":  {},
+		"dropped": {Connected: true, LocalCandidate: 1, RemoteCandidate: 4, Relayed: true},
+	})
+
+	// Neither remote has a client, so both are marked disconnected; "dropped" keeps its last path.
+	manager.refreshRemotePaths()
+	test.That(t, statser.Stats(), test.ShouldResemble, map[string]remoteConnStats{
+		"failed":  {},
+		"dropped": {LocalCandidate: 1, RemoteCandidate: 4, Relayed: true},
+	})
+	_, ok := manager.remoteConns.Load("removed")
+	test.That(t, ok, test.ShouldBeFalse)
+}
