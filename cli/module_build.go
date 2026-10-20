@@ -765,8 +765,8 @@ type reloadModuleArgs struct {
 	File string
 }
 
-// archiveEntry is a synthetic file written into a source archive in addition to the files on disk.
-type archiveEntry struct {
+// injectedFile is a file written into a source archive that is not read from disk.
+type injectedFile struct {
 	name    string
 	content []byte
 }
@@ -775,7 +775,7 @@ type archiveEntry struct {
 // produce a faster, reload-only artifact.
 const reloadMarkerFile = ".viam_reload"
 
-func (c *viamClient) createGitArchive(repoPath string, extra ...archiveEntry) (string, error) {
+func (c *viamClient) createGitArchive(repoPath string, injected ...injectedFile) (string, error) {
 	var err error
 	repoPath, err = filepath.Abs(repoPath)
 	if err != nil {
@@ -821,9 +821,9 @@ func (c *viamClient) createGitArchive(repoPath string, extra ...archiveEntry) (s
 		}
 	}()
 
-	extraNames := make(map[string]bool, len(extra))
-	for _, e := range extra {
-		extraNames[e.name] = true
+	injectedPaths := make(map[string]bool, len(injected))
+	for _, e := range injected {
+		injectedPaths[e.name] = true
 	}
 
 	// Walk the filesystem and add files that are not ignored
@@ -842,7 +842,7 @@ func (c *viamClient) createGitArchive(repoPath string, extra ...archiveEntry) (s
 		if err != nil {
 			return err
 		}
-		if extraNames[filepath.ToSlash(relPath)] {
+		if injectedPaths[filepath.ToSlash(relPath)] {
 			return nil
 		}
 
@@ -900,7 +900,7 @@ func (c *viamClient) createGitArchive(repoPath string, extra ...archiveEntry) (s
 		return "", errors.Wrap(err, "failed to process filesystem files")
 	}
 
-	for _, e := range extra {
+	for _, e := range injected {
 		header := &tar.Header{Name: e.name, Mode: 0o644, Size: int64(len(e.content)), ModTime: time.Now()}
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return "", errors.Wrapf(err, "failed to write header for file %s", e.name)
@@ -1407,7 +1407,7 @@ func (c *viamClient) moduleCloudReload(
 		return nil, err
 	}
 	// The builder runs build scripts from the workdir, so the marker goes next to meta.json.
-	marker := archiveEntry{name: path.Join(filepath.ToSlash(args.Workdir), reloadMarkerFile)}
+	marker := injectedFile{name: path.Join(filepath.ToSlash(args.Workdir), reloadMarkerFile)}
 	archivePath, err := c.createGitArchive(args.Path, marker)
 	if err != nil {
 		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck

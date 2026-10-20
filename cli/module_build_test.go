@@ -885,13 +885,13 @@ func TestCreateGitArchive(t *testing.T) {
 		test.That(t, files, test.ShouldResemble, []string{"a.txt", "sub/b.txt"})
 	})
 
-	t.Run("extra entries are added and replace files on disk", func(t *testing.T) {
+	t.Run("injected files are added and replace files on disk", func(t *testing.T) {
 		root := t.TempDir()
 		writeFile(t, filepath.Join(root, "main.py"), "print()")
 		writeFile(t, filepath.Join(root, "mod", reloadMarkerFile), "stale")
 
 		vc := newClient()
-		archivePath, err := vc.createGitArchive(root, archiveEntry{name: "mod/" + reloadMarkerFile})
+		archivePath, err := vc.createGitArchive(root, injectedFile{name: "mod/" + reloadMarkerFile})
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() { os.Remove(archivePath) })
 
