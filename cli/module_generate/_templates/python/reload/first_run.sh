@@ -36,13 +36,19 @@ else
     PYTHON_ARG="--python $DEFAULT_PYTHON_VERSION"
 fi
 
+# Build a replacement venv beside the old one and swap only on success, so a failed
+# rebuild leaves the previous working venv in place.
 if [ ! -x "$VENV/bin/python" ] || [ "$(cat "$VENV/.python-request" 2>/dev/null)" != "$PYTHON_REQUEST" ]; then
+    NEW_VENV="$VENV.new"
+    rm -rf "$NEW_VENV"
+    "$UV" venv --managed-python $PYTHON_ARG "$NEW_VENV"
+    echo "Installing Python packages..."
+    "$UV" pip install --python "$NEW_VENV/bin/python" -r requirements.txt -U -q
+    cp requirements.txt "$NEW_VENV/.requirements.txt"
+    printf '%s' "$PYTHON_REQUEST" > "$NEW_VENV/.python-request"
     rm -rf "$VENV"
-    "$UV" venv --managed-python $PYTHON_ARG "$VENV"
-    printf '%s' "$PYTHON_REQUEST" > "$VENV/.python-request"
-fi
-
-if ! cmp -s requirements.txt "$VENV/.requirements.txt"; then
+    mv "$NEW_VENV" "$VENV"
+elif ! cmp -s requirements.txt "$VENV/.requirements.txt"; then
     echo "Installing Python packages..."
     "$UV" pip install --python "$VENV/bin/python" -r requirements.txt -U -q
     cp requirements.txt "$VENV/.requirements.txt"
