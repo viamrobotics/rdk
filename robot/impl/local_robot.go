@@ -69,6 +69,9 @@ const localConfigPartID = "local-config"
 // measured from the end of the previous attempt.
 const configTickerInterval = 5 * time.Second
 
+// remoteConnectionLogInterval is how often each connected remote's connection path is logged.
+const remoteConnectionLogInterval = 15 * time.Minute
+
 var _ = robot.LocalRobot(&localRobot{})
 
 func init() {
@@ -672,6 +675,9 @@ func newWithResources(
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
 	}
+
+	r.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(r.remoteConnectionLogWorker, r.activeBackgroundWorkers.Done)
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
@@ -1683,6 +1689,16 @@ func dialRobotClient(
 		return nil, err
 	}
 	return robotClient, nil
+}
+
+// remoteConnectionLogWorker periodically logs whether each connected remote is relayed, since
+// the path can change mid-connection without a reconnect.
+func (r *localRobot) remoteConnectionLogWorker() {
+	ticker := time.NewTicker(remoteConnectionLogInterval)
+	defer ticker.Stop()
+	for goutils.SelectContextOrWaitChan(r.closeContext, ticker.C) {
+		r.manager.logRemoteConnectionPaths()
+	}
 }
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make

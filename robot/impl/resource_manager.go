@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -1070,6 +1071,10 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				}
 				manager.addRemote(ctx, rr, gNode, *remConf)
 				rr.SetParentNotifier(func() {
+					// Also fires on disconnect.
+					if rr.Connected() {
+						manager.logRemoteConnectionPath(remConf.Name, rr)
+					}
 					lr.sendTriggerConfig(remConf.Name)
 				})
 			default:
@@ -1187,7 +1192,47 @@ func (manager *resourceManager) processRemote(
 		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
 	manager.logger.Activity("remote", "connect", "remote", config.Name)
+	manager.logRemoteConnectionPath(config.Name, robotClient)
 	return robotClient, nil
+}
+
+// logRemoteConnectionPath logs whether a remote is connected through a TURN relay on the
+// user-facing manager logger; the remote's own networking logger is diagnostic-only in app.
+func (manager *resourceManager) logRemoteConnectionPath(name string, rc *client.RobotClient) {
+	if addr, relayed := remoteRelayAddress(rc); relayed {
+		manager.logger.Infow("Connected to remote over relay", "remote", name, "relay_address", addr)
+		return
+	}
+	manager.logger.Infow("Connected to remote directly", "remote", name)
+}
+
+// logRemoteConnectionPaths logs the connection path of every connected remote.
+func (manager *resourceManager) logRemoteConnectionPaths() {
+	for _, name := range manager.RemoteNames() {
+		rr, ok := manager.RemoteByName(name)
+		if !ok {
+			continue
+		}
+		if rc, ok := rr.(*client.RobotClient); ok && rc.Connected() {
+			manager.logRemoteConnectionPath(name, rc)
+		}
+	}
+}
+
+// remoteRelayAddress returns the TURN server address rc's WebRTC connection is relayed through,
+// and whether it is relayed at all. Non-WebRTC connections are never relayed.
+func remoteRelayAddress(rc *client.RobotClient) (string, bool) {
+	stats := rc.WebRTCStats()
+	pair, ok := rpc.SelectedCandidatePair(stats)
+	if !ok {
+		return "", false
+	}
+	for _, id := range []string{pair.LocalCandidateID, pair.RemoteCandidateID} {
+		if cand, ok := stats[id].(webrtc.ICECandidateStats); ok && cand.CandidateType == webrtc.ICECandidateTypeRelay {
+			return cand.IP, true
+		}
+	}
+	return "", false
 }
 
 // RemoteByName returns the given remote robot by name, if it exists;
