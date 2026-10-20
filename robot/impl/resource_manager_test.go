@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -2371,4 +2372,34 @@ func TestOfflineRemoteResources(t *testing.T) {
 	// longer appears.
 	mainClient.Refresh(ctx)
 	test.That(t, resourceNames, test.ShouldNotContain, mainClient.ResourceNames())
+}
+
+func TestRemoteConnectionPath(t *testing.T) {
+	report := func(local, remote webrtc.ICECandidateType) webrtc.StatsReport {
+		return webrtc.StatsReport{
+			"pair": webrtc.ICECandidatePairStats{
+				Nominated:         true,
+				State:             webrtc.StatsICECandidatePairStateSucceeded,
+				LocalCandidateID:  "local",
+				RemoteCandidateID: "remote",
+			},
+			"local":  webrtc.ICECandidateStats{CandidateType: local, IP: "10.0.0.1"},
+			"remote": webrtc.ICECandidateStats{CandidateType: remote, IP: "10.0.0.2"},
+		}
+	}
+
+	_, ok := remoteConnectionPath(nil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	path, ok := remoteConnectionPath(report(webrtc.ICECandidateTypeHost, webrtc.ICECandidateTypeSrflx))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, path, test.ShouldResemble, remoteConnPath{local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeSrflx})
+
+	path, ok = remoteConnectionPath(report(webrtc.ICECandidateTypeHost, webrtc.ICECandidateTypeRelay))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.2")
+
+	path, ok = remoteConnectionPath(report(webrtc.ICECandidateTypeRelay, webrtc.ICECandidateTypeRelay))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.1")
 }
