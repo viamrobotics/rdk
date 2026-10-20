@@ -765,7 +765,17 @@ type reloadModuleArgs struct {
 	File string
 }
 
-func (c *viamClient) createGitArchive(repoPath string) (string, error) {
+// archiveEntry is a synthetic file written into a source archive in addition to the files on disk.
+type archiveEntry struct {
+	name    string
+	content []byte
+}
+
+// reloadMarkerFile is added to cloud reload source archives so a module's build scripts can
+// produce a faster, reload-only artifact.
+const reloadMarkerFile = ".viam_reload"
+
+func (c *viamClient) createGitArchive(repoPath string, extra ...archiveEntry) (string, error) {
 	var err error
 	repoPath, err = filepath.Abs(repoPath)
 	if err != nil {
@@ -811,6 +821,11 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		}
 	}()
 
+	extraNames := make(map[string]bool, len(extra))
+	for _, e := range extra {
+		extraNames[e.name] = true
+	}
+
 	// Walk the filesystem and add files that are not ignored
 	err = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -826,6 +841,9 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		relPath, err := filepath.Rel(repoPath, path)
 		if err != nil {
 			return err
+		}
+		if extraNames[filepath.ToSlash(relPath)] {
+			return nil
 		}
 
 		// Skip directories and check if file should be ignored
@@ -880,6 +898,16 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to process filesystem files")
+	}
+
+	for _, e := range extra {
+		header := &tar.Header{Name: e.name, Mode: 0o644, Size: int64(len(e.content)), ModTime: time.Now()}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return "", errors.Wrapf(err, "failed to write header for file %s", e.name)
+		}
+		if _, err := tarWriter.Write(e.content); err != nil {
+			return "", errors.Wrapf(err, "failed to write content for file %s", e.name)
+		}
 	}
 
 	return archivePath, nil
@@ -1378,7 +1406,9 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("archive"); err != nil {
 		return nil, err
 	}
-	archivePath, err := c.createGitArchive(args.Path)
+	// The builder runs build scripts from the workdir, so the marker goes next to meta.json.
+	marker := archiveEntry{name: path.Join(filepath.ToSlash(args.Workdir), reloadMarkerFile)}
+	archivePath, err := c.createGitArchive(args.Path, marker)
 	if err != nil {
 		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...")  //nolint:errcheck
