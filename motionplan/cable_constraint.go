@@ -34,7 +34,8 @@ type CableConstraint struct {
 
 	// ReferenceDegs maps a frame name to the joint positions, in the frame's
 	// protobuf units (degrees for rotational joints), at which its cables are
-	// untwisted. Frames that are absent use all zeros.
+	// untwisted. Frames that are absent use the midpoint of each joint's limits,
+	// so a joint whose range is not centered on zero keeps its full reach.
 	ReferenceDegs map[string][]float64
 
 	// Frames limits the constraint to the named kinematic models. Empty means
@@ -93,13 +94,17 @@ func newCableConstraintCheck(
 			// check did not cover these frame names.
 			continue
 		}
-		dof := len(frame.DoF())
+		limits := frame.DoF()
+		dof := len(limits)
 		if dof == 0 {
 			continue
 		}
 		rotational := rotationalDoF(frame)
 
 		ref := make([]referenceframe.Input, dof)
+		for i, lim := range limits {
+			ref[i] = (lim.Min + lim.Max) / 2
+		}
 		if refDegs, ok := cc.ReferenceDegs[name]; ok {
 			if len(refDegs) != dof {
 				return nil, fmt.Errorf("cable constraint reference for frame %q has %d values, frame has %d DoF",

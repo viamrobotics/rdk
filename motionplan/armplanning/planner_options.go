@@ -145,7 +145,7 @@ type PlannerOptions struct {
 	MaxCableTwistDegs float64 `json:"max_cable_twist_degs"`
 
 	// CableTwistReferenceDegs maps a frame name to the joint positions, in degrees, at which
-	// its cables are untwisted. Frames that are absent use all zeros.
+	// its cables are untwisted. Frames that are absent use the midpoint of each joint's limits.
 	CableTwistReferenceDegs map[string][]float64 `json:"cable_twist_reference_degs"`
 
 	// CableConstraintFrames limits CableConstraint to the named arms. Empty means every arm.

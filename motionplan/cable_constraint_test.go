@@ -76,6 +76,23 @@ func TestCableConstraint(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
+	t.Run("default reference is the midpoint of an off-center joint's limits", func(t *testing.T) {
+		xfs := referenceframe.NewEmptyFrameSystem("xarm")
+		xarm, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, xfs.AddFrame(xarm, xfs.World()), test.ShouldBeNil)
+		elbow := func(degs float64) *referenceframe.LinearInputs {
+			in := make([]referenceframe.Input, 6)
+			in[2] = utils.DegToRad(degs)
+			return referenceframe.FrameSystemInputs{xarm.Name(): in}.ToLinearInputs()
+		}
+		c := NewEmptyConstraintChecker(logger)
+		test.That(t, c.AddCableConstraint(xfs, elbow(0), CableConstraint{}), test.ShouldBeNil)
+		// The elbow spans -225 to 10 degrees; a band centered on zero would cut off -180 to -225.
+		_, err = c.CheckStateFSConstraints(ctx, &StateFS{Configuration: elbow(-220), FS: xfs})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("frames limit which models are checked", func(t *testing.T) {
 		c := checkerFor(cfg(0, 0), CableConstraint{Frames: []string{m.Name()}})
 		test.That(t, errors.Is(check(c, 5, 190), ErrCableConstraintViolated), test.ShouldBeTrue)
