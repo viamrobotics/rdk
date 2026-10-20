@@ -1098,6 +1098,69 @@ func TestStreamLogsForPart(t *testing.T) {
 		test.That(t, countLines(buf.String()), test.ShouldEqual, 5)
 		test.That(t, firstRequest.End, test.ShouldBeNil)
 	})
+	t.Run("end without start anchors the default window to end", func(t *testing.T) {
+		end := "2026-02-06T00:54:43Z"
+		flags := map[string]any{generalFlagEnd: end}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		endTime, err := time.Parse(time.RFC3339, end)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, firstRequest.End.AsTime(), test.ShouldEqual, endTime)
+		// Defaulting start to 24 hours before *now* would describe an empty window for any end
+		// older than a day.
+		test.That(t, firstRequest.Start, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Start.AsTime(), test.ShouldEqual, endTime.Add(defaultLogStartTime))
+	})
+	t.Run("transient fetch failures are retried", func(t *testing.T) {
+		var failures int
+		flaky := &inject.AppServiceClient{
+			GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartLogsResponse, error) {
+				if failures == 0 && in.PageToken != nil && *in.PageToken == "2" {
+					failures++
+					return nil, status.Error(codes.Unavailable, "connection termination")
+				}
+				return getRobotPartLogsFunc(ctx, in, opts...)
+			},
+		}
+		cCtx, ac, _, errOut := setup(flaky, nil, nil, nil, "")
+		requests = 0
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		// A dropped page mid-export costs a retry, not the remaining logs.
+		test.That(t, failures, test.ShouldEqual, 1)
+		test.That(t, countLines(buf.String()), test.ShouldEqual, testTotalLogs)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "Retrying log fetch")
+	})
+	t.Run("non-transient fetch failures are not retried", func(t *testing.T) {
+		var attempts int
+		broken := &inject.AppServiceClient{
+			GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartLogsResponse, error) {
+				attempts++
+				return nil, status.Error(codes.InvalidArgument, "bad range")
+			},
+		}
+		cCtx, ac, _, _ := setup(broken, nil, nil, nil, "")
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		err := ac.streamLogsForPart(context.Background(), part, args, &buf)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "bad range")
+		test.That(t, attempts, test.ShouldEqual, 1)
+	})
 }
 
 // TestRobotsLogsAction covers `machines logs` from the action entrypoint, where flag validation
@@ -1171,6 +1234,98 @@ func TestRobotsLogsAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 0)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	})
+}
+
+// TestRobotsLogsActionLargeExport covers the export reported in RSDK-13345: a keyword over an
+// explicit [start, end] window written to a file, with a `--count` well above the 10000-log cap
+// the CLI used to reject and above app's page size.
+func TestRobotsLogsActionLargeExport(t *testing.T) {
+	const (
+		availableLogs = 25000
+		pageSize      = 1000
+		requestedLogs = 20000
+		keyword       = "Upload sending"
+	)
+
+	logs := make([]*commonpb.LogEntry, 0, availableLogs)
+	for i := 0; i < availableLogs; i++ {
+		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%s %d", keyword, i)})
+	}
+
+	var firstRequest *apppb.GetRobotPartLogsRequest
+	loc := apppb.Location{Name: "naboo"}
+	asc := &inject.AppServiceClient{
+		GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartLogsResponse, error) {
+			if firstRequest == nil {
+				firstRequest = in
+			}
+			page := 1
+			if pt := in.PageToken; pt != nil && *pt != "" {
+				var err error
+				page, err = strconv.Atoi(*pt)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			batchStart := (page - 1) * pageSize
+			if batchStart >= availableLogs {
+				return &apppb.GetRobotPartLogsResponse{}, nil
+			}
+			return &apppb.GetRobotPartLogsResponse{
+				Logs:          logs[batchStart:min(page*pageSize, availableLogs)],
+				NextPageToken: fmt.Sprintf("%d", page+1),
+			}, nil
+		},
+		ListOrganizationsFunc: func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{{Name: "jedi", Id: "123"}}}, nil
+		},
+		ListLocationsFunc: func(ctx context.Context, in *apppb.ListLocationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListLocationsResponse, error) {
+			return &apppb.ListLocationsResponse{Locations: []*apppb.Location{&loc}}, nil
+		},
+		GetLocationFunc: func(ctx context.Context, in *apppb.GetLocationRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetLocationResponse, error) {
+			return &apppb.GetLocationResponse{Location: &loc}, nil
+		},
+		ListRobotsFunc: func(ctx context.Context, in *apppb.ListRobotsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListRobotsResponse, error) {
+			return &apppb.ListRobotsResponse{Robots: []*apppb.Robot{{Name: "r2d2"}}}, nil
+		},
+		GetRobotPartsFunc: func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartsResponse, error) {
+			return &apppb.GetRobotPartsResponse{Parts: []*apppb.RobotPart{{Name: "main"}}}, nil
+		},
+	}
+
+	start, end := "2026-02-05T00:54:43Z", "2026-02-06T00:54:43Z"
+	outputFile := filepath.Join(t.TempDir(), "logs")
+	flags := map[string]any{
+		logsFlagKeyword:    keyword,
+		generalFlagStart:   start,
+		generalFlagEnd:     end,
+		logsFlagOutputFile: outputFile,
+		logsFlagFormat:     "text",
+		generalFlagCount:   requestedLogs,
+	}
+	cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+
+	test.That(t, ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx)), test.ShouldBeNil)
+
+	test.That(t, firstRequest, test.ShouldNotBeNil)
+	test.That(t, *firstRequest.Filter, test.ShouldEqual, keyword)
+	test.That(t, firstRequest.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, start)
+	test.That(t, firstRequest.End.AsTime().Format(time.RFC3339), test.ShouldEqual, end)
+
+	contents, err := os.ReadFile(outputFile)
+	test.That(t, err, test.ShouldBeNil)
+	// The export stops at `--count`, not at app's page size.
+	test.That(t, strings.Count(string(contents), keyword), test.ShouldEqual, requestedLogs)
 }
 
 func TestMachinesPartHistoryAction(t *testing.T) {
