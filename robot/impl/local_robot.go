@@ -1465,6 +1465,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		res, resErr := r.ResourceByName(resConfig.ResourceName())
 		isAvailable := resErr == nil
+		resType := resConfig.ResourceName().API.SubtypeName
 		linkInFrame, err := (&referenceframe.LinkConfig{
 			ID:          frameName,
 			Translation: resConfig.Frame.Translation,
@@ -1494,7 +1495,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		if !isAvailable {
 			// An unavailable resource can't report its kinematics. If any API the model serves is
 			// kinematic, omit it.
-			kinematic := isKinematicSubtype(resConfig.ResourceName().API.SubtypeName)
+			kinematic := isKinematicSubtype(resType)
 			for _, api := range resource.APIsForModel(resConfig.Model) {
 				kinematic = kinematic || isKinematicSubtype(api.SubtypeName)
 			}
@@ -1549,6 +1550,14 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			}
 
 			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
+			continue
+		}
+
+		// A resource configured under a kinematic API (arm/gantry/gripper) is expected to be InputEnabled;
+		// if it isn't, omit it rather than give a jointed device a rigid frame.
+		if isAvailable && isKinematicSubtype(resType) {
+			logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
+				"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", res))
 			continue
 		}
 
@@ -1618,7 +1627,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			// it unimplemented. This log implies programmer error within the viam-server. For
 			// example, sensors do not seem to be `Shaped`.
 			logger.Debugw("Resource missing `Geometries` method.",
-				"ResType", resConfig.ResourceName().API.SubtypeName, "ResObjectType", fmt.Sprintf("%T", res))
+				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", res))
 		}
 
 		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
