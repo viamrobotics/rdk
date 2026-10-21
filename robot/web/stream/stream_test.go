@@ -637,6 +637,53 @@ func TestStreamServerSurvivesWebRestart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+// TestAddStreamBeforeWebReconfigure asserts a camera's stream can be added before the web
+// service's reconfigure has registered it, e.g. while the robot is still initializing.
+func TestAddStreamBeforeWebReconfigure(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cameraConfig := func(name string) resource.Config {
+		return resource.Config{
+			Name:                name,
+			API:                 camera.API,
+			Model:               resource.DefaultModelFamily.WithModel("fake"),
+			ConvertedAttributes: &fake.Config{Animated: true, Width: 100, Height: 50},
+		}
+	}
+	cfg := &config.Config{Components: []resource.Config{cameraConfig("origCamera")}}
+	ctx, robot, addr, webSvc := setupRealRobot(t, cfg, logger)
+	defer robot.Close(ctx)
+	defer webSvc.Close(ctx)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger.Sublogger("TestDial"), rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer conn.Close()
+	livestreamClient := streampb.NewStreamServiceClient(conn)
+
+	// webSvc isn't the robot's own web service, so this reconfigure doesn't register newCamera's stream.
+	cfg.Components = append(cfg.Components, cameraConfig("newCamera"))
+	robot.Reconfigure(ctx, cfg)
+	listResp, err := livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, listResp.Names, test.ShouldResemble, []string{"origCamera"})
+
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "newCamera"})
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, conn.PeerConn().CurrentLocalDescription().SDP, test.ShouldContainSubstring, "m=video")
+	})
+
+	_, err = livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no stream for "missing"`)
+
+	// The web reconfigure must not try to register newCamera's stream again.
+	err = webSvc.(resource.BuiltInResource).BuiltInReconfigure(ctx, nil, resource.Config{})
+	test.That(t, err, test.ShouldBeNil)
+	listResp, err = livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, listResp.Names, test.ShouldHaveLength, 2)
+}
+
 // TestRemoveStreamWhileCameraUnavailable asserts a stream removed while its camera is
 // unavailable (e.g. its module is restarting) can be re-added once the camera is back.
 func TestRemoveStreamWhileCameraUnavailable(t *testing.T) {

@@ -193,6 +193,12 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		return nil, errors.New("can only add a stream over a WebRTC based connection")
 	}
 
+	// A camera can be ready before the web service's reconfigure has registered its stream.
+	if err := server.ensureStream(req.Name); err != nil {
+		server.logger.Error(err.Error())
+		return nil, err
+	}
+
 	server.mu.Lock()
 	defer server.mu.Unlock()
 
@@ -513,48 +519,105 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 	// and mutate the `svc.videoSources` map.
 	server.refreshVideoSources(ctx)
 
+	server.mu.RLock()
+	sources := make(map[string]gostream.HotSwappableVideoSource, len(server.videoSources))
+	for name, src := range server.videoSources {
+		sources[name] = src
+	}
+	server.mu.RUnlock()
+
 	if server.streamConfig == (gostream.StreamConfig{}) {
 		// The `streamConfig` dictates the video encoder library to use. We can't do
 		// much if none is present.
-		if len(server.videoSources) != 0 {
+		if len(sources) != 0 {
 			server.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
 	}
 
-	for name := range server.videoSources {
+	for name, src := range sources {
 		if runtime.GOOS == "windows" {
 			// TODO(RSDK-1771): support video on windows
 			server.logger.Warn("video streaming not supported on Windows yet")
 			break
 		}
-		// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
-		// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
-		framerate, err := server.getFramerateFromCamera(name)
-		if err != nil {
-			server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
-		}
 		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
 		// "started".
-		config := gostream.StreamConfig{
-			Name:                name,
-			VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
-			TargetFrameRate:     framerate,
-		}
 		// Call `createStream`. `createStream` is responsible for first checking if the stream
 		// already exists. If it does, it skips creating a new stream and we continue to the next source.
-		//
-		// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-		stream, alreadyRegistered, err := server.createStream(config, name)
+		stream, alreadyRegistered, err := server.createStream(server.newStreamConfig(name), name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
 			continue
 		}
-		server.startVideoStream(ctx, server.videoSources[name], stream)
+		server.startVideoStream(ctx, src, stream)
 	}
 
 	return nil
+}
+
+// ensureStream registers and starts a stream for the named camera if the camera exists and no
+// stream is registered for it yet.
+func (server *Server) ensureStream(name string) error {
+	server.mu.RLock()
+	_, ok := server.nameToStreamState[name]
+	server.mu.RUnlock()
+	if ok || server.streamConfig == (gostream.StreamConfig{}) || runtime.GOOS == "windows" {
+		return nil
+	}
+
+	// Camera lookups can reach out to a module, so stay unlocked until registration.
+	cam, err := camera.FromProvider(server.robot, name)
+	if err != nil {
+		// AddStream reports the missing stream.
+		return nil
+	}
+	src, err := camerautils.VideoSourceFromCamera(server.closedCtx, cam)
+	if err != nil {
+		return fmt.Errorf("failed to create video source from camera %q: %w", name, err)
+	}
+	config := server.newStreamConfig(name)
+
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	if _, ok := server.nameToStreamState[name]; ok {
+		return nil
+	}
+	stream, err := gostream.NewStream(config, server.logger)
+	if err != nil {
+		return err
+	}
+	if err := server.add(stream); err != nil {
+		return err
+	}
+	swapper, ok := server.videoSources[name]
+	if ok {
+		swapper.Swap(src)
+	} else {
+		swapper = gostream.NewHotSwappableVideoSource(src)
+		server.videoSources[name] = swapper
+	}
+	// closedCtx rather than the request's: the stream outlives the AddStream call.
+	server.startVideoStream(server.closedCtx, swapper, stream)
+	return nil
+}
+
+// newStreamConfig returns the stream config for the named camera.
+func (server *Server) newStreamConfig(name string) gostream.StreamConfig {
+	// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
+	// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
+	//
+	// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
+	framerate, err := server.getFramerateFromCamera(name)
+	if err != nil {
+		server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
+	}
+	return gostream.StreamConfig{
+		Name:                name,
+		VideoEncoderFactory: server.streamConfig.VideoEncoderFactory,
+		TargetFrameRate:     framerate,
+	}
 }
 
 // Close closes the Server and waits for spun off goroutines to complete.
@@ -689,45 +752,52 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 			server.logger.Errorf("error creating video source from camera: %v", err)
 			continue
 		}
-		existing, ok := server.videoSources[cam.Name().Name]
-		if ok {
-			// Check stream state for the camera to see if it is in resized mode.
-			// If it is in resized mode, we want to apply the resize transformation to the
-			// video source before swapping it.
-			streamState, ok := server.nameToStreamState[cam.Name().Name]
-			if ok && streamState.IsResized() {
-				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().Name)
-				mediaProps, err := existing.MediaProperties(server.closedCtx)
-				if err != nil {
-					server.logger.Errorf("error getting media properties from resize source: %v", err)
-				} else {
-					// resizeVideoSource should always have a width and height set.
-					height, width := mediaProps.Height, mediaProps.Width
-					if height != 0 && width != 0 {
-						server.logger.Debugf(
-							"resizing video source to width %d and height %d",
-							width, height,
-						)
-						resizer := gostream.NewResizeVideoSource(src, width, height)
-						existing.Swap(resizer)
-						continue
-					}
-				}
-				// If we can't get the media properties or the width and height are 0, we fall back to
-				// the original source and need to notify the stream state that the source is no longer
-				// resized.
-				server.logger.Warnf("falling back to original source for stream %q", cam.Name().Name)
-				err = streamState.Reset()
-				if err != nil {
-					server.logger.Errorf("error resetting stream %q: %v", cam.Name().Name, err)
+		server.setVideoSource(cam.Name().Name, src)
+	}
+}
+
+// setVideoSource swaps in src for the named camera, reapplying any active resize.
+func (server *Server) setVideoSource(name string, src gostream.VideoSource) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	existing, ok := server.videoSources[name]
+	if ok {
+		// Check stream state for the camera to see if it is in resized mode.
+		// If it is in resized mode, we want to apply the resize transformation to the
+		// video source before swapping it.
+		streamState, ok := server.nameToStreamState[name]
+		if ok && streamState.IsResized() {
+			server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", name)
+			mediaProps, err := existing.MediaProperties(server.closedCtx)
+			if err != nil {
+				server.logger.Errorf("error getting media properties from resize source: %v", err)
+			} else {
+				// resizeVideoSource should always have a width and height set.
+				height, width := mediaProps.Height, mediaProps.Width
+				if height != 0 && width != 0 {
+					server.logger.Debugf(
+						"resizing video source to width %d and height %d",
+						width, height,
+					)
+					resizer := gostream.NewResizeVideoSource(src, width, height)
+					existing.Swap(resizer)
+					return
 				}
 			}
-			existing.Swap(src)
-			continue
+			// If we can't get the media properties or the width and height are 0, we fall back to
+			// the original source and need to notify the stream state that the source is no longer
+			// resized.
+			server.logger.Warnf("falling back to original source for stream %q", name)
+			err = streamState.Reset()
+			if err != nil {
+				server.logger.Errorf("error resetting stream %q: %v", name, err)
+			}
 		}
-		newSwapper := gostream.NewHotSwappableVideoSource(src)
-		server.videoSources[cam.Name().Name] = newSwapper
+		existing.Swap(src)
+		return
 	}
+	newSwapper := gostream.NewHotSwappableVideoSource(src)
+	server.videoSources[name] = newSwapper
 }
 
 func (server *Server) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
