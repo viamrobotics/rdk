@@ -616,6 +616,101 @@ func TestConfiguredModuleName(t *testing.T) {
 	test.That(t, configuredModuleName(partWithConfig(`{}`), "viam:mymod"), test.ShouldEqual, "viam_mymod")
 }
 
+func TestReloadRestartRequestUsesManifestID(t *testing.T) {
+	manifest := &ModuleManifest{ModuleID: "acme:rssi-triangulation"}
+	// Config names are derived from the module ID. Older CLIs appended "_from_reload".
+	configured := []rdkConfig.Module{
+		{Name: "acme_rssi-triangulation", ModuleID: manifest.ModuleID},
+		{Name: "acme_rssi-triangulation_from_reload", ModuleID: manifest.ModuleID},
+	}
+
+	req, err := reloadRestartRequest(manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleID, test.ShouldEqual, manifest.ModuleID)
+	test.That(t, req.ModuleName, test.ShouldBeEmpty)
+	for _, mod := range configured {
+		test.That(t, req.MatchesModule(mod), test.ShouldBeTrue)
+	}
+	// A request built from the short name does not match either config name.
+	byName := &robot.RestartModuleRequest{ModuleName: "rssi-triangulation"}
+	for _, mod := range configured {
+		test.That(t, byName.MatchesModule(mod), test.ShouldBeFalse)
+	}
+
+	_, err = reloadRestartRequest(nil)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+// Standalone `module restart` still prefers --name over the manifest module ID.
+func TestResolveTargetModuleKeepsNameForRestartCommand(t *testing.T) {
+	manifest := &ModuleManifest{ModuleID: "acme:rssi-triangulation"}
+
+	cmd := newTestContext(t, map[string]any{generalFlagName: "rssi-triangulation"})
+	req, err := resolveTargetModule(cmd, manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleName, test.ShouldEqual, "rssi-triangulation")
+	test.That(t, req.ModuleID, test.ShouldBeEmpty)
+
+	cmd = newTestContext(t, map[string]any{})
+	req, err = resolveTargetModule(cmd, manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleID, test.ShouldEqual, manifest.ModuleID)
+	test.That(t, req.ModuleName, test.ShouldBeEmpty)
+}
+
+func TestReloadHelpUsesResourceName(t *testing.T) {
+	app := NewApp(&testWriter{}, &testWriter{})
+	moduleCmd := commandByName(t, app.Commands, "module")
+	for _, name := range []string{"reload-local", "reload"} {
+		cmd := commandByName(t, moduleCmd.Commands, name)
+		test.That(t, cmd.Description, test.ShouldContainSubstring, "--resource-name my-resource")
+		test.That(t, cmd.Description, test.ShouldNotContainSubstring, "--name my-resource")
+		test.That(t, hasStringFlag(cmd, generalFlagName), test.ShouldBeFalse)
+		test.That(t, hasStringFlag(cmd, generalFlagID), test.ShouldBeFalse)
+	}
+
+	reloadLocal := commandByName(t, moduleCmd.Commands, "reload-local")
+	test.That(t, stringFlagUsage(t, reloadLocal, moduleFlagPath), test.ShouldNotContainSubstring, "overridden with --id or --name")
+
+	// `module restart` is where --name still selects the module.
+	restart := commandByName(t, moduleCmd.Commands, "restart")
+	test.That(t, stringFlagUsage(t, restart, generalFlagName), test.ShouldContainSubstring, "name of module to restart")
+	test.That(t, hasStringFlag(restart, generalFlagID), test.ShouldBeTrue)
+}
+
+func commandByName(t *testing.T, cmds []*cli.Command, name string) *cli.Command {
+	t.Helper()
+	for _, cmd := range cmds {
+		if cmd.Name == name {
+			return cmd
+		}
+	}
+	t.Fatalf("command %q not found", name)
+	return nil
+}
+
+func stringFlagUsage(t *testing.T, cmd *cli.Command, name string) string {
+	t.Helper()
+	for _, flag := range cmd.Flags {
+		stringFlag, ok := flag.(*cli.StringFlag)
+		if ok && stringFlag.Name == name {
+			return stringFlag.Usage
+		}
+	}
+	t.Fatalf("flag %q not found on %s", name, cmd.Name)
+	return ""
+}
+
+func hasStringFlag(cmd *cli.Command, name string) bool {
+	for _, flag := range cmd.Flags {
+		stringFlag, ok := flag.(*cli.StringFlag)
+		if ok && stringFlag.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func TestReloadWithMissingBuildSection(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
