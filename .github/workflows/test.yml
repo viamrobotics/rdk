@@ -446,8 +446,11 @@ jobs:
         GOTEST_EXIT=$?
         echo "go test -json exit=$GOTEST_EXIT, raw.json size=$(wc -c < raw.json) bytes"
 
-        # Then let gotestsum format and summarize from the saved JSON file.
-        go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- cat raw.json
+        # gotestsum aborts on any JSON line over 64 KiB, and a zig libc++ build can emit a
+        # multi-MB build-output event, so cap Output first. raw.json keeps the full text.
+        go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- \
+          jq -c 'if (.Output // "" | length) > 8192
+            then .Output |= .[:8192] + "\n[output truncated; full text in raw.json]\n" else . end' raw.json
         GOTESTSUM_EXIT=$?
 
         # Fail the step if either go test or gotestsum failed.
