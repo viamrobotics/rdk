@@ -26,6 +26,14 @@ var StreamableImageMIMETypes = []string{
 	rutils.MimeTypeQOI,
 }
 
+// FromStreamServerString is the extra key set on every camera request the stream server makes, so a
+// camera can tell a video stream's polling apart from other callers, as data.FromDMString does for data
+// capture.
+const FromStreamServerString = "fromStreamServer"
+
+// FromStreamServerExtraMap is a map with 'fromStreamServer' set to true.
+var FromStreamServerExtraMap = map[string]interface{}{FromStreamServerString: true}
+
 // cropToEvenDimensions crops an image to even dimensions for x264 compatibility.
 // x264 only supports even resolutions. This ensures all streamed images work with x264.
 func cropToEvenDimensions(img image.Image) (image.Image, error) {
@@ -68,7 +76,7 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 // GetStreamableNamedImageFromCamera returns the first named image it finds from the camera that is supported for streaming.
 // It prioritizes images based on the order of StreamableImageMIMETypes.
 func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (camera.NamedImage, error) {
-	namedImages, _, err := cam.Images(ctx, nil, nil)
+	namedImages, _, err := cam.Images(ctx, nil, FromStreamServerExtraMap)
 	if err != nil {
 		return camera.NamedImage{}, err
 	}
@@ -102,7 +110,7 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 // getImageBySourceName retrieves a specific named image from the camera by source name.
 func getImageBySourceName(ctx context.Context, cam camera.Camera, sourceName string) (camera.NamedImage, error) {
 	filterSourceNames := []string{sourceName}
-	namedImages, _, err := cam.Images(ctx, filterSourceNames, nil)
+	namedImages, _, err := cam.Images(ctx, filterSourceNames, FromStreamServerExtraMap)
 	if err != nil {
 		return camera.NamedImage{}, err
 	}
