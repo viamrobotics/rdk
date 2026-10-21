@@ -143,7 +143,6 @@ func jwtCacheWrite(partID, host, jwt string) error {
 func jwtCacheRead(partID, host string) (string, error) {
 	_, jwtPath := jwtInfo(partID, host)
 
-	// we need to write the JWT provided by app to disk
 	//nolint:gosec
 	jwtData, err := os.ReadFile(jwtPath)
 	if err != nil {
@@ -184,10 +183,6 @@ func authedDialDirectGRPC(ctx context.Context,
 	dialOpts ...rpc.DialOption,
 ) (rpc.ClientConn, error) {
 	dialOpts = append(dialOpts, rpc.WithAccessTokenHandler(func(freshJwt string) {
-		if freshJwt == "" {
-			logger.Warnf("auth succeeded but the JWT from %s was empty, not updating cache", host)
-			return
-		}
 		if cacheErr := jwtCacheWrite(partID, host, freshJwt); cacheErr != nil {
 			logger.Warnw("could not write to JWT cache", "error", cacheErr)
 		}
