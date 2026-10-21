@@ -77,7 +77,7 @@ func TestWebcamIdleTimeout(t *testing.T) {
 				_, _, errs[i] = c.Images(ctx, nil, nil)
 			}()
 		}
-		// Exactly one read is in flight (blocked on the gate) no matter how many callers are waiting.
+		// Exactly one read is in flight (held by block) no matter how many callers are waiting.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			test.That(tb, reader.reads.Load(), test.ShouldEqual, readsAtPause+1)
 		})

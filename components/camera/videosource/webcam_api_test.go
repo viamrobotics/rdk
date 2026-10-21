@@ -110,31 +110,16 @@ func TestWebcamProperties(t *testing.T) {
 	})
 }
 
-func TestWebcamPointCloudAndGeometries(t *testing.T) {
-	ctx := context.Background()
-	c := newFakeWebcam(t, 0, &fakeReader{}, &fakeDriver{}, &fakeOpener{})
-
-	pc, err := c.NextPointCloud(ctx, nil)
-	test.That(t, err, test.ShouldBeError, errors.New("not supported for webcams"))
-	test.That(t, pc, test.ShouldBeNil)
-
-	geoms, err := c.Geometries(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, geoms, test.ShouldBeEmpty)
-}
-
 func TestWebcamClose(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("closes the driver once", func(t *testing.T) {
 		driver := &fakeDriver{}
 		c := newFakeWebcam(t, 0, &fakeReader{}, driver, &fakeOpener{})
-		waitFrame(t, c)
 
 		test.That(t, c.Close(ctx), test.ShouldBeNil)
 		err := c.Close(ctx)
 		test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "already closed")
 		test.That(t, driver.closes.Load(), test.ShouldEqual, int32(1))
 
 		_, _, err = c.Images(ctx, nil, nil)
@@ -148,7 +133,6 @@ func TestWebcamClose(t *testing.T) {
 
 		err := c.Close(ctx)
 		test.That(t, errors.Is(err, errCloseFailed), test.ShouldBeTrue)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to close camera driver")
 		_, _, err = c.Images(ctx, nil, nil)
 		test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
 	})

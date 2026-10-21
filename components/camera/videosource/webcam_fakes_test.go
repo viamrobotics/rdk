@@ -63,7 +63,7 @@ func (r *fakeReader) Read() (image.Image, func(), error) {
 	if gate := r.gate.Load(); gate != nil {
 		<-*gate
 	}
-	if err := r.err.Load(); err != nil {
+	if err := r.err.Load(); err != nil && *err != nil {
 		return nil, nil, *err
 	}
 	r.frames.Add(1)
@@ -92,13 +92,7 @@ func (r *fakeReader) block(t *testing.T) func() {
 }
 
 // failWith makes subsequent reads fail with err, or succeed again when err is nil.
-func (r *fakeReader) failWith(err error) {
-	if err == nil {
-		r.err.Store(nil)
-		return
-	}
-	r.err.Store(&err)
-}
+func (r *fakeReader) failWith(err error) { r.err.Store(&err) }
 
 // assertAllReleased asserts every frame handed out was released exactly once. Only meaningful once the
 // webcam is closed, since the buffered frame is held until then.

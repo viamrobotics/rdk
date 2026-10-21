@@ -96,7 +96,7 @@ func TestWebcamMonitor(t *testing.T) {
 		firstDriver := &fakeDriver{}
 		opener := &fakeOpener{}
 		opener.failing.Store(true)
-		c := newFakeWebcam(t, int(time.Hour/time.Millisecond), &fakeReader{}, firstDriver, opener)
+		c := newFakeWebcam(t, int(time.Hour.Milliseconds()), &fakeReader{}, firstDriver, opener)
 
 		firstDriver.unavailable.Store(true)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
