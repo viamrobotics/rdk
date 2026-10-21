@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -74,7 +73,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 	}
 
 	// lock not necessary here because call is blocking
-	appConn.conn, err = authedDialDirectGRPC(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
+	appConn.conn, err = createConnection(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
 	if err == nil {
 		appConn.watchState(grpcURL.Host, logger)
 		return appConn, nil
@@ -101,7 +100,7 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 			}
 
 			ctxWithTimeout, ctxWithTimeoutCancel := contextutils.GetTimeoutCtx(ctx, false, partID, logger)
-			conn, err := authedDialDirectGRPC(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
+			conn, err := createConnection(ctxWithTimeout, partID, grpcURL.Host, logger, dialOpts...)
 			ctxWithTimeoutCancel()
 			if err != nil {
 				logger.Debugw("error while dialing app. Could not establish global, unified connection", "error", err)
@@ -151,54 +150,62 @@ func jwtCacheRead(partID, host string) (string, error) {
 	return string(jwtData), nil
 }
 
-func redialWithCachedJwt(ctx context.Context, conn rpc.ClientConn, partID, host string,
+// Creates a connection to app that will use the cached JWT for gRPC requests sent on the
+// connection. This path does _not_ call Authenticate to get a new JWT, and there's no
+// guarantee that the cached JWT will still be valid (although app-issued JWTs do not
+// currently expire). This method is our only fallback when Authenticate has failed.
+// Authenticate may be failing because app's authentication system is down.
+func createConnectionWithCachedJWT(ctx context.Context, oldConn rpc.ClientConn, partID, host string,
 	logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption,
-) rpc.ClientConn {
+) (rpc.ClientConn, error) {
 	cachedJwt, cacheErr := jwtCacheRead(partID, host)
 	if cacheErr != nil {
-		logger.Warnw("could not read JWT from cache", "error", cacheErr)
-		// the connection is still valid, so return it
-		return conn
+		// Failure to read the JWT from the cache means we cannot continue.
+		return nil, cacheErr
 	}
-	// attempt to dial again with the cached jwt
+	// Create a connection that will use the cached JWT for authentication
 	newConn, newErr := rpc.DialDirectGRPC(ctx, host, logger, append(dialOpts, rpc.WithInitialAccessToken(cachedJwt))...)
 	if newErr != nil {
-		logger.Warnw(fmt.Sprintf("could not dial %s with cached JWT", host), "error", newErr)
-		return conn
+		return nil, newErr
 	}
-	// the new connection with the cached token succeeded, so return it and close the old one
-	err := conn.Close()
-	if err != nil {
-		logger.Warnw(fmt.Sprintf("could not close old connection with %s", host), "error", err)
-	}
-	return newConn
+	// Close the old connection.
+	utils.UncheckedError(oldConn.Close())
+	return newConn, nil
 }
 
-// authedDialDirectGRPC calls rpc.DialDirectGRPC while also explicitly authenticating the connection and caching the
-// resulting JWT (provided by app) on disk, via an rpc handler. If the normal auth path fails, we attempt to auth
-// with the cached JWT.
-func authedDialDirectGRPC(ctx context.Context,
+// createConnection creates a connection to app.
+//
+// Connection creation can cache a new JWT upon success, and can fallback to a cached JWT
+// in the event that authentication fails (app's authentication system may be down).
+func createConnection(ctx context.Context,
 	partID, host string,
 	logger utils.ZapCompatibleLogger,
 	dialOpts ...rpc.DialOption,
 ) (rpc.ClientConn, error) {
+	// If Authenticate succeeds, cache the JWT to disk.
 	dialOpts = append(dialOpts, rpc.WithAccessTokenHandler(func(freshJwt string) {
 		if cacheErr := jwtCacheWrite(partID, host, freshJwt); cacheErr != nil {
 			logger.Warnw("could not write to JWT cache", "error", cacheErr)
 		}
 	}))
+
+	// Create a connection to app.
 	conn, err := rpc.DialDirectGRPC(ctx, host, logger, dialOpts...)
 	if err != nil {
 		return conn, err
 	}
+
+	// Immediately invoke Authenticate (that would normally only be invoked upon the first
+	// gRPC request). If Authenticate succeeds, the WithAccessTokenHandler defined above
+	// will cache the returned JWT. If it fails, we attempt to create a connection with the
+	// currently-cached JWT.
 	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
 	if !ok {
-		logger.Warnw("connection cannot be authenticated: robot did not supply cloud credentials", "connection", fmt.Sprintf("%T", conn))
-		return conn, nil
+		return nil, errors.New("connection doesn't implement Authenticate")
 	}
 	if _, authErr := authenticator.Authenticate(ctx); authErr != nil {
-		logger.Warnw(fmt.Sprintf("authenticating connection with %s failed, attempting to dial again with cached JWT", host), "error", authErr)
-		return redialWithCachedJwt(ctx, conn, partID, host, logger, dialOpts...), nil
+		logger.Warnw("Authenticate against app failed, will use cached JWT", "error", authErr)
+		return createConnectionWithCachedJWT(ctx, conn, partID, host, logger, dialOpts...)
 	}
 	return conn, nil
 }

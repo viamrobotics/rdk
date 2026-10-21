@@ -139,10 +139,11 @@ func robotSecretDialOpts(entity, secret string) []rpc.DialOption {
 	}
 }
 
-// TestAuthedDialDirectGRPC covers the three behaviors that matter: a successful auth caches a token,
-// with minting broken a later dial recovers by presenting that cached token, and a rejected cached
-// token costs one failed RPC before the fallback connection re-authenticates and refreshes the cache.
-func TestAuthedDialDirectGRPC(t *testing.T) {
+// TestCreateConnection covers the three behaviors that matter: a successful auth
+// caches a token, with minting broken a later dial recovers by presenting that cached token, and a
+// rejected cached token costs one failed RPC before the fallback connection re-authenticates and
+// refreshes the cache.
+func TestCreateConnection(t *testing.T) {
 	redirectViamDotDir(t)
 
 	logger := logging.NewTestLogger(t)
@@ -158,7 +159,7 @@ func TestAuthedDialDirectGRPC(t *testing.T) {
 	dialOpts := robotSecretDialOpts(entity, secret)
 
 	// --- happy path: a successful auth writes the token to disk and yields a usable conn ---
-	conn, err := authedDialDirectGRPC(ctx, partID, addr, logger, dialOpts...)
+	conn, err := createConnection(ctx, partID, addr, logger, dialOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn, test.ShouldNotBeNil)
 
@@ -174,7 +175,7 @@ func TestAuthedDialDirectGRPC(t *testing.T) {
 
 	// --- fallback: break minting, then a fresh dial must recover via the cached token ---
 	handler.broken.Store(true)
-	conn2, err := authedDialDirectGRPC(ctx, partID, addr, logger, dialOpts...)
+	conn2, err := createConnection(ctx, partID, addr, logger, dialOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn2, test.ShouldNotBeNil)
 
@@ -190,7 +191,7 @@ func TestAuthedDialDirectGRPC(t *testing.T) {
 	cached, err := jwtCacheRead(partID, addr)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, jwtCacheWrite(partID, addr, cached+"garbage"), test.ShouldBeNil)
-	conn3, err := authedDialDirectGRPC(ctx, partID, addr, logger, dialOpts...)
+	conn3, err := createConnection(ctx, partID, addr, logger, dialOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	handler.broken.Store(false)
 
@@ -208,10 +209,10 @@ func TestAuthedDialDirectGRPC(t *testing.T) {
 	test.That(t, refreshed, test.ShouldNotEqual, cached+"garbage")
 }
 
-// TestAuthedDialDirectGRPCNoCacheOnBrokenAuth verifies the degraded no-cache path: when minting is
-// down and nothing was cached, the dial does not error or panic — it returns the (unauthenticated)
-// connection, RPCs over it fail, and it authenticates as soon as minting returns.
-func TestAuthedDialDirectGRPCNoCacheOnBrokenAuth(t *testing.T) {
+// TestCreateConnectionNoCacheOnBrokenAuth verifies the terminal no-cache path: when
+// minting is broken and no token was ever cached, there is nothing to fall back to, so the dial itself
+// errors. Once minting returns, a fresh dial succeeds and populates the cache.
+func TestCreateConnectionNoCacheOnBrokenAuth(t *testing.T) {
 	redirectViamDotDir(t)
 
 	logger := logging.NewTestLogger(t)
@@ -220,19 +221,25 @@ func TestAuthedDialDirectGRPCNoCacheOnBrokenAuth(t *testing.T) {
 	handler := &gatedAuthHandler{entity: "e", payload: "p"}
 	handler.broken.Store(true) // minting broken from the start; no token was ever cached
 	addr := newFakeAppServer(t, handler)
+	dialOpts := robotSecretDialOpts("e", "p")
 
-	conn, err := authedDialDirectGRPC(ctx, "part-none", addr, logger, robotSecretDialOpts("e", "p")...)
+	// Broken minting + empty cache leaves no viable connection, so the dial errors.
+	conn, err := createConnection(ctx, "part-none", addr, logger, dialOpts...)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, conn, test.ShouldBeNil)
+
+	// Minting returns: a fresh dial succeeds, caches a token, and serves RPCs.
+	handler.broken.Store(false)
+	conn, err = createConnection(ctx, "part-none", addr, logger, dialOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conn, test.ShouldNotBeNil)
 
-	// no cached token + broken minting: the connection is unauthenticated, so the RPC fails.
-	_, echoErr := echopb.NewEchoServiceClient(conn).Echo(ctx, &echopb.EchoRequest{Message: "hi"})
-	test.That(t, echoErr, test.ShouldNotBeNil)
-
-	// minting returns: the same connection authenticates on the next RPC.
-	handler.broken.Store(false)
-	resp, err := echopb.NewEchoServiceClient(conn).Echo(ctx, &echopb.EchoRequest{Message: "back"})
+	cached, err := jwtCacheRead("part-none", addr)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.GetMessage(), test.ShouldEqual, "back")
+	test.That(t, cached, test.ShouldNotBeEmpty)
+
+	resp, err := echopb.NewEchoServiceClient(conn).Echo(ctx, &echopb.EchoRequest{Message: "ok"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.GetMessage(), test.ShouldEqual, "ok")
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
