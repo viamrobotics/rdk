@@ -267,3 +267,36 @@ func TestTrajexSessionStagesAfterSlowExtend(t *testing.T) {
 	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{1.0}), test.ShouldBeNil)
 	test.That(t, lastKind(), test.ShouldEqual, "pivot")
 }
+
+func TestTrajexSessionAppliesMaxTCPSpeed(t *testing.T) {
+	ctx := context.Background()
+	model, err := referenceframe.ParseModelJSONFile("../../../../components/arm/kinematics/ur5e.json", "")
+	test.That(t, err, test.ShouldBeNil)
+	seed := make([]referenceframe.Input, 6)
+	target := []referenceframe.Input{1, 0, 0, 0, 0, 0}
+
+	duration := func(maxTCPSpeedMPerSec *float64) time.Duration {
+		opts := testStreamOptions()
+		opts.MoveOptions.MaxVelRads = 10
+		opts.MoveOptions.MaxAccRads = 100
+		opts.MoveOptions.MaxTCPSpeedMPerSec = maxTCPSpeedMPerSec
+		s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0), model: model}
+		test.That(t, s.startSession(seed), test.ShouldBeNil)
+		defer s.close()
+		test.That(t, s.addJointPositionsToSession(ctx, target), test.ShouldBeNil)
+		return s.sess.RemainingTotalDuration()
+	}
+
+	capMPerSec := 0.1
+	uncapped := duration(nil)
+	capped := duration(&capMPerSec)
+	test.That(t, capped, test.ShouldBeGreaterThan, 2*uncapped)
+}
+
+func TestTrajexSessionMaxTCPSpeedNeedsTheArmModel(t *testing.T) {
+	opts := testStreamOptions()
+	capMPerSec := 0.1
+	opts.MoveOptions.MaxTCPSpeedMPerSec = &capMPerSec
+	s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
+	test.That(t, s.startSession([]referenceframe.Input{0, 0}), test.ShouldNotBeNil)
+}
