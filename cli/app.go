@@ -4276,18 +4276,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "path to a meta.json. its module ID is the module that is configured and restarted",
 							Value: "meta.json",
 						},
-						&cli.StringFlag{
-							Name: generalFlagName,
-							Usage: "ignored when meta.json is present; that file's module ID is restarted. " +
-								"To name a resource added with --model-name, use --resource-name. " +
-								"Without meta.json, config name of the module to restart. Pass at most one of --name and --id",
-						},
-						&cli.StringFlag{
-							Name: generalFlagID,
-							Usage: "ignored when meta.json is present; that file's module ID is restarted. " +
-								"Without meta.json, module ID to restart, for example viam:wifi-sensor. " +
-								"Pass at most one of --name and --id",
-						},
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
 							Usage: "don't do build step",

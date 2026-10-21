@@ -1509,9 +1509,6 @@ func reloadModuleActionInner(
 	if err != nil {
 		return err
 	}
-	// --name is a module-restart selector. With a manifest, reload restarts that module by ID;
-	// say so before the build so a resource-name typo isn't discovered at the restart RPC.
-	warnIgnoredReloadName(cmd, manifest)
 	part, err := vc.getRobotPart(ctx, partID)
 	if err != nil {
 		return err
@@ -1824,9 +1821,9 @@ func reloadModuleActionInner(
 		if err := pm.Start("restart"); err != nil {
 			return err
 		}
-		// Restart the module configureModule just wrote. resolveTargetModule would prefer a raw
-		// --name, which is matched against the config name and misses the manifest's module.
-		restartReq, err := reloadRestartRequest(cmd, manifest)
+		// Restart the module configureModule just wrote. Its config name is derived from the
+		// module ID, so the request uses that ID rather than a --name/--id selector.
+		restartReq, err := reloadRestartRequest(manifest)
 		if err != nil {
 			_ = pm.Fail("restart", err)                              //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
@@ -1987,10 +1984,9 @@ type resolveTargetModuleArgs struct {
 }
 
 // resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
-// Used by `viam module restart`, where --name and --id are the way to choose a module.
-// Reload must not use this when meta.json is present: --name is matched by exact string
-// against the config module name, which is derived from the module ID (and, on configs
-// written by older CLIs, a "_from_reload" suffix) rather than the flag value.
+// Used by `viam module restart`, where --name and --id choose the module.
+// Reload does not use this. It always restarts the module ID from meta.json, because
+// viam-server matches --name against the config module name, which is derived from that ID.
 func resolveTargetModule(cmd *cli.Command, manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
 	args := parseStructFromCtx[resolveTargetModuleArgs](cmd)
 	modName := args.Name
@@ -2014,30 +2010,13 @@ func resolveTargetModule(cmd *cli.Command, manifest *ModuleManifest) (*robot.Res
 }
 
 // reloadRestartRequest identifies the module to restart after a reload.
-// The config edit finds the module by manifest.ModuleID, so the restart has to use that
-// same ID. --name and --id are only a fallback when there is no meta.json.
-func reloadRestartRequest(cmd *cli.Command, manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
-	if manifest != nil {
-		return &robot.RestartModuleRequest{ModuleID: manifest.ModuleID}, nil
+// Reload requires meta.json, and the config edit finds the module by its module ID,
+// so the restart uses that same ID.
+func reloadRestartRequest(manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
+	if manifest == nil {
+		return nil, errors.New("reload requires a meta.json to identify the module to restart")
 	}
-	return resolveTargetModule(cmd, nil)
-}
-
-// warnIgnoredReloadName warns when --name is combined with a meta.json.
-// Reload restarts the manifest module; --name does not select it (and is the flag people
-// reach for when they meant --resource-name).
-func warnIgnoredReloadName(cmd *cli.Command, manifest *ModuleManifest) {
-	if cmd == nil || manifest == nil {
-		return
-	}
-	name := cmd.String(generalFlagName)
-	if name == "" {
-		return
-	}
-	warningf(cmd.Root().ErrWriter,
-		"--%s %q does not select the module to restart when meta.json is present; "+
-			"reload restarts %q. To name a resource added with --%s, use --%s",
-		generalFlagName, name, manifest.ModuleID, generalFlagModelName, generalFlagResourceName)
+	return &robot.RestartModuleRequest{ModuleID: manifest.ModuleID}, nil
 }
 
 type moduleRestartArgs struct {

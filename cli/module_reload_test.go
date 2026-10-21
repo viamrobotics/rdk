@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -615,63 +614,27 @@ func TestConfiguredModuleName(t *testing.T) {
 
 func TestReloadRestartRequestUsesManifestID(t *testing.T) {
 	manifest := &ModuleManifest{ModuleID: "acme:rssi-triangulation"}
-	// Config names are not the --name flag. Older CLIs appended "_from_reload".
+	// Config names are derived from the module ID. Older CLIs appended "_from_reload".
 	configured := []rdkConfig.Module{
 		{Name: "acme_rssi-triangulation", ModuleID: manifest.ModuleID},
 		{Name: "acme_rssi-triangulation_from_reload", ModuleID: manifest.ModuleID},
 	}
 
-	t.Run("name and id flags do not override the manifest", func(t *testing.T) {
-		cmd := newTestContext(t, map[string]any{
-			generalFlagName: "rssi-triangulation",
-			generalFlagID:   "other:module",
-		})
-		req, err := reloadRestartRequest(cmd, manifest)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, req.ModuleID, test.ShouldEqual, manifest.ModuleID)
-		test.That(t, req.ModuleName, test.ShouldBeEmpty)
-		for _, mod := range configured {
-			test.That(t, req.MatchesModule(mod), test.ShouldBeTrue)
-		}
-		// The request resolveTargetModule would have built does not match either config name.
-		byName := &robot.RestartModuleRequest{ModuleName: "rssi-triangulation"}
-		for _, mod := range configured {
-			test.That(t, byName.MatchesModule(mod), test.ShouldBeFalse)
-		}
-	})
+	req, err := reloadRestartRequest(manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleID, test.ShouldEqual, manifest.ModuleID)
+	test.That(t, req.ModuleName, test.ShouldBeEmpty)
+	for _, mod := range configured {
+		test.That(t, req.MatchesModule(mod), test.ShouldBeTrue)
+	}
+	// A request built from the short name does not match either config name.
+	byName := &robot.RestartModuleRequest{ModuleName: "rssi-triangulation"}
+	for _, mod := range configured {
+		test.That(t, byName.MatchesModule(mod), test.ShouldBeFalse)
+	}
 
-	t.Run("no manifest falls back to name", func(t *testing.T) {
-		cmd := newTestContext(t, map[string]any{generalFlagName: "rssi-triangulation"})
-		req, err := reloadRestartRequest(cmd, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, req.ModuleName, test.ShouldEqual, "rssi-triangulation")
-		test.That(t, req.ModuleID, test.ShouldBeEmpty)
-	})
-
-	t.Run("no manifest falls back to id", func(t *testing.T) {
-		cmd := newTestContext(t, map[string]any{generalFlagID: "acme:rssi-triangulation"})
-		req, err := reloadRestartRequest(cmd, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, req.ModuleID, test.ShouldEqual, "acme:rssi-triangulation")
-		test.That(t, req.ModuleName, test.ShouldBeEmpty)
-	})
-
-	t.Run("no manifest and no target errors", func(t *testing.T) {
-		cmd := newTestContext(t, map[string]any{})
-		_, err := reloadRestartRequest(cmd, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, generalFlagName)
-	})
-
-	t.Run("no manifest rejects both name and id", func(t *testing.T) {
-		cmd := newTestContext(t, map[string]any{
-			generalFlagName: "rssi-triangulation",
-			generalFlagID:   "acme:rssi-triangulation",
-		})
-		_, err := reloadRestartRequest(cmd, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "at most one")
-	})
+	_, err = reloadRestartRequest(nil)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 // Standalone `module restart` still prefers --name over the manifest module ID.
@@ -691,55 +654,6 @@ func TestResolveTargetModuleKeepsNameForRestartCommand(t *testing.T) {
 	test.That(t, req.ModuleName, test.ShouldBeEmpty)
 }
 
-func TestWarnIgnoredReloadName(t *testing.T) {
-	manifest := &ModuleManifest{ModuleID: "acme:rssi-triangulation"}
-
-	errOut := &testWriter{}
-	cmd := buildTestCmd(&testWriter{}, errOut, map[string]any{generalFlagName: "rssi-triangulation"})
-	warnIgnoredReloadName(cmd, manifest)
-	joined := strings.Join(errOut.messages, "")
-	test.That(t, joined, test.ShouldContainSubstring, "rssi-triangulation")
-	test.That(t, joined, test.ShouldContainSubstring, manifest.ModuleID)
-	test.That(t, joined, test.ShouldContainSubstring, "--"+generalFlagResourceName)
-	test.That(t, joined, test.ShouldContainSubstring, "--"+generalFlagModelName)
-
-	errOut = &testWriter{}
-	cmd = buildTestCmd(&testWriter{}, errOut, map[string]any{})
-	warnIgnoredReloadName(cmd, manifest)
-	test.That(t, errOut.messages, test.ShouldBeEmpty)
-
-	errOut = &testWriter{}
-	cmd = buildTestCmd(&testWriter{}, errOut, map[string]any{generalFlagName: "rssi-triangulation"})
-	warnIgnoredReloadName(cmd, nil)
-	test.That(t, errOut.messages, test.ShouldBeEmpty)
-
-	warnIgnoredReloadName(nil, manifest)
-}
-
-func TestReloadWarnsOnNameBeforeWork(t *testing.T) {
-	manifestPath := createTestManifest(t, "", map[string]any{"module_id": "acme:rssi-triangulation"})
-	client := &inject.AppServiceClient{
-		GetRobotPartFunc: func(context.Context, *apppb.GetRobotPartRequest, ...grpc.CallOption) (*apppb.GetRobotPartResponse, error) {
-			return nil, errors.New("part lookup failed")
-		},
-	}
-	cmd, vc, _, errOut := setup(client, nil, &inject.BuildServiceClient{}, map[string]any{
-		moduleFlagPath:        manifestPath,
-		generalFlagPartID:     "part-123",
-		generalFlagName:       "rssi-triangulation",
-		generalFlagNoProgress: true,
-	}, "token")
-
-	err := reloadModuleActionInner(
-		context.Background(), cmd, vc, parseStructFromCtx[reloadModuleArgs](cmd), logging.NewTestLogger(t), false,
-	)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "part lookup failed")
-	joined := strings.Join(errOut.messages, "")
-	test.That(t, joined, test.ShouldContainSubstring, "acme:rssi-triangulation")
-	test.That(t, joined, test.ShouldContainSubstring, "--"+generalFlagResourceName)
-}
-
 func TestReloadHelpUsesResourceName(t *testing.T) {
 	app := NewApp(&testWriter{}, &testWriter{})
 	moduleCmd := commandByName(t, app.Commands, "module")
@@ -747,16 +661,17 @@ func TestReloadHelpUsesResourceName(t *testing.T) {
 		cmd := commandByName(t, moduleCmd.Commands, name)
 		test.That(t, cmd.Description, test.ShouldContainSubstring, "--resource-name my-resource")
 		test.That(t, cmd.Description, test.ShouldNotContainSubstring, "--name my-resource")
+		test.That(t, hasStringFlag(cmd, generalFlagName), test.ShouldBeFalse)
+		test.That(t, hasStringFlag(cmd, generalFlagID), test.ShouldBeFalse)
 	}
 
 	reloadLocal := commandByName(t, moduleCmd.Commands, "reload-local")
 	test.That(t, stringFlagUsage(t, reloadLocal, moduleFlagPath), test.ShouldNotContainSubstring, "overridden with --id or --name")
-	test.That(t, stringFlagUsage(t, reloadLocal, generalFlagName), test.ShouldContainSubstring, generalFlagResourceName)
-	test.That(t, stringFlagUsage(t, reloadLocal, generalFlagID), test.ShouldContainSubstring, "ignored when meta.json is present")
 
 	// `module restart` is where --name still selects the module.
 	restart := commandByName(t, moduleCmd.Commands, "restart")
 	test.That(t, stringFlagUsage(t, restart, generalFlagName), test.ShouldContainSubstring, "name of module to restart")
+	test.That(t, hasStringFlag(restart, generalFlagID), test.ShouldBeTrue)
 }
 
 func commandByName(t *testing.T, cmds []*cli.Command, name string) *cli.Command {
@@ -780,6 +695,16 @@ func stringFlagUsage(t *testing.T, cmd *cli.Command, name string) string {
 	}
 	t.Fatalf("flag %q not found on %s", name, cmd.Name)
 	return ""
+}
+
+func hasStringFlag(cmd *cli.Command, name string) bool {
+	for _, flag := range cmd.Flags {
+		stringFlag, ok := flag.(*cli.StringFlag)
+		if ok && stringFlag.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func TestReloadWithMissingBuildSection(t *testing.T) {
