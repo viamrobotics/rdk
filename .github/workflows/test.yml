@@ -388,7 +388,7 @@ jobs:
       # mlugg/setup-zig@v2.2.1
       uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
       with:
-        version: 0.16.0
+        version: 0.17.0
 
     - name: test
       shell: bash
@@ -446,8 +446,7 @@ jobs:
         GOTEST_EXIT=$?
         echo "go test -json exit=$GOTEST_EXIT, raw.json size=$(wc -c < raw.json) bytes"
 
-        # gotestsum aborts on any JSON line over 64 KiB, and a zig libc++ build can emit a
-        # multi-MB build-output event, so cap Output first. raw.json keeps the full text.
+        # gotestsum aborts on any JSON line over 64 KiB, so cap Output first. raw.json keeps the full text.
         go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- \
           jq -c 'if (.Output // "" | length) > 8192
             then .Output |= .[:8192] + "\n[output truncated; full text in raw.json]\n" else . end' raw.json

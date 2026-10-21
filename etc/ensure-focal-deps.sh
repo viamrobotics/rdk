@@ -8,7 +8,7 @@ GO_VERSION=1.26.10
 NLOPT_VERSION=2.11.0
 CMAKE_VERSION=4.3.4
 # Zig is the C/C++ cross-compiler for the cgo-enabled Windows build
-ZIG_VERSION=0.16.0
+ZIG_VERSION=0.17.0
 # x264 stable branch. Built from source: focal's prebuilt libx264.a references
 # __*_finite glibc symbols that fail to resolve when statically linked.
 X264_COMMIT=b35605ace3ddf7c1a5d67a2eb553f034aef41d55
