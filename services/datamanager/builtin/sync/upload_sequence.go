@@ -29,34 +29,45 @@ func (s *Sync) syncSequence(filePath string) {
 	}
 
 	var sf data.SequenceFile
-	if err := json.Unmarshal(bytes, &sf); err != nil {
-		logger.Errorw("failed to parse sequence file; moving to failed",
-			"path", filePath, "error", err)
-		moveSequenceToFailed(filePath, errors.Wrap(err, "unmarshal"), logger)
+	if err = json.Unmarshal(bytes, &sf); err != nil {
+		logger.Errorw("failed to parse sequence file; moving to failed", "path", filePath, "error", err)
+		moveSequenceToFailed(filePath, logger)
 		return
 	}
 
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, filePath, func(ctx context.Context) (uint64, error) {
+		s.uploadStats.sequence.uploadAttempts.Add(1)
 		if s.cloudConn.dataClient == nil {
+			s.uploadStats.sequence.uploadAttemptFailures.Add(1)
 			return 0, errors.New("cloud connection not ready")
 		}
 		req := sequenceRequest(&sf, s.cloudConn.partID)
-		_, err := s.cloudConn.dataClient.CreateSequence(ctx, req)
-		return 0, err
+		if _, err := s.cloudConn.dataClient.CreateSequence(ctx, req); err != nil {
+			s.uploadStats.sequence.uploadAttemptFailures.Add(1)
+			return 0, err
+		}
+		return 0, nil
 	})
 
-	if _, err := retry.run(); err != nil {
-		if errors.Is(err, context.Canceled) {
-			return
+	if _, err = retry.run(); err != nil {
+		// A cancellation leaves the file in place for a later retry; only a terminal error
+		// moves it to the failed directory and counts as a file-level failure.
+		if !errors.Is(err, context.Canceled) {
+			moveSequenceToFailed(filePath, logger)
+			s.uploadStats.sequence.uploadFailedFileCount.Add(1)
 		}
-		logger.Errorw("CreateSequence hit terminal error; moving to failed",
-			"path", filePath, "error", err)
-		moveSequenceToFailed(filePath, err, logger)
+		logUploadOutcome(logger, filePath, err)
 		return
 	}
+	s.uploadStats.sequence.uploadedFileCount.Add(1)
+	logger.Debugw("Successfully created sequence file", "path", filePath)
 
-	if err := os.Remove(filePath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		logger.Warnw("failed to remove uploaded sequence file", "path", filePath, "error", err)
+	if err = os.Remove(filePath); err == nil {
+		logger.Debugw("Sync deleted sequence file after successful creation", "path", filePath)
+	} else if errors.Is(err, os.ErrNotExist) {
+		logger.Infow("Sync went to delete sequence file and found it does not exist", "path", filePath)
+	} else {
+		logger.Warnw("Sync failed to delete sequence file after successful creation", "path", filePath, "error", err)
 	}
 }
 
@@ -79,9 +90,9 @@ func sequenceRequest(sf *data.SequenceFile, partID string) *datapb.CreateSequenc
 
 // moveSequenceToFailed moves path to <captureDir>/failed/sequences/ for operator inspection.
 // path is expected to be <captureDir>/sequences/<id>.{seq,progseq}.
-func moveSequenceToFailed(path string, cause error, logger logging.Logger) {
+func moveSequenceToFailed(path string, logger logging.Logger) {
 	captureDir := filepath.Dir(filepath.Dir(path))
-	if err := moveFailedData(path, captureDir, cause, logger); err != nil {
+	if err := moveFailedData(path, captureDir, logger); err != nil {
 		logger.Errorw("failed to move sequence to failed/", "path", path, "error", err)
 	}
 }
