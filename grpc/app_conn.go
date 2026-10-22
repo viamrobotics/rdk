@@ -136,6 +136,12 @@ func jwtCacheWrite(partID, host, jwt string) error {
 		return err
 	}
 
+	// NOTE(benjirewis): This AtomicStore can fail on Windows if someone already has the
+	// file open (this viam-server process will not have the cache file open for reading at
+	// this point in the code). If that failure happens, the JWT token will not be cached
+	// until the next lifetime of viam-server. This could leave us without a JWT token if
+	// app's authentication system is down at the same time. This is an edge we are willing
+	// to accept.
 	return artifact.AtomicStore(jwtPath, strings.NewReader(jwt), "*.jwt.tmp")
 }
 
