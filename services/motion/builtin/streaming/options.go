@@ -17,7 +17,7 @@ const (
 	defaultAccelLimitRadPerSec2  = 10 * math.Pi / 180 // 10 deg/s^2
 	defaultDiagnosticsWindowSecs = 60
 
-	MaxTargetsDroppedInARowDueToTrajexExtendErrorKey = "max_targets_dropped_in_a_row_due_to_trajex_extend_error"
+	maxTargetsDroppedInARowDueToTrajexExtendErrorKey = "max_targets_dropped_in_a_row_due_to_trajex_extend_error"
 )
 
 // StreamOptions tunes the streaming executor.
@@ -94,16 +94,16 @@ func (o *StreamOptions) Validate() error {
 	return nil
 }
 
-// MaxTargetsDroppedInARowDueToTrajexExtendError reads MaxTargetsDroppedInARowDueToTrajexExtendErrorKey from a
+// MaxTargetsDroppedInARowDueToTrajexExtendError reads maxTargetsDroppedInARowDueToTrajexExtendErrorKey from a
 // TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
 func MaxTargetsDroppedInARowDueToTrajexExtendError(extra map[string]interface{}) (int, error) {
-	v, ok := extra[MaxTargetsDroppedInARowDueToTrajexExtendErrorKey]
+	v, ok := extra[maxTargetsDroppedInARowDueToTrajexExtendErrorKey]
 	if !ok {
 		return 0, nil
 	}
 	n, ok := v.(int32)
 	if !ok {
-		return 0, fmt.Errorf("streaming: extra %q must be an int32, got %T", MaxTargetsDroppedInARowDueToTrajexExtendErrorKey, v)
+		return 0, fmt.Errorf("streaming: extra %q must be an int32, got %T", maxTargetsDroppedInARowDueToTrajexExtendErrorKey, v)
 	}
 	return int(n), nil
 }

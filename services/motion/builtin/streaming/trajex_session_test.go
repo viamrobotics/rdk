@@ -138,7 +138,7 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 // failingExtend wraps the session's real Extend so the calls whose (1-based) index is in failAt
 // return err, leaving the session untouched as a failed Extend does.
 func failingExtend(s *trajexSession, err error, failAt ...int) {
-	real := s.extend
+	realExtend := s.extend
 	calls := 0
 	s.extend = func(ctx context.Context, batch *trajex.TensorMap) (totgstream.ExtendResult, error) {
 		calls++
@@ -147,7 +147,7 @@ func failingExtend(s *trajexSession, err error, failAt ...int) {
 				return totgstream.ExtendResult{}, err
 			}
 		}
-		return real(ctx, batch)
+		return realExtend(ctx, batch)
 	}
 }
 

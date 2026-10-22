@@ -79,7 +79,7 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 
 func TestMaxTargetsDroppedInARowDueToTrajexExtendError(t *testing.T) {
 	extra := func(v interface{}) map[string]interface{} {
-		return map[string]interface{}{MaxTargetsDroppedInARowDueToTrajexExtendErrorKey: v}
+		return map[string]interface{}{maxTargetsDroppedInARowDueToTrajexExtendErrorKey: v}
 	}
 
 	n, err := MaxTargetsDroppedInARowDueToTrajexExtendError(nil)
