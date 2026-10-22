@@ -9,8 +9,8 @@ type SingleSessionStats struct {
 	DurationMs float64 `json:"duration_ms"`
 
 	JointPositionTargetsReceived int64 `json:"joint_position_targets_received"`
-	// JointPositionTargetsDroppedDueToLimitCurveError counts targets skipped because trajex rejected them.
-	JointPositionTargetsDroppedDueToLimitCurveError int64 `json:"joint_position_targets_dropped_due_to_limit_curve_error"`
+	// JointPositionTargetsDroppedDueToTrajexExtendError counts targets skipped because trajex rejected them.
+	JointPositionTargetsDroppedDueToTrajexExtendError int64 `json:"joint_position_targets_dropped_due_to_trajex_extend_error"`
 
 	// Arm runway can go negative (the arm has outrun what was sent), so it is tracked as
 	// exact extremes rather than a histogram.
@@ -36,23 +36,23 @@ type SingleSessionStats struct {
 
 // singleSessionStats is the whole-session accumulators backing Stats(); never pruned.
 type singleSessionStats struct {
-	targetsReceived                    int64
-	targetsDroppedDueToLimitCurveError int64
-	armRunway                          extremes
-	trajexRunway                       durationStats
-	extendLatency                      durationStats
-	extendsByKind                      map[string]int64
-	sendLatency                        durationStats
-	maxJointDegPerSec                  float64
-	maxJointDegPerSec2                 float64
+	targetsReceived                      int64
+	targetsDroppedDueToTrajexExtendError int64
+	armRunway                            extremes
+	trajexRunway                         durationStats
+	extendLatency                        durationStats
+	extendsByKind                        map[string]int64
+	sendLatency                          durationStats
+	maxJointDegPerSec                    float64
+	maxJointDegPerSec2                   float64
 }
 
 func (s *singleSessionStats) recordJointPositionTargetReceived() {
 	s.targetsReceived++
 }
 
-func (s *singleSessionStats) recordJointPositionTargetDroppedDueToLimitCurveError() {
-	s.targetsDroppedDueToLimitCurveError++
+func (s *singleSessionStats) recordJointPositionTargetDroppedDueToTrajexExtendError() {
+	s.targetsDroppedDueToTrajexExtendError++
 }
 
 func (s *singleSessionStats) recordArmRunway(ms float64) {

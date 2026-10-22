@@ -77,25 +77,25 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	}
 }
 
-func TestMaxTargetsDroppedInARowDueToLimitCurveError(t *testing.T) {
+func TestMaxTargetsDroppedInARowDueToTrajexExtendError(t *testing.T) {
 	extra := func(v interface{}) map[string]interface{} {
-		return map[string]interface{}{MaxTargetsDroppedInARowDueToLimitCurveErrorKey: v}
+		return map[string]interface{}{MaxTargetsDroppedInARowDueToTrajexExtendErrorKey: v}
 	}
 
-	n, err := MaxTargetsDroppedInARowDueToLimitCurveError(nil)
+	n, err := MaxTargetsDroppedInARowDueToTrajexExtendError(nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 0)
 
-	n, err = MaxTargetsDroppedInARowDueToLimitCurveError(extra(int32(7)))
+	n, err = MaxTargetsDroppedInARowDueToTrajexExtendError(extra(int32(7)))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 7)
 
 	for _, v := range []interface{}{3, int64(3), float64(3), "3"} {
-		_, err = MaxTargetsDroppedInARowDueToLimitCurveError(extra(v))
+		_, err = MaxTargetsDroppedInARowDueToTrajexExtendError(extra(v))
 		test.That(t, err, test.ShouldNotBeNil)
 	}
 
 	opts := NewStreamOptions(motion.TempStreamOptions{})
-	opts.MaxTargetsDroppedInARowDueToLimitCurveError = -1
+	opts.MaxTargetsDroppedInARowDueToTrajexExtendError = -1
 	test.That(t, opts.Validate(), test.ShouldNotBeNil)
 }

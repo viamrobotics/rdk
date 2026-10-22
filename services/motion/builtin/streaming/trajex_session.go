@@ -6,12 +6,12 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	trajex "github.com/viam-modules/trajex/go"
 	totgstream "github.com/viam-modules/trajex/go/totg/streaming"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
@@ -21,13 +21,8 @@ const (
 	waypointDedupEps        = 1e-4
 )
 
-const limitCurveError = "backward integration exceeded limit curve"
-
-func isLimitCurveError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), limitCurveError)
-}
-
 type trajexSession struct {
+	logger      logging.Logger
 	opts        StreamOptions
 	diagnostics *diagnostics.SingleSessionDiagnostics
 
@@ -122,9 +117,10 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 	extendLatency := time.Since(extendStart)
 	if err != nil {
 		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
-		if isLimitCurveError(err) && s.droppedInARow < s.opts.MaxTargetsDroppedInARowDueToLimitCurveError {
+		if s.droppedInARow < s.opts.MaxTargetsDroppedInARowDueToTrajexExtendError {
 			s.droppedInARow++
-			s.diagnostics.RecordJointPositionTargetDroppedDueToLimitCurveError()
+			s.logger.CWarnw(ctx, "skipping a target trajex rejected", "error", err, "dropped_in_a_row", s.droppedInARow)
+			s.diagnostics.RecordJointPositionTargetDroppedDueToTrajexExtendError()
 			return nil
 		}
 		return err

@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	arm "go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
@@ -17,6 +18,7 @@ import (
 // fails immediately with a clear error instead of at link time.
 func Run(
 	ctx context.Context,
+	logger logging.Logger,
 	a arm.Arm,
 	opts StreamOptions,
 	jpCh <-chan []referenceframe.Input,

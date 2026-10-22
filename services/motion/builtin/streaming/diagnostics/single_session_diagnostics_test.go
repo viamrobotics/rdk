@@ -205,8 +205,8 @@ func TestStats(t *testing.T) {
 
 func TestStatsCountDroppedTargets(t *testing.T) {
 	d := New(0)
-	test.That(t, d.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 0)
-	d.RecordJointPositionTargetDroppedDueToLimitCurveError()
-	d.RecordJointPositionTargetDroppedDueToLimitCurveError()
-	test.That(t, d.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 2)
+	test.That(t, d.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 0)
+	d.RecordJointPositionTargetDroppedDueToTrajexExtendError()
+	d.RecordJointPositionTargetDroppedDueToTrajexExtendError()
+	test.That(t, d.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 2)
 }

@@ -87,7 +87,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	extra map[string]interface{},
 ) (err error) {
 	opts := streaming.NewStreamOptions(streamOpts)
-	if opts.MaxTargetsDroppedInARowDueToLimitCurveError, err = streaming.MaxTargetsDroppedInARowDueToLimitCurveError(extra); err != nil {
+	if opts.MaxTargetsDroppedInARowDueToTrajexExtendError, err = streaming.MaxTargetsDroppedInARowDueToTrajexExtendError(extra); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}
 	if err := opts.Validate(); err != nil {
@@ -132,7 +132,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		close(s.done)
 	}()
 
-	err = streaming.Run(streamCtx, a, opts, targets, seed, diag, responses)
+	err = streaming.Run(streamCtx, ms.logger, a, opts, targets, seed, diag, responses)
 	if err != nil {
 		ms.logger.CWarnf(streamCtx, "arm streaming session for %q ended with error: %v", armName, err)
 	}

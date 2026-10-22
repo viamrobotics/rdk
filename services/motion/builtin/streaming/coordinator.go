@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 
 	arm "go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
@@ -38,6 +39,7 @@ const stopArmTimeout = time.Minute
 // to send to the arm, and the arm will (typically, depending on the arm implementation) fault.
 func Run(
 	ctx context.Context,
+	logger logging.Logger,
 	a arm.Arm,
 	opts StreamOptions,
 	jpCh <-chan []referenceframe.Input,
@@ -90,7 +92,7 @@ func Run(
 	}()
 
 	// Start the trajex session.
-	ts := &trajexSession{opts: opts, diagnostics: diagnostics}
+	ts := &trajexSession{logger: logger, opts: opts, diagnostics: diagnostics}
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}

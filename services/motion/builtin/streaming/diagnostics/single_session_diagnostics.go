@@ -38,10 +38,10 @@ func (t *SingleSessionDiagnostics) RecordReceivedJointPositionTargetEvent() {
 	t.mu.Unlock()
 }
 
-// RecordJointPositionTargetDroppedDueToLimitCurveError records one target skipped because trajex rejected it.
-func (t *SingleSessionDiagnostics) RecordJointPositionTargetDroppedDueToLimitCurveError() {
+// RecordJointPositionTargetDroppedDueToTrajexExtendError records one target skipped because trajex rejected it.
+func (t *SingleSessionDiagnostics) RecordJointPositionTargetDroppedDueToTrajexExtendError() {
 	t.mu.Lock()
-	t.stats.recordJointPositionTargetDroppedDueToLimitCurveError()
+	t.stats.recordJointPositionTargetDroppedDueToTrajexExtendError()
 	t.mu.Unlock()
 }
 
@@ -184,8 +184,8 @@ func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
 		SendToArmLatencyP99Ms:    t.stats.sendLatency.quantileMs(0.99),
 		SendToArmLatencyMaxMs:    t.stats.sendLatency.maxMs,
 
-		JointPositionTargetsReceived:                    t.stats.targetsReceived,
-		JointPositionTargetsDroppedDueToLimitCurveError: t.stats.targetsDroppedDueToLimitCurveError,
+		JointPositionTargetsReceived:                      t.stats.targetsReceived,
+		JointPositionTargetsDroppedDueToTrajexExtendError: t.stats.targetsDroppedDueToTrajexExtendError,
 
 		MaxJointDegPerSec:  t.stats.maxJointDegPerSec,
 		MaxJointDegPerSec2: t.stats.maxJointDegPerSec2,

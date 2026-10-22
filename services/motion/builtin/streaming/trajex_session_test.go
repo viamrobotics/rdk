@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
@@ -24,7 +25,7 @@ func testStreamOptions() StreamOptions {
 	})
 }
 
-const testMaxTargetsDroppedInARowDueToLimitCurveError = 3
+const testMaxTargetsDroppedInARowDueToTrajexExtendError = 3
 
 // sampleHorizon is far longer than any trajectory these tests plan, so sampling with it
 // pulls out the session's entire remaining trajectory.
@@ -150,15 +151,15 @@ func failingExtend(s *trajexSession, err error, failAt ...int) {
 	}
 }
 
-func TestTrajexSessionDropsLimitCurveTargets(t *testing.T) {
+func TestTrajexSessionDropsTargetsOnTrajexExtendError(t *testing.T) {
 	ctx := context.Background()
-	limitCurveErr := errors.New("trajex/totg/streaming: Extend failed: TOTG algorithm error: " + limitCurveError + " at s=0.4")
+	extendErr := errors.New("trajex/totg/streaming: Extend failed: simulated trajex error")
 
 	newSession := func(t *testing.T) *trajexSession {
 		t.Helper()
 		opts := testStreamOptions()
-		opts.MaxTargetsDroppedInARowDueToLimitCurveError = testMaxTargetsDroppedInARowDueToLimitCurveError
-		s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
+		opts.MaxTargetsDroppedInARowDueToTrajexExtendError = testMaxTargetsDroppedInARowDueToTrajexExtendError
+		s := &trajexSession{logger: logging.NewTestLogger(t), opts: opts, diagnostics: diagnostics.New(0)}
 		test.That(t, s.startSession([]referenceframe.Input{0, 0}), test.ShouldBeNil)
 		t.Cleanup(s.close)
 		return s
@@ -166,17 +167,17 @@ func TestTrajexSessionDropsLimitCurveTargets(t *testing.T) {
 
 	t.Run("a rejected target is skipped and the session continues from the last accepted one", func(t *testing.T) {
 		s := newSession(t)
-		failingExtend(s, limitCurveErr, 2)
+		failingExtend(s, extendErr, 2)
 
 		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.2, 0.1}), test.ShouldBeNil)
-		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 0)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 0)
 
 		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.4, 0.2}), test.ShouldBeNil)
-		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 1)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 1)
 		test.That(t, s.lastJointPositions, test.ShouldResemble, []referenceframe.Input{0.2, 0.1})
 
 		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.6, 0.3}), test.ShouldBeNil)
-		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 1)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 1)
 		test.That(t, s.lastJointPositions, test.ShouldResemble, []referenceframe.Input{0.6, 0.3})
 
 		pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
@@ -184,29 +185,30 @@ func TestTrajexSessionDropsLimitCurveTargets(t *testing.T) {
 		test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
 	})
 
-	t.Run("an unrelated error is returned", func(t *testing.T) {
+	t.Run("with no skips allowed, an Extend error is returned", func(t *testing.T) {
 		s := newSession(t)
+		s.opts.MaxTargetsDroppedInARowDueToTrajexExtendError = 0
 		failingExtend(s, errors.New("arm faulted"), 1)
 
 		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.2, 0.1}), test.ShouldNotBeNil)
-		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 0)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 0)
 	})
 
 	t.Run("targets rejected too many times in a row end the session", func(t *testing.T) {
 		s := newSession(t)
-		failingExtend(s, limitCurveErr, 1, 2, 3, 4)
+		failingExtend(s, extendErr, 1, 2, 3, 4)
 
-		maxDropped := s.opts.MaxTargetsDroppedInARowDueToLimitCurveError
+		maxDropped := s.opts.MaxTargetsDroppedInARowDueToTrajexExtendError
 		for i := range maxDropped {
 			test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{float64(i+1) * 0.1, 0}), test.ShouldBeNil)
 		}
-		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, maxDropped)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, maxDropped)
 		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.9, 0}), test.ShouldNotBeNil)
 	})
 
 	t.Run("an accepted target resets the count", func(t *testing.T) {
 		s := newSession(t)
-		failingExtend(s, limitCurveErr, 1, 2, 3, 5, 6, 7)
+		failingExtend(s, extendErr, 1, 2, 3, 5, 6, 7)
 
 		wantDropped := int64(0)
 		for _, step := range []struct {
@@ -225,7 +227,7 @@ func TestTrajexSessionDropsLimitCurveTargets(t *testing.T) {
 			if step.dropped {
 				wantDropped++
 			}
-			test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, wantDropped)
+			test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, wantDropped)
 		}
 	})
 }
