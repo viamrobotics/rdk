@@ -93,6 +93,16 @@ Generator::Generator(GeneratorCompDB db,
             (resourceType_ == ResourceType::component) ? "Component" : "Service";
     }
 
+    // SDK class names that are not the PascalCase of the header stem. Keep in sync with
+    // cppResourceSubtypePascal in cli/module_generate.go, which fills main.cpp.in.
+    static const std::unordered_map<std::string, std::string> pascalOverrides = {
+        {"framesystem", "FrameSystem"},
+        {"mlmodel", "MLModelService"},
+    };
+    if (auto it = pascalOverrides.find(resourceSubtypeSnake_); it != pascalOverrides.end()) {
+        resourceSubtypePascal_ = it->second;
+    }
+
     // getAbsolutePath normalizes as ClangTool does before a database lookup, so that a relative
     // command line path matches the absolute filenames a database records.
     llvm::SmallString<256> path(clang::tooling::getAbsolutePath(resourceHeaderPath_));
