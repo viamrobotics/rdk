@@ -1451,6 +1451,20 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			},
 			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
 		}
+		resStatus.Name.Remote = pbResStatus.GetRemote()
+
+		switch pbResStatus.Reachability {
+		case pb.ResourceStatus_REACHABILITY_UNSPECIFIED:
+			resStatus.Reachability = resource.ReachabilityUnknown
+		case pb.ResourceStatus_REACHABILITY_REACHABLE:
+			resStatus.Reachability = resource.ReachabilityReachable
+		case pb.ResourceStatus_REACHABILITY_REMOTE_DISCONNECTED:
+			resStatus.Reachability = resource.ReachabilityRemoteDisconnected
+		case pb.ResourceStatus_REACHABILITY_SHADOWED_BY_LOCAL:
+			resStatus.Reachability = resource.ReachabilityShadowedByLocal
+		case pb.ResourceStatus_REACHABILITY_AMBIGUOUS_REMOTE:
+			resStatus.Reachability = resource.ReachabilityAmbiguousRemote
+		}
 
 		switch pbResStatus.State {
 		case pb.ResourceStatus_STATE_UNSPECIFIED:

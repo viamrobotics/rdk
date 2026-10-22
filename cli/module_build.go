@@ -765,6 +765,37 @@ type reloadModuleArgs struct {
 	File string
 }
 
+// readGitRevision returns a short identifier for the git revision checked out in repoPath
+// (empty means the working directory), for example "a1b2c3d4", or "a1b2c3d4-dirty" when
+// tracked files have uncommitted changes. It returns an empty string when the revision
+// can't be read: the revision is informational, so a missing git binary or a directory
+// that isn't a repo must not fail a reload.
+func readGitRevision(ctx context.Context, repoPath string) string {
+	if repoPath == "" {
+		repoPath = "."
+	}
+	sha, err := gitOutput(ctx, repoPath, "rev-parse", "--short=8", "HEAD")
+	if err != nil || sha == "" {
+		return ""
+	}
+	// "dirty" follows `git describe --dirty`: only tracked files count, so build
+	// artifacts left in the working directory don't mark every reload dirty. A status
+	// we can't read only means we can't prove the tree is dirty.
+	if status, err := gitOutput(ctx, repoPath, "status", "--porcelain", "--untracked-files=no"); err == nil && status != "" {
+		return sha + "-dirty"
+	}
+	return sha
+}
+
+func gitOutput(ctx context.Context, repoPath string, args ...string) (string, error) {
+	//nolint:gosec // the git subcommand is constant; only the repo path comes from the user
+	out, err := exec.CommandContext(ctx, "git", append([]string{"-C", repoPath}, args...)...).Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 	var err error
 	repoPath, err = filepath.Abs(repoPath)
@@ -1008,6 +1039,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	manifest ModuleManifest,
 	archivePath, partID string,
 	reloadUnixTS int64,
+	gitRev string,
 ) (string, error) {
 	part, err := c.getRobotPart(ctx, partID)
 	if err != nil {
@@ -1053,7 +1085,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 					Info: &v1.PackageInfo{
 						OrganizationId: orgID,
 						Name:           moduleID.name,
-						Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
+						Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS, gitRev),
 						Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 					},
 				},
@@ -1357,6 +1389,7 @@ func (c *viamClient) moduleCloudReload(
 	partID string,
 	pm *ProgressManager,
 	reloadUnixTS int64,
+	gitRev string,
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
@@ -1391,7 +1424,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("upload-source"); err != nil {
 		return nil, err
 	}
-	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTS)
+	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTS, gitRev)
 	if err != nil {
 		_ = pm.FailWithMessage("upload-source", "Upload failed")    //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
@@ -1443,7 +1476,7 @@ func (c *viamClient) moduleCloudReload(
 	return &moduleCloudBuildInfo{
 		ModuleID:    manifest.ModuleID,
 		OrgID:       orgID,
-		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTS),
+		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTS, gitRev),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
@@ -1483,8 +1516,14 @@ func reloadModuleAction(ctx context.Context, cmd *cli.Command, args reloadModule
 	return reloadModuleActionInner(ctx, cmd, vc, args, logger, cloudBuild)
 }
 
-func getReloadVersion(versionPrefix, partID string, unixTS int64) string {
-	return fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTS)
+// getReloadVersion builds the pseudo-version used for reload packages. gitRev, when known,
+// is appended so the version names the source revision the module was built from.
+func getReloadVersion(versionPrefix, partID string, unixTS int64, gitRev string) string {
+	version := fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTS)
+	if gitRev != "" {
+		version += "-" + gitRev
+	}
+	return version
 }
 
 // reload with cloudbuild was supported starting in 0.90.0
@@ -1554,6 +1593,10 @@ func reloadModuleActionInner(
 	// Compute reload time once, used for both the package version and config reload_time
 	reloadTime := time.Now().UTC()
 
+	// The git revision of the source being reloaded, stamped onto the reload version so the
+	// running module can be traced back to a commit. Empty when the source isn't in a git repo.
+	gitRev := readGitRevision(ctx, args.Path)
+
 	// note: configureModule and restartModule signal the robot via different channels.
 	// Running this command in rapid succession can cause an extra restart because the
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
@@ -1603,6 +1646,10 @@ func reloadModuleActionInner(
 		printf(cmd.Root().ErrWriter, "Reloading to the machine configured at %s", args.CloudConfig)
 	}
 
+	if gitRev != "" {
+		infof(cmd.Root().ErrWriter, "reloading git revision %s", gitRev)
+	}
+
 	if args.File != "" {
 		args.NoBuild = true
 	}
@@ -1640,7 +1687,7 @@ func reloadModuleActionInner(
 			err = moduleBuildLocalAction(ctx, cmd, manifest, environment)
 			buildPath = manifest.Build.Path
 		} else {
-			buildInfo, err = vc.moduleCloudReload(ctx, cmd, args, platform, *manifest, partID, pm, reloadTime.Unix())
+			buildInfo, err = vc.moduleCloudReload(ctx, cmd, args, platform, *manifest, partID, pm, reloadTime.Unix(), gitRev)
 			if err != nil {
 				return err
 			}
@@ -1821,7 +1868,15 @@ func reloadModuleActionInner(
 		if err := pm.Start("restart"); err != nil {
 			return err
 		}
-		if err = restartModule(ctx, cmd, vc, part.Part, manifest, logger); err != nil {
+		// Restart the module configureModule just wrote. Its config name is derived from the
+		// module ID, so the request uses that ID rather than a --name/--id selector.
+		restartReq, err := reloadRestartRequest(manifest)
+		if err != nil {
+			_ = pm.Fail("restart", err)                              //nolint:errcheck
+			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
+			return err
+		}
+		if err = restartModule(ctx, cmd, vc, part.Part, restartReq, logger); err != nil {
 			_ = pm.Fail("restart", err)                              //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 			return err
@@ -1843,7 +1898,10 @@ func reloadModuleActionInner(
 			return err
 		}
 		waitMessage := "Machine applied reload"
-		if modStatus.State == modulestatus.ModuleStateUnhealthy {
+		switch {
+		case errors.Is(modStatus.Error, errReloadWithoutModuleStatus):
+			waitMessage = reloadWithoutModuleStatusMessage
+		case modStatus.State == modulestatus.ModuleStateUnhealthy:
 			waitMessage = "Machine applied reload (module unhealthy)"
 			if modStatus.Error != nil {
 				warningf(cmd.Root().ErrWriter, "module %q reloaded but is unhealthy: %v", moduleName, modStatus.Error)
@@ -1976,6 +2034,9 @@ type resolveTargetModuleArgs struct {
 }
 
 // resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
+// Used by `viam module restart`, where --name and --id choose the module.
+// Reload does not use this. It always restarts the module ID from meta.json, because
+// viam-server matches --name against the config module name, which is derived from that ID.
 func resolveTargetModule(cmd *cli.Command, manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
 	args := parseStructFromCtx[resolveTargetModuleArgs](cmd)
 	modName := args.Name
@@ -1996,6 +2057,16 @@ func resolveTargetModule(cmd *cli.Command, manifest *ModuleManifest) (*robot.Res
 		return nil, fmt.Errorf("if there is no meta.json, provide one of --%s or --%s", generalFlagName, generalFlagID)
 	}
 	return request, nil
+}
+
+// reloadRestartRequest identifies the module to restart after a reload.
+// Reload requires meta.json, and the config edit finds the module by its module ID,
+// so the restart uses that same ID.
+func reloadRestartRequest(manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
+	if manifest == nil {
+		return nil, errors.New("reload requires a meta.json to identify the module to restart")
+	}
+	return &robot.RestartModuleRequest{ModuleID: manifest.ModuleID}, nil
 }
 
 type moduleRestartArgs struct {
@@ -2027,7 +2098,11 @@ func ModuleRestartAction(ctx context.Context, cmd *cli.Command, args moduleResta
 	}
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 
-	return restartModule(ctx, cmd, client, part.Part, manifest, logger)
+	restartReq, err := resolveTargetModule(cmd, manifest)
+	if err != nil {
+		return err
+	}
+	return restartModule(ctx, cmd, client, part.Part, restartReq, logger)
 }
 
 // restartModule restarts a module on a robot.
@@ -2036,14 +2111,10 @@ func restartModule(
 	cmd *cli.Command,
 	vc *viamClient,
 	part *apppb.RobotPart,
-	manifest *ModuleManifest,
+	restartReq *robot.RestartModuleRequest,
 	logger logging.Logger,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
-	restartReq, err := resolveTargetModule(cmd, manifest)
-	if err != nil {
-		return err
-	}
 	if err := vc.redialApp(ctx); err != nil {
 		return err
 	}

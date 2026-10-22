@@ -1313,3 +1313,13 @@ func TestTracingConfigFromProto(t *testing.T) {
 		})
 	}
 }
+
+func TestFrameConfigToProtoRefusesSeveralGeometries(t *testing.T) {
+	_, err := FrameConfigToProto(referenceframe.LinkConfig{
+		Parent:     "world",
+		Geometry:   &spatial.GeometryConfig{Type: spatial.SphereType, R: 1},
+		Geometries: []spatial.GeometryConfig{{Type: spatial.SphereType, R: 2}},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "carries one")
+}

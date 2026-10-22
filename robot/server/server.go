@@ -556,6 +556,22 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			Revision:      resStatus.Revision,
 			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
+		if resStatus.Name.Remote != "" {
+			pbResStatus.Remote = &resStatus.Name.Remote
+		}
+
+		switch resStatus.Reachability {
+		case resource.ReachabilityUnknown:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_UNSPECIFIED
+		case resource.ReachabilityReachable:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_REACHABLE
+		case resource.ReachabilityRemoteDisconnected:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_REMOTE_DISCONNECTED
+		case resource.ReachabilityShadowedByLocal:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_SHADOWED_BY_LOCAL
+		case resource.ReachabilityAmbiguousRemote:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_AMBIGUOUS_REMOTE
+		}
 
 		switch resStatus.State {
 		case resource.NodeStateUnknown:

@@ -27,6 +27,12 @@ import (
 // allowing all real camera resolutions while ensuring proper distance calculations.
 const minResolutionDimension = 2
 
+// Open V4L2 FDs with O_CLOEXEC so subprocesses (modules, shell) don't inherit them and keep
+// the device busy (EBUSY) when the webcam reopens. Linux only.
+func init() {
+	mediadevicescamera.SetCloseOnExec(true)
+}
+
 // Below is adapted from github.com/pion/mediadevices.
 // It is further adapted from gostream's query.go
 // However, this is the minimum code needed for webcam to work, placed in this directory.

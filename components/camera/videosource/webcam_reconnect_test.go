@@ -81,9 +81,8 @@ func registerFakeCamera(t *testing.T, label, name string, available bool) (*fake
 	return fake, d
 }
 
-// The monitor worker ticks every 500ms; three ticks is long enough to be sure a reconnect that was going to
-// happen would have happened.
-const monitorSettleTime = 1500 * time.Millisecond
+// Ten monitor ticks is long enough to be sure a reconnect that was going to happen would have happened.
+const monitorSettleTime = 10 * testMonitorInterval
 
 // newTestWebcam opens the given registered driver and wires it into a webcam. It bypasses NewWebcam because
 // that starts the AVFoundation observer, which is not available in a test process and is not what these tests
@@ -98,6 +97,8 @@ func newTestWebcam(t *testing.T, d driver.Driver, idleTimeoutMs int) *webcam {
 	test.That(t, err, test.ShouldBeNil)
 
 	c := newWebcam(resource.NewName(camera.API, "test-webcam"), conf, label, reader, opened, findReaderAndDriver, logger)
+	c.monitorInterval = testMonitorInterval
+	c.start()
 	t.Cleanup(func() {
 		test.That(t, c.Close(context.Background()), test.ShouldBeNil)
 	})

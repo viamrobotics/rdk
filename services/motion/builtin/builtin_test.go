@@ -878,6 +878,97 @@ func TestInputRangeOverrideAcceptsReturningInsideRange(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+// TestInputRangeOverridePinsJoint uses an `input_range_override` with equal min and max to pin
+// arm1's shoulder_lift_joint at zero, and verifies the motion service keeps that joint still both
+// when it starts at the only allowed angle and after it was moved away with a direct arm call.
+func TestInputRangeOverridePinsJoint(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	const pinnedJointIdx = 1
+	const jointTolerance = 1e-3
+
+	fakeModel := resource.DefaultModelFamily.WithModel("fake")
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "arm1",
+				API:   arm.API,
+				Model: fakeModel,
+				ConvertedAttributes: &fakearm.Config{
+					ArmModel: "ur5e",
+				},
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:      "builtin",
+				API:       motion.API,
+				Model:     resource.DefaultServiceModel,
+				DependsOn: []string{framesystem.InternalServiceName.String()},
+				ConvertedAttributes: &Config{
+					InputRangeOverride: map[string]map[string]referenceframe.Limit{
+						"arm1": {
+							"shoulder_lift_joint": {Min: 0, Max: 0},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close(ctx)
+
+	ms, err := motion.FromProvider(myRobot, "builtin")
+	test.That(t, err, test.ShouldBeNil)
+
+	armComponent, err := arm.FromProvider(myRobot, "arm1")
+	test.That(t, err, test.ShouldBeNil)
+
+	homeJoints := []referenceframe.Input{0, 0, 0, 0, 0, 0}
+
+	// Find a goal that is reachable with the shoulder lift pinned at zero by moving the other
+	// joints directly, reading the resulting pose, and then returning home.
+	err = armComponent.MoveToJointPositions(ctx, []referenceframe.Input{0.3, 0, -0.4, 0.3, 0.2, 0.1}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	goalPose, err := ms.GetPose(ctx, "arm1", "world", nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = armComponent.MoveToJointPositions(ctx, homeJoints, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	assertPinnedJoint := func(t *testing.T) {
+		t.Helper()
+
+		joints, err := armComponent.JointPositions(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, joints[pinnedJointIdx], test.ShouldAlmostEqual, 0, jointTolerance)
+	}
+
+	t.Run("starts at the only allowed angle", func(t *testing.T) {
+		_, err := ms.Move(ctx, motion.MoveReq{ComponentName: "arm1", Destination: goalPose})
+		test.That(t, err, test.ShouldBeNil)
+
+		assertPinnedJoint(t)
+	})
+
+	t.Run("starts moved out of position", func(t *testing.T) {
+		err := armComponent.MoveToJointPositions(ctx, []referenceframe.Input{0, 0.5, 0, 0, 0, 0}, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = ms.Move(ctx, motion.MoveReq{ComponentName: "arm1", Destination: goalPose})
+		test.That(t, err, test.ShouldBeNil)
+
+		assertPinnedJoint(t)
+	})
+}
+
 func TestArmMoveWithinObstacle(t *testing.T) {
 	// moving_arm_obstacle.json encloses a UR5e in an rdk:builtin:obstacle whose six wall
 	// geometries span z in [-300, 300]. The walls reach the frame system through the obstacle's
