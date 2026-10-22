@@ -1786,11 +1786,13 @@ func renderManifest(
 				Arch:  []string{"windows/amd64"},
 			}
 		} else {
+			reloadFromSource := true
 			manifest.Build = &manifestBuildInfo{
-				Setup: "./setup.sh",
-				Build: "./build.sh",
-				Path:  "dist/archive.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
+				Setup:            "./setup.sh",
+				Build:            "./build.sh",
+				Path:             "dist/archive.tar.gz",
+				Arch:             []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
+				ReloadFromSource: &reloadFromSource,
 			}
 		}
 		manifest.Entrypoint = pythonEntrypoint

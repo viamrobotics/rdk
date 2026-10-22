@@ -1,5 +1,5 @@
 #!/bin/sh
-# Installs dependencies for a cloud-reloaded module. uv, its Python, and the venv all live in
+# Installs dependencies for a reloaded module. uv, its Python, and the venv all live in
 # VIAM_MODULE_DATA so they survive reloads and nothing is required on the machine beyond curl/wget.
 set -e
 cd `dirname $0`
@@ -22,7 +22,7 @@ if ! "$UV" --version 2>/dev/null | grep -q "^uv $UV_VERSION"; then
     elif command -v wget >/dev/null; then
         wget -qO- "$INSTALLER" | UV_UNMANAGED_INSTALL="$DATA/bin" sh
     else
-        echo "Cloud reload needs curl or wget on the machine to install uv." >&2
+        echo "Reload needs curl or wget on the machine to install uv." >&2
         exit 1
     fi
 fi
@@ -36,22 +36,42 @@ else
     PYTHON_ARG="--python $DEFAULT_PYTHON_VERSION"
 fi
 
+# A pyproject.toml makes this a uv project installed with `uv sync`; otherwise use requirements.txt.
+if [ -f pyproject.toml ]; then
+    DEPS_FILES="pyproject.toml"
+    if [ -f uv.lock ]; then
+        DEPS_FILES="$DEPS_FILES uv.lock"
+    fi
+elif [ -f requirements.txt ]; then
+    DEPS_FILES="requirements.txt"
+else
+    echo "Reload needs a pyproject.toml or requirements.txt to install dependencies." >&2
+    exit 1
+fi
+DEPS_STATE=$(cat $DEPS_FILES | cksum)
+
+install_deps() {
+    echo "Installing Python packages..."
+    if [ -f pyproject.toml ]; then
+        UV_PROJECT_ENVIRONMENT="$1" "$UV" sync --managed-python --no-dev --no-install-project -q
+    else
+        "$UV" pip install --python "$1/bin/python" -r requirements.txt -U -q
+    fi
+    printf '%s' "$DEPS_STATE" > "$1/.deps-state"
+}
+
 # Build a replacement venv beside the old one and swap only on success, so a failed
 # rebuild leaves the previous working venv in place.
 if [ ! -x "$VENV/bin/python" ] || [ "$(cat "$VENV/.python-request" 2>/dev/null)" != "$PYTHON_REQUEST" ]; then
     NEW_VENV="$VENV.new"
     rm -rf "$NEW_VENV"
     "$UV" venv --managed-python $PYTHON_ARG "$NEW_VENV"
-    echo "Installing Python packages..."
-    "$UV" pip install --python "$NEW_VENV/bin/python" -r requirements.txt -U -q
-    cp requirements.txt "$NEW_VENV/.requirements.txt"
+    install_deps "$NEW_VENV"
     printf '%s' "$PYTHON_REQUEST" > "$NEW_VENV/.python-request"
     rm -rf "$VENV"
     mv "$NEW_VENV" "$VENV"
-elif ! cmp -s requirements.txt "$VENV/.requirements.txt"; then
-    echo "Installing Python packages..."
-    "$UV" pip install --python "$VENV/bin/python" -r requirements.txt -U -q
-    cp requirements.txt "$VENV/.requirements.txt"
+elif [ "$(cat "$VENV/.deps-state" 2>/dev/null)" != "$DEPS_STATE" ]; then
+    install_deps "$VENV"
 fi
 
 if [ -f .user_first_run ]; then

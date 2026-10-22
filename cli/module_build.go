@@ -769,37 +769,44 @@ type reloadModuleArgs struct {
 type injectedFile struct {
 	name    string
 	content []byte
+	// mode defaults to 0o644 when zero.
+	mode int64
 }
 
-// reloadMarkerFile is added to cloud reload source archives so a module's build scripts can
-// produce a faster, reload-only artifact.
-const reloadMarkerFile = ".viam_reload"
-
-func (c *viamClient) createGitArchive(repoPath string, injected ...injectedFile) (string, error) {
-	var err error
-	repoPath, err = filepath.Abs(repoPath)
+func (c *viamClient) createGitArchive(repoPath string) (string, error) {
+	repoPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return "", err
 	}
-	viamReloadArchive := ".VIAM_RELOAD_ARCHIVE.tar.gz"
-	archivePath := filepath.Join(repoPath, viamReloadArchive)
+	archivePath := filepath.Join(repoPath, ".VIAM_RELOAD_ARCHIVE.tar.gz")
+	if err := c.writeSourceArchive(repoPath, archivePath, nil, nil); err != nil {
+		return "", err
+	}
+	return archivePath, nil
+}
 
+// writeSourceArchive writes a tar.gz of the gitignore-filtered files under repoPath to archivePath.
+// extraIgnores are gitignore patterns applied on top of the repo's own. Injected files are added
+// after the walk and replace any file on disk at the same path.
+func (c *viamClient) writeSourceArchive(
+	repoPath, archivePath string, extraIgnores []string, injected []injectedFile,
+) (err error) {
 	// Remove existing archive if it exists
 	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
-		return "", err
+		return err
 	}
 
 	// Load gitignore patterns
-	matcher, err := c.loadGitignorePatterns(repoPath)
+	matcher, err := c.loadGitignorePatterns(repoPath, extraIgnores...)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to load gitignore patterns")
+		return errors.Wrap(err, "failed to load gitignore patterns")
 	}
 
 	// Create the tar.gz archive
-	//nolint:gosec // archivePath is constructed from validated repoPath and constant filename
+	//nolint:gosec // archivePath is chosen by the caller, not user input
 	archiveFile, err := os.Create(archivePath)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create archive file")
+		return errors.Wrap(err, "failed to create archive file")
 	}
 	defer func() {
 		if closeErr := archiveFile.Close(); closeErr != nil {
@@ -822,8 +829,8 @@ func (c *viamClient) createGitArchive(repoPath string, injected ...injectedFile)
 	}()
 
 	injectedPaths := make(map[string]bool, len(injected))
-	for _, e := range injected {
-		injectedPaths[e.name] = true
+	for _, f := range injected {
+		injectedPaths[f.name] = true
 	}
 
 	// Walk the filesystem and add files that are not ignored
@@ -897,23 +904,27 @@ func (c *viamClient) createGitArchive(repoPath string, injected ...injectedFile)
 		return nil
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to process filesystem files")
+		return errors.Wrap(err, "failed to process filesystem files")
 	}
 
-	for _, e := range injected {
-		header := &tar.Header{Name: e.name, Mode: 0o644, Size: int64(len(e.content)), ModTime: time.Now()}
+	for _, f := range injected {
+		mode := f.mode
+		if mode == 0 {
+			mode = 0o644
+		}
+		header := &tar.Header{Name: f.name, Mode: mode, Size: int64(len(f.content)), ModTime: time.Now()}
 		if err := tarWriter.WriteHeader(header); err != nil {
-			return "", errors.Wrapf(err, "failed to write header for file %s", e.name)
+			return errors.Wrapf(err, "failed to write header for file %s", f.name)
 		}
-		if _, err := tarWriter.Write(e.content); err != nil {
-			return "", errors.Wrapf(err, "failed to write content for file %s", e.name)
+		if _, err := tarWriter.Write(f.content); err != nil {
+			return errors.Wrapf(err, "failed to write content for file %s", f.name)
 		}
 	}
 
-	return archivePath, nil
+	return nil
 }
 
-func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, error) {
+func (c *viamClient) loadGitignorePatterns(repoPath string, extraIgnores ...string) (gitignore.Matcher, error) {
 	var patterns []gitignore.Pattern
 
 	// Add default patterns to ignore common files
@@ -924,7 +935,7 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 		".VIAM_RELOAD_ARCHIVE.tar.gz", // Ignore the archive file itself
 	}
 
-	for _, pattern := range defaultIgnores {
+	for _, pattern := range append(defaultIgnores, extraIgnores...) {
 		patterns = append(patterns, gitignore.ParsePattern(pattern, nil))
 	}
 
@@ -1406,9 +1417,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("archive"); err != nil {
 		return nil, err
 	}
-	// The builder runs build scripts from the workdir, so the marker goes next to meta.json.
-	marker := injectedFile{name: path.Join(filepath.ToSlash(args.Workdir), reloadMarkerFile)}
-	archivePath, err := c.createGitArchive(args.Path, marker)
+	archivePath, err := c.createGitArchive(args.Path)
 	if err != nil {
 		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...")  //nolint:errcheck
@@ -1584,6 +1593,27 @@ func reloadModuleActionInner(
 	// Compute reload time once, used for both the package version and config reload_time
 	reloadTime := time.Now().UTC()
 
+	// Python modules can opt in to shipping their source over the shell service instead of
+	// building, locally or in the cloud. Asked before progress output starts so the prompt renders.
+	sourceReload := false
+	if !args.Local && args.File == "" && !args.NoBuild {
+		switch {
+		case partOs == osWindows:
+			if reloadsFromSource(manifest) {
+				warningf(cmd.Root().ErrWriter, "reload_from_source is not supported on Windows machines; building instead")
+			}
+		case reloadsFromSource(manifest):
+			sourceReload = true
+		case looksLikePythonTemplateModule(args.Module, manifest) && manifest.Build.ReloadFromSource == nil:
+			if sourceReload, err = offerReloadFromSource(cmd, args.Module, manifest); err != nil {
+				return err
+			}
+		}
+	}
+	if sourceReload {
+		cloudBuild = false
+	}
+
 	// note: configureModule and restartModule signal the robot via different channels.
 	// Running this command in rapid succession can cause an extra restart because the
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
@@ -1659,6 +1689,15 @@ func reloadModuleActionInner(
 		// Destination and reload_path on the robot use this basename; the upload
 		// source remains the full path in buildPath.
 		manifest.Build.Path = filepath.Base(args.File)
+	case sourceReload:
+		var tmpDir string
+		buildPath, tmpDir, err = vc.packagePythonSourceReload(cmd, args.Module)
+		if err != nil {
+			return err
+		}
+		defer goutils.UncheckedErrorFunc(func() error { return os.RemoveAll(tmpDir) })
+		// Destination and reload_path on the robot use this basename.
+		manifest.Build.Path = pythonReloadArchiveName
 	case !args.NoBuild:
 		if manifest == nil {
 			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, args.Module)
@@ -1804,6 +1843,9 @@ func reloadModuleActionInner(
 			// A logout during refresh is unrecoverable; surface it rather than suggesting a retry.
 			if errors.Is(err, errLoggedOut) {
 				return err
+			}
+			if sourceReload {
+				return fmt.Errorf("all %d copy attempts failed. Rerun the reload to try again", attemptCount)
 			}
 			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
 				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)

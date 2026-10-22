@@ -690,6 +690,9 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
+		if runtime.GOOS != osWindows {
+			test.That(t, reloadsFromSource(&manifest), test.ShouldBeTrue)
+		}
 	})
 
 	t.Run("test generate cpp stubs", func(t *testing.T) {

@@ -1,11 +1,6 @@
 #!/bin/sh
 cd `dirname $0`
 
-# Cloud reload installs dependencies on the machine (see reload/first_run.sh), not the builder.
-if [ -f .viam_reload ]; then
-    exit 0
-fi
-
 # Create a virtual environment to run our code
 VENV_NAME="venv"
 PYTHON="$VENV_NAME/bin/python"
