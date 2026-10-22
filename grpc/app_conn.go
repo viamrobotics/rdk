@@ -155,7 +155,7 @@ func jwtCacheRead(partID, host string) (string, error) {
 // guarantee that the cached JWT will still be valid (although app-issued JWTs do not
 // currently expire). This method is our only fallback when Authenticate has failed.
 // Authenticate may be failing because app's authentication system is down.
-func createConnectionWithCachedJWT(ctx context.Context, oldConn rpc.ClientConn, partID, host string,
+func createConnectionWithCachedJWT(ctx context.Context, partID, host string,
 	logger utils.ZapCompatibleLogger, dialOpts ...rpc.DialOption,
 ) (rpc.ClientConn, error) {
 	cachedJwt, cacheErr := jwtCacheRead(partID, host)
@@ -168,8 +168,6 @@ func createConnectionWithCachedJWT(ctx context.Context, oldConn rpc.ClientConn, 
 	if newErr != nil {
 		return nil, newErr
 	}
-	// Close the old connection.
-	utils.UncheckedError(oldConn.Close())
 	return newConn, nil
 }
 
@@ -205,7 +203,8 @@ func createConnection(ctx context.Context,
 	}
 	if _, authErr := authenticator.Authenticate(ctx); authErr != nil {
 		logger.Warnw("Authenticate against app failed, will use cached JWT", "error", authErr)
-		return createConnectionWithCachedJWT(ctx, conn, partID, host, logger, dialOpts...)
+		utils.UncheckedError(conn.Close()) // close previous connection; we'll make a new one
+		return createConnectionWithCachedJWT(ctx, partID, host, logger, dialOpts...)
 	}
 	return conn, nil
 }
