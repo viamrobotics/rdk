@@ -139,7 +139,7 @@ namespace {1} {
 
     const char* ctorFmt = R"--(
 {0}::{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg)
-    : {1}(cfg.name()) {{
+    : {1}(cfg) {{
     // TODO: initialize your resource here.
     // `deps` provides access to other resources this component depends on.
     // `cfg` contains the resource configuration from the robot config.
