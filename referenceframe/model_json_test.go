@@ -331,3 +331,31 @@ func TestFrameConstructorsRefuseNilGeometry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sphere.Label(), test.ShouldEqual, "")
 }
+
+// A frame's hash sees the order of its geometries, since the default labels depend on it and the
+// primitive geometries do not hash their label.
+func TestFrameHashSeesGeometryOrder(t *testing.T) {
+	a, err := spatial.NewSphere(spatial.NewZeroPose(), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	b, err := spatial.NewSphere(spatial.NewPoseFromPoint(r3.Vector{X: 5}), 1, "")
+	test.That(t, err, test.ShouldBeNil)
+	ab, ba := []spatial.Geometry{a, b}, []spatial.Geometry{b, a}
+
+	sab, err := NewStaticFrameWithGeometries("f", spatial.NewZeroPose(), ab)
+	test.That(t, err, test.ShouldBeNil)
+	sba, err := NewStaticFrameWithGeometries("f", spatial.NewZeroPose(), ba)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, sab.Hash(), test.ShouldNotEqual, sba.Hash())
+
+	tab, err := NewTranslationalFrameWithGeometries("t", r3.Vector{X: 1}, Limit{Min: 0, Max: 1}, ab)
+	test.That(t, err, test.ShouldBeNil)
+	tba, err := NewTranslationalFrameWithGeometries("t", r3.Vector{X: 1}, Limit{Min: 0, Max: 1}, ba)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, tab.Hash(), test.ShouldNotEqual, tba.Hash())
+
+	pab, err := NewPoseFrame("p", ab)
+	test.That(t, err, test.ShouldBeNil)
+	pba, err := NewPoseFrame("p", ba)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pab.Hash(), test.ShouldNotEqual, pba.Hash())
+}

@@ -563,8 +563,10 @@ func (sf *staticFrame) Hash() int {
 	if sf.transform != nil {
 		h += (123 * spatial.HashPose(sf.transform))
 	}
-	for _, g := range sf.geometries {
-		h += 111 * g.Hash()
+	// the position goes in too, since the default labels depend on it and the primitive hashes
+	// leave the label out
+	for i, g := range sf.geometries {
+		h += (i + 1) * 111 * g.Hash()
 	}
 	return h
 }
@@ -717,8 +719,9 @@ func NewTranslationalFrameWithGeometries(name string, axis r3.Vector, limit Limi
 func (pf *translationalFrame) Hash() int {
 	h := pf.hash()
 	h += int(10000 * pf.transAxis.Norm())
-	for _, g := range pf.geometries {
-		h += g.Hash()
+	// the position goes in, as for a static frame
+	for i, g := range pf.geometries {
+		h += (i + 1) * g.Hash()
 	}
 	return h
 }
@@ -928,8 +931,9 @@ func NewPoseFrame(name string, geometry []spatial.Geometry) (Frame, error) {
 
 func (pf *poseFrame) Hash() int {
 	h := pf.hash() + (111 * len(pf.geometries))
-	for _, g := range pf.geometries {
-		h += g.Hash()
+	// the position goes in, as for a static frame
+	for i, g := range pf.geometries {
+		h += (i + 1) * g.Hash()
 	}
 	return h
 }
