@@ -99,3 +99,22 @@ func TestMaxTargetsDroppedInARowDueToTrajexExtendError(t *testing.T) {
 	opts.MaxTargetsDroppedInARowDueToTrajexExtendError = -1
 	test.That(t, opts.Validate(), test.ShouldNotBeNil)
 }
+
+func TestForceRebaseIfExtendLatencyExceedsMs(t *testing.T) {
+	n, err := ForceRebaseIfExtendLatencyExceedsMs(nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, 0)
+
+	n, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: int32(15)})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, 15)
+
+	for _, v := range []interface{}{15, int64(15), float64(15), "15"} {
+		_, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: v})
+		test.That(t, err, test.ShouldNotBeNil)
+	}
+
+	opts := NewStreamOptions(motion.TempStreamOptions{})
+	opts.ForceRebaseIfExtendLatencyExceedsMs = -1
+	test.That(t, opts.Validate(), test.ShouldNotBeNil)
+}

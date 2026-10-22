@@ -127,8 +127,16 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 	}
 	s.droppedInARow = 0
 	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, &res.DeltaTotalDuration)
+	s.stageIfSlow(extendLatency)
 	s.lastJointPositions = nextJointPositions
 	return nil
+}
+
+func (s *trajexSession) stageIfSlow(extendLatency time.Duration) {
+	threshold := time.Duration(s.opts.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
+	if threshold > 0 && extendLatency > threshold {
+		s.sess.StartStaging()
+	}
 }
 
 func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {

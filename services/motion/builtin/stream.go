@@ -90,6 +90,9 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	if opts.MaxTargetsDroppedInARowDueToTrajexExtendError, err = streaming.MaxTargetsDroppedInARowDueToTrajexExtendError(extra); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}
+	if opts.ForceRebaseIfExtendLatencyExceedsMs, err = streaming.ForceRebaseIfExtendLatencyExceedsMs(extra); err != nil {
+		return fmt.Errorf("invalid streaming options: %w", err)
+	}
 	if err := opts.Validate(); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}
