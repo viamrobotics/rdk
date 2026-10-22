@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	trajex "github.com/viam-modules/trajex/go"
@@ -20,12 +21,20 @@ const (
 	waypointDedupEps        = 1e-4
 )
 
+const limitCurveError = "backward integration exceeded limit curve"
+
+func isLimitCurveError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), limitCurveError)
+}
+
 type trajexSession struct {
 	opts        StreamOptions
 	diagnostics *diagnostics.SingleSessionDiagnostics
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session
+	extend             func(context.Context, *trajex.TensorMap) (totgstream.ExtendResult, error)
+	droppedInARow      int
 	dof                int
 	lastJointPositions []referenceframe.Input
 }
@@ -80,6 +89,7 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 		return err
 	}
 	s.sess = sess
+	s.extend = sess.Extend
 	s.dof = dof
 	s.lastJointPositions = startJointPositions
 	s.diagnostics.RecordTrajexSessionOpenEvent()
@@ -108,12 +118,18 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		return err
 	}
 	extendStart := time.Now()
-	res, err := s.sess.Extend(ctx, waypoints)
+	res, err := s.extend(ctx, waypoints)
 	extendLatency := time.Since(extendStart)
 	if err != nil {
 		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
+		if isLimitCurveError(err) && s.droppedInARow < s.opts.MaxTargetsDroppedInARowDueToLimitCurveError {
+			s.droppedInARow++
+			s.diagnostics.RecordJointPositionTargetDroppedDueToLimitCurveError()
+			return nil
+		}
 		return err
 	}
+	s.droppedInARow = 0
 	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, &res.DeltaTotalDuration)
 	s.lastJointPositions = nextJointPositions
 	return nil

@@ -4,9 +4,12 @@ package streaming
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	trajex "github.com/viam-modules/trajex/go"
+	totgstream "github.com/viam-modules/trajex/go/totg/streaming"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/arm"
@@ -20,6 +23,8 @@ func testStreamOptions() StreamOptions {
 		MoveOptions: &arm.MoveOptions{MaxVelRads: testVelLimitRadPerSec, MaxAccRads: testAccelLimitRadPerSec2},
 	})
 }
+
+const testMaxTargetsDroppedInARowDueToLimitCurveError = 3
 
 // sampleHorizon is far longer than any trajectory these tests plan, so sampling with it
 // pulls out the session's entire remaining trajectory.
@@ -127,4 +132,100 @@ func TestTrajexSessionSampleHorizon(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(second), test.ShouldBeGreaterThan, 0)
 	test.That(t, second[0].time, test.ShouldBeGreaterThan, first[len(first)-1].time)
+}
+
+// failingExtend wraps the session's real Extend so the calls whose (1-based) index is in failAt
+// return err, leaving the session untouched as a failed Extend does.
+func failingExtend(s *trajexSession, err error, failAt ...int) {
+	real := s.extend
+	calls := 0
+	s.extend = func(ctx context.Context, batch *trajex.TensorMap) (totgstream.ExtendResult, error) {
+		calls++
+		for _, n := range failAt {
+			if calls == n {
+				return totgstream.ExtendResult{}, err
+			}
+		}
+		return real(ctx, batch)
+	}
+}
+
+func TestTrajexSessionDropsLimitCurveTargets(t *testing.T) {
+	ctx := context.Background()
+	limitCurveErr := errors.New("trajex/totg/streaming: Extend failed: TOTG algorithm error: " + limitCurveError + " at s=0.4")
+
+	newSession := func(t *testing.T) *trajexSession {
+		t.Helper()
+		opts := testStreamOptions()
+		opts.MaxTargetsDroppedInARowDueToLimitCurveError = testMaxTargetsDroppedInARowDueToLimitCurveError
+		s := &trajexSession{opts: opts, diagnostics: diagnostics.New(0)}
+		test.That(t, s.startSession([]referenceframe.Input{0, 0}), test.ShouldBeNil)
+		t.Cleanup(s.close)
+		return s
+	}
+
+	t.Run("a rejected target is skipped and the session continues from the last accepted one", func(t *testing.T) {
+		s := newSession(t)
+		failingExtend(s, limitCurveErr, 2)
+
+		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.2, 0.1}), test.ShouldBeNil)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 0)
+
+		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.4, 0.2}), test.ShouldBeNil)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 1)
+		test.That(t, s.lastJointPositions, test.ShouldResemble, []referenceframe.Input{0.2, 0.1})
+
+		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.6, 0.3}), test.ShouldBeNil)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 1)
+		test.That(t, s.lastJointPositions, test.ShouldResemble, []referenceframe.Input{0.6, 0.3})
+
+		pvats, err := s.sampleAtLeast(ctx, sampleHorizon)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(pvats), test.ShouldBeGreaterThan, 0)
+	})
+
+	t.Run("an unrelated error is returned", func(t *testing.T) {
+		s := newSession(t)
+		failingExtend(s, errors.New("arm faulted"), 1)
+
+		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.2, 0.1}), test.ShouldNotBeNil)
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 0)
+	})
+
+	t.Run("targets rejected too many times in a row end the session", func(t *testing.T) {
+		s := newSession(t)
+		failingExtend(s, limitCurveErr, 1, 2, 3, 4)
+
+		maxDropped := s.opts.MaxTargetsDroppedInARowDueToLimitCurveError
+		for i := range maxDropped {
+			test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{float64(i+1) * 0.1, 0}), test.ShouldBeNil)
+		}
+		test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, maxDropped)
+		test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.9, 0}), test.ShouldNotBeNil)
+	})
+
+	t.Run("an accepted target resets the count", func(t *testing.T) {
+		s := newSession(t)
+		failingExtend(s, limitCurveErr, 1, 2, 3, 5, 6, 7)
+
+		wantDropped := int64(0)
+		for _, step := range []struct {
+			target  []referenceframe.Input
+			dropped bool
+		}{
+			{[]referenceframe.Input{0.1, 0}, true},
+			{[]referenceframe.Input{0.2, 0}, true},
+			{[]referenceframe.Input{0.3, 0}, true},
+			{[]referenceframe.Input{0.4, 0}, false},
+			{[]referenceframe.Input{0.5, 0}, true},
+			{[]referenceframe.Input{0.6, 0}, true},
+			{[]referenceframe.Input{0.7, 0}, true},
+		} {
+			test.That(t, s.addJointPositionsToSession(ctx, step.target), test.ShouldBeNil)
+			if step.dropped {
+				wantDropped++
+			}
+			test.That(t, s.diagnostics.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, wantDropped)
+		}
+	})
 }

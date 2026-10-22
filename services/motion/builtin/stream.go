@@ -87,6 +87,9 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	extra map[string]interface{},
 ) (err error) {
 	opts := streaming.NewStreamOptions(streamOpts)
+	if opts.MaxTargetsDroppedInARowDueToLimitCurveError, err = streaming.MaxTargetsDroppedInARowDueToLimitCurveError(extra); err != nil {
+		return fmt.Errorf("invalid streaming options: %w", err)
+	}
 	if err := opts.Validate(); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}

@@ -202,3 +202,11 @@ func TestStats(t *testing.T) {
 	stats = diagnostics.Stats()
 	test.That(t, stats.JointPositionTargetsReceived, test.ShouldEqual, 3)
 }
+
+func TestStatsCountDroppedTargets(t *testing.T) {
+	d := New(0)
+	test.That(t, d.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 0)
+	d.RecordJointPositionTargetDroppedDueToLimitCurveError()
+	d.RecordJointPositionTargetDroppedDueToLimitCurveError()
+	test.That(t, d.Stats().JointPositionTargetsDroppedDueToLimitCurveError, test.ShouldEqual, 2)
+}
