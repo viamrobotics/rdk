@@ -17,8 +17,10 @@
 #include <llvm/Support/Path.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <algorithm>
+#include <array>
 #include <string_view>
-#include <unordered_map>
+#include <utility>
 
 // NOTE: the llvm::formatv templates below use asymmetric brace escaping. `{{`
 // collapses to a single `{`, but `}}` is NOT an escape -- it is copied
@@ -95,11 +97,14 @@ Generator::Generator(GeneratorCompDB db,
 
     // SDK class names that are not the PascalCase of the header stem. Keep in sync with
     // cppResourceSubtypePascal in cli/module_generate.go, which fills main.cpp.in.
-    static const std::unordered_map<std::string, std::string> pascalOverrides = {
+    static constexpr std::array<std::pair<std::string_view, std::string_view>, 2> pascalOverrides{{
         {"framesystem", "FrameSystem"},
         {"mlmodel", "MLModelService"},
-    };
-    if (auto it = pascalOverrides.find(resourceSubtypeSnake_); it != pascalOverrides.end()) {
+    }};
+    auto it = std::find_if(pascalOverrides.begin(), pascalOverrides.end(), [this](const auto& p) {
+        return p.first == resourceSubtypeSnake_;
+    });
+    if (it != pascalOverrides.end()) {
         resourceSubtypePascal_ = it->second;
     }
 
