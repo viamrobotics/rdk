@@ -66,8 +66,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 // the answer. The deprecated bytes fields replay the file the model was read from, as they always
 // have, and a model that never had a file, one built from a configuration in code or read from
 // the message, gets them written as an SVA file instead so a client that predates the model still
-// has something to parse. A model that cannot be written as a message, one built from frames with
-// no configuration, sends the file alone as before.
+// has something to parse. A model that cannot be written as a message, one holding a pose frame,
+// sends the file alone as before.
 //
 //nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
