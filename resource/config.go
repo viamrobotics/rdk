@@ -331,6 +331,13 @@ func (conf *Config) validate(path, defaultAPIType string) ([]string, []string, e
 		return nil, nil, err
 	}
 
+	// a machine config frame travels as pb.Frame, which carries one geometry, so more than one
+	// would be dropped on the way to the cloud and by most of the code that reads it
+	if conf.Frame != nil && len(conf.Frame.Geometries) > 0 {
+		return nil, nil, NewConfigValidationError(path,
+			errors.New("frame.geometries is not supported in a machine config, a frame holds one geometry under frame.geometry"))
+	}
+
 	// "builtin" is reserved for the builtin default services (the only resources allowed to hold
 	// it). Rejecting it here keeps it from ever colliding with another resource under machine-wide
 	// name uniqueness.
