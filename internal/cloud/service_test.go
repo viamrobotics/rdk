@@ -284,7 +284,11 @@ func testCloudConnectionAuth(t *testing.T, logger logging.Logger, conf *config.C
 	} else {
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, status.Code(err), test.ShouldEqual, codes.Unauthenticated)
+		if cloudCreds == nil {
+			test.That(t, status.Code(err), test.ShouldEqual, codes.Unauthenticated)
+		} else {
+			test.That(t, err, test.ShouldEqual, grpc.ErrNotConnected)
+		}
 
 		test.That(t, appConn.Close(), test.ShouldBeNil)
 	}

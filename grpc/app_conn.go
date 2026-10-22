@@ -205,7 +205,10 @@ func createConnection(ctx context.Context,
 	// currently-cached JWT.
 	authenticator, ok := conn.(rpc.ClientConnAuthenticator)
 	if !ok {
-		return nil, errors.New("connection doesn't implement Authenticate")
+		// Some tests create connections to a fake app without cloud credentials, so
+		// Authenticate will be unimplemented.
+		logger.Debug("connection does not implement Authenticate; returning without trying to cache JWT")
+		return conn, nil
 	}
 	if _, authErr := authenticator.Authenticate(ctx); authErr != nil {
 		logger.Warnw("Authenticate against app failed, will use cached JWT", "error", authErr)
