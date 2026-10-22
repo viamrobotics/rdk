@@ -16,6 +16,8 @@ const (
 	defaultVelLimitRadPerSec     = 10 * math.Pi / 180 // 10 deg/s
 	defaultAccelLimitRadPerSec2  = 10 * math.Pi / 180 // 10 deg/s^2
 	defaultDiagnosticsWindowSecs = 60
+
+	maxTargetsDroppedInARowDueToTrajexExtendErrorKey = "max_targets_dropped_in_a_row_due_to_trajex_extend_error"
 )
 
 // StreamOptions tunes the streaming executor.
@@ -36,6 +38,13 @@ type StreamOptions struct {
 	// 0 disables retention of that history, though whole-run diagnostic stats are still
 	// collected regardless.
 	DiagnosticsWindowSecs int
+
+	// MaxTargetsDroppedInARowDueToTrajexExtendError bounds how many targets in a row trajex may reject before the
+	// session gives up. The default, zero, ends the session on the first rejected target.
+	//
+	// This is a band-aid because trajex still returns errors where it could be made to accept the target.
+	// It should eventually be removed.
+	MaxTargetsDroppedInARowDueToTrajexExtendError int
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -79,7 +88,24 @@ func (o *StreamOptions) Validate() error {
 	if o.DiagnosticsWindowSecs < 0 {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
+	if o.MaxTargetsDroppedInARowDueToTrajexExtendError < 0 {
+		return errors.New("streaming: max_targets_dropped_in_a_row_due_to_trajex_extend_error must be non-negative")
+	}
 	return nil
+}
+
+// MaxTargetsDroppedInARowDueToTrajexExtendError reads maxTargetsDroppedInARowDueToTrajexExtendErrorKey from a
+// TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
+func MaxTargetsDroppedInARowDueToTrajexExtendError(extra map[string]interface{}) (int, error) {
+	v, ok := extra[maxTargetsDroppedInARowDueToTrajexExtendErrorKey]
+	if !ok {
+		return 0, nil
+	}
+	n, ok := v.(int32)
+	if !ok {
+		return 0, fmt.Errorf("streaming: extra %q must be an int32, got %T", maxTargetsDroppedInARowDueToTrajexExtendErrorKey, v)
+	}
+	return int(n), nil
 }
 
 // NewStreamOptions returns a StreamOptions containing the configuration values set in opts, and

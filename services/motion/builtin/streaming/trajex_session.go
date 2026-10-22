@@ -11,6 +11,7 @@ import (
 	trajex "github.com/viam-modules/trajex/go"
 	totgstream "github.com/viam-modules/trajex/go/totg/streaming"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
@@ -21,11 +22,14 @@ const (
 )
 
 type trajexSession struct {
+	logger      logging.Logger
 	opts        StreamOptions
 	diagnostics *diagnostics.SingleSessionDiagnostics
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session
+	extend             func(context.Context, *trajex.TensorMap) (totgstream.ExtendResult, error)
+	droppedInARow      int
 	dof                int
 	lastJointPositions []referenceframe.Input
 }
@@ -80,6 +84,7 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 		return err
 	}
 	s.sess = sess
+	s.extend = sess.Extend
 	s.dof = dof
 	s.lastJointPositions = startJointPositions
 	s.diagnostics.RecordTrajexSessionOpenEvent()
@@ -108,12 +113,19 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		return err
 	}
 	extendStart := time.Now()
-	res, err := s.sess.Extend(ctx, waypoints)
+	res, err := s.extend(ctx, waypoints)
 	extendLatency := time.Since(extendStart)
 	if err != nil {
 		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
+		if s.droppedInARow < s.opts.MaxTargetsDroppedInARowDueToTrajexExtendError {
+			s.droppedInARow++
+			s.logger.CWarnw(ctx, "skipping a target trajex rejected", "error", err, "dropped_in_a_row", s.droppedInARow)
+			s.diagnostics.RecordJointPositionTargetDroppedDueToTrajexExtendError()
+			return nil
+		}
 		return err
 	}
+	s.droppedInARow = 0
 	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, &res.DeltaTotalDuration)
 	s.lastJointPositions = nextJointPositions
 	return nil

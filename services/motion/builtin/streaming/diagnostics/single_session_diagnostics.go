@@ -38,6 +38,13 @@ func (t *SingleSessionDiagnostics) RecordReceivedJointPositionTargetEvent() {
 	t.mu.Unlock()
 }
 
+// RecordJointPositionTargetDroppedDueToTrajexExtendError records one target skipped because trajex rejected it.
+func (t *SingleSessionDiagnostics) RecordJointPositionTargetDroppedDueToTrajexExtendError() {
+	t.mu.Lock()
+	t.stats.recordJointPositionTargetDroppedDueToTrajexExtendError()
+	t.mu.Unlock()
+}
+
 // RecordArmRunway records one reading of the estimated arm-side runway.
 func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
 	ms := float64(runway.Microseconds()) / 1000.0
@@ -177,7 +184,8 @@ func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
 		SendToArmLatencyP99Ms:    t.stats.sendLatency.quantileMs(0.99),
 		SendToArmLatencyMaxMs:    t.stats.sendLatency.maxMs,
 
-		JointPositionTargetsReceived: t.stats.targetsReceived,
+		JointPositionTargetsReceived:                      t.stats.targetsReceived,
+		JointPositionTargetsDroppedDueToTrajexExtendError: t.stats.targetsDroppedDueToTrajexExtendError,
 
 		MaxJointDegPerSec:  t.stats.maxJointDegPerSec,
 		MaxJointDegPerSec2: t.stats.maxJointDegPerSec2,
