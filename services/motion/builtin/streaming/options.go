@@ -18,6 +18,7 @@ const (
 	defaultDiagnosticsWindowSecs = 60
 
 	maxTargetsDroppedInARowDueToTrajexExtendErrorKey = "max_targets_dropped_in_a_row_due_to_trajex_extend_error"
+	forceRebaseIfExtendLatencyExceedsMsKey           = "force_rebase_if_extend_latency_exceeds_ms"
 )
 
 // StreamOptions tunes the streaming executor.
@@ -45,6 +46,13 @@ type StreamOptions struct {
 	// This is a band-aid because trajex still returns errors where it could be made to accept the target.
 	// It should eventually be removed.
 	MaxTargetsDroppedInARowDueToTrajexExtendError int
+
+	// ForceRebaseIfExtendLatencyExceedsMs is the Extend latency past which the session is forced to
+	// stage. The default, zero, never forces a stage.
+	//
+	// This option can be removed once trajex extend latency no longer grows without bound with the number
+	// of targets added to the trajex session.
+	ForceRebaseIfExtendLatencyExceedsMs int
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -91,19 +99,32 @@ func (o *StreamOptions) Validate() error {
 	if o.MaxTargetsDroppedInARowDueToTrajexExtendError < 0 {
 		return errors.New("streaming: max_targets_dropped_in_a_row_due_to_trajex_extend_error must be non-negative")
 	}
+	if o.ForceRebaseIfExtendLatencyExceedsMs < 0 {
+		return errors.New("streaming: force_rebase_if_extend_latency_exceeds_ms must be non-negative")
+	}
 	return nil
 }
 
 // MaxTargetsDroppedInARowDueToTrajexExtendError reads maxTargetsDroppedInARowDueToTrajexExtendErrorKey from a
 // TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
 func MaxTargetsDroppedInARowDueToTrajexExtendError(extra map[string]interface{}) (int, error) {
-	v, ok := extra[maxTargetsDroppedInARowDueToTrajexExtendErrorKey]
+	return int32FromExtra(extra, maxTargetsDroppedInARowDueToTrajexExtendErrorKey)
+}
+
+// ForceRebaseIfExtendLatencyExceedsMs reads forceRebaseIfExtendLatencyExceedsMsKey from a
+// TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
+func ForceRebaseIfExtendLatencyExceedsMs(extra map[string]interface{}) (int, error) {
+	return int32FromExtra(extra, forceRebaseIfExtendLatencyExceedsMsKey)
+}
+
+func int32FromExtra(extra map[string]interface{}, key string) (int, error) {
+	v, ok := extra[key]
 	if !ok {
 		return 0, nil
 	}
 	n, ok := v.(int32)
 	if !ok {
-		return 0, fmt.Errorf("streaming: extra %q must be an int32, got %T", maxTargetsDroppedInARowDueToTrajexExtendErrorKey, v)
+		return 0, fmt.Errorf("streaming: extra %q must be an int32, got %T", key, v)
 	}
 	return int(n), nil
 }

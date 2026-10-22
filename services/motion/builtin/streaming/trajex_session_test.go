@@ -231,3 +231,39 @@ func TestTrajexSessionDropsTargetsOnTrajexExtendError(t *testing.T) {
 		}
 	})
 }
+
+func TestTrajexSessionStagesAfterSlowExtend(t *testing.T) {
+	ctx := context.Background()
+	diag := diagnostics.New(time.Minute)
+	opts := testStreamOptions()
+	opts.ForceRebaseIfExtendLatencyExceedsMs = 15
+	maxExtendLatency := time.Duration(opts.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
+	s := &trajexSession{opts: opts, diagnostics: diag}
+	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)
+	defer s.close()
+
+	lastKind := func() string {
+		extends := diag.LastWindowDetails().TrajexExtends
+		return extends[len(extends)-1].Kind
+	}
+
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.2}), test.ShouldBeNil)
+	s.stageIfSlow(maxExtendLatency / 2)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.4}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "pivot")
+
+	s.stageIfSlow(2 * maxExtendLatency)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.6}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "staged_again")
+
+	// Draining the session leaves nothing to pivot from, so the next batch stages; sampling it
+	// is what rebases, after which Extend pivots again.
+	_, err := s.sampleAtLeast(ctx, sampleHorizon)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{0.8}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "staged_branch_sampled")
+	_, err = s.sampleAtLeast(ctx, 50*time.Millisecond)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, s.addJointPositionsToSession(ctx, []referenceframe.Input{1.0}), test.ShouldBeNil)
+	test.That(t, lastKind(), test.ShouldEqual, "pivot")
+}
