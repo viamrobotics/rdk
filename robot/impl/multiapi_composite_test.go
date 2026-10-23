@@ -209,6 +209,97 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+// TestCompositeDependsOnComposite asserts a composite resource can itself depend on another composite,
+// resolving it under each of its co-equal APIs, and is in turn advertised under all of its own.
+func TestCompositeDependsOnComposite(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	innerModel := registerComboModel(t, "inner-combo", nil)
+
+	// An outer composite (sensor + generic) whose constructor fails unless it resolves the inner composite
+	// under both of its APIs.
+	outerModel := resource.NewModel("acme", "test", "outer-combo")
+	resource.RegisterMultiAPI(
+		[]resource.API{sensor.API, generic.API}, outerModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				if _, err := resource.FromProvider[sensor.Sensor](deps, sensor.Named("inner")); err != nil {
+					return nil, fmt.Errorf("outer could not resolve inner composite via sensor API: %w", err)
+				}
+				if _, err := resource.FromProvider[resource.Resource](deps, generic.Named("inner")); err != nil {
+					return nil, fmt.Errorf("outer could not resolve inner composite via generic API: %w", err)
+				}
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		},
+	)
+	defer resource.Deregister(sensor.API, outerModel)
+	defer resource.Deregister(generic.API, outerModel)
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "inner", API: sensor.API, Model: innerModel},
+			{Name: "outer", API: sensor.API, Model: outerModel, ImplicitDependsOn: []string{"inner"}},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// outer built (so it resolved inner under both APIs) and is itself reachable under both of its APIs.
+	_, err := r.ResourceByName(sensor.Named("outer"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = r.ResourceByName(generic.Named("outer"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestCompositeRemovalTearsDownDependent asserts removing a composite that a live resource depends on
+// tears that dependent down (its required dep is gone) and drops the composite under every API.
+func TestCompositeRemovalTearsDownDependent(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	comboModel := registerComboModel(t, "removal-combo", nil)
+
+	consumerModel := resource.NewModel("acme", "test", "removal-consumer")
+	resource.RegisterComponent(generic.API, consumerModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				if _, err := resource.FromProvider[sensor.Sensor](deps, sensor.Named("combo")); err != nil {
+					return nil, fmt.Errorf("consumer could not resolve composite: %w", err)
+				}
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(generic.API, consumerModel)
+
+	consumerCfg := resource.Config{
+		Name: "consumer", API: generic.API, Model: consumerModel, ImplicitDependsOn: []string{"combo"},
+	}
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: sensor.API, Model: comboModel},
+			consumerCfg,
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+	_, err := r.ResourceByName(generic.Named("consumer"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Remove the composite, keeping the dependent configured.
+	r.Reconfigure(ctx, &config.Config{Components: []resource.Config{consumerCfg}})
+
+	// The composite is gone under every API, and the dependent is no longer available.
+	_, err = r.ResourceByName(sensor.Named("combo"))
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = r.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = r.ResourceByName(generic.Named("consumer"))
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
 // TestCompositeRemoteResourceCollisions asserts that genuine collisions involving remote resources are
 // detected. A local resource and a remote resource sharing a simple name collide, even across different
 // APIs, as do two different (unprefixed) remotes exposing the same simple name.
@@ -417,9 +508,8 @@ func TestCompositeInProcessTypedLookup(t *testing.T) {
 	test.That(t, apisOf, test.ShouldContain, servo.API)
 }
 
-// TestCompositeStopAllInProcess checks that StopAll stops a composite exactly once. The composite serves
-// two actuator APIs over one instance, and StopAll's dedup stops it a single time, not once per
-// advertised API.
+// TestCompositeStopAllInProcess checks that StopAll reaches every actuator API a composite serves, not
+// just its canonical one.
 func TestCompositeStopAllInProcess(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
