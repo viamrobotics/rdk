@@ -885,3 +885,81 @@ func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
 	test.That(t, err, test.ShouldBeNil)
 	return b
 }
+
+// A part carries the typed model beside the Struct. While the Struct is there a reader keeps using
+// it, since it carries the file the model was read from, and a reader of a message with the Struct
+// left out, which is what a server past the deprecation window sends, builds the same part from
+// the model.
+func TestFrameSystemPartCarriesTypedModel(t *testing.T) {
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	lc := &LinkConfig{ID: "arm", Parent: "world", Translation: r3.Vector{X: 1, Y: 2, Z: 3}}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	part := &FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+
+	pbMsg, err := part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(pbMsg.GetModel().GetJoints()), test.ShouldEqual, 6)
+	//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	test.That(t, len(pbMsg.GetKinematics().GetFields()), test.ShouldBeGreaterThan, 0)
+
+	// with both present the Struct is read, and the part re-serves the file it was given
+	restored, err := ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored.ModelFrame.Name(), test.ShouldEqual, "arm")
+	test.That(t, restored.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, model.ModelConfig().OriginalFile)
+	assertSameKinematics(t, model, restored.ModelFrame)
+
+	// with the Struct gone the model alone carries the part
+	pbMsg.Kinematics = nil //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	wireBytes, err := proto2.Marshal(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	received := &robotpb.FrameSystemConfig{}
+	test.That(t, proto2.Unmarshal(wireBytes, received), test.ShouldBeNil)
+	restored, err = ProtobufToFrameSystemPart(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored.FrameConfig.Name(), test.ShouldEqual, "arm")
+	test.That(t, restored.FrameConfig.Pose().Point(), test.ShouldResemble, r3.Vector{X: 1, Y: 2, Z: 3})
+	assertSameKinematics(t, model, restored.ModelFrame)
+
+	// a frame system built from the typed config matches one built from the parts themselves
+	local, err := NewFrameSystem("local", []*FrameSystemPart{part}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	remote, err := NewFrameSystem("remote", []*FrameSystemPart{restored}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, remote.FrameNames(), test.ShouldResemble, local.FrameNames())
+	inputs := NewLinearInputs()
+	inputs.Put("arm", []Input{0.1, -0.2, 0.3, -0.4, 0.5, -0.6})
+	wantPose, err := local.Transform(inputs, NewPoseInFrame("arm", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	gotPose, err := remote.Transform(inputs, NewPoseInFrame("arm", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqualEps(wantPose.(*PoseInFrame).Pose(), gotPose.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
+}
+
+// A model built in code reaches the wire as a message too, and a model with no file form, one
+// holding a pose frame, still sends the Struct alone.
+func TestFrameSystemPartModelFromFramesAndPoseFrame(t *testing.T) {
+	lc := &LinkConfig{ID: "base", Parent: "world"}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	limit := Limit{Min: -1000, Max: 1000}
+	mobile, err := New2DMobileModelFrame("base", []Limit{limit, limit}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err := (&FrameSystemPart{FrameConfig: lif, ModelFrame: mobile}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(pbMsg.GetModel().GetJoints()), test.ShouldEqual, 2)
+	restored, err := ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(restored.ModelFrame.DoF()), test.ShouldEqual, 2)
+
+	free, err := NewPoseFrame("free", nil)
+	test.That(t, err, test.ShouldBeNil)
+	floating, err := NewSerialModel("base", []Frame{free})
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err = (&FrameSystemPart{FrameConfig: lif, ModelFrame: floating}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pbMsg.GetModel(), test.ShouldBeNil)
+}
