@@ -327,7 +327,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		remoteAPIsByName[rn.Name] = append(remoteAPIsByName[rn.Name], rn.API)
 	}
 	for k := range remoteAPIsByName {
-		slices.SortFunc(remoteAPIsByName[k], func(a, b resource.API) int { return strings.Compare(a.String(), b.String()) })
+		resource.SortAPIs(remoteAPIsByName[k])
 	}
 
 	for _, resName := range newResources {
@@ -337,7 +337,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		// Keep a composite as one node under its canonical (sorted-first) API; its other per-API names
-		// resolve to that node through the compositeByAPI index, so skip them here.
+		// resolve to that node through the composite index, so skip them here.
 		coequalAPIs := remoteAPIsByName[resName.Name]
 		isComposite := len(coequalAPIs) >= 2
 		if isComposite && resName.API != coequalAPIs[0] {
@@ -349,7 +349,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		// For a composite, fetch the api-less wrapped MultiAPIResource; otherwise the per-API client.
 		lookup := remoteResName
 		if isComposite {
-			lookup = resource.Name{Name: remoteResName.Name}
+			lookup = resource.SimpleName(remoteResName.Name)
 		}
 		res, err := rr.ResourceByName(lookup) // this returns a remote known or foreign resource client
 		if err != nil {

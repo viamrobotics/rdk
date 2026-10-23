@@ -364,8 +364,9 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	// disconnect, or any residual cancellation). Matches motion's stop-on-error pattern.
 	stopCtx := context.WithoutCancel(ctx)
 
-	// Stop all stoppable resources. A composite surfaces as N names (one per co-equal API) backed by
-	// one instance, so dedup on the raw pre-unwrap node resource to stop that instance at most once.
+	// Stop all stoppable resources. A composite surfaces as N names (one per API); unwrap each to its sub
+	// and dedup on the sub, not the wrapper, so a shared impl stops once but separate per-API controllers
+	// each stop.
 	resourceErrs := make(map[string]error)
 	stopped := make(map[resource.Resource]bool)
 	for _, name := range r.ResourceNames() {
@@ -379,15 +380,15 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 			resourceErrs[name.Name] = err
 			continue
 		}
-		if stopped[raw] {
-			continue
-		}
-
-		actuator, ok := resource.SubresourceForAPI(raw, name.API).(resource.Actuator)
+		sub := resource.SubresourceForAPI(raw, name.API)
+		actuator, ok := sub.(resource.Actuator)
 		if !ok {
 			continue
 		}
-		stopped[raw] = true
+		if stopped[sub] {
+			continue
+		}
+		stopped[sub] = true
 		if err := actuator.Stop(stopCtx, extra[name]); err != nil {
 			resourceErrs[name.Name] = err
 		}
