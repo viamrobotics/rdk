@@ -227,6 +227,50 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 		fmt.Sprintf("cannot create api-key for location: %s as there are multiple orgs on the location", fakeLocID))
 }
 
+func TestAPIKeyDeleteAction(t *testing.T) {
+	fakeKeyID := "fake-key-id"
+
+	var deletedKeyID string
+	asc := &inject.AppServiceClient{
+		DeleteKeyFunc: func(ctx context.Context, in *apppb.DeleteKeyRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.DeleteKeyResponse, error) {
+			deletedKeyID = in.GetId()
+			return &apppb.DeleteKeyResponse{}, nil
+		},
+	}
+
+	flags := map[string]any{generalFlagKeyID: fakeKeyID}
+	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
+
+	test.That(t, ac.apiKeyDeleteAction(context.Background(), cCtx, parseStructFromCtx[apiKeyDeleteArgs](cCtx)), test.ShouldBeNil)
+	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+	test.That(t, deletedKeyID, test.ShouldEqual, fakeKeyID)
+	test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "Successfully deleted key: "+fakeKeyID)
+
+	// deleting without a key ID should fail before hitting the app service
+	deletedKeyID = ""
+	cCtx.Set(generalFlagKeyID, "")
+	err := ac.apiKeyDeleteAction(context.Background(), cCtx, parseStructFromCtx[apiKeyDeleteArgs](cCtx))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot delete an api-key without an ID")
+	test.That(t, deletedKeyID, test.ShouldBeEmpty)
+
+	// errors from the app service are surfaced to the caller
+	asc = &inject.AppServiceClient{
+		DeleteKeyFunc: func(ctx context.Context, in *apppb.DeleteKeyRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.DeleteKeyResponse, error) {
+			return nil, errors.New("key not found")
+		},
+	}
+	cCtx, ac, out, _ = setup(asc, nil, nil, flags, "token")
+	err = ac.apiKeyDeleteAction(context.Background(), cCtx, parseStructFromCtx[apiKeyDeleteArgs](cCtx))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "key not found")
+	test.That(t, len(out.messages), test.ShouldEqual, 0)
+}
+
 func TestLogoutAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, "token")
 
