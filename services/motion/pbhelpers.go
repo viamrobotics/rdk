@@ -429,3 +429,11 @@ func tempStreamOptionsFromProto(o *pb.TempStreamOptions) TempStreamOptions {
 		MoveOptions:           arm.MoveOptionsFromProtobuf(o.MoveOptions),
 	}
 }
+
+func tempStreamResponseToProto(r TempStreamResponse) *pb.TempStreamArmJointPositionsResponse {
+	return &pb.TempStreamArmJointPositionsResponse{MotionSideCurrentRunwayMs: r.MotionSideCurrentRunwayMs}
+}
+
+func tempStreamResponseFromProto(r *pb.TempStreamArmJointPositionsResponse) TempStreamResponse {
+	return TempStreamResponse{MotionSideCurrentRunwayMs: r.MotionSideCurrentRunwayMs}
+}

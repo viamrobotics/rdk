@@ -456,8 +456,13 @@ type TempStreamOptions struct {
 }
 
 // TempStreamResponse is the per-acknowledgment payload an implementation may emit on
-// TempStreamArmJointPositions's responses channel. It carries no fields today.
-type TempStreamResponse struct{}
+// TempStreamArmJointPositions's responses channel.
+type TempStreamResponse struct {
+	// MotionSideCurrentRunwayMs is sent once per target, right after the implementation adds it. It is how much
+	// motion, in milliseconds, the implementation has accepted but not yet handed to the arm at that moment.
+	// Nil if the implementation does not report it.
+	MotionSideCurrentRunwayMs *int32
+}
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = "motion"

@@ -7,7 +7,9 @@ import (
 	"errors"
 
 	arm "go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
@@ -16,11 +18,13 @@ import (
 // fails immediately with a clear error instead of at link time.
 func Run(
 	ctx context.Context,
+	logger logging.Logger,
 	a arm.Arm,
 	opts StreamOptions,
 	jpCh <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diagnostics *diagnostics.SingleSessionDiagnostics,
+	acks chan<- motion.TempStreamResponse,
 ) error {
 	return errors.New("arm streaming requires a cgo build with trajex support (build tag viam_rdk_cgo_have_cxx20_rt)")
 }

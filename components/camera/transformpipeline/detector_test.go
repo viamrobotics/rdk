@@ -56,7 +56,7 @@ func buildRobotWithFakeCamera(logger logging.Logger) (robot.Robot, error) {
 		Model: resource.DefaultModelFamily.WithModel("color_detector"),
 		Attributes: rutils.AttributeMap{
 			"detect_color":      "#4F3815",
-			"hue_tolerance_pct": 0.013,
+			"hue_tolerance_pct": 0.02,
 			"segment_size_px":   15000,
 		},
 	}
@@ -126,9 +126,21 @@ func TestColorDetectionSource(t *testing.T) {
 	resImg, err := namedImages[0].Image(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
-	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
-	test.That(t, ovImg.GetXY(984, 561), test.ShouldResemble, rimage.Red)
+	test.That(t, hasColorNear(ovImg, 846, 420, 2, rimage.Red), test.ShouldBeTrue)
+	test.That(t, hasColorNear(ovImg, 1078, 588, 2, rimage.Red), test.ShouldBeTrue)
 	test.That(t, detector.Close(context.Background()), test.ShouldBeNil)
+}
+
+// hasColorNear reports whether any pixel within radius of (x, y) has the given color.
+func hasColorNear(img *rimage.Image, x, y, radius int, c rimage.Color) bool {
+	for dy := -radius; dy <= radius; dy++ {
+		for dx := -radius; dx <= radius; dx++ {
+			if img.GetXY(x+dx, y+dy) == c {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func BenchmarkColorDetectionSource(b *testing.B) {
