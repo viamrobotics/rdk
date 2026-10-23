@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-getter"
 	errw "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
@@ -572,45 +571,101 @@ func (m *cloudManager) downloadFileWithChecksum(
 	if totalBytes < 0 {
 		totalBytes = 0
 	}
-
-	var startBytes int64
-	if stat, err := os.Stat(downloadPath); err == nil {
-		m.logger.Infow("download to existing", "dest", downloadPath, "size", stat.Size())
-		startBytes = stat.Size()
-	}
-	m.setDownloadProgress(name, startBytes, totalBytes)
-
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
+	if err := os.MkdirAll(filepath.Dir(downloadPath), 0o750); err != nil {
 		return "", "", err
-	}
-
-	g := getter.HttpGetter{
-		MaxBytes: maxBytesForTesting,
-		Header:   headers,
-		Client:   &m.httpClient,
-	}
-	g.SetClient(&getter.Client{Ctx: ctx})
-	progressCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go utils.PanicCapturingGo(func() {
-		fileSizeProgress(progressCtx, m.logger, downloadPath, totalBytes, func(curBytes int64) {
-			m.setDownloadProgress(name, curBytes, totalBytes)
-		})
-	})
-	if err := g.GetFile(downloadPath, parsedURL); err != nil {
-		return "", "", errw.Wrap(err, "downloading file")
 	}
 
 	hash := crc32Hash()
-	destFile, err := os.Open(downloadPath) //nolint:gosec
-	if err != nil {
+	var downloadedBytes int64
+	if destFile, err := os.Open(downloadPath); err == nil { //nolint:gosec
+		downloadedBytes, err = io.Copy(hash, destFile)
+		closeErr := destFile.Close()
+		if err != nil {
+			return "", "", err
+		}
+		if closeErr != nil {
+			return "", "", closeErr
+		}
+		m.logger.Infow("download to existing", "dest", downloadPath, "size", downloadedBytes)
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", "", err
 	}
-	defer utils.UncheckedErrorFunc(destFile.Close)
-	downloadedBytes, err := io.Copy(hash, destFile)
-	if err != nil {
-		return "", "", err
+	m.setDownloadProgress(name, downloadedBytes, totalBytes)
+
+	// A complete partial needs no GET, but still gets checked against the expected checksum below.
+	if totalBytes <= 0 || downloadedBytes < totalBytes {
+		resume := downloadedBytes > 0 && resp.Header.Get("Accept-Ranges") == "bytes"
+		getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+		if err != nil {
+			return "", "", err
+		}
+		getReq.Header = headers
+		if resume {
+			getReq.Header.Set("Range", fmt.Sprintf("bytes=%d-", downloadedBytes))
+		}
+
+		getResp, err := m.httpClient.Do(getReq)
+		if err != nil {
+			return "", "", err
+		}
+
+		appendDownload := resume && getResp.StatusCode == http.StatusPartialContent
+		switch {
+		case appendDownload:
+			expectedPrefix := fmt.Sprintf("bytes %d-", downloadedBytes)
+			if !strings.HasPrefix(getResp.Header.Get("Content-Range"), expectedPrefix) {
+				utils.UncheckedError(getResp.Body.Close())
+				return "", "", fmt.Errorf("invalid content range %q for package download", getResp.Header.Get("Content-Range"))
+			}
+		case getResp.StatusCode == http.StatusOK:
+			// The server did not honor the range request. Replace the partial and restart the hash.
+			downloadedBytes = 0
+			hash.Reset()
+		case getResp.StatusCode != http.StatusOK:
+			utils.UncheckedError(getResp.Body.Close())
+			return "", "", fmt.Errorf("invalid download status code %d", getResp.StatusCode)
+		}
+
+		flags := os.O_WRONLY | os.O_CREATE
+		if appendDownload {
+			flags |= os.O_APPEND
+		} else {
+			flags |= os.O_TRUNC
+		}
+		destFile, err := os.OpenFile(downloadPath, flags, 0o600) //nolint:gosec
+		if err != nil {
+			utils.UncheckedError(getResp.Body.Close())
+			return "", "", err
+		}
+
+		progressCtx, cancel := context.WithCancel(ctx)
+		go utils.PanicCapturingGo(func() {
+			fileSizeProgress(progressCtx, m.logger, downloadPath, totalBytes, func(curBytes int64) {
+				m.setDownloadProgress(name, curBytes, totalBytes)
+			})
+		})
+
+		body := io.Reader(getResp.Body)
+		if maxBytesForTesting > 0 {
+			body = io.LimitReader(body, maxBytesForTesting)
+		}
+		written, copyErr := io.Copy(io.MultiWriter(destFile, hash), body)
+		cancel()
+		bodyCloseErr := getResp.Body.Close()
+		fileCloseErr := destFile.Close()
+		downloadedBytes += written
+		if copyErr != nil {
+			return "", "", errw.Wrap(copyErr, "downloading file")
+		}
+		if bodyCloseErr != nil {
+			return "", "", bodyCloseErr
+		}
+		if fileCloseErr != nil {
+			return "", "", fileCloseErr
+		}
+		if getResp.ContentLength >= 0 && written < getResp.ContentLength {
+			return "", "", errw.Wrap(io.ErrShortWrite, "downloading file")
+		}
 	}
 
 	// The download is complete; record the final byte counts. If the server did not

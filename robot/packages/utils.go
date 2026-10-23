@@ -117,7 +117,9 @@ func installPackage(
 	} else {
 		dstPath = p.LocalDownloadPath(packagesDir)
 	}
+	downloadStart := time.Now()
 	checksum, contentType, err := installFn(ctx, url, dstPath)
+	downloadDuration := time.Since(downloadStart)
 	if err != nil {
 		return err
 	}
@@ -143,8 +145,9 @@ func installPackage(
 		}
 	}()
 
-	// unzip archive.
-	err = unpackFile(ctx, logger, dstPath, tmpDataPath)
+	logger.Infow("Package download complete; starting extraction", "package", p.Package, "version", p.Version)
+	var unpackTiming unpackTimings
+	err = unpackFileTimed(ctx, logger, dstPath, tmpDataPath, &unpackTiming)
 	if err != nil {
 		// A low-space failure is transient, not a bad archive: don't write syncStatusFailed
 		// (packageIsSynced treats "failed" as synced to avoid retrying forever, which would block
@@ -199,6 +202,13 @@ func installPackage(
 		return err
 	}
 
+	logger.Infow("Package installation complete",
+		"package", p.Package,
+		"version", p.Version,
+		"download_duration", downloadDuration.String(),
+		"extract_duration", unpackTiming.extract.String(),
+		"sync_duration", unpackTiming.sync.String(),
+	)
 	return nil
 }
 
@@ -233,8 +243,23 @@ func cleanup(packagesDir string, p config.PackageConfig) error {
 // larger than the interval is checked on its own (its size is folded into the required floor).
 const unpackDiskCheckInterval = 8 * 1024 * 1024
 
+type unpackTimings struct {
+	extract time.Duration
+	sync    time.Duration
+}
+
 // unpackFile extracts a tgz to a directory.
 func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir string) error {
+	return unpackFileTimed(ctx, logger, fromFile, toDir, nil)
+}
+
+func unpackFileTimed(ctx context.Context, logger logging.Logger, fromFile, toDir string, timings *unpackTimings) error {
+	start := time.Now()
+	if timings != nil {
+		defer func() {
+			timings.extract = time.Since(start) - timings.sync
+		}()
+	}
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
 		return err
 	}
@@ -335,8 +360,13 @@ func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir stri
 			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) { //nolint:gosec
 				return fmt.Errorf("failed to copy file %q %w", path, err)
 			}
-			if err := outFile.Sync(); err != nil {
-				return fmt.Errorf("failed to sync %q %w", path, err)
+			syncStart := time.Now()
+			syncErr := outFile.Sync()
+			if timings != nil {
+				timings.sync += time.Since(syncStart)
+			}
+			if syncErr != nil {
+				return fmt.Errorf("failed to sync %q %w", path, syncErr)
 			}
 			utils.UncheckedError(outFile.Close())
 
