@@ -1543,6 +1543,17 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		}
 	}
 
+	if resp.GetPackages() != nil {
+		mStatus.Packages = make([]packages.PackageStatus, 0, len(resp.GetPackages()))
+		for _, pbPkgStatus := range resp.GetPackages() {
+			pkgStatus, err := packages.PackageStatusFromProto(pbPkgStatus)
+			if err != nil {
+				rc.logger.CWarnw(ctx, "invalid package status from server", "package", pkgStatus.Name, "error", err)
+			}
+			mStatus.Packages = append(mStatus.Packages, pkgStatus)
+		}
+	}
+
 	return mStatus, nil
 }
 
