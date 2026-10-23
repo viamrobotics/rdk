@@ -72,9 +72,6 @@ func NewManager(
 type addedResource struct {
 	conf resource.Config
 	deps []string
-	// subs holds a composite's per-API sub-clients (nil for an ordinary resource); addResource retains them
-	// and RemoveResource closes the non-canonical ones (the wrapper's Close handles the canonical sub).
-	subs map[resource.API]resource.Resource
 }
 
 // moduleMap is a typesafe wrapper for a sync.Map holding string keys and *module values.
@@ -626,7 +623,6 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	if len(apis) == 1 {
 		return byAPI[conf.API], nil
 	}
-	ar.subs = byAPI
 	return resource.NewMultiAPIResource(base, byAPI), nil
 }
 
@@ -693,37 +689,26 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
 
 	mgr.rMap.Delete(name)
-	// A resource is routed under each API it serves, so drop every route. For a composite, also close the
-	// non-canonical sub-clients retained in ar.subs; the wrapper's Close (run by the resource manager just
-	// before this call) reaches only the canonical apis[0] sub, so the rest would otherwise leak until the
-	// module is torn down. The module process drops the instance from all its collections via the one
+	// A resource is routed under each API it serves, so drop every route. The sub-clients themselves are
+	// closed by the wrapper's Close (run by the resource manager just before this call), which closes
+	// every distinct sub. The module process drops the instance from all its collections via the one
 	// RemoveResource call below.
-	var closeErr error
 	if ar, ok := mod.resources[name]; ok {
-		// Close with a non-cancellable context so teardown runs even if ctx is already expired.
-		closeCtx := context.WithoutCancel(ctx)
-		apis := resource.APIsForConfig(ar.conf)
-		for _, api := range apis {
+		for _, api := range resource.APIsForConfig(ar.conf) {
 			mgr.rMap.Delete(name.AsAPI(api))
-		}
-		for api, sub := range ar.subs {
-			if api == apis[0] {
-				continue // closed by the wrapper's Close
-			}
-			closeErr = multierr.Combine(closeErr, sub.Close(closeCtx))
 		}
 	}
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
-		return multierr.Combine(closeErr, err)
+		return err
 	}
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		return multierr.Combine(closeErr, err, mgr.closeModule(mod, "config_removal"))
+		return multierr.Combine(err, mgr.closeModule(mod, "config_removal"))
 	}
-	return closeErr
+	return nil
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit

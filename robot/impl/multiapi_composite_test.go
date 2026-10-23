@@ -583,10 +583,9 @@ func TestModularCompositeResource(t *testing.T) {
 	test.That(t, apis, test.ShouldContain, movementsensor.API)
 	test.That(t, apis, test.ShouldContain, gizmoapi.API)
 
-	// 4) Remove the composite (keep the module up). This tears down its module sub-clients. The
-	// composite wrapper's Close reaches only the canonical sub, so modmanager.RemoveResource must close
-	// the non-canonical per-API sub-clients too; if it does not they leak goroutines that this
-	// package's goleak check flags at teardown. Assert the resource is gone under every API.
+	// 4) Remove the composite (keep the module up). This tears down its module sub-clients. The composite
+	// wrapper's Close closes every distinct sub-client, so none leak goroutines that this package's goleak
+	// check flags at teardown. Assert the resource is gone under every API.
 	r.Reconfigure(ctx, &config.Config{
 		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
 	})
