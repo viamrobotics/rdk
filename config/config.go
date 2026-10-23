@@ -1180,8 +1180,8 @@ const (
 	PackageTypeSlamMap PackageType = "slam_map"
 	// PackageTypeArchive represents a generic archive.
 	PackageTypeArchive PackageType = "archive"
-	// PackageTypeUnspecified is unspecified
-	PackageTypeUnspecified PackageType = "unspecified"
+	// PackageTypeUnspecified is the zero value for package type.
+	PackageTypeUnspecified PackageType = ""
 	// PackageTypeMlTraining is ML training
 	PackageTypeMlTraining PackageType = "ml_training"
 )
