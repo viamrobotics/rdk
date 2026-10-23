@@ -1305,7 +1305,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	for _, serv := range cfg.Services {
 		if serv.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Pattern: "rdk.resource_manager." + resource.LogName(serv.ResourceName(), resource.APIsForModel(serv.Model)),
 				Level:   serv.LogConfiguration.Level.String(),
 			}
 			combinedLogCfg = append(combinedLogCfg, resLogCfg)
@@ -1314,7 +1314,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	for _, comp := range cfg.Components {
 		if comp.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Pattern: "rdk.resource_manager." + resource.LogName(comp.ResourceName(), resource.APIsForModel(comp.Model)),
 				Level:   comp.LogConfiguration.Level.String(),
 			}
 			combinedLogCfg = append(combinedLogCfg, resLogCfg)

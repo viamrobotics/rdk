@@ -206,10 +206,11 @@ func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *da
 	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }
 
-// FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
-// through the resourceGetterForAPI for _all_ incoming gRPC requests related to a
-// resource. A nil resource and an error is returned in the case of no resource found, or
-// multiple matching remote resources found.
+// FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried through the
+// resourceGetterForAPI for all incoming gRPC requests related to a resource. It returns a nil resource
+// and an error when no resource, or multiple matching remote resources, are found. It unwraps a composite
+// to the sub-resource serving that API (resource.SubresourceForAPI), so a caller that type-asserts sees
+// the real typed instance rather than the composite wrapper.
 func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
 	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
 	if err != nil {
@@ -219,15 +220,48 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 	if err != nil {
 		return nil, resource.NewNotAvailableError(resource.NewName(api, name), err)
 	}
-	return res, nil
+	return resource.SubresourceForAPI(res, api), nil
 }
 
-// ResourceByName returns a resource by name. It now re-routes all calls to
-// FindBySimpleNameAndAPI. All incoming gRPC requests related to a resource go through
-// FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
-// calculation and session code.
+// ResourceByName returns a resource by name. It routes an api-specific name to FindBySimpleNameAndAPI
+// and a simple, API-less name to resourceBySimpleName. It is only called internally, for some
+// dependency calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+	if name.API == (resource.API{}) {
+		return r.resourceBySimpleName(name.Name)
+	}
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
+}
+
+// resourceBySimpleName resolves a simple (API-less) name to its single resource. A composite serves
+// several co-equal APIs but is one identity, so FindBySimpleName collapses it (local or remote) to one
+// match and this returns that single multi-API handle. A genuine same-name collision across distinct
+// resources returns several matches and is an error.
+func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
+	matches := r.manager.resources.FindAllBySimpleName(name)
+	switch len(matches) {
+	case 0:
+		return nil, resource.NewNotFoundError(resource.SimpleName(name))
+	case 1:
+		// Resolve the raw graph node (not the localRobot FindBySimpleNameAndAPI, which unwraps a
+		// composite to one API's sub) so the full multi-API handle is returned. The lookup uses `name`,
+		// the cached name with a remote's prefix intact.
+		match := matches[0]
+		n, err := r.manager.resources.FindBySimpleNameAndAPI(name, match.API)
+		if err != nil {
+			return nil, err
+		}
+		res, err := n.Resource()
+		if err != nil {
+			return nil, resource.NewNotAvailableError(match, err)
+		}
+		return res, nil
+	default:
+		return nil, errors.Errorf(
+			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
+			name, resource.NamesToStrings(matches),
+		)
+	}
 }
 
 // RemoteNames returns the names of all known remote robots.
@@ -331,19 +365,33 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	// disconnect, or any residual cancellation). Matches motion's stop-on-error pattern.
 	stopCtx := context.WithoutCancel(ctx)
 
-	// Stop all stoppable resources
+	// Stop all stoppable resources. A composite surfaces as N names (one per API); unwrap each to its sub
+	// and dedup on the sub, not the wrapper, so a shared impl stops once but separate per-API controllers
+	// each stop.
 	resourceErrs := make(map[string]error)
+	stopped := make(map[resource.Resource]bool)
 	for _, name := range r.ResourceNames() {
-		res, err := r.ResourceByName(name)
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
 		if err != nil {
 			resourceErrs[name.Name] = err
 			continue
 		}
-
-		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(stopCtx, extra[name]); err != nil {
-				resourceErrs[name.Name] = err
-			}
+		raw, err := node.Resource()
+		if err != nil {
+			resourceErrs[name.Name] = err
+			continue
+		}
+		sub := resource.SubresourceForAPI(raw, name.API)
+		actuator, ok := sub.(resource.Actuator)
+		if !ok {
+			continue
+		}
+		if stopped[sub] {
+			continue
+		}
+		stopped[sub] = true
+		if err := actuator.Stop(stopCtx, extra[name]); err != nil {
+			resourceErrs[name.Name] = err
 		}
 	}
 
@@ -693,7 +741,8 @@ func newWithResources(
 		if !found {
 			return nil, errors.Errorf("could not find the resource for name %s", res)
 		}
-		return r.ResourceByName(match)
+		// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
+		return r.ResourceByName(resource.SimpleName(match.Name))
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -827,7 +876,12 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		if err != nil {
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[prefixedName] = res
+		// A composite dependency serves several co-equal APIs, so key it under each of its API names with
+		// that API's unwrapped sub; a dependent then resolves it by whichever API it expects. For an
+		// ordinary resource this is the single (name, res) pair.
+		for aliased, sub := range resource.SubsByName(prefixedName, res) {
+			allDeps[aliased] = sub
+		}
 	}
 	nodeConf := gNode.Config()
 	weakDeps, weakSnap := r.getWeakDependenciesAndSnapshot(rName, nodeConf.API, nodeConf.Model)
@@ -930,9 +984,13 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			continue
 		}
 
-		optDeps[resolvedOptionalDepName] = optionalDep
-		found = append(found, resolvedOptionalDepName)
-		snapshot[resolvedOptionalDepName] = node.UpdatedAt()
+		// A composite serves several co-equal APIs, so key it under each with that API's sub. For an
+		// ordinary resource this is the single (name, res) pair.
+		for aliased, sub := range resource.SubsByName(resolvedOptionalDepName, optionalDep) {
+			optDeps[aliased] = sub
+			found = append(found, aliased)
+			snapshot[aliased] = node.UpdatedAt()
+		}
 	}
 	if len(conf.ImplicitOptionalDependsOn) > 0 {
 		r.logger.Infow(
@@ -978,6 +1036,9 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
 	snapshot := make(map[resource.Name]int64)
+	// A composite is one node reached under each of its co-equal API names, and SubsByName fans all its
+	// subs in a single pass, so handle each node once instead of re-fanning it per name.
+	seenNodes := make(map[*resource.GraphNode]bool)
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
@@ -991,6 +1052,10 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
+		if seenNodes[node] {
+			continue
+		}
+		seenNodes[node] = true
 		res, err := node.Resource()
 		if err != nil {
 			// Wrap as NotAvailableError to match the prior ResourceByName behavior
@@ -1000,14 +1065,20 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
-		for _, matcher := range weakDepMatchers {
-			if matcher.IsMatch(res) {
-				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
-				// dependency map in a resource constructor.
-				popped := n.PopRemote()
-				deps[popped] = res
-				snapshot[popped] = node.UpdatedAt()
-				break
+		// A composite serves several co-equal APIs, so match the weak-dep matchers against each API it
+		// serves rather than only the one its Name() carries. Store the wrapper under each matched API
+		// name. A weak-dep consumer unwraps it to the API it wants with resource.SubresourceForAPI. An
+		// ordinary resource is its own only sub, so nothing changes.
+		for apiName, sub := range resource.SubsByName(n, res) {
+			for _, matcher := range weakDepMatchers {
+				if matcher.IsMatch(sub) {
+					// Pop the remote name off since callers won't be expecting it when accessing it in the
+					// resource dependency map in a resource constructor.
+					popped := apiName.PopRemote()
+					deps[popped] = res
+					snapshot[popped] = node.UpdatedAt()
+					break
+				}
 			}
 		}
 	}
