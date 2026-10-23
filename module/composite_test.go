@@ -185,3 +185,88 @@ func TestCompositeCameraStreamSourceRegistered(t *testing.T) {
 	m.registerMu.Unlock()
 	test.That(t, ok, test.ShouldBeFalse)
 }
+
+// localConsumer depends on a composite in the same module and remembers the exact instance it resolved.
+type localConsumer struct {
+	resource.Named
+	resource.TriviallyCloseable
+	dep resource.Resource
+}
+
+// TestCompositeRebuildUpdatesInModuleDependent reconfigures a modular composite that a second resource in
+// the same module depends on, and checks the dependent is cascaded onto the rebuilt instance rather than
+// left holding the stale, closed one.
+func TestCompositeRebuildUpdatesInModuleDependent(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	var built int
+	compModel := resource.NewModel("acme", "test", "rebuild-combo")
+	resource.RegisterMultiAPI([]resource.API{generic.API, sensor.API}, compModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+				built++
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(generic.API, compModel)
+	defer resource.Deregister(sensor.API, compModel)
+
+	consumerModel := resource.NewModel("acme", "test", "combo-consumer")
+	resource.RegisterComponent(generic.API, consumerModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+				c := &localConsumer{Named: conf.ResourceName().AsNamed()}
+				for n, d := range deps {
+					if n.Name == "combo" {
+						c.dep = d
+					}
+				}
+				return c, nil
+			},
+		})
+	defer resource.Deregister(generic.API, consumerModel)
+
+	//nolint:usetesting
+	test.That(t, os.Setenv(NoModuleParentEnvVar, "true"), test.ShouldBeNil)
+	defer func() { test.That(t, os.Unsetenv(NoModuleParentEnvVar), test.ShouldBeNil) }()
+
+	m, err := NewModule(ctx, filepath.Join(t.TempDir(), "rebuild.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer m.Close(ctx)
+	_, err = m.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, m.AddModelFromRegistry(ctx, generic.API, compModel), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, sensor.API, compModel), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, generic.API, consumerModel), test.ShouldBeNil)
+
+	comboCfg := &appv1.ComponentConfig{Name: "combo", Api: sensor.API.String(), Model: compModel.String()}
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: comboCfg})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+		Config:       &appv1.ComponentConfig{Name: "consumer", Api: generic.API.String(), Model: consumerModel.String()},
+		Dependencies: []string{sensor.Named("combo").String()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The consumer resolved the composite locally (not a parent client).
+	m.registerMu.Lock()
+	consumer := m.localResources["consumer"].res.(*localConsumer)
+	firstCombo := m.localResources["combo"].res
+	m.registerMu.Unlock()
+	test.That(t, consumer.dep, test.ShouldEqual, firstCombo)
+
+	// Reconfiguring the composite rebuilds it; the in-module dependent must be cascaded onto the new one.
+	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: comboCfg})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, built, test.ShouldEqual, 2)
+
+	m.registerMu.Lock()
+	consumer = m.localResources["consumer"].res.(*localConsumer)
+	newCombo := m.localResources["combo"].res
+	m.registerMu.Unlock()
+	test.That(t, newCombo, test.ShouldNotEqual, firstCombo)
+	test.That(t, consumer.dep, test.ShouldEqual, newCombo)
+	test.That(t, consumer.dep, test.ShouldNotEqual, firstCombo)
+}
