@@ -93,6 +93,13 @@ func Run(
 
 	// Start the trajex session.
 	ts := &trajexSession{logger: logger, opts: opts, diagnostics: diagnostics}
+	if opts.MoveOptions.MaxTCPSpeedMPerSec != nil {
+		model, err := a.Kinematics(ctx)
+		if err != nil {
+			return fmt.Errorf("get the arm's kinematics for max_tcp_speed: %w", err)
+		}
+		ts.model = model
+	}
 	if err := ts.startSession(seed); err != nil {
 		return fmt.Errorf("startSession (seed=%v): %w", seed, err)
 	}

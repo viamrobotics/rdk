@@ -90,8 +90,8 @@ func (o *StreamOptions) Validate() error {
 	); err != nil {
 		return err
 	}
-	if o.MoveOptions.MaxTCPSpeedMPerSec != nil {
-		return errors.New("streaming: move_options.max_tcp_speed is not currently supported for arm streaming")
+	if o.MoveOptions.MaxTCPSpeedMPerSec != nil && *o.MoveOptions.MaxTCPSpeedMPerSec <= 0 {
+		return errors.New("streaming: move_options.max_tcp_speed must be positive")
 	}
 	if o.DiagnosticsWindowSecs < 0 {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")

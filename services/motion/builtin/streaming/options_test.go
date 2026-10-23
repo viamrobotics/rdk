@@ -50,6 +50,11 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	perJoint.MoveOptions.MaxAccRadsJoints = []float64{1, 2}
 	test.That(t, perJoint.Validate(), test.ShouldBeNil)
 
+	tcpCapped := valid
+	tcp := 0.1
+	tcpCapped.MoveOptions.MaxTCPSpeedMPerSec = &tcp
+	test.That(t, tcpCapped.Validate(), test.ShouldBeNil)
+
 	// Each Validate rule, violated in isolation against the otherwise-valid base.
 	for _, tc := range []struct {
 		name   string
@@ -68,7 +73,8 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		{"negative entry in per-joint vel limits", func(o *StreamOptions) { o.MoveOptions.MaxVelRadsJoints = []float64{1, -1} }},
 		{"zero entry in per-joint accel limits", func(o *StreamOptions) { o.MoveOptions.MaxAccRadsJoints = []float64{1, 0} }},
 		{"negative entry in per-joint accel limits", func(o *StreamOptions) { o.MoveOptions.MaxAccRadsJoints = []float64{1, -1} }},
-		{"unsupported tcp speed limit", func(o *StreamOptions) { tcp := 0.1; o.MoveOptions.MaxTCPSpeedMPerSec = &tcp }},
+		{"zero tcp speed limit", func(o *StreamOptions) { tcp := 0.0; o.MoveOptions.MaxTCPSpeedMPerSec = &tcp }},
+		{"negative tcp speed limit", func(o *StreamOptions) { tcp := -0.1; o.MoveOptions.MaxTCPSpeedMPerSec = &tcp }},
 		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindowSecs = -1 }},
 	} {
 		bad := valid

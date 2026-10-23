@@ -9,11 +9,14 @@ import (
 	"time"
 
 	trajex "github.com/viam-modules/trajex/go"
+	"github.com/viam-modules/trajex/go/kinematics"
+	trajexrdk "github.com/viam-modules/trajex/go/rdk"
 	totgstream "github.com/viam-modules/trajex/go/totg/streaming"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -25,6 +28,8 @@ type trajexSession struct {
 	logger      logging.Logger
 	opts        StreamOptions
 	diagnostics *diagnostics.SingleSessionDiagnostics
+	// model is the arm's kinematic model, needed only to apply a TCP speed limit.
+	model referenceframe.Model
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session
@@ -32,6 +37,30 @@ type trajexSession struct {
 	droppedInARow      int
 	dof                int
 	lastJointPositions []referenceframe.Input
+}
+
+func (s *trajexSession) newSession(trajexOpts *trajex.TensorMap) (*totgstream.Session, error) {
+	maxTCPSpeedMPerSec := s.opts.MoveOptions.MaxTCPSpeedMPerSec
+	if maxTCPSpeedMPerSec == nil {
+		return totgstream.New(trajexOpts)
+	}
+	if s.model == nil {
+		return nil, fmt.Errorf("max_tcp_speed requires the arm's kinematic model")
+	}
+	// The chain ends at the arm's output frame. TODO: let callers place the tool center point.
+	joints, err := trajexrdk.JointsFromModel(s.model, spatialmath.NewZeroPose())
+	if err != nil {
+		return nil, fmt.Errorf("build the arm's kinematic chain for max_tcp_speed: %w", err)
+	}
+	chain, err := kinematics.NewChain(joints)
+	if err != nil {
+		return nil, fmt.Errorf("build the arm's kinematic chain for max_tcp_speed: %w", err)
+	}
+	defer chain.Close()
+	if err := trajexOpts.InsertScalarFloat64(totgstream.KeyTCPMaxLinearSpeed, *maxTCPSpeedMPerSec*1000); err != nil {
+		return nil, err
+	}
+	return totgstream.NewWithKinematics(chain, trajexOpts)
 }
 
 func (s *trajexSession) startSession(startJointPositions []referenceframe.Input) error {
@@ -79,7 +108,7 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 		return err
 	}
 
-	sess, err := totgstream.New(trajexOpts)
+	sess, err := s.newSession(trajexOpts)
 	if err != nil {
 		return err
 	}
