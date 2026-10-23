@@ -825,3 +825,128 @@ func TestCompositeRemoteMachineStatusPerAPI(t *testing.T) {
 	test.That(t, comboAPIs, test.ShouldContain, sensor.API)
 	test.That(t, comboAPIs, test.ShouldContain, generic.API)
 }
+
+// TestCompositeRemoteResourceAsDependency asserts a local resource can depend on a composite served by a
+// remote and resolve it under each of its co-equal APIs through the remote.
+func TestCompositeRemoteResourceAsDependency(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "remote-dep-combo", nil)
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: model}},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	consumerModel := resource.NewModel("acme", "test", "remote-combo-consumer")
+	resource.RegisterComponent(generic.API, consumerModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				if _, err := resource.FromProvider[sensor.Sensor](deps, sensor.Named("combo")); err != nil {
+					return nil, fmt.Errorf("consumer could not resolve remote composite via sensor API: %w", err)
+				}
+				if _, err := resource.FromProvider[resource.Resource](deps, generic.Named("combo")); err != nil {
+					return nil, fmt.Errorf("consumer could not resolve remote composite via generic API: %w", err)
+				}
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(generic.API, consumerModel)
+
+	main := setupLocalRobot(t, ctx, &config.Config{
+		Remotes: []config.Remote{{Name: "rem", Address: addr}},
+		Components: []resource.Config{
+			{Name: "consumer", API: generic.API, Model: consumerModel, ImplicitDependsOn: []string{"combo"}},
+		},
+	}, logger.Sublogger("main"))
+
+	// If the consumer built, it resolved the remote composite under both APIs.
+	_, err := main.ResourceByName(generic.Named("consumer"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestWeakDependencyOnRemoteComposite asserts a weak dependency (by subtype) matches a composite served
+// by a remote under its served API; weak-dep resolution iterates remote resources too.
+func TestWeakDependencyOnRemoteComposite(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "remote-weak-combo", nil)
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: model}},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	weakAPI := resource.NewAPI("acme", "component", "remoteweakconsumer")
+	weakModel := resource.NewModel("acme", "test", "remote-weak-consumer")
+	weakName := resource.NewName(weakAPI, "weak1")
+	resource.Register(weakAPI, weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(
+				_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.SubtypeMatcher{Subtype: sensor.SubtypeName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	main := setupLocalRobot(t, ctx, &config.Config{
+		Remotes:    []config.Remote{{Name: "rem", Address: addr}},
+		Components: []resource.Config{{Name: weakName.Name, API: weakAPI, Model: weakModel}},
+	}, logger.Sublogger("main"))
+
+	weakRes, err := main.ResourceByName(weakName)
+	test.That(t, err, test.ShouldBeNil)
+	weak, err := resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	// The remote composite is weakly matched under its served sensor API.
+	_, ok := weak.resources[sensor.Named("combo")]
+	test.That(t, ok, test.ShouldBeTrue)
+}
+
+// TestOptionalDependencyOnRemoteComposite asserts an optional dependency on a composite served by a
+// remote resolves it under each co-equal API through the remote (optional-dep fan-out crossed with remote).
+func TestOptionalDependencyOnRemoteComposite(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "remote-optional-combo", nil)
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: model}},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	consumerAPI := resource.NewAPI("acme", "component", "remoteoptconsumer")
+	consumerModel := resource.NewModel("acme", "test", "remote-opt-consumer")
+	consumerName := resource.NewName(consumerAPI, "consumer1")
+	resource.Register(consumerAPI, consumerModel,
+		resource.Registration[*optionalCompositeConsumer, *optionalCompositeConfig]{Constructor: newOptionalCompositeConsumer})
+	defer resource.Deregister(consumerAPI, consumerModel)
+
+	mainCfg := &config.Config{
+		Remotes: []config.Remote{{Name: "rem", Address: addr}},
+		Components: []resource.Config{
+			{
+				Name: consumerName.Name, API: consumerAPI, Model: consumerModel,
+				ConvertedAttributes: &optionalCompositeConfig{Optional: "combo"},
+			},
+		},
+	}
+	test.That(t, mainCfg.Ensure(false, logger), test.ShouldBeNil)
+	main := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	consRes, err := main.ResourceByName(consumerName)
+	test.That(t, err, test.ShouldBeNil)
+	cons, err := resource.AsType[*optionalCompositeConsumer](consRes)
+	test.That(t, err, test.ShouldBeNil)
+	_, underSensor := cons.deps[sensor.Named("combo")]
+	test.That(t, underSensor, test.ShouldBeTrue)
+	_, underGeneric := cons.deps[generic.Named("combo")]
+	test.That(t, underGeneric, test.ShouldBeTrue)
+}
