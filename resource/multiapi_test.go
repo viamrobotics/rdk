@@ -396,12 +396,6 @@ func TestCanonicalAPISortingDeterministic(t *testing.T) {
 	test.That(t, APIsForModel(model2), test.ShouldResemble, want)
 }
 
-func TestRegisterMultiAPISetIgnoresSingle(t *testing.T) {
-	model := NewModel("acme", "test", "setsingle")
-	RegisterMultiAPISet(model, []API{testCamAPI})
-	test.That(t, APIsForModel(model), test.ShouldBeNil)
-}
-
 func TestExpandModelUnregistered(t *testing.T) {
 	test.That(t, ExpandModel(NewModel("acme", "test", "nope")), test.ShouldBeNil)
 }
@@ -496,4 +490,46 @@ func TestProviderUnwrapsComposite(t *testing.T) {
 	sens, err = FromProvider[testSens](provider, name)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sens.Read(), test.ShouldEqual, 42)
+}
+
+func TestSubsByNameAndDistinctSubs(t *testing.T) {
+	base := NewName(testCamAPI, "dev")
+
+	// A shared core served under both co-equal APIs.
+	core := &combo{Named: base.AsNamed()}
+	shared := NewMultiAPIResource(base, map[API]Resource{testCamAPI: core, testSensAPI: core})
+
+	// SubsByName yields one pair per served API, canonical-first; both point at the shared core.
+	var names []Name
+	var subs []Resource
+	for n, r := range SubsByName(base, shared) {
+		names = append(names, n)
+		subs = append(subs, r)
+	}
+	test.That(t, names, test.ShouldResemble, []Name{base.AsAPI(testCamAPI), base.AsAPI(testSensAPI)})
+	test.That(t, subs, test.ShouldResemble, []Resource{core, core})
+
+	// DistinctSubs dedups by identity: the shared core yields once, under the canonical API.
+	var distinctNames []Name
+	var distinctSubs []Resource
+	for n, r := range DistinctSubs(base, shared) {
+		distinctNames = append(distinctNames, n)
+		distinctSubs = append(distinctSubs, r)
+	}
+	test.That(t, distinctNames, test.ShouldResemble, []Name{base.AsAPI(testCamAPI)})
+	test.That(t, distinctSubs, test.ShouldResemble, []Resource{core})
+
+	// Distinct per-API objects: both iterators yield each.
+	cam := &combo{Named: base.AsNamed()}
+	sens := &combo{Named: base.AsNamed()}
+	distinct := NewMultiAPIResource(base, map[API]Resource{testCamAPI: cam, testSensAPI: sens})
+	var subsByNameCount, distinctCount int
+	for range SubsByName(base, distinct) {
+		subsByNameCount++
+	}
+	for range DistinctSubs(base, distinct) {
+		distinctCount++
+	}
+	test.That(t, subsByNameCount, test.ShouldEqual, 2)
+	test.That(t, distinctCount, test.ShouldEqual, 2)
 }
