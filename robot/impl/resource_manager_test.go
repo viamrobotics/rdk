@@ -14,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -2371,4 +2372,59 @@ func TestOfflineRemoteResources(t *testing.T) {
 	// longer appears.
 	mainClient.Refresh(ctx)
 	test.That(t, resourceNames, test.ShouldNotContain, mainClient.ResourceNames())
+}
+
+func TestRemoteConnectionPath(t *testing.T) {
+	report := func(local, remote webrtc.ICECandidateType) webrtc.StatsReport {
+		return webrtc.StatsReport{
+			"pair": webrtc.ICECandidatePairStats{
+				Nominated:         true,
+				State:             webrtc.StatsICECandidatePairStateSucceeded,
+				LocalCandidateID:  "local",
+				RemoteCandidateID: "remote",
+			},
+			"local":  webrtc.ICECandidateStats{CandidateType: local, IP: "10.0.0.1"},
+			"remote": webrtc.ICECandidateStats{CandidateType: remote, IP: "10.0.0.2"},
+		}
+	}
+
+	_, ok := remoteConnectionPath(nil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	path, ok := remoteConnectionPath(report(webrtc.ICECandidateTypeHost, webrtc.ICECandidateTypeSrflx))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, path, test.ShouldResemble, remoteConnPath{local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeSrflx})
+
+	path, ok = remoteConnectionPath(report(webrtc.ICECandidateTypeHost, webrtc.ICECandidateTypeRelay))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.2")
+
+	path, ok = remoteConnectionPath(report(webrtc.ICECandidateTypeRelay, webrtc.ICECandidateTypeRelay))
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.1")
+}
+
+func TestRemoteConnStats(t *testing.T) {
+	manager := newResourceManager(resourceManagerOptions{}, logging.NewTestLogger(t))
+	for _, name := range []string{"failed", "dropped"} {
+		test.That(t, manager.resources.AddNode(fromRemoteNameToRemoteNodeName(name), resource.NewUninitializedNode()), test.ShouldBeNil)
+	}
+	relayed := remoteConnPath{local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeRelay, relayAddr: "10.0.0.2"}
+	manager.remoteConns.Store("dropped", remoteConnState{path: relayed, connected: true})
+	manager.remoteConns.Store("removed", remoteConnState{connected: true})
+
+	statser := remoteConnStatser{manager}
+	test.That(t, statser.Stats(), test.ShouldResemble, map[string]remoteConnStats{
+		"failed":  {},
+		"dropped": {Connected: true, LocalCandidate: 1, RemoteCandidate: 4, Relayed: true},
+	})
+
+	// Neither remote has a client, so both are marked disconnected; "dropped" keeps its last path.
+	manager.refreshRemotePaths()
+	test.That(t, statser.Stats(), test.ShouldResemble, map[string]remoteConnStats{
+		"failed":  {},
+		"dropped": {LocalCandidate: 1, RemoteCandidate: 4, Relayed: true},
+	})
+	_, ok := manager.remoteConns.Load("removed")
+	test.That(t, ok, test.ShouldBeFalse)
 }
