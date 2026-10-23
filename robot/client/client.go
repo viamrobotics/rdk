@@ -954,7 +954,7 @@ func (rc *RobotClient) apisSharingNameLocked(name resource.Name) []resource.API 
 			apis = append(apis, known.API)
 		}
 	}
-	slices.SortFunc(apis, func(a, b resource.API) int { return strings.Compare(a.String(), b.String()) })
+	resource.SortAPIs(apis)
 	return apis
 }
 
