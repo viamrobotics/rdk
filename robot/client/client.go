@@ -25,7 +25,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
-	packagespb "go.viam.com/api/app/packages/v1"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -1547,39 +1546,10 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 	if resp.GetPackages() != nil {
 		mStatus.Packages = make([]packages.PackageStatus, 0, len(resp.GetPackages()))
 		for _, pbPkgStatus := range resp.GetPackages() {
-			pkgStatus := packages.PackageStatus{
-				Name:            pbPkgStatus.GetName(),
-				Error:           pbPkgStatus.GetError(),
-				LastUpdated:     pbPkgStatus.GetLastUpdated().AsTime(),
-				Version:         pbPkgStatus.GetVersion(),
-				BytesDownloaded: pbPkgStatus.GetBytesDownloaded(),
-				TotalBytes:      pbPkgStatus.GetTotalBytes(),
+			pkgStatus, err := packages.PackageStatusFromProto(pbPkgStatus)
+			if err != nil {
+				rc.logger.CWarnw(ctx, "invalid package status from server", "package", pkgStatus.Name, "error", err)
 			}
-
-			switch pbPkgStatus.GetType() {
-			case packagespb.PackageType_PACKAGE_TYPE_ML_MODEL:
-				pkgStatus.Type = config.PackageTypeMlModel
-			case packagespb.PackageType_PACKAGE_TYPE_MODULE:
-				pkgStatus.Type = config.PackageTypeModule
-			case packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP:
-				pkgStatus.Type = config.PackageTypeSlamMap
-			case packagespb.PackageType_PACKAGE_TYPE_ARCHIVE:
-				pkgStatus.Type = config.PackageTypeArchive
-			}
-
-			switch pbPkgStatus.GetState() {
-			case pb.PackageStatus_STATE_DOWNLOADING:
-				pkgStatus.State = packages.PackageStateDownloading
-			case pb.PackageStatus_STATE_LOADING:
-				pkgStatus.State = packages.PackageStateLoading
-			case pb.PackageStatus_STATE_FIRST_RUN:
-				pkgStatus.State = packages.PackageStateFirstRun
-			case pb.PackageStatus_STATE_READY:
-				pkgStatus.State = packages.PackageStateReady
-			case pb.PackageStatus_STATE_FAILED:
-				pkgStatus.State = packages.PackageStateFailed
-			}
-
 			mStatus.Packages = append(mStatus.Packages, pkgStatus)
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -43,6 +44,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
@@ -139,6 +141,29 @@ func (ms *mockRPCSubtypesImplemented) GetMachineStatus(
 	ctx context.Context, req *pb.GetMachineStatusRequest,
 ) (*pb.GetMachineStatusResponse, error) {
 	return &pb.GetMachineStatusResponse{State: pb.GetMachineStatusResponse_STATE_RUNNING}, nil
+}
+
+type packageStatusServer struct {
+	pb.UnimplementedRobotServiceServer
+	response *pb.GetMachineStatusResponse
+}
+
+func (s *packageStatusServer) ResourceNames(
+	context.Context, *pb.ResourceNamesRequest,
+) (*pb.ResourceNamesResponse, error) {
+	return &pb.ResourceNamesResponse{}, nil
+}
+
+func (s *packageStatusServer) ResourceRPCSubtypes(
+	context.Context, *pb.ResourceRPCSubtypesRequest,
+) (*pb.ResourceRPCSubtypesResponse, error) {
+	return &pb.ResourceRPCSubtypesResponse{}, nil
+}
+
+func (s *packageStatusServer) GetMachineStatus(
+	context.Context, *pb.GetMachineStatusRequest,
+) (*pb.GetMachineStatusResponse, error) {
+	return s.response, nil
 }
 
 var resourceFunc1 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
@@ -2670,6 +2695,56 @@ func TestMachineStatus(t *testing.T) {
 			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
 		})
 	}
+}
+
+func TestMachineStatusPackageEdgeCases(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, &packageStatusServer{
+		response: &pb.GetMachineStatusResponse{
+			State: pb.GetMachineStatusResponse_STATE_RUNNING,
+			Packages: []*pb.PackageStatus{
+				{
+					Name:  "missing-timestamp",
+					Type:  packagespb.PackageType_PACKAGE_TYPE_MODULE,
+					State: pb.PackageStatus_STATE_READY,
+				},
+				{
+					Name:        "unsupported-values",
+					Type:        packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING,
+					State:       pb.PackageStatus_State(100),
+					LastUpdated: &timestamppb.Timestamp{Seconds: 253402300800},
+					Version:     "1.2.3",
+				},
+			},
+		},
+	})
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	status, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.Packages, test.ShouldResemble, []packages.PackageStatus{
+		{
+			Name:  "missing-timestamp",
+			Type:  config.PackageTypeModule,
+			State: packages.PackageStateReady,
+		},
+		{
+			Name:    "unsupported-values",
+			Version: "1.2.3",
+		},
+	})
 }
 
 func TestVersion(t *testing.T) {

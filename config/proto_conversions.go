@@ -1068,6 +1068,22 @@ func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 	}
 }
 
+// PackageTypeFromProto converts a protobuf package type to its config equivalent.
+func PackageTypeFromProto(t packagespb.PackageType) (PackageType, error) {
+	switch t {
+	case packagespb.PackageType_PACKAGE_TYPE_ML_MODEL:
+		return PackageTypeMlModel, nil
+	case packagespb.PackageType_PACKAGE_TYPE_MODULE:
+		return PackageTypeModule, nil
+	case packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP:
+		return PackageTypeSlamMap, nil
+	case packagespb.PackageType_PACKAGE_TYPE_ARCHIVE:
+		return PackageTypeArchive, nil
+	default:
+		return "", errors.Errorf("unknown package type %q", t)
+	}
+}
+
 func logAnyFragmentOverwriteErrors(logger logging.Logger, overwriteFragmentStatus []*pb.AppValidationStatus) {
 	for _, status := range overwriteFragmentStatus {
 		logger.Errorw("error in overwriting fragment", "error", status.GetError())

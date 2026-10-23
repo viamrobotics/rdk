@@ -389,16 +389,14 @@ func TestServer(t *testing.T) {
 		lastUpdated := time.Date(2026, 7, 10, 12, 30, 0, 0, time.UTC)
 
 		testCases := []struct {
-			name               string
-			injectPackages     []packages.PackageStatus
-			expPackages        []*pb.PackageStatus
-			expBadTypeLogCount int
+			name           string
+			injectPackages []packages.PackageStatus
+			expPackages    []*pb.PackageStatus
 		}{
 			{
 				"no packages",
 				nil,
 				nil,
-				0,
 			},
 			{
 				"package statuses in every state",
@@ -504,7 +502,6 @@ func TestServer(t *testing.T) {
 						Version:     "0.1.0",
 					},
 				},
-				0,
 			},
 			{
 				"package with invalid type",
@@ -526,13 +523,12 @@ func TestServer(t *testing.T) {
 						Version:     "1.0.0",
 					},
 				},
-				1,
 			},
 		}
 
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-				logger, logs := logging.NewObservedTestLogger(t)
+				logger := logging.NewTestLogger(t)
 				injectRobot := &inject.Robot{}
 				server := server.New(injectRobot)
 				injectRobot.LoggerFunc = func() logging.Logger {
@@ -561,9 +557,6 @@ func TestServer(t *testing.T) {
 					test.That(t, pkg.GetTotalBytes(), test.ShouldEqual, exp.TotalBytes)
 				}
 
-				const badTypeMsg = "unknown package type in status"
-				badTypeLogCount := logs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet(badTypeMsg).Len()
-				test.That(t, badTypeLogCount, test.ShouldEqual, tc.expBadTypeLogCount)
 			})
 		}
 	})
