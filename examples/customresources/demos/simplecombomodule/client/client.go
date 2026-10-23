@@ -1,5 +1,5 @@
 // Package main consumes the simplecombo composite over the SDK. One machine resource ("simplecombo")
-// reachable under both the sensor and custom gizmo APIs at once. It is the client half of the
+// reachable under both the sensor and button APIs at once. It is the client half of the
 // simplecombomodule demo. Start the server with `make run-module` in the parent directory (it serves
 // the module via module.json on :8080), then run this with `make` here.
 package main
@@ -7,8 +7,8 @@ package main
 import (
 	"context"
 
+	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/components/sensor"
-	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
@@ -39,7 +39,7 @@ func main() {
 	if combo, err := resource.NamedFromProvider(machine, "simplecombo"); err != nil {
 		logger.Errorf("  NamedFromProvider: %v", err)
 	} else {
-		logger.Infof("  APIsOf(simplecombo): %v", resource.APIsOf(combo)) // [gizmo sensor]
+		logger.Infof("  APIsOf(simplecombo): %v", resource.APIsOf(combo)) // [button sensor]
 	}
 
 	// ── 3) as a sensor ──────────────────────────────────────────────────────────────
@@ -52,26 +52,14 @@ func main() {
 		logger.Infof("  sensor Readings: %v", rd) // map[reading:7]
 	}
 
-	// ── 4) as the custom gizmo API ───────────────────────────────────────────────────
-	logger.Info("── simplecombo as gizmo (custom API) ──")
-	if giz, err := gizmoapi.FromProvider(machine, "simplecombo"); err != nil {
-		logger.Errorf("  gizmoapi.FromProvider: %v", err)
+	// ── 4) as a button, the other co-equal API on the same identity ──────────────────
+	logger.Info("── simplecombo as button ──")
+	if b, err := button.FromProvider(machine, "simplecombo"); err != nil {
+		logger.Errorf("  button.FromProvider: %v", err)
+	} else if err := b.Push(ctx, nil); err != nil {
+		logger.Errorf("  button Push: %v", err)
 	} else {
-		if ok, err := giz.DoOne(ctx, "simplecombo"); err != nil {
-			logger.Errorf("  gizmo DoOne: %v", err)
-		} else {
-			logger.Infof("  gizmo DoOne(\"simplecombo\"): %v", ok) // true
-		}
-		if ok, err := giz.DoOne(ctx, "nope"); err != nil {
-			logger.Errorf("  gizmo DoOne: %v", err)
-		} else {
-			logger.Infof("  gizmo DoOne(\"nope\"): %v", ok) // false
-		}
-		if s, err := giz.DoTwo(ctx, true); err != nil {
-			logger.Errorf("  gizmo DoTwo: %v", err)
-		} else {
-			logger.Infof("  gizmo DoTwo(true): %q", s) // "arg1=true"
-		}
+		logger.Info("  button Push: ok")
 	}
 
 	logger.Info("── done ──")

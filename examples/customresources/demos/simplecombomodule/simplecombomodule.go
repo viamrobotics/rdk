@@ -1,18 +1,17 @@
 // Package main is a module demonstrating the simple composite case, one model serving two co-equal
-// APIs whose method names do not collide. simplecombo serves rdk:component:sensor and the custom
-// acme:component:gizmo API from a single identity. Because sensor (Readings) and gizmo (DoOne/DoTwo/…)
-// share no method names, one shared struct satisfies both interfaces directly, so there are no per-API
-// facades here, unlike the combomodule demo where camera and movement_sensor collide on Properties and
+// APIs whose method names do not collide. simplecombo serves rdk:component:sensor and
+// rdk:component:button from a single identity. Because sensor (Readings) and button (Push) share no
+// method names, one shared struct satisfies both interfaces directly, so there are no per-API facades
+// here, unlike the complexcombomodule demo where camera and movement_sensor collide on Properties and
 // each needs its own facade. resource.Compose still assembles the two per-API sub-resources into one
 // composite advertised under both APIs.
 package main
 
 import (
 	"context"
-	"fmt"
 
+	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/components/sensor"
-	gizmoapi "go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
@@ -21,13 +20,10 @@ import (
 // Model is registered under every API it serves via RegisterMultiAPI.
 var Model = resource.NewModel("acme", "demo", "simplecombo")
 
-// wantArg is the argument the gizmo Do* methods below return true for.
-const wantArg = "simplecombo"
-
 func main() {
 	// One registration declares the full co-equal API set; the single constructor is registered under each.
 	resource.RegisterMultiAPI(
-		[]resource.API{sensor.API, gizmoapi.API}, Model,
+		[]resource.API{sensor.API, button.API}, Model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: newSimpleCombo,
 		},
@@ -42,11 +38,11 @@ func newSimpleCombo(
 ) (resource.Resource, error) {
 	d := &simpleCombo{Named: conf.ResourceName().AsNamed()}
 	// Compose builds one composite from two per-API subs. Both subs are the same *simpleCombo, with no
-	// colliding methods, one struct implements both sensor.Sensor and gizmoapi.Gizmo, so no facades are
+	// colliding methods, one struct implements both sensor.Sensor and button.Button, so no facades are
 	// needed.
 	return resource.Compose(
 		sensor.AsSub(d),
-		gizmoapi.AsSub(d),
+		button.AsSub(d),
 	)
 }
 
@@ -62,33 +58,8 @@ func (d *simpleCombo) Readings(context.Context, map[string]interface{}) (map[str
 	return map[string]interface{}{"reading": 7}, nil
 }
 
-// gizmo (acme:component:gizmo), names distinct from sensor's, so they live on the same struct.
+// button (rdk:component:button), method name distinct from sensor's, so they live on the same struct.
 
-func (d *simpleCombo) DoOne(_ context.Context, arg1 string) (bool, error) {
-	return arg1 == wantArg, nil
-}
-
-func (d *simpleCombo) DoOneClientStream(_ context.Context, arg1 []string) (bool, error) {
-	for _, arg := range arg1 {
-		if arg != wantArg {
-			return false, nil
-		}
-	}
-	return len(arg1) > 0, nil
-}
-
-func (d *simpleCombo) DoOneServerStream(_ context.Context, arg1 string) ([]bool, error) {
-	return []bool{arg1 == wantArg, false}, nil
-}
-
-func (d *simpleCombo) DoOneBiDiStream(_ context.Context, arg1 []string) ([]bool, error) {
-	rets := make([]bool, 0, len(arg1))
-	for _, arg := range arg1 {
-		rets = append(rets, arg == wantArg)
-	}
-	return rets, nil
-}
-
-func (d *simpleCombo) DoTwo(_ context.Context, arg1 bool) (string, error) {
-	return fmt.Sprintf("arg1=%t", arg1), nil
+func (d *simpleCombo) Push(context.Context, map[string]interface{}) error {
+	return nil
 }
