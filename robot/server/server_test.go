@@ -556,7 +556,6 @@ func TestServer(t *testing.T) {
 					test.That(t, pkg.GetBytesDownloaded(), test.ShouldEqual, exp.BytesDownloaded)
 					test.That(t, pkg.GetTotalBytes(), test.ShouldEqual, exp.TotalBytes)
 				}
-
 			})
 		}
 	})
