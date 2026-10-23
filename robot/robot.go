@@ -227,7 +227,8 @@ type RestartModuleRequest struct {
 	ModuleName string
 }
 
-// ResourceByName looks up via short name, and will error if none or more than 1 exist.
+// ResourceByName looks a resource up by its simple name. A composite's several APIs collapse to one
+// handle; it errors if nothing matches or distinct resources collide on the name.
 func ResourceByName(r Robot, name string) (resource.Resource, error) {
 	return r.ResourceByName(resource.SimpleName(name))
 }
