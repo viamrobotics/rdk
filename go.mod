@@ -47,6 +47,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
+	github.com/hashicorp/go-getter v1.8.6
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.6.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
@@ -176,6 +177,7 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go v1.38.20 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bitfield/gotestdox v0.2.2 // indirect
 	github.com/blackjack/webcam v0.6.2 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.10.0 // indirect
@@ -253,6 +255,8 @@ require (
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-version v1.8.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -276,6 +280,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/mattn/go-shellwords v1.0.12 // indirect
 	github.com/miekg/dns v1.1.53 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/moby/api v1.54.2 // indirect
@@ -330,6 +335,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
 	github.com/uber/jaeger-client-go v2.25.0+incompatible // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/viamrobotics/ice/v2 v2.3.40 // indirect
 	github.com/viamrobotics/zeroconf v1.1.0 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
