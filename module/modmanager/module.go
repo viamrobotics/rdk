@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -481,7 +480,7 @@ func (m *module) registerResourceModels(mgr *Manager) {
 		if len(apis) < 2 {
 			continue
 		}
-		slices.SortFunc(apis, func(a, b resource.API) int { return strings.Compare(a.String(), b.String()) })
+		resource.SortAPIs(apis)
 		resource.RegisterMultiAPISet(model, apis)
 	}
 }

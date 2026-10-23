@@ -77,7 +77,7 @@ This is a minimal version of a custom resource module, using the built-in Generi
 * In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
 
 ### simplecombomodule
-The minimal composite, and the companion to combomodule without the hard part. The `simplecombo` model serves just `rdk:component:sensor` and the custom `acme:component:gizmo` API. Because `sensor` (Readings) and `gizmo` (DoOne/DoTwo/…) share no method names, *one* struct satisfies both interfaces and there are no per-API facades at all — `resource.Compose` wraps the same object as each API's sub-resource. Start here to see the composite machinery on its own before reading complexcombomodule's colliding-method handling.
+The minimal composite, and the companion to complexcombomodule without the hard part. The `simplecombo` model serves just `rdk:component:sensor` and `rdk:component:button`. Because `sensor` (Readings) and `button` (Push) share no method names, *one* struct satisfies both interfaces and there are no per-API facades at all — `resource.Compose` wraps the same object as each API's sub-resource. Start here to see the composite machinery on its own before reading complexcombomodule's colliding-method handling.
 
 #### Running
 * Same steps as the demos above (`make run-module`, then `make run-client` in a separate terminal).

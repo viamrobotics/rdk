@@ -97,5 +97,17 @@ func main() {
 		}
 	}
 
+	// ── 6) MachineStatus, a composite reports one status per advertised API ──────────
+	logger.Info("── MachineStatus (combo should report one status per API) ──")
+	if status, err := machine.MachineStatus(ctx); err != nil {
+		logger.Errorf("  MachineStatus: %v", err)
+	} else {
+		for _, rs := range status.Resources {
+			if rs.Name.Name == "combo" {
+				logger.Infof("  combo status under %s: %s", rs.Name.API, rs.State)
+			}
+		}
+	}
+
 	logger.Info("── done ──")
 }
