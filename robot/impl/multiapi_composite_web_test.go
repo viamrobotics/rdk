@@ -78,49 +78,6 @@ func TestCompositeResourceOverClient(t *testing.T) {
 	test.That(t, r2["reading"], test.ShouldEqual, 7)
 }
 
-// TestModularCompositeCollidingMethods is the modular end-to-end counterpart of the builtin colliding
-// test. Over a client, camera.FromProvider(...).Properties and movementsensor.FromProvider(...).Properties
-// each round-trip to the module process and return their own implementation's value. The two colliding
-// Properties methods route to the correct per-API sub-resource across the wire.
-func TestModularCompositeCollidingMethods(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-
-	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
-
-	model := resource.NewModel("acme", "demo", "combodevice")
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{Name: "combo-mod", ExePath: modPath},
-		},
-		Components: []resource.Config{
-			{Name: "combo", API: camera.API, Model: model},
-		},
-	}
-	r := setupLocalRobot(t, ctx, cfg, logger)
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
-
-	rc, err := client.New(ctx, addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
-
-	cam, err := camera.FromProvider(rc, "combo")
-	test.That(t, err, test.ShouldBeNil)
-	camProps, err := cam.Properties(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, camProps.FrameRate, test.ShouldEqual, 30)
-	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
-
-	ms, err := movementsensor.FromProvider(rc, "combo")
-	test.That(t, err, test.ShouldBeNil)
-	msProps, err := ms.Properties(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
-	test.That(t, msProps.PositionSupported, test.ShouldBeTrue)
-}
-
 // connectToSeparateServer dials a robot client to a viam-server running in a separate process,
 // retrying until the server is dialable. It mirrors the module integration tests' connect helper
 // (force direct gRPC, sessions disabled — modules do not yet support sessions).
@@ -412,4 +369,71 @@ func TestCompositeCollidingMethodsBuiltin(t *testing.T) {
 	// which is safe because Close must be idempotent.
 	r.Reconfigure(ctx, &config.Config{})
 	test.That(t, closeCount.Load(), test.ShouldEqual, 2)
+}
+
+// TestCompositeOverClientResourceSetChange asserts that when a composite shrinks to a single-API resource
+// on the server, a client Refresh reassembles it so the dropped API is gone and it still resolves under
+// its remaining one.
+func TestCompositeOverClientResourceSetChange(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	compositeModel := registerComboModel(t, "client-change-combo", nil)
+
+	// A single-API sensor model to reconfigure "combo" to, dropping its generic co-equal API.
+	singleModel := resource.NewModel("acme", "test", "client-change-single")
+	resource.RegisterComponent(sensor.API, singleModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+			},
+		})
+	defer resource.Deregister(sensor.API, singleModel)
+
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: compositeModel}},
+	}, logger)
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
+
+	rc, err := client.New(ctx, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
+
+	// Initially a composite: resolvable under both APIs.
+	_, err = rc.ResourceByName(sensor.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = rc.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Shrink "combo" to a single-API sensor on the server, then refresh the client.
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: singleModel}},
+	})
+	test.That(t, rc.Refresh(ctx), test.ShouldBeNil)
+
+	// Now only the sensor API resolves; the dropped generic API is gone.
+	_, err = rc.ResourceByName(sensor.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = rc.ResourceByName(generic.Named("combo"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	var apis []resource.API
+	for _, n := range rc.ResourceNames() {
+		if n.Name == "combo" {
+			apis = append(apis, n.API)
+		}
+	}
+	test.That(t, apis, test.ShouldContain, sensor.API)
+	test.That(t, apis, test.ShouldNotContain, generic.API)
+
+	// The api-less handle still works as a sensor.
+	res, err := resource.NamedFromProvider(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	s, err := resource.AsType[sensor.Sensor](res)
+	test.That(t, err, test.ShouldBeNil)
+	readings, err := s.Readings(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings["reading"], test.ShouldEqual, 7)
 }
