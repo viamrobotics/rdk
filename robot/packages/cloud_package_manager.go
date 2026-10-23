@@ -500,6 +500,50 @@ func (wc *logProgressWriter) Update(curSize int64) string {
 	return msg
 }
 
+type checksumProgressTracker struct {
+	hash     hash.Hash32
+	maxBytes int64
+}
+
+func (tracker *checksumProgressTracker) TrackProgress(
+	_ string,
+	currentSize, _ int64,
+	stream io.ReadCloser,
+) io.ReadCloser {
+	if currentSize == 0 {
+		tracker.hash.Reset()
+	}
+	return &checksumReadCloser{
+		ReadCloser: stream,
+		hash:       tracker.hash,
+		remaining:  tracker.maxBytes,
+		limited:    tracker.maxBytes > 0,
+	}
+}
+
+type checksumReadCloser struct {
+	io.ReadCloser
+	hash      hash.Hash32
+	remaining int64
+	limited   bool
+}
+
+func (reader *checksumReadCloser) Read(buf []byte) (int, error) {
+	if reader.remaining > 0 && int64(len(buf)) > reader.remaining {
+		buf = buf[:reader.remaining]
+	} else if reader.limited && reader.remaining == 0 {
+		return 0, io.EOF
+	}
+	n, err := reader.ReadCloser.Read(buf)
+	if n > 0 {
+		_, _ = reader.hash.Write(buf[:n])
+		if reader.remaining > 0 {
+			reader.remaining -= int64(n)
+		}
+	}
+	return n, err
+}
+
 // downloader with header-based checksum logic and partials support. name is used to
 // report download progress on the package's status entry.
 func (m *cloudManager) downloadFileWithChecksum(
@@ -572,11 +616,20 @@ func (m *cloudManager) downloadFileWithChecksum(
 	if totalBytes < 0 {
 		totalBytes = 0
 	}
-
+	hash := crc32Hash()
 	var startBytes int64
-	if stat, err := os.Stat(downloadPath); err == nil {
-		m.logger.Infow("download to existing", "dest", downloadPath, "size", stat.Size())
-		startBytes = stat.Size()
+	if destFile, err := os.Open(downloadPath); err == nil { //nolint:gosec
+		startBytes, err = io.Copy(hash, destFile)
+		closeErr := destFile.Close()
+		if err != nil {
+			return "", "", err
+		}
+		if closeErr != nil {
+			return "", "", closeErr
+		}
+		m.logger.Infow("download to existing", "dest", downloadPath, "size", startBytes)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", "", err
 	}
 	m.setDownloadProgress(name, startBytes, totalBytes)
 
@@ -590,7 +643,10 @@ func (m *cloudManager) downloadFileWithChecksum(
 		Header:   headers,
 		Client:   &m.httpClient,
 	}
-	g.SetClient(&getter.Client{Ctx: ctx})
+	g.SetClient(&getter.Client{
+		Ctx:              ctx,
+		ProgressListener: &checksumProgressTracker{hash: hash, maxBytes: maxBytesForTesting},
+	})
 	progressCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go utils.PanicCapturingGo(func() {
@@ -602,17 +658,11 @@ func (m *cloudManager) downloadFileWithChecksum(
 		return "", "", errw.Wrap(err, "downloading file")
 	}
 
-	hash := crc32Hash()
-	destFile, err := os.Open(downloadPath) //nolint:gosec
+	stat, err := os.Stat(downloadPath)
 	if err != nil {
 		return "", "", err
 	}
-	defer utils.UncheckedErrorFunc(destFile.Close)
-	downloadedBytes, err := io.Copy(hash, destFile)
-	if err != nil {
-		return "", "", err
-	}
-
+	downloadedBytes := stat.Size()
 	// The download is complete; record the final byte counts. If the server did not
 	// report a Content-Length, fall back to the actual downloaded size.
 	if totalBytes == 0 {
