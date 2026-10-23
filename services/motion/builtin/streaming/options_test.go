@@ -2,9 +2,11 @@
 package streaming
 
 import (
+	"math"
 	"testing"
 
 	"go.viam.com/test"
+	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/services/motion"
@@ -92,11 +94,11 @@ func TestMaxTargetsDroppedInARowDueToTrajexExtendError(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 0)
 
-	n, err = MaxTargetsDroppedInARowDueToTrajexExtendError(extra(int32(7)))
+	n, err = MaxTargetsDroppedInARowDueToTrajexExtendError(extra(float64(7)))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 7)
 
-	for _, v := range []interface{}{3, int64(3), float64(3), "3"} {
+	for _, v := range []interface{}{int32(3), 3, int64(3), "3", 1.5, -1.0, math.NaN()} {
 		_, err = MaxTargetsDroppedInARowDueToTrajexExtendError(extra(v))
 		test.That(t, err, test.ShouldNotBeNil)
 	}
@@ -111,11 +113,11 @@ func TestForceRebaseIfExtendLatencyExceedsMs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 0)
 
-	n, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: int32(15)})
+	n, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: float64(15)})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 15)
 
-	for _, v := range []interface{}{15, int64(15), float64(15), "15"} {
+	for _, v := range []interface{}{int32(15), 15, int64(15), "15", 1.5, -1.0, math.NaN()} {
 		_, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: v})
 		test.That(t, err, test.ShouldNotBeNil)
 	}
@@ -123,4 +125,22 @@ func TestForceRebaseIfExtendLatencyExceedsMs(t *testing.T) {
 	opts := NewStreamOptions(motion.TempStreamOptions{})
 	opts.ForceRebaseIfExtendLatencyExceedsMs = -1
 	test.That(t, opts.Validate(), test.ShouldNotBeNil)
+}
+
+func TestExtraValuesSurviveTheMotionServiceRoundTrip(t *testing.T) {
+	sent := map[string]interface{}{
+		maxTargetsDroppedInARowDueToTrajexExtendErrorKey: int32(7),
+		forceRebaseIfExtendLatencyExceedsMsKey:           int32(15),
+	}
+	pb, err := vprotoutils.StructToStructPb(sent)
+	test.That(t, err, test.ShouldBeNil)
+	received := pb.AsMap()
+	test.That(t, received[maxTargetsDroppedInARowDueToTrajexExtendErrorKey], test.ShouldHaveSameTypeAs, float64(0))
+
+	n, err := MaxTargetsDroppedInARowDueToTrajexExtendError(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, 7)
+	n, err = ForceRebaseIfExtendLatencyExceedsMs(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, n, test.ShouldEqual, 15)
 }
