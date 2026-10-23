@@ -10,10 +10,12 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 // comboSensor serves both sensor.Sensor and generic.Resource from one identity.
@@ -122,4 +124,64 @@ func TestCompositeAddResourceRollback(t *testing.T) {
 	// On rollback, the generic collection (populated before the failure) must not retain the resource.
 	_, err = m.collections[generic.API].Resource("combo")
 	test.That(t, err, test.ShouldNotBeNil)
+}
+
+// rtpCamComposite serves camera and sensor from one object; its camera side is an rtppassthrough.Source.
+type rtpCamComposite struct {
+	*inject.Camera
+}
+
+func (c *rtpCamComposite) Readings(context.Context, map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"reading": 7}, nil
+}
+
+// TestCompositeCameraStreamSourceRegistered asserts a composite whose camera sub is an
+// rtppassthrough.Source registers (and, on remove, clears) that stream source under its camera name.
+func TestCompositeCameraStreamSourceRegistered(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	model := resource.NewModel("acme", "test", "rtp-combo")
+	resource.RegisterMultiAPI([]resource.API{camera.API, sensor.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(
+				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (resource.Resource, error) {
+				return &rtpCamComposite{Camera: inject.NewCamera(conf.ResourceName().Name)}, nil
+			},
+		})
+	defer resource.Deregister(camera.API, model)
+	defer resource.Deregister(sensor.API, model)
+
+	//nolint:usetesting
+	test.That(t, os.Setenv(NoModuleParentEnvVar, "true"), test.ShouldBeNil)
+	defer func() { test.That(t, os.Unsetenv(NoModuleParentEnvVar), test.ShouldBeNil) }()
+
+	m, err := NewModule(ctx, filepath.Join(t.TempDir(), "rtp.sock"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer m.Close(ctx)
+	_, err = m.Ready(ctx, &pb.ReadyRequest{})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, m.AddModelFromRegistry(ctx, camera.API, model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, sensor.API, model), test.ShouldBeNil)
+
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
+		Config: &appv1.ComponentConfig{Name: "cam", Api: camera.API.String(), Model: model.String()},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The camera sub's stream source is registered under its served-API name.
+	m.registerMu.Lock()
+	_, ok := m.streamSourceByName[camera.Named("cam")]
+	m.registerMu.Unlock()
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Removing the composite clears the stream source.
+	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: camera.Named("cam").String()})
+	test.That(t, err, test.ShouldBeNil)
+	m.registerMu.Lock()
+	_, ok = m.streamSourceByName[camera.Named("cam")]
+	m.registerMu.Unlock()
+	test.That(t, ok, test.ShouldBeFalse)
 }
