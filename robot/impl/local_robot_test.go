@@ -5873,16 +5873,15 @@ func TestModuleNamePassing(t *testing.T) {
 	// The channel must be buffered to such that the `ReadingsFunc` returns without waiting on a
 	// reader of the channel.
 	moduleNameCh := make(chan string, 1)
-	callbackSensor := &inject.Sensor{
-		ReadingsFunc: func(ctx context.Context, extra map[string]any) (map[string]any, error) {
-			moduleNameCh <- rgrpc.GetModuleName(ctx)
-			return map[string]any{
-				"reading": 42,
-			}, nil
-		},
-		CloseFunc: func(ctx context.Context) error {
-			return nil
-		},
+	callbackSensor := inject.NewSensor("foo")
+	callbackSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+		moduleNameCh <- rgrpc.GetModuleName(ctx)
+		return map[string]any{
+			"reading": 42,
+		}, nil
+	}
+	callbackSensor.CloseFunc = func(ctx context.Context) error {
+		return nil
 	}
 
 	// The resource registry is a global. We must use unique model names to avoid unexpected
@@ -5984,11 +5983,11 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
-			return &inject.Sensor{
-				ReadingsFunc: func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-					panic("oh no")
-				},
-			}, nil
+			s := inject.NewSensor(conf.Name)
+			s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+				panic("oh no")
+			}
+			return s, nil
 		}},
 	)
 
