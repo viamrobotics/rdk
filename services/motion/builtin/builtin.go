@@ -290,7 +290,12 @@ func (ms *builtIn) BuiltInReconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
+	// Unwrap each dep to its API's sub so the type switch sees the real interface -- the composite
+	// wrapper implements none. Components group by short name, since a composite can serve several
+	// component APIs under one name.
+	componentsByName := make(map[string][]resource.Resource)
 	for name, dep := range deps {
+		dep := resource.SubresourceForAPI(dep, name.API)
 		switch dep := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = dep
@@ -301,8 +306,20 @@ func (ms *builtIn) BuiltInReconfigure(
 		case vision.Service:
 			visionServices[name.Name] = dep
 		default:
-			componentMap[name.Name] = dep
+			componentsByName[name.Name] = append(componentsByName[name.Name], dep)
 		}
+	}
+	for name, subs := range componentsByName {
+		// Motion uses this map only for kinematics, so when no subresource is kinematic any one will do.
+		sub, refuse := framesystem.PickKinematicSub(subs)
+		if refuse {
+			ms.logger.Errorw(
+				"composite serves multiple kinematic component APIs under one name, which motion does not support; refusing it",
+				"resource", name,
+			)
+			continue
+		}
+		componentMap[name] = sub
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices

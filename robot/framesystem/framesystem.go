@@ -4,6 +4,8 @@ package framesystem
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -49,6 +51,60 @@ type InputEnabled interface {
 	ModelFramer
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
+}
+
+// PickKinematicSub chooses the one frame-relevant subresource from an already-unwrapped set of a
+// composite's co-equal subs: the single kinematic sub, or any sub when none is kinematic. refuse is
+// true for an unsupported multi-kinematic composite (more than one distinct kinematic sub), which the
+// caller omits.
+func PickKinematicSub(subs []resource.Resource) (res resource.Resource, refuse bool) {
+	kinematic := DistinctKinematicSubs(subs)
+	switch {
+	case len(kinematic) > 1:
+		return nil, true
+	case len(kinematic) == 1:
+		return kinematic[0], false
+	default:
+		return subs[0], false
+	}
+}
+
+// DistinctKinematicSubs returns the InputEnabled subresources, deduplicated by identity. A single
+// object served under several kinematic APIs appears once per API alias but is one chain, so it
+// collapses to a single entry; genuinely distinct InputEnabled subresources (per-API facades) stay
+// separate, and more than one entry is an unsupported multi-kinematic composite.
+func DistinctKinematicSubs(subs []resource.Resource) []resource.Resource {
+	var kinematic []resource.Resource
+	for _, sub := range subs {
+		ie, ok := sub.(InputEnabled)
+		if !ok {
+			continue
+		}
+		duplicate := false
+		for _, seen := range kinematic {
+			if seen.(InputEnabled) == ie {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			kinematic = append(kinematic, sub)
+		}
+	}
+	return kinematic
+}
+
+// ShapedSub returns a resource.Shaped sub that provides a frame-system geometry, if any: the resource
+// itself for an ordinary component, or, for a composite, any co-equal sub that implements
+// resource.Shaped. A composite is one physical device with a single geometry, so returning any Shaped
+// sub is fine. Returns (nil, false) when no sub is Shaped.
+func ShapedSub(res resource.Resource) (resource.Shaped, bool) {
+	for _, api := range resource.APIsOf(res) {
+		if sh, ok := resource.SubresourceForAPI(res, api).(resource.Shaped); ok {
+			return sh, true
+		}
+	}
+	return nil, false
 }
 
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
@@ -215,12 +271,35 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	components := make(map[string]resource.Resource)
-	for name, r := range deps {
-		if _, present := components[name.Name]; present {
-			return DuplicateResourceNameError(name.Name)
+	// Group deps by short name so a composite's co-equal APIs collapse to one frame entry, each unwrapped
+	// to its API's sub (a no-op for an ordinary resource) so PickKinematicSub's InputEnabled check sees
+	// the real sub, not the wrapper. Iterate sorted so a name's subs land in a stable order, keeping
+	// PickKinematicSub's non-kinematic fallback (subs[0]) deterministic.
+	componentsByName := make(map[string][]resource.Resource)
+	depNames := make([]resource.Name, 0, len(deps))
+	for name := range deps {
+		depNames = append(depNames, name)
+	}
+	slices.SortFunc(depNames, func(a, b resource.Name) int {
+		if c := strings.Compare(a.Name, b.Name); c != 0 {
+			return c
 		}
-		components[name.Name] = r
+		return strings.Compare(a.API.String(), b.API.String())
+	})
+	for _, name := range depNames {
+		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(deps[name], name.API))
+	}
+	components := make(map[string]resource.Resource)
+	for name, subs := range componentsByName {
+		sub, refuse := PickKinematicSub(subs)
+		if refuse {
+			svc.logger.Errorw(
+				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
+				"resource", name,
+			)
+			continue
+		}
+		components[name] = sub
 	}
 	svc.components = components
 

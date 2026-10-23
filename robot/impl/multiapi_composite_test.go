@@ -6,9 +6,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/button"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
@@ -390,49 +392,43 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-// gripperServoDevice is the shared impl behind an in-process composite serving gripper.Gripper and
-// servo.Servo. The per-API implementations below embed one *gripperServoDevice, so both route to this
-// one instance (e.g. Stop increments the shared counter).
-type gripperServoDevice struct {
+// comboFacadeDevice is the shared impl behind the in-process composites below. The per-API
+// implementations embed one *comboFacadeDevice and are assembled via resource.Compose, so a composite
+// is stored as a resource.MultiAPIResource wrapper that does not itself satisfy the sub-API interfaces.
+// An in-process fetch by a specific API must unwrap it. Lifecycle and actuator state (the shared
+// Stop/Close counters) live here; capabilities that vary per fixture (Kinematics, Geometries) live on
+// the individual implementations, so e.g. buttonFacade is neither kinematic nor Shaped.
+type comboFacadeDevice struct {
 	resource.Named
 	stopCount  *atomic.Int32
 	closeCount *atomic.Int32
 }
 
-func (d *gripperServoDevice) Close(context.Context) error {
+func (d *comboFacadeDevice) Close(context.Context) error {
 	if d.closeCount != nil {
 		d.closeCount.Add(1)
 	}
 	return nil
 }
 
-func (d *gripperServoDevice) Stop(context.Context, map[string]interface{}) error {
+func (d *comboFacadeDevice) Stop(context.Context, map[string]interface{}) error {
 	if d.stopCount != nil {
 		d.stopCount.Add(1)
 	}
 	return nil
 }
 
-func (d *gripperServoDevice) IsMoving(context.Context) (bool, error) { return false, nil }
+func (d *comboFacadeDevice) IsMoving(context.Context) (bool, error) { return false, nil }
 
-func (d *gripperServoDevice) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
-	return nil, nil
-}
+// buttonFacade serves button.Button and is deliberately neither kinematic nor Shaped.
+type buttonFacade struct{ *comboFacadeDevice }
 
-func (d *gripperServoDevice) Kinematics(context.Context) (referenceframe.Model, error) {
-	return referenceframe.NewSimpleModel("combo"), nil
-}
+func (f buttonFacade) Push(context.Context, map[string]interface{}) error { return nil }
 
-func (d *gripperServoDevice) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
-	return nil, nil
-}
+// gripperFacade serves gripper.Gripper (resource.Shaped + resource.Actuator + framesystem.InputEnabled).
+type gripperFacade struct{ *comboFacadeDevice }
 
-func (d *gripperServoDevice) GoToInputs(context.Context, ...[]referenceframe.Input) error { return nil }
-
-type gripperFacade struct{ *gripperServoDevice }
-
-func (f gripperFacade) Open(context.Context, map[string]interface{}) error { return nil }
-
+func (f gripperFacade) Open(context.Context, map[string]interface{}) error         { return nil }
 func (f gripperFacade) Grab(context.Context, map[string]interface{}) (bool, error) { return false, nil }
 
 func (f gripperFacade) IsHoldingSomething(
@@ -441,35 +437,90 @@ func (f gripperFacade) IsHoldingSomething(
 	return gripper.HoldingStatus{}, nil
 }
 
-type servoFacade struct{ *gripperServoDevice }
+func (f gripperFacade) Geometries(
+	context.Context, map[string]interface{},
+) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+func (f gripperFacade) Kinematics(context.Context) (referenceframe.Model, error) {
+	return referenceframe.NewSimpleModel("gripper-kin"), nil
+}
+
+func (f gripperFacade) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+func (f gripperFacade) GoToInputs(context.Context, ...[]referenceframe.Input) error { return nil }
+
+// servoFacade serves servo.Servo. It is also framesystem.InputEnabled, so a gripper+servo composite is
+// multi-kinematic (two InputEnabled subs).
+type servoFacade struct{ *comboFacadeDevice }
 
 func (f servoFacade) Move(context.Context, uint32, map[string]interface{}) error { return nil }
 
 func (f servoFacade) Position(context.Context, map[string]interface{}) (uint32, error) { return 0, nil }
 
-// registerGripperServoModel registers a builtin gripper+servo composite whose constructor composes the
-// two implementations over one shared *gripperServoDevice. gripper sorts before servo, so gripper is the
-// canonical API.
-func registerGripperServoModel(t *testing.T, name string, stopCount, closeCount *atomic.Int32) resource.Model {
+func (f servoFacade) Kinematics(context.Context) (referenceframe.Model, error) {
+	return referenceframe.NewSimpleModel("servo-kin"), nil
+}
+
+func (f servoFacade) CurrentInputs(context.Context) ([]referenceframe.Input, error) { return nil, nil }
+func (f servoFacade) GoToInputs(context.Context, ...[]referenceframe.Input) error   { return nil }
+
+// sensorFacade serves sensor.Sensor and additionally implements resource.Shaped, so a composite's
+// geometry can be found on it when it is not the configured sub.
+type sensorFacade struct{ *comboFacadeDevice }
+
+func (f sensorFacade) Readings(
+	context.Context, map[string]interface{},
+) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
+func (f sensorFacade) Geometries(
+	context.Context, map[string]interface{},
+) ([]spatialmath.Geometry, error) {
+	return []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, "combo-geom")}, nil
+}
+
+// registerComboFacadeModel registers a builtin composite serving the given APIs over one shared
+// *comboFacadeDevice. Each API is served by its matching implementation above; the stop/close counters
+// are shared across implementations.
+func registerComboFacadeModel(
+	t *testing.T, name string, apis []resource.API, stopCount, closeCount *atomic.Int32,
+) resource.Model {
 	t.Helper()
 	model := resource.NewModel("acme", "test", name)
 	resource.RegisterMultiAPI(
-		[]resource.API{gripper.API, servo.API}, model,
+		apis, model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
 			) (resource.Resource, error) {
-				d := &gripperServoDevice{Named: conf.ResourceName().AsNamed(), stopCount: stopCount, closeCount: closeCount}
-				return resource.Compose(
-					gripper.AsSub(gripperFacade{d}),
-					servo.AsSub(servoFacade{d}),
-				)
+				d := &comboFacadeDevice{Named: conf.ResourceName().AsNamed(), stopCount: stopCount, closeCount: closeCount}
+				subs := make([]resource.Sub, 0, len(apis))
+				for _, api := range apis {
+					switch api {
+					case button.API:
+						subs = append(subs, button.AsSub(buttonFacade{d}))
+					case gripper.API:
+						subs = append(subs, gripper.AsSub(gripperFacade{d}))
+					case servo.API:
+						subs = append(subs, servo.AsSub(servoFacade{d}))
+					case sensor.API:
+						subs = append(subs, sensor.AsSub(sensorFacade{d}))
+					default:
+						t.Fatalf("registerComboFacadeModel: no facade for api %s", api)
+					}
+				}
+				return resource.Compose(subs...)
 			},
 		},
 	)
 	t.Cleanup(func() {
-		resource.Deregister(gripper.API, model)
-		resource.Deregister(servo.API, model)
+		for _, api := range apis {
+			resource.Deregister(api, model)
+		}
 	})
 	return model
 }
@@ -480,7 +531,7 @@ func registerGripperServoModel(t *testing.T, name string, stopCount, closeCount 
 func TestCompositeInProcessTypedLookup(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	model := registerGripperServoModel(t, "inproc-typed", nil, nil)
+	model := registerComboFacadeModel(t, "inproc-typed", []resource.API{gripper.API, servo.API}, nil, nil)
 
 	cfg := &config.Config{
 		Components: []resource.Config{
@@ -519,7 +570,7 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	var stopCount atomic.Int32
-	model := registerGripperServoModel(t, "inproc-stopall", &stopCount, nil)
+	model := registerComboFacadeModel(t, "inproc-stopall", []resource.API{gripper.API, servo.API}, &stopCount, nil)
 
 	cfg := &config.Config{
 		Components: []resource.Config{
@@ -532,6 +583,125 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	// Every actuator API is stopped (safety). The gripper and servo facades are distinct objects, so
 	// each is stopped; a repeat Stop on a shared core is safe because Stop must be idempotent.
 	test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+}
+
+// TestCompositeInFrameSystemMultiKinematicRefused checks that a composite serving more than one
+// kinematic (InputEnabled) API is omitted from the frame system rather than modeled. The gripper+servo
+// composite exposes Kinematics on both implementations, so the model-frame builder can't pick one; it
+// drops the composite.
+func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboFacadeModel(t, "inproc-fs-multikin", []resource.API{gripper.API, servo.API}, nil, nil)
+
+	for _, configAPI := range []resource.API{gripper.API, servo.API} {
+		t.Run(configAPI.String(), func(t *testing.T) {
+			r := setupLocalRobot(t, ctx, &config.Config{
+				Components: []resource.Config{
+					{Name: "combo", API: configAPI, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+				},
+			}, logger)
+
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			for _, part := range fsCfg.Parts {
+				if part.FrameConfig != nil {
+					test.That(t, part.FrameConfig.Name(), test.ShouldNotEqual, "combo")
+				}
+			}
+		})
+	}
+}
+
+// TestCompositeInFrameSystemNonCanonicalKinematic checks that a composite gets a model frame from its
+// kinematic sub whichever API it is configured under, including a non-kinematic API the frame system
+// would not recognize as kinematic by subtype. The button+gripper composite's only kinematic sub is
+// gripper; configured under button (non-kinematic) or under gripper, it still contributes a model frame,
+// because kinematics is detected by interface across every served API.
+func TestCompositeInFrameSystemNonCanonicalKinematic(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboFacadeModel(t, "inproc-fs-noncanon", []resource.API{button.API, gripper.API}, nil, nil)
+
+	for _, configAPI := range []resource.API{button.API, gripper.API} {
+		t.Run(configAPI.String(), func(t *testing.T) {
+			r := setupLocalRobot(t, ctx, &config.Config{
+				Components: []resource.Config{
+					{Name: "combo", API: configAPI, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+				},
+			}, logger)
+
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			var found bool
+			for _, part := range fsCfg.Parts {
+				if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
+					found = true
+					test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+				}
+			}
+			test.That(t, found, test.ShouldBeTrue)
+		})
+	}
+}
+
+// TestCompositeFrameGeometryFromNonConfigSub checks that a non-kinematic composite's frame picks up a
+// geometry from a resource.Shaped sub, whichever API it is configured under. The button+sensor
+// composite has its geometry on the sensor sub; with no geometry in the frame config, the frame system
+// finds it whether configured under sensor (the Shaped sub) or under button (a non-Shaped sub).
+func TestCompositeFrameGeometryFromNonConfigSub(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboFacadeModel(t, "inproc-fs-geom", []resource.API{button.API, sensor.API}, nil, nil)
+
+	for _, configAPI := range []resource.API{button.API, sensor.API} {
+		t.Run(configAPI.String(), func(t *testing.T) {
+			r := setupLocalRobot(t, ctx, &config.Config{
+				Components: []resource.Config{
+					{Name: "combo", API: configAPI, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+				},
+			}, logger)
+
+			fsCfg, err := r.FrameSystemConfig(ctx)
+			test.That(t, err, test.ShouldBeNil)
+			var found bool
+			for _, part := range fsCfg.Parts {
+				if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
+					found = true
+					test.That(t, part.FrameConfig.Geometry(), test.ShouldNotBeNil)
+				}
+			}
+			test.That(t, found, test.ShouldBeTrue)
+		})
+	}
+}
+
+// TestCompositeFrameKinematicPrecedesGeometry checks that when a composite is both kinematic and Shaped,
+// the frame system uses the kinematic model and never falls to the geometry (Shaped) path. The
+// gripper+sensor composite's gripper sub is kinematic and its sensor sub is Shaped; configured under
+// sensor, it still gets a model frame from the gripper sub rather than a static frame carrying the
+// sensor's geometry.
+func TestCompositeFrameKinematicPrecedesGeometry(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboFacadeModel(t, "inproc-fs-kin-precedence", []resource.API{gripper.API, sensor.API}, nil, nil)
+
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: sensor.API, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+		},
+	}, logger)
+
+	fsCfg, err := r.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	var found bool
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil && part.FrameConfig.Name() == "combo" {
+			found = true
+			test.That(t, part.ModelFrame, test.ShouldNotBeNil)
+		}
+	}
+	test.That(t, found, test.ShouldBeTrue)
 }
 
 // TestModularCompositeResource exercises the combomodule, a composite serving camera.Camera and
