@@ -6460,6 +6460,7 @@ func (c *viamClient) copyFilesToMachine(
 	if err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error { return robotClient.Close(ctx) })
 	return c.copyFilesToMachineInner(ctx, shellSvc, robotClient, allowRecursion, preserve, paths, destination, noProgress, logger)
 }
 
@@ -6479,10 +6480,12 @@ func (c *viamClient) copyFilesToFqdn(
 	if err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error { return robotClient.Close(ctx) })
 	return c.copyFilesToMachineInner(ctx, shellSvc, robotClient, allowRecursion, preserve, paths, destination, noProgress, logger)
 }
 
-// copyFilesToMachineInner is the common logic for both copyFiles variants.
+// copyFilesToMachineInner is the common logic for both copyFiles variants. The caller owns
+// robotClient and closes it.
 func (c *viamClient) copyFilesToMachineInner(
 	ctx context.Context,
 	shellSvc shell.Service,
@@ -6494,10 +6497,6 @@ func (c *viamClient) copyFilesToMachineInner(
 	noProgress bool,
 	logger logging.Logger,
 ) error {
-	defer func() {
-		utils.UncheckedError(robotClient.Close(ctx))
-	}()
-
 	// Total size of all files to be copied, used for the end-of-copy throughput summary.
 	var totalSize int64
 	for _, path := range paths {

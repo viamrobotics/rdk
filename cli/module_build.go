@@ -32,6 +32,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -1742,6 +1744,16 @@ func reloadModuleActionInner(
 	// and local reloads, which don't shell-copy an archive over.
 	var dest string
 
+	// machine is the connection opened for the shell copy, reused by the restart and reload wait.
+	var machine *client.RobotClient
+	closeMachine := func() {
+		if machine != nil {
+			goutils.UncheckedError(machine.Close(ctx))
+			machine = nil
+		}
+	}
+	defer closeMachine()
+
 	// For cloud builds, the machine downloads the package directly from the cloud.
 	// Skip the shell copy and go straight to configure.
 	if cloudBuild {
@@ -1785,51 +1797,41 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-		// Dial once; the VIAM_HOME query and the first copy attempt share the
-		// connection. Copy retries dial fresh, since a retry usually follows a
-		// connection-level failure.
+		// Dial once and keep the connection for the VIAM_HOME query, the copy, the restart, and
+		// the reload wait, since each WebRTC dial costs a couple of seconds.
 		shellSvc, robotClient, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
-		if dialErr != nil {
-			shellSvc = nil
+		if dialErr == nil {
+			machine = robotClient
 		}
-		shellSvcConsumed := dialErr != nil
-		defer func() {
-			if !shellSvcConsumed {
-				goutils.UncheckedError(robotClient.Close(ctx))
-			}
-		}()
 		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
 
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
 		copyFunc := func() error {
-			if !shellSvcConsumed {
-				// copyFilesToMachineInner closes the connection it is handed.
-				shellSvcConsumed = true
-				return vc.copyFilesToMachineInner(
-					ctx,
-					shellSvc,
-					robotClient,
-					false, // allowRecursion
-					false, // preserve
-					[]string{buildPath},
-					dest,
-					true, // noProgress
-					logger,
-				)
+			if machine == nil {
+				svc, robotClient, err := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
+				if err != nil {
+					return err
+				}
+				shellSvc, machine = svc, robotClient
 			}
-			return vc.copyFilesToFqdn(
+			err := vc.copyFilesToMachineInner(
 				ctx,
-				part.Part.Fqdn,
-				globalArgs.Debug,
+				shellSvc,
+				machine,
 				false, // allowRecursion
 				false, // preserve
 				[]string{buildPath},
 				dest,
-				logger,
 				true, // noProgress
+				logger,
 			)
+			if err != nil {
+				// A retry usually follows a connection-level failure, so it dials fresh.
+				closeMachine()
+			}
+			return err
 		}
 		attemptCount, err := vc.retryableCopy(
 			cmd,
@@ -1893,7 +1895,7 @@ func reloadModuleActionInner(
 		if err := pm.Start("restart"); err != nil {
 			return err
 		}
-		if err = restartModule(ctx, cmd, vc, part.Part, manifest, logger); err != nil {
+		if err = restartModule(ctx, cmd, vc, part.Part, manifest, machine, logger); err != nil {
 			_ = pm.Fail("restart", err)                              //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 			return err
@@ -1908,7 +1910,7 @@ func reloadModuleActionInner(
 			return err
 		}
 		moduleName := configuredModuleName(part.Part, manifest.ModuleID)
-		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, logger)
+		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, needsRestart, machine, logger)
 		if err != nil {
 			_ = pm.Fail("wait", err)                                 //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
@@ -2102,22 +2104,36 @@ func ModuleRestartAction(ctx context.Context, cmd *cli.Command, args moduleResta
 	}
 	logger := logging.FromZapCompatible(zap.NewNop().Sugar())
 
-	return restartModule(ctx, cmd, client, part.Part, manifest, logger)
+	return restartModule(ctx, cmd, client, part.Part, manifest, nil, logger)
 }
 
-// restartModule restarts a module on a robot.
+// restartModule restarts a module on a robot. It uses machine if non-nil, falling back to a
+// connection authenticated with the machine's API key if machine rejects the caller's credentials.
 func restartModule(
 	ctx context.Context,
 	cmd *cli.Command,
 	vc *viamClient,
 	part *apppb.RobotPart,
 	manifest *ModuleManifest,
+	machine *client.RobotClient,
 	logger logging.Logger,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	restartReq, err := resolveTargetModule(cmd, manifest)
 	if err != nil {
 		return err
+	}
+	args, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	if machine != nil {
+		debugf(cmd.Root().Writer, args.Debug, "restarting module %v", restartReq)
+		err := machine.RestartModule(ctx, *restartReq)
+		if code := status.Code(err); code != codes.PermissionDenied && code != codes.Unauthenticated {
+			return err
+		}
+		debugf(cmd.Root().Writer, args.Debug, "restart rejected (%v); retrying with the machine API key", err)
 	}
 	if err := vc.redialApp(ctx); err != nil {
 		return err
@@ -2130,10 +2146,6 @@ func restartModule(
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	args, err := getGlobalArgs(cmd)
-	if err != nil {
-		return err
-	}
 	debugf(cmd.Root().Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,
