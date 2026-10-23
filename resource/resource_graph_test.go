@@ -1858,3 +1858,34 @@ func TestCompositeRemotePrefixChangeKeepsCoEqualAPIs(t *testing.T) {
 	_, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 }
+
+func TestRemoteCompositeAmbiguityCountsAllRemotes(t *testing.T) {
+	// Two remotes, no local: remote A serves a composite "foo" {cam, sensor}, remote B a plain sensor
+	// "foo". Looking up (foo, sensor) reaches A through the composite side map and B through byName. Both
+	// are remote, so find must report the ambiguity, not silently return A.
+	model := NewModel("acme", "test", "ambigcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+
+	compName := Name{API: testCamAPI, Remote: "remoteA", Name: "foo"}
+	compNode := NewConfiguredGraphNode(Config{Name: "foo", API: testCamAPI, Model: model}, &combo{Named: compName.AsNamed()}, model)
+	test.That(t, g.AddNode(compName, compNode), test.ShouldBeNil)
+
+	plainName := Name{API: testSensAPI, Remote: "remoteB", Name: "foo"}
+	test.That(t, g.AddNode(plainName, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
+
+	_, err := g.FindBySimpleNameAndAPI("foo", testSensAPI)
+	test.That(t, err, shouldMatchMultipleNodesErr, &MultipleMatchingRemoteNodesError{
+		Name:    "foo",
+		API:     testSensAPI,
+		Remotes: []string{"remoteA", "remoteB"},
+	})
+
+	// The composite's canonical api is served only by remote A, so it resolves to A with no ambiguity.
+	got, err := g.FindBySimpleNameAndAPI("foo", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, compNode)
+}
