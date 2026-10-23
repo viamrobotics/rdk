@@ -53,6 +53,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -1929,4 +1930,38 @@ func TestJobManagerErrors(t *testing.T) {
 		test.That(tb, slices.Contains(errorMessages, "test error do command"), test.ShouldBeTrue)
 		test.That(tb, slices.Contains(errorMessages, "rpc error: code = Unknown desc = test error api function"), test.ShouldBeTrue)
 	})
+}
+
+// TestCompositeJobDispatchesToServingAPI runs a job whose method belongs to one of a composite's
+// non-canonical co-equal APIs. It only succeeds if dispatch routes to the API that serves the method
+// rather than the composite's canonical one.
+func TestCompositeJobDispatchesToServingAPI(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
+	model := resource.NewModel("acme", "demo", "combodevice")
+	// combo serves camera, movement_sensor, and the acme gizmo API (its canonical, sorted-first). GetPosition
+	// is a movement_sensor method absent from the canonical gizmo service.
+	cfg := &config.Config{
+		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
+		Components: []resource.Config{
+			{Name: "combo", API: camera.API, Model: model},
+		},
+		Jobs: []config.JobConfig{
+			{config.JobConfigData{
+				Name:     "combo position",
+				Schedule: "1s",
+				Resource: "combo",
+				Method:   "GetPosition",
+			}},
+		},
+	}
+	setupLocalRobot(t, ctx, cfg, logger)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Job succeeded").Len(), test.ShouldBeGreaterThan, 0)
+	})
+	test.That(t, logs.FilterMessage("grpc setup failed").Len(), test.ShouldEqual, 0)
 }

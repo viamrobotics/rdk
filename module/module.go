@@ -116,7 +116,7 @@ type Module struct {
 	// on it. So internalDeps[foo] is foo's dependents within this module; each entry carries
 	// the dependent's bookkeeping (see resConfigureArgs) so we can reconstruct it when foo is
 	// rebuilt. Keying by name ensures the tracking survives remove+re-add cycles.
-	internalDeps map[resource.Name][]resConfigureArgs
+	internalDeps          map[resource.Name][]resConfigureArgs
 	localResources        map[string]localResource
 	activeResourceStreams map[resource.Name]peerResourceState
 	streamSourceByName    map[resource.Name]rtppassthrough.Source

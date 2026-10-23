@@ -637,23 +637,10 @@ func (m *Module) rebuildResource(
 		return nil, err
 	}
 
-	// Check every served collection exists, then replace, all under one registerMu hold so a concurrent
-	// deregistration can't drop a collection between check and use (which would nil-panic ReplaceOne). A
-	// missing collection aborts before any replace. The replaces themselves can't fail, since the rebuilt
-	// instance is the same Go type that already implemented every API at addResource, so each collection's
-	// type-check still passes.
+	// Replace the instance in each served collection, holding registerMu through the map mutations below.
 	m.registerMu.Lock()
-	apis := resource.APIsForConfig(*conf)
-	for _, api := range apis {
-		if _, ok := m.collections[api]; !ok {
-			m.registerMu.Unlock()
-			return nil, multierr.Combine(
-				fmt.Errorf("module cannot service api %q for model %q", api, conf.Model), newRes.Close(ctx),
-			)
-		}
-	}
-	for _, api := range apis {
-		//nolint:errcheck // cannot fail per the invariant above (collection exists under this lock, same-type instance).
+	for _, api := range resource.APIsForConfig(*conf) {
+		//nolint:errcheck // rebuilt instance is the same Go type as at addResource, so the collection's type-check holds
 		m.collections[api].ReplaceOne(conf.ResourceName().AsAPI(api), resource.SubresourceForAPI(newRes, api))
 	}
 
