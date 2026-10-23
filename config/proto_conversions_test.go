@@ -1063,6 +1063,8 @@ func TestPackageTypeConversion(t *testing.T) {
 		{PackageTypeMlModel, packagespb.PackageType_PACKAGE_TYPE_ML_MODEL},
 		{PackageTypeModule, packagespb.PackageType_PACKAGE_TYPE_MODULE},
 		{PackageTypeSlamMap, packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP},
+		{PackageTypeUnspecified, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED},
+		{PackageTypeMlTraining, packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING},
 	}
 	for _, tc := range testCases {
 		convertedProto, err := PackageTypeToProto(tc.configType)
@@ -1079,15 +1081,9 @@ func TestPackageTypeConversion(t *testing.T) {
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
 	test.That(t, convertedProto, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
 
-	for _, unsupported := range []packagespb.PackageType{
-		packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED,
-		packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING,
-		packagespb.PackageType(100),
-	} {
-		convertedConfig, err := PackageTypeFromProto(unsupported)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, convertedConfig, test.ShouldEqual, PackageType(""))
-	}
+	convertedConfig, err := PackageTypeFromProto(packagespb.PackageType(100))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, convertedConfig, test.ShouldEqual, PackageType(""))
 }
 
 func TestMaintenanceConfigToProtoSuccess(t *testing.T) {

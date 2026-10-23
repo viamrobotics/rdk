@@ -2714,7 +2714,7 @@ func TestMachineStatusPackageEdgeCases(t *testing.T) {
 				},
 				{
 					Name:        "unsupported-values",
-					Type:        packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING,
+					Type:        packagespb.PackageType(100),
 					State:       pb.PackageStatus_State(100),
 					LastUpdated: &timestamppb.Timestamp{Seconds: 253402300800},
 					Version:     "1.2.3",

@@ -60,7 +60,7 @@ func TestPackageStatusFromProtoEdgeCases(t *testing.T) {
 	t.Run("unsupported enums and invalid timestamp", func(t *testing.T) {
 		status, err := PackageStatusFromProto(&robotpb.PackageStatus{
 			Name:        "package",
-			Type:        packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING,
+			Type:        packagespb.PackageType(100),
 			State:       robotpb.PackageStatus_State(100),
 			LastUpdated: &timestamppb.Timestamp{Seconds: 253402300800},
 			Version:     "1.2.3",
