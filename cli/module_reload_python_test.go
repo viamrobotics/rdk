@@ -140,7 +140,6 @@ func TestSetReloadFromSource(t *testing.T) {
 	test.That(t, setReloadFromSource(manifestPath, false), test.ShouldBeNil)
 	test.That(t, setReloadFromSource(manifestPath, true), test.ShouldBeNil)
 
-	//nolint:gosec // test temp path
 	raw, err := os.ReadFile(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, json.Valid(raw), test.ShouldBeTrue)
@@ -154,6 +153,7 @@ func TestSetReloadFromSource(t *testing.T) {
 }
 
 func TestOfferReloadFromSourceNonInteractive(t *testing.T) {
+	//nolint:dogsled
 	cCtx, _, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{}, map[string]any{}, "token")
 	manifestPath := writePythonModule(t)
 	manifest, err := loadManifestOrNil(manifestPath)
@@ -163,7 +163,6 @@ func TestOfferReloadFromSourceNonInteractive(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, enabled, test.ShouldBeFalse)
 
-	//nolint:gosec // test temp path
 	raw, err := os.ReadFile(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, string(raw), test.ShouldEqual, pythonTemplateManifest)

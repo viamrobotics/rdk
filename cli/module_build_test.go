@@ -794,7 +794,7 @@ func archiveEntries(t *testing.T, archivePath string) map[string]archiveEntry {
 	entries := map[string]archiveEntry{}
 	for {
 		hdr, err := tr.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		test.That(t, err, test.ShouldBeNil)
