@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -161,6 +163,12 @@ func (a *API) UnmarshalJSON(data []byte) error {
 // NewAPI return a new API from a triplet like acme:component:gizmo.
 func NewAPI(namespace, typeName, subtypeName string) API {
 	return APINamespace(namespace).WithType(typeName).WithSubtype(subtypeName)
+}
+
+// SortAPIs sorts apis in place into canonical-first order, so apis[0] is a composite's deterministic
+// canonical API.
+func SortAPIs(apis []API) {
+	slices.SortFunc(apis, func(a, b API) int { return strings.Compare(a.String(), b.String()) })
 }
 
 // NewAPIFromString creates a new API from a fully qualified string in the format namespace:type:subtype.

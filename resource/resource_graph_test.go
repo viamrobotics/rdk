@@ -1509,3 +1509,398 @@ func TestResolveDependenciesSkipsDependencyMarkedForRemoval(t *testing.T) {
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 	test.That(t, g.GetAllParentsOf(nameB), test.ShouldResemble, []Name{nameA})
 }
+
+func TestFindBySimpleNameSkipsRemovingNode(t *testing.T) {
+	// When a remote resource's advertised API under a name changes (single-API <-> composite, a canonical
+	// flip, or a plain API swap), the old node is marked for removal but lingers under the same
+	// remote+name as the new node until a later sweep. Simple-name resolution must skip the being-removed
+	// node so the simple name resolves to the live one rather than reading as a same-remote collision.
+	logger := logging.NewTestLogger(t)
+	compA := APINamespace("namespace").WithComponentType("aapi")
+	compC := APINamespace("namespace").WithComponentType("capi")
+	newNode := func() *GraphNode { return NewUnconfiguredGraphNode(Config{}, nil) }
+
+	g := NewGraph(logger)
+	live, removing := newNode(), newNode()
+	test.That(t, g.AddNode(Name{API: compA, Name: "combo", Remote: "r1"}, live), test.ShouldBeNil)
+	test.That(t, g.AddNode(Name{API: compC, Name: "combo", Remote: "r1"}, removing), test.ShouldBeNil)
+	removing.MarkForRemoval()
+
+	// Only the live node matches; the marked-for-removal sibling is skipped.
+	all := g.FindAllBySimpleName("combo")
+	test.That(t, all, test.ShouldResemble, []Name{{API: compA, Name: "combo", Remote: "r1"}})
+	resolved, err := g.FindBySimpleName("combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resolved, test.ShouldResemble, Name{API: compA, Name: "combo", Remote: "r1"})
+}
+
+func TestCompositeNodeForAPIResolvesEachCoEqualAPI(t *testing.T) {
+	model := NewModel("acme", "test", "graphcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	res := &combo{Named: canonical.AsNamed()}
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, res, model)
+	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
+
+	// the node is stored under the canonical api and resolves directly
+	got, err := g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// each co-equal api resolves to the same one node, even though nothing is cached under it
+	got, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// an api the model does not serve is still not found
+	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+}
+
+func TestLocalCompositeCoequalWinsOverRemote(t *testing.T) {
+	// A local composite serves a co-equal API only via the composite index (not byName).
+	// If a remote advertises the composite's simple name under one of those co-equal APIs, the remote
+	// lands in byName under that (name, api) key. "Local wins over same-named remotes" must
+	// still hold, so the co-equal lookup must resolve the local composite, not the remote.
+	model := NewModel("acme", "test", "coequalwins")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	localComposite := NewConfiguredGraphNode(
+		Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model,
+	)
+	test.That(t, g.AddNode(canonical, localComposite), test.ShouldBeNil)
+
+	// A remote advertises a sensor also named "dev", the composite's co-equal (non-configured) API.
+	remoteSensor := Name{API: testSensAPI, Remote: "r1", Name: "dev"}
+	test.That(t, g.AddNode(remoteSensor, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
+
+	// Resolving the sensor API must return the local composite, not the same-named remote sensor.
+	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, localComposite)
+
+	// The composite's canonical API still resolves to it directly, and the remote is reachable only
+	// under its own prefixed name once prefixed (unprefixed, local wins).
+	got, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, localComposite)
+}
+
+func TestCompositeCoequalIndexMaintenance(t *testing.T) {
+	// The co-equal index that lets a non-configured API resolve to a composite's one node must be kept
+	// in sync as the node is deleted, or a co-equal lookup would resolve a stale/dead node.
+	model := NewModel("acme", "test", "graphidx")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model)
+	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
+
+	// the non-configured co-equal API resolves to the one node via the index.
+	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// deleting the composite drops both its canonical byName entry and its co-equal index
+	// entry, so neither api resolves afterward.
+	g.nodes.Delete(canonical)
+	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	test.That(t, g.nodes.simpleNames.composite, test.ShouldBeEmpty)
+}
+
+func TestCompositeCoequalIndexModelReconfigure(t *testing.T) {
+	// An in-place model reconfigure rebuilds on the same node via SwapResource and never re-runs Set or
+	// UpdateSimpleName, so the co-equal index must be refreshed explicitly (ReindexComposite). When the
+	// model's served API set changes, a newly-served co-equal API must resolve and a dropped one must
+	// stop resolving to this node.
+	modelCamSens := NewModel("acme", "test", "idxrecfg-camsens")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, modelCamSens, newComboConstructor())
+	defer Deregister(testCamAPI, modelCamSens)
+	defer Deregister(testSensAPI, modelCamSens)
+	modelCamMotor := NewModel("acme", "test", "idxrecfg-cammotor")
+	RegisterMultiAPI([]API{testCamAPI, testMotorAPI}, modelCamMotor, newComboConstructor())
+	defer Deregister(testCamAPI, modelCamMotor)
+	defer Deregister(testMotorAPI, modelCamMotor)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	name := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(
+		Config{Name: "dev", API: testCamAPI, Model: modelCamSens},
+		&combo{Named: name.AsNamed()}, modelCamSens,
+	)
+	test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+
+	// cam+sens: the sens co-equal API resolves; motor does not.
+	_, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+
+	// Reconfigure the model in place to cam+motor, mirroring the manager's rebuild (new config + a new
+	// resource swapped onto the same node), then re-index.
+	node.SetNewConfig(Config{Name: "dev", API: testCamAPI, Model: modelCamMotor}, nil)
+	node.SwapResource(&combo{Named: name.AsNamed()}, modelCamMotor, nil, false)
+	g.ReindexComposite(name)
+
+	// The dropped sens API no longer resolves to this node; the newly-served motor API now does; and
+	// the configured API still resolves throughout.
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestCompositeIndexViaPlaceholderReplace(t *testing.T) {
+	// A composite depended on before it is configured is first added as an uninitialized placeholder,
+	// then replaced by its configured node (addNode's replace path). The co-equal index must be
+	// populated there too (the model only becomes known at replace) or the composite would resolve
+	// under its configured API but 404 under its other co-equal APIs.
+	model := NewModel("acme", "test", "phcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	compName := NewName(testCamAPI, "dev")
+	test.That(t, g.AddNode(compName, NewUninitializedNode()), test.ShouldBeNil)
+
+	configured := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: compName.AsNamed()}, model)
+	test.That(t, g.AddNode(compName, configured), test.ShouldBeNil)
+
+	_, err := g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
+	model := NewModel("acme", "test", "graphcombo2")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+
+	// a composite is a single node; a bare-name lookup finds exactly one match (not a collision).
+	comboName := NewName(testCamAPI, "combo")
+	comboNode := NewConfiguredGraphNode(
+		Config{Name: "combo", API: testCamAPI, Model: model},
+		&combo{Named: comboName.AsNamed()}, model,
+	)
+	test.That(t, g.AddNode(comboName, comboNode), test.ShouldBeNil)
+	// The resolver returns the one owner with no error, and the all-matches scan returns a single match.
+	_, err := g.FindBySimpleName("combo")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.FindAllBySimpleName("combo"), test.ShouldHaveLength, 1)
+
+	// two genuinely distinct nodes sharing a simple name still collide. name-uniqueness
+	// detection must not regress, so the resolver returns a MultipleMatchingNamesError and the
+	// all-matches scan returns two matches.
+	camDup := NewName(testCamAPI, "dup")
+	sensDup := NewName(testSensAPI, "dup")
+	test.That(t, g.AddNode(camDup, NewConfiguredGraphNode(
+		Config{Name: "dup", API: testCamAPI}, &combo{Named: camDup.AsNamed()}, Model{},
+	)), test.ShouldBeNil)
+	test.That(t, g.AddNode(sensDup, NewConfiguredGraphNode(
+		Config{Name: "dup", API: testSensAPI}, &combo{Named: sensDup.AsNamed()}, Model{},
+	)), test.ShouldBeNil)
+	_, err = g.FindBySimpleName("dup")
+	test.That(t, IsMultipleMatchingNamesError(err), test.ShouldBeTrue)
+	test.That(t, g.FindAllBySimpleName("dup"), test.ShouldHaveLength, 2)
+}
+
+func TestExpandCompositeNames(t *testing.T) {
+	model := NewModel("acme", "test", "graphcombo3")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	comboName := NewName(testCamAPI, "combo")
+	test.That(t, g.AddNode(comboName, NewConfiguredGraphNode(
+		Config{Name: "combo", API: testCamAPI, Model: model},
+		&combo{Named: comboName.AsNamed()}, model,
+	)), test.ShouldBeNil)
+
+	// a plain single-API node advertises unchanged
+	plainName := NewName(testMotorAPI, "plain")
+	test.That(t, g.AddNode(plainName, NewConfiguredGraphNode(
+		Config{Name: "plain", API: testMotorAPI}, &combo{Named: plainName.AsNamed()}, Model{},
+	)), test.ShouldBeNil)
+
+	unknown := NewName(testMotorAPI, "ghost")
+	out := g.ExpandCompositeNames([]Name{comboName, plainName, unknown})
+
+	// composite fans out to one name per co-equal api; the others pass through untouched
+	test.That(t, out, test.ShouldContain, NewName(testCamAPI, "combo"))
+	test.That(t, out, test.ShouldContain, NewName(testSensAPI, "combo"))
+	test.That(t, out, test.ShouldContain, plainName)
+	test.That(t, out, test.ShouldContain, unknown)
+	test.That(t, out, test.ShouldHaveLength, 4)
+}
+
+func TestGraphCloneCoequalIndex(t *testing.T) {
+	// Clone copies the graph via graphStorage.Copy; the co-equal index must come with it, or a
+	// non-configured API stops resolving on the clone (used for reconfigure snapshots).
+	model := NewModel("acme", "test", "clonecombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	canonical := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model)
+	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
+
+	clone := g.Clone()
+	got, err := clone.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+}
+
+func TestCompositeIndexWhenConfigAPINotCanonical(t *testing.T) {
+	// The node is stored under its config api (testsens), which is not the sorted-first api
+	// (testcam < testsens). The index must resolve the other co-equal api regardless, since it excludes
+	// the stored api (name.API), not apis[0].
+	model := NewModel("acme", "test", "noncanoncombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	stored := NewName(testSensAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testSensAPI, Model: model}, &combo{Named: stored.AsNamed()}, model)
+	test.That(t, g.AddNode(stored, node), test.ShouldBeNil)
+
+	// The stored api resolves directly; the sorted-first api resolves through the index.
+	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	got, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+}
+
+func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
+	// A remote composite is stored as one node under its canonical API, and SimpleNamesWhere surfaces it
+	// once (ExpandCompositeNames re-expands it per-API downstream), while a genuine machine-wide
+	// collision is still hidden.
+	g := NewGraph(logging.NewTestLogger(t))
+	add := func(n Name, res Resource) {
+		test.That(t, g.AddNode(n, NewConfiguredGraphNode(Config{Name: n.Name, API: n.API}, res, Model{})), test.ShouldBeNil)
+	}
+
+	// A remote composite, one node under the canonical API (testcam < testsens), holding a MultiAPIResource.
+	comboName := Name{API: testCamAPI, Name: "combo", Remote: "r1"}
+	comboSub := &combo{Named: comboName.AsNamed()}
+	comboRes, err := Compose(AsSub(testCamAPI, comboSub), AsSub(testSensAPI, comboSub))
+	test.That(t, err, test.ShouldBeNil)
+	add(comboName, comboRes)
+	// A genuine collision: same name across different remotes, is hidden.
+	add(Name{API: testCamAPI, Name: "dup", Remote: "r1"}, &combo{Named: Name{API: testCamAPI, Name: "dup", Remote: "r1"}.AsNamed()})
+	add(Name{API: testSensAPI, Name: "dup", Remote: "r2"}, &combo{Named: Name{API: testSensAPI, Name: "dup", Remote: "r2"}.AsNamed()})
+	// An ordinary single remote resource is surfaced.
+	add(Name{API: testCamAPI, Name: "solo", Remote: "r1"}, &combo{Named: Name{API: testCamAPI, Name: "solo", Remote: "r1"}.AsNamed()})
+
+	got := g.SimpleNamesWhere(func(Name, *GraphNode) bool { return true })
+	test.That(t, got, test.ShouldContain, comboName)
+	test.That(t, got, test.ShouldContain, Name{API: testCamAPI, Name: "solo", Remote: "r1"})
+
+	byName := map[string]int{}
+	for _, n := range got {
+		byName[n.Name]++
+	}
+	test.That(t, byName["combo"], test.ShouldEqual, 1) // one canonical node
+	test.That(t, byName["dup"], test.ShouldEqual, 0)   // collision hidden
+	test.That(t, byName["solo"], test.ShouldEqual, 1)
+
+	// ExpandCompositeNames re-expands the single node to both co-equal APIs.
+	expanded := g.ExpandCompositeNames([]Name{comboName})
+	test.That(t, expanded, test.ShouldContain, Name{API: testCamAPI, Name: "combo", Remote: "r1"})
+	test.That(t, expanded, test.ShouldContain, Name{API: testSensAPI, Name: "combo", Remote: "r1"})
+}
+
+func TestCompositeRemotePrefixChangeKeepsCoEqualAPIs(t *testing.T) {
+	model := NewModel("acme", "test", "prefixcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	// A remote composite advertised under its canonical api, then given a prefix.
+	name := Name{API: testCamAPI, Remote: "r1", Name: "dev"}
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: name.AsNamed()}, model)
+	test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+	g.UpdateNodePrefix(name, "p1.")
+
+	// Resolves under both co-equal APIs at the initial prefix (the co-equal one via the composite index).
+	got, err := g.FindBySimpleNameAndAPI("p1.dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	got, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// Change the prefix: both co-equal APIs must resolve under the NEW prefix (reindex moved the
+	// composite entry, not just the byName one).
+	g.UpdateNodePrefix(name, "p2.")
+	got, err = g.FindBySimpleNameAndAPI("p2.dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	got, err = g.FindBySimpleNameAndAPI("p2.dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// The old prefix no longer resolves under either API.
+	_, err = g.FindBySimpleNameAndAPI("p1.dev", testCamAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+}
+
+func TestRemoteCompositeAmbiguityCountsAllRemotes(t *testing.T) {
+	// Two remotes, no local: remote A serves a composite "foo" {cam, sensor}, remote B a plain sensor
+	// "foo". Looking up (foo, sensor) reaches A through the composite side map and B through byName. Both
+	// are remote, so find must report the ambiguity, not silently return A.
+	model := NewModel("acme", "test", "ambigcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+
+	compName := Name{API: testCamAPI, Remote: "remoteA", Name: "foo"}
+	compNode := NewConfiguredGraphNode(Config{Name: "foo", API: testCamAPI, Model: model}, &combo{Named: compName.AsNamed()}, model)
+	test.That(t, g.AddNode(compName, compNode), test.ShouldBeNil)
+
+	plainName := Name{API: testSensAPI, Remote: "remoteB", Name: "foo"}
+	test.That(t, g.AddNode(plainName, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
+
+	_, err := g.FindBySimpleNameAndAPI("foo", testSensAPI)
+	test.That(t, err, shouldMatchMultipleNodesErr, &MultipleMatchingRemoteNodesError{
+		Name:    "foo",
+		API:     testSensAPI,
+		Remotes: []string{"remoteA", "remoteB"},
+	})
+
+	// The composite's canonical api is served only by remote A, so it resolves to A with no ambiguity.
+	got, err := g.FindBySimpleNameAndAPI("foo", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, compNode)
+}

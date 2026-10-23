@@ -18,6 +18,7 @@ package resource
 
 import (
 	"context"
+	"iter"
 	"reflect"
 	"regexp"
 	"strings"
@@ -102,6 +103,7 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 	if err != nil {
 		return zero, DependencyNotFoundError(name)
 	}
+	res = SubresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
@@ -116,11 +118,18 @@ func FromProvider[T Resource](provider Provider, name Name) (T, error) {
 	if err != nil {
 		return zero, err
 	}
+	res = SubresourceForAPI(res, name.API)
 	typedRes, ok := res.(T)
 	if !ok {
 		return zero, DependencyTypeError[T](name, res)
 	}
 	return typedRes, nil
+}
+
+// NamedFromProvider resolves a bare (API-less) resource name to its single resource via any Provider.
+// For a composite it returns the one handle serving every API; extract a specific API from it with AsType.
+func NamedFromProvider(provider Provider, name string) (Resource, error) {
+	return provider.GetResource(SimpleName(name))
 }
 
 // GetResource implements Provider for Dependencies by looking up a resource by name.
@@ -309,14 +318,77 @@ func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
 	return map[string]interface{}{}, nil
 }
 
-// AsType attempts to get a more specific interface from the resource.
+// AsType gets a more specific interface T from a resource. A non-composite resource that satisfies T is
+// returned as is. For a composite, it returns the sub for T's own registered API, never another API's sub
+// that merely also satisfies T. If T is not a registered API the composite serves, it returns a TypeError.
 func AsType[T Resource](from Resource) (T, error) {
-	res, ok := from.(T)
-	if !ok {
-		var zero T
-		return zero, TypeError[T](from)
+	if res, ok := from.(T); ok {
+		return res, nil
 	}
-	return res, nil
+	if mar, ok := from.(MultiAPIResource); ok {
+		// Resolve only the sub for T's own registered API, never a different API's sub that happens to
+		// satisfy T, so the result is never ambiguous.
+		if api, ok := apiForResourceInterface(reflect.TypeFor[T]()); ok {
+			if sub, found := mar.ResourceForAPI(api); found {
+				if res, ok := sub.(T); ok {
+					return res, nil
+				}
+			}
+		}
+	}
+	var zero T
+	return zero, TypeError[T](from)
+}
+
+// SubresourceForAPI unwraps a composite to the sub-resource serving api. If res is not a composite
+// (or does not serve api) it is returned unchanged.
+func SubresourceForAPI(res Resource, api API) Resource {
+	if mar, ok := res.(MultiAPIResource); ok {
+		if sub, ok := mar.ResourceForAPI(api); ok {
+			return sub
+		}
+	}
+	return res
+}
+
+// APIsOf returns the set of APIs a resource handle serves, in a stable canonical-first order.
+func APIsOf(res Resource) []API {
+	if mar, ok := res.(MultiAPIResource); ok {
+		return mar.APIs()
+	}
+	return []API{res.Name().API}
+}
+
+// SubsByName yields one (name, sub) pair per API the resource serves, canonical-first. Each name is
+// base.AsAPI(api) and each sub is that API's unwrapped resource. A composite yields a pair for every
+// co-equal API; an ordinary resource yields the single (base, res) pair.
+func SubsByName(base Name, res Resource) iter.Seq2[Name, Resource] {
+	return func(yield func(Name, Resource) bool) {
+		for _, api := range APIsOf(res) {
+			if !yield(base.AsAPI(api), SubresourceForAPI(res, api)) {
+				return
+			}
+		}
+	}
+}
+
+// DistinctSubs yields each distinct sub-resource once, canonical-first, paired with the name it is
+// served under (base.AsAPI(api)). Unlike SubsByName it dedups by identity, so a shared object reached
+// under several APIs yields once; an ordinary resource yields its single (base, res) pair.
+func DistinctSubs(base Name, res Resource) iter.Seq2[Name, Resource] {
+	return func(yield func(Name, Resource) bool) {
+		seen := make(map[Resource]bool)
+		for _, api := range APIsOf(res) {
+			sub := SubresourceForAPI(res, api)
+			if seen[sub] {
+				continue
+			}
+			seen[sub] = true
+			if !yield(base.AsAPI(api), sub) {
+				return
+			}
+		}
+	}
 }
 
 type closeOnlyResource struct {

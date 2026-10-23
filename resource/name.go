@@ -27,6 +27,18 @@ func NewName(api API, name string) Name {
 	}
 }
 
+// SimpleName returns an API-less Name that identifies a resource by its simple name alone. Passed to a
+// Provider's lookup it resolves to the single resource of that name.
+func SimpleName(name string) Name {
+	return NewName(API{}, name)
+}
+
+// AsAPI returns a copy of n keyed under api, keeping the same simple name and remote. It builds the
+// per-API name of a composite, which serves one name under several co-equal APIs.
+func (n Name) AsAPI(api API) Name {
+	return Name{API: api, Remote: n.Remote, Name: n.Name}
+}
+
 // UnmarshalJSON unmarshals a resource name from a string.
 func (n *Name) UnmarshalJSON(data []byte) error {
 	var s string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 
@@ -197,10 +198,19 @@ type AssociatedConfigRegistration[AssocT AssociatedConfig] struct {
 
 // all registries.
 var (
-	registryMu                    sync.RWMutex
-	registry                      = map[APIModel]Registration[Resource, ConfigValidator]{}
+	registryMu sync.RWMutex
+	registry   = map[APIModel]Registration[Resource, ConfigValidator]{}
+	// multiAPIByModel records, for models that serve more than one co-equal API, the full set of APIs
+	// they serve. The stored slice is kept sorted by API string so that the first entry is a
+	// deterministic canonical API. Guarded by registryMu.
+	multiAPIByModel               = map[Model][]API{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
+	// apiByInterfaceType maps each registered API's Go interface type to its API, so AsType can resolve a
+	// composite's sub by the interface's own API rather than the first sub that happens to satisfy it. Each
+	// API must declare a distinct Go interface type, or this map would be last-writer-wins and AsType could
+	// return the wrong sub. Guarded by registryMu.
+	apiByInterfaceType = map[reflect.Type]API{}
 )
 
 // DefaultServices returns all servies that will be constructed by default if not
@@ -285,6 +295,14 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
+	// Skip a registration under an api outside the model's fixed composite set so a conflicting module
+	// can't corrupt the registry.
+	if set, multi := multiAPIByModel[model]; multi && !slices.Contains(set, api) {
+		initLogger.Errorw("skipping registration of a composite model under an api outside its set",
+			"model", model, "api", api, "composite_apis", set)
+		return
+	}
+
 	apiModel := APIModel{api, model}
 	_, old := registry[apiModel]
 	if old {
@@ -308,6 +326,117 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	reg.api = api
 	reg.configType = zeroT
 	registry[apiModel] = makeGenericResourceRegistration(reg)
+}
+
+// RegisterMultiAPI registers one model that serves one or more co-equal APIs. The single constructor is
+// registered under every API (so LookupRegistration finds it for any of them), and the API set is
+// recorded for models serving more than one. It panics on an empty API list.
+//
+// For a model serving more than one API the constructor is wrapped so its result is always a
+// MultiAPIResource: an author may return one struct implementing every API, and the wrapper composes it
+// under each so consumers resolve it uniformly. A result that is already a MultiAPIResource (authored via
+// Compose) is left untouched.
+func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
+	if len(apis) == 0 {
+		panic(errors.Errorf("RegisterMultiAPI requires at least one api for model: %q", model))
+	}
+	for _, api := range apis {
+		Register(api, model, reg)
+	}
+	RegisterMultiAPISet(model, apis)
+	if len(apis) < 2 {
+		return
+	}
+	composeSingleStructComposite(model)
+}
+
+// composeSingleStructComposite rewrites the stored constructor for each API of a multi-API model so a
+// single-struct result is composed into a MultiAPIResource aliased under every served API. It runs
+// after Register/RegisterMultiAPISet, reading back the sorted co-equal set recorded by the latter.
+func composeSingleStructComposite(model Model) {
+	sorted := APIsForModel(model)
+	if len(sorted) < 2 {
+		return
+	}
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	for _, api := range sorted {
+		apiModel := APIModel{api, model}
+		stored, ok := registry[apiModel]
+		if !ok || stored.Constructor == nil {
+			continue
+		}
+		inner := stored.Constructor
+		stored.Constructor = func(ctx context.Context, deps Dependencies, conf Config, logger logging.Logger) (Resource, error) {
+			res, err := inner(ctx, deps, conf, logger)
+			if err != nil || res == nil {
+				return res, err
+			}
+			if _, already := res.(MultiAPIResource); already {
+				return res, nil
+			}
+			byAPI := make(map[API]Resource, len(sorted))
+			for _, a := range sorted {
+				byAPI[a] = res
+			}
+			return NewMultiAPIResource(conf.ResourceName(), byAPI), nil
+		}
+		registry[apiModel] = stored
+	}
+}
+
+// RegisterMultiAPISet records the co-equal APIs a composite model serves without registering constructors,
+// for modular composites whose per-API constructors are the module proxies. The set is sorted by API
+// string so the first entry is a deterministic canonical API. No-op for models serving fewer than two APIs.
+func RegisterMultiAPISet(model Model, apis []API) {
+	if len(apis) < 2 {
+		return
+	}
+	sorted := append([]API(nil), apis...)
+	SortAPIs(sorted)
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	// Skip recording a composite set for a model already registered under an api outside it, rather than
+	// leave a contradictory registration.
+	for am := range registry {
+		if am.Model == model && !slices.Contains(sorted, am.API) {
+			initLogger.Errorw("skipping composite registration; model already registered under another api",
+				"model", model, "api", am.API, "composite_apis", sorted)
+			return
+		}
+	}
+	multiAPIByModel[model] = sorted
+}
+
+// APIsForModel returns the set of co-equal APIs a composite model serves, sorted by API string, or
+// nil for an ordinary single-API model. The returned slice is shared and must not be mutated.
+func APIsForModel(model Model) []API {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	return slices.Clone(multiAPIByModel[model])
+}
+
+// ExpandModel expands a model into one APIModel per API it was registered under, so a module's main() can
+// serve all of a composite's APIs without re-listing them. For a composite it returns one entry per
+// co-equal API (sorted by API string); for an ordinary model, the single {api, model} pair from the
+// registry; nil for an unregistered model.
+func ExpandModel(model Model) []APIModel {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	if apis := multiAPIByModel[model]; len(apis) > 0 {
+		models := make([]APIModel, 0, len(apis))
+		for _, api := range apis {
+			models = append(models, APIModel{API: api, Model: model})
+		}
+		return models
+	}
+	var models []APIModel
+	for am := range registry {
+		if am.Model == model {
+			models = append(models, APIModel{API: am.API, Model: model})
+		}
+	}
+	return models
 }
 
 // makeGenericResourceRegistration allows a registration to be generic and ensures all input/output types
@@ -357,6 +486,19 @@ func Deregister(api API, model Model) {
 	defer registryMu.Unlock()
 	apiModel := APIModel{api, model}
 	delete(registry, apiModel)
+	// If this model is no longer registered under any API, drop its recorded composite API set.
+	if _, recorded := multiAPIByModel[model]; recorded {
+		anyLeft := false
+		for am := range registry {
+			if am.Model == model {
+				anyLeft = true
+				break
+			}
+		}
+		if !anyLeft {
+			delete(multiAPIByModel, model)
+		}
+	}
 }
 
 // LookupRegistration looks up a creator by the given api and model. nil is returned if
@@ -393,6 +535,18 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 		creator.ReflectRPCServiceDesc = reflectSvcDesc
 	}
 	apiRegistry[api] = makeGenericAPIRegistration(api, creator)
+	if t := reflect.TypeFor[ResourceT](); t != reflect.TypeFor[Resource]() {
+		apiByInterfaceType[t] = api
+	}
+}
+
+// apiForResourceInterface returns the API registered for an exact resource interface type, if one is
+// recorded. AsType uses it to resolve a composite's sub by the API the requested interface belongs to.
+func apiForResourceInterface(t reflect.Type) (API, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	api, ok := apiByInterfaceType[t]
+	return api, ok
 }
 
 // RegisterAPIWithAssociation register a ResourceAPI to its corresponding resource api
@@ -562,6 +716,11 @@ func DeregisterAPI(api API) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	delete(apiRegistry, api)
+	for t, a := range apiByInterfaceType {
+		if a == api {
+			delete(apiByInterfaceType, t)
+		}
+	}
 }
 
 // LookupGenericAPIRegistration looks up a ResourceAPI by the given api. false is returned if
