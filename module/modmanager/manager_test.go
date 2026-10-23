@@ -2033,3 +2033,61 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
 	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
 }
+
+// TestModuleReloadingComposite asserts that after a composite module crashes and restarts, the composite
+// is modularly managed again under every one of its co-equal APIs, with no stale route left behind.
+func TestModuleReloadingComposite(t *testing.T) {
+	ctx := context.Background()
+	comboModel := resource.NewModel("acme", "demo", "combodevice")
+	comboCfg := resource.Config{Name: "combo", API: camera.API, Model: comboModel}
+	_, _, err := comboCfg.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	parentAddr := setupSocketWithRobot(t)
+	logger, logs := logging.NewObservedTestLogger(t)
+	modCfg := config.Module{
+		Name:    "combo-module",
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule"),
+	}
+
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	h, err := mgr.AddResource(ctx, comboCfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// The composite is modularly managed under every co-equal API.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+
+	// Crash the module via the canonical sub's DoCommand.
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	// The crash dropped every co-equal route, not just the configured one, so none stays routed to the dead module.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
+
+	// Re-add after restart; every co-equal API is modularly managed again.
+	h, err = mgr.AddResource(ctx, comboCfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(), test.ShouldEqual, 0)
+
+	// A movement_sensor call round-trips, so a non-canonical API routes to the live restarted module.
+	ms, err := resource.AsType[movementsensor.MovementSensor](h)
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = ms.Position(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+}

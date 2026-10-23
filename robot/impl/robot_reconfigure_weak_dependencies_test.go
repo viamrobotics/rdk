@@ -785,3 +785,134 @@ func TestWeakDependencyOnComposite(t *testing.T) {
 	_, err = resource.AsType[movementsensor.MovementSensor](msDep)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+// optionalCompositeConfig declares an optional dependency on a single named resource.
+type optionalCompositeConfig struct {
+	Optional string `json:"optional"`
+}
+
+func (c *optionalCompositeConfig) Validate(_ string) ([]string, []string, error) {
+	var optional []string
+	if c.Optional != "" {
+		optional = append(optional, c.Optional)
+	}
+	return nil, optional, nil
+}
+
+// optionalCompositeConsumer records the dependency map it was constructed with.
+type optionalCompositeConsumer struct {
+	resource.Named
+	resource.TriviallyCloseable
+	deps resource.Dependencies
+}
+
+func newOptionalCompositeConsumer(
+	_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+) (*optionalCompositeConsumer, error) {
+	return &optionalCompositeConsumer{Named: conf.ResourceName().AsNamed(), deps: deps}, nil
+}
+
+// TestOptionalDependencyOnComposite asserts a resource that optionally depends on a composite by simple
+// name receives it under each of the composite's co-equal APIs, and still builds when the composite is absent.
+func TestOptionalDependencyOnComposite(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	consumerAPI := resource.NewAPI(uuid.NewString(), "component", "optionalcompositeconsumer")
+	consumerModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	consumerName := resource.NewName(consumerAPI, "consumer1")
+	resource.Register(consumerAPI, consumerModel,
+		resource.Registration[*optionalCompositeConsumer, *optionalCompositeConfig]{
+			Constructor: newOptionalCompositeConsumer,
+		})
+	defer resource.Deregister(consumerAPI, consumerModel)
+
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
+	model := resource.NewModel("acme", "demo", "combodevice")
+
+	// The composite is present: the consumer should receive it under each co-equal API.
+	cfg := &config.Config{
+		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
+		Components: []resource.Config{
+			{Name: "combo", API: camera.API, Model: model},
+			{
+				Name: consumerName.Name, API: consumerAPI, Model: consumerModel,
+				ConvertedAttributes: &optionalCompositeConfig{Optional: "combo"},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	consRes, err := r.ResourceByName(consumerName)
+	test.That(t, err, test.ShouldBeNil)
+	cons, err := resource.AsType[*optionalCompositeConsumer](consRes)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, underCamera := cons.deps[camera.Named("combo")]
+	test.That(t, underCamera, test.ShouldBeTrue)
+	_, underMS := cons.deps[movementsensor.Named("combo")]
+	test.That(t, underMS, test.ShouldBeTrue)
+
+	// The composite is absent: the consumer still builds (the dependency is optional).
+	cfgNoComposite := &config.Config{
+		Components: []resource.Config{
+			{
+				Name: consumerName.Name, API: consumerAPI, Model: consumerModel,
+				ConvertedAttributes: &optionalCompositeConfig{Optional: "combo"},
+			},
+		},
+	}
+	test.That(t, cfgNoComposite.Ensure(false, logger), test.ShouldBeNil)
+	r2 := setupLocalRobot(t, ctx, cfgNoComposite, logger)
+	_, err = r2.ResourceByName(consumerName)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestWeakDependencySubtypeMatchesCompositeServedAPI asserts a SubtypeMatcher weak dependency matches a
+// composite under a co-equal API it serves but is not configured under. combo is configured as a camera
+// but also serves movement_sensor, and motion/datamanager weak-depend by subtype, so a movement_sensor
+// matcher must pick it up under its movement_sensor API.
+func TestWeakDependencySubtypeMatchesCompositeServedAPI(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weaksubtypecomposite")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	weakName := resource.NewName(weakAPI, "weak1")
+	resource.Register(weakAPI, weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(
+				_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.SubtypeMatcher{Subtype: movementsensor.SubtypeName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
+	model := resource.NewModel("acme", "demo", "combodevice")
+	cfg := &config.Config{
+		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
+		Components: []resource.Config{
+			{Name: "combo", API: camera.API, Model: model},
+			{Name: weakName.Name, API: weakAPI, Model: weakModel},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	weakRes, err := r.ResourceByName(weakName)
+	test.That(t, err, test.ShouldBeNil)
+	weak, err := resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Matched under its served movement_sensor API even though configured under camera.
+	msDep, ok := weak.resources[movementsensor.Named("combo")]
+	test.That(t, ok, test.ShouldBeTrue)
+	_, err = resource.AsType[movementsensor.MovementSensor](msDep)
+	test.That(t, err, test.ShouldBeNil)
+	// Not matched under camera: the subtype matcher is movement_sensor-specific.
+	_, cameraMatched := weak.resources[camera.Named("combo")]
+	test.That(t, cameraMatched, test.ShouldBeFalse)
+}

@@ -11,6 +11,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
@@ -118,6 +119,14 @@ func (d *comboDevice) Readings(context.Context, map[string]interface{}) (map[str
 
 func (d *comboDevice) DoOne(_ context.Context, arg1 string) (bool, error) {
 	return arg1 == wantArg, nil
+}
+
+// DoCommand supports "kill_module" to crash the process (for module restart tests); otherwise it echoes.
+func (d *comboDevice) DoCommand(_ context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if cmd["command"] == "kill_module" {
+		os.Exit(1)
+	}
+	return cmd, nil
 }
 
 func (d *comboDevice) DoOneClientStream(_ context.Context, arg1 []string) (bool, error) {
