@@ -4,6 +4,8 @@ package framesystem
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -269,12 +271,23 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// Group deps by short name so a composite's co-equal APIs collapse to one frame entry, unwrapping
-	// each to its API's sub (a no-op for an ordinary resource) so the InputEnabled check in
-	// PickKinematicSub sees the real sub, not the wrapper that implements none of the sub-API interfaces.
+	// Group deps by short name so a composite's co-equal APIs collapse to one frame entry, each unwrapped
+	// to its API's sub (a no-op for an ordinary resource) so PickKinematicSub's InputEnabled check sees
+	// the real sub, not the wrapper. Iterate sorted so a name's subs land in a stable order, keeping
+	// PickKinematicSub's non-kinematic fallback (subs[0]) deterministic.
 	componentsByName := make(map[string][]resource.Resource)
-	for name, r := range deps {
-		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(r, name.API))
+	depNames := make([]resource.Name, 0, len(deps))
+	for name := range deps {
+		depNames = append(depNames, name)
+	}
+	slices.SortFunc(depNames, func(a, b resource.Name) int {
+		if c := strings.Compare(a.Name, b.Name); c != 0 {
+			return c
+		}
+		return strings.Compare(a.API.String(), b.API.String())
+	})
+	for _, name := range depNames {
+		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(deps[name], name.API))
 	}
 	components := make(map[string]resource.Resource)
 	for name, subs := range componentsByName {
