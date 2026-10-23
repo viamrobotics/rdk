@@ -46,7 +46,6 @@ const (
 	runFlagComponent = "component"
 
 	loginFlagDisableBrowser = "disable-browser-open"
-	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
 	// Flags shared by logs, api-key, module, ml-training, package, and data subcommands.
@@ -68,6 +67,7 @@ const (
 	generalFlagPartID            = "part-id"
 	generalFlagFragment          = "fragment"
 	generalFlagID                = "id"
+	generalFlagKeyID             = "key-id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
 	generalFlagModelName         = "model-name"
@@ -680,10 +680,10 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "api-key",
 					Usage:     "authenticate with an api key",
-					UsageText: createUsageText("login api-key", []string{loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("login api-key", []string{generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the key to authenticate with",
 						},
@@ -1248,6 +1248,19 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
+						{
+							Name:      "delete",
+							Usage:     "delete an api key for your location",
+							UsageText: createUsageText("locations api-key delete", []string{generalFlagKeyID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagKeyID,
+									Required: true,
+									Usage:    "id of the api-key to delete",
+								},
+							},
+							Action: createActionCommandWithT[apiKeyDeleteArgs](APIKeyDeleteAction),
+						},
 					},
 				},
 			},
@@ -1261,7 +1274,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "update",
 					Usage:     "update an existing profile for authentication, or add it if it doesn't exist",
-					UsageText: createUsageText("profiles update", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("profiles update", []string{profileFlagName, generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -1269,7 +1282,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to update",
 						},
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the profile's API key",
 						},
@@ -1284,7 +1297,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "add",
 					Usage:     "add a new profile for authentication (errors if the profile already exists)",
-					UsageText: createUsageText("profiles add", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("profiles add", []string{profileFlagName, generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -1292,7 +1305,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to add",
 						},
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the profile's API key",
 						},
@@ -2713,6 +2726,19 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
 						},
+						{
+							Name:      "delete",
+							Usage:     "delete an api-key for your machine",
+							UsageText: createUsageText("machines api-key delete", []string{generalFlagKeyID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagKeyID,
+									Required: true,
+									Usage:    "id of the api-key to delete",
+								},
+							},
+							Action: createActionCommandWithT[apiKeyDeleteArgs](APIKeyDeleteAction),
+						},
 					},
 				},
 				{
@@ -3342,7 +3368,7 @@ Note: There is no progress meter while copying is in progress.
 							Description: `Tunnel connections from a local port to a destination port on a machine part.
 
 By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
-directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + generalFlagKeyID + `,
 and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
@@ -3358,10 +3384,10 @@ and --` + loginFlagKey + `.`,
 								},
 								&cli.StringFlag{
 									Name:  generalFlagAddress,
-									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+									Usage: "machine FQDN to dial directly,  (requires --" + generalFlagKeyID + "/--" + loginFlagKey + ")",
 								},
 								&cli.StringFlag{
-									Name:  loginFlagKeyID,
+									Name:  generalFlagKeyID,
 									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 								&cli.StringFlag{
