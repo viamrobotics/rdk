@@ -13,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -1251,8 +1252,13 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 		return nil, err
 	}
 	var modelConfig *ModelConfigJSON
+	var model *commonpb.KinematicModel
 	if part.ModelFrame != nil {
 		modelConfig = part.ModelFrame.ModelConfig()
+		// a model that cannot be written as a message, one holding a pose frame, sends the Struct alone
+		if converted, err := ModelToProto(part.ModelFrame); err == nil {
+			model = converted
+		}
 	}
 	kinematics, err := modelConfigToStructPb(modelConfig)
 	if err != nil {
@@ -1261,6 +1267,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	return &pb.FrameSystemConfig{
 		Frame:      linkFrame,
 		Kinematics: kinematics, //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+		Model:      model,
 	}, nil
 }
 
@@ -1290,6 +1297,20 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 	}
 
+	// the Struct is read first while a server still sends it, since it carries the file the model
+	// was read from and the typed model does not, so the part re-serves the same kinematics it
+	// was given. The model alone carries the part once the Struct is gone.
+	if len(fsc.GetKinematics().AsMap()) == 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+		if model := fsc.GetModel(); len(model.GetLinks())+len(model.GetJoints()) > 0 {
+			modelFrame, err := ModelFromProto(model, frameConfig.Name())
+			if err != nil {
+				return nil, err
+			}
+			part.ModelFrame = modelFrame
+		}
+		return part, nil
+	}
+
 	// fsc.Kinematics is a google.protobuf.Struct whose []byte fields (e.g.
 	// original_file.bytes, mesh_data) may arrive in one of two forms depending
 	// on which server version produced the message:
@@ -1305,21 +1326,19 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	// targeting a []byte struct field: a JSON string is base64-decoded; a JSON
 	// array is decoded element-by-element as uint8 values. No custom unmarshaler
 	// is needed and old/new viam-server versions interoperate in both directions.
-	if len(fsc.Kinematics.AsMap()) > 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
-		//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
-		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
-		if err != nil {
-			return nil, err
-		}
-		modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
-		if err != nil {
-			if errors.Is(err, ErrNoModelInformation) {
-				return part, nil
-			}
-			return nil, err
-		}
-		part.ModelFrame = modelFrame
+	//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
+	if err != nil {
+		return nil, err
 	}
+	modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
+	if err != nil {
+		if errors.Is(err, ErrNoModelInformation) {
+			return part, nil
+		}
+		return nil, err
+	}
+	part.ModelFrame = modelFrame
 	return part, nil
 }
 
