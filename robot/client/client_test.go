@@ -65,6 +65,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -2568,6 +2569,64 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 				State: robot.StateRunning,
+			},
+			0,
+		},
+		{
+			"package statuses",
+			robot.MachineStatus{
+				Config:    config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{},
+				State:     robot.StateRunning,
+				Packages: []packages.PackageStatus{
+					{
+						Name:            "downloading-module",
+						Type:            config.PackageTypeModule,
+						State:           packages.PackageStateDownloading,
+						LastUpdated:     time.Unix(1700000000, 0).UTC(),
+						Version:         "1.2.3",
+						BytesDownloaded: 1024,
+						TotalBytes:      4096,
+					},
+					{
+						Name:        "loading-model",
+						Type:        config.PackageTypeMlModel,
+						State:       packages.PackageStateLoading,
+						LastUpdated: time.Unix(1700000001, 0).UTC(),
+						Version:     "2026-10-22",
+					},
+					{
+						Name:        "first-run-module",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateFirstRun,
+						LastUpdated: time.Unix(1700000002, 0).UTC(),
+						Version:     "4.5.6",
+					},
+					{
+						Name:            "ready-map",
+						Type:            config.PackageTypeSlamMap,
+						State:           packages.PackageStateReady,
+						LastUpdated:     time.Unix(1700000003, 0).UTC(),
+						Version:         "7.8.9",
+						BytesDownloaded: 8192,
+						TotalBytes:      8192,
+					},
+					{
+						Name:        "failed-archive",
+						Type:        config.PackageTypeArchive,
+						State:       packages.PackageStateFailed,
+						Error:       "checksum mismatch",
+						LastUpdated: time.Unix(1700000004, 0).UTC(),
+						Version:     "10.11.12",
+					},
+					{
+						Name:        "unknown-state",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateUnknown,
+						LastUpdated: time.Unix(1700000005, 0).UTC(),
+						Version:     "13.14.15",
+					},
+				},
 			},
 			0,
 		},
