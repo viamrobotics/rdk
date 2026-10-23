@@ -738,7 +738,8 @@ func newWithResources(
 		if !found {
 			return nil, errors.Errorf("could not find the resource for name %s", res)
 		}
-		return r.ResourceByName(match)
+		// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
+		return r.ResourceByName(resource.SimpleName(match.Name))
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -980,9 +981,13 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			continue
 		}
 
-		optDeps[resolvedOptionalDepName] = optionalDep
-		found = append(found, resolvedOptionalDepName)
-		snapshot[resolvedOptionalDepName] = node.UpdatedAt()
+		// A composite serves several co-equal APIs, so key it under each with that API's sub. For an
+		// ordinary resource this is the single (name, res) pair.
+		for aliased, sub := range resource.SubsByName(resolvedOptionalDepName, optionalDep) {
+			optDeps[aliased] = sub
+			found = append(found, aliased)
+			snapshot[aliased] = node.UpdatedAt()
+		}
 	}
 	if len(conf.ImplicitOptionalDependsOn) > 0 {
 		r.logger.Infow(
