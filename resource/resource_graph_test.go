@@ -1820,3 +1820,41 @@ func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
 	test.That(t, expanded, test.ShouldContain, Name{API: testCamAPI, Name: "combo", Remote: "r1"})
 	test.That(t, expanded, test.ShouldContain, Name{API: testSensAPI, Name: "combo", Remote: "r1"})
 }
+
+func TestCompositeRemotePrefixChangeKeepsCoEqualAPIs(t *testing.T) {
+	model := NewModel("acme", "test", "prefixcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	// A remote composite advertised under its canonical api, then given a prefix.
+	name := Name{API: testCamAPI, Remote: "r1", Name: "dev"}
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: name.AsNamed()}, model)
+	test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+	g.UpdateNodePrefix(name, "p1.")
+
+	// Resolves under both co-equal APIs at the initial prefix (the co-equal one via the composite index).
+	got, err := g.FindBySimpleNameAndAPI("p1.dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	got, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// Change the prefix: both co-equal APIs must resolve under the NEW prefix (reindex moved the
+	// composite entry, not just the byName one).
+	g.UpdateNodePrefix(name, "p2.")
+	got, err = g.FindBySimpleNameAndAPI("p2.dev", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+	got, err = g.FindBySimpleNameAndAPI("p2.dev", testSensAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, node)
+
+	// The old prefix no longer resolves under either API.
+	_, err = g.FindBySimpleNameAndAPI("p1.dev", testCamAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	_, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
+	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+}
