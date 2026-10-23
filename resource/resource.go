@@ -372,6 +372,25 @@ func SubsByName(base Name, res Resource) iter.Seq2[Name, Resource] {
 	}
 }
 
+// DistinctSubs yields each distinct sub-resource once, canonical-first, paired with the name it is
+// served under (base.AsAPI(api)). Unlike SubsByName it dedups by identity, so a shared object reached
+// under several APIs yields once; an ordinary resource yields its single (base, res) pair.
+func DistinctSubs(base Name, res Resource) iter.Seq2[Name, Resource] {
+	return func(yield func(Name, Resource) bool) {
+		seen := make(map[Resource]bool)
+		for _, api := range APIsOf(res) {
+			sub := SubresourceForAPI(res, api)
+			if seen[sub] {
+				continue
+			}
+			seen[sub] = true
+			if !yield(base.AsAPI(api), sub) {
+				return
+			}
+		}
+	}
+}
+
 type closeOnlyResource struct {
 	Named
 	TriviallyReconfigurable

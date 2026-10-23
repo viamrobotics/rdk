@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 
@@ -385,7 +385,7 @@ func RegisterMultiAPISet(model Model, apis []API) {
 		return
 	}
 	sorted := append([]API(nil), apis...)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].String() < sorted[j].String() })
+	SortAPIs(sorted)
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	multiAPIByModel[model] = sorted
@@ -396,7 +396,7 @@ func RegisterMultiAPISet(model Model, apis []API) {
 func APIsForModel(model Model) []API {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
-	return multiAPIByModel[model]
+	return slices.Clone(multiAPIByModel[model])
 }
 
 // ExpandModel expands a model into one APIModel per API it was registered under, so a module's main() can
