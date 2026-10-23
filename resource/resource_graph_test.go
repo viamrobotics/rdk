@@ -1547,9 +1547,9 @@ func TestCompositeNodeForAPIResolvesEachCoEqualAPI(t *testing.T) {
 }
 
 func TestLocalCompositeCoequalWinsOverRemote(t *testing.T) {
-	// A local composite serves a co-equal API only via the compositeByAPI index (not simpleNameCache).
+	// A local composite serves a co-equal API only via the composite index (not byName).
 	// If a remote advertises the composite's simple name under one of those co-equal APIs, the remote
-	// lands in simpleNameCache under that (name, api) key. "Local wins over same-named remotes" must
+	// lands in byName under that (name, api) key. "Local wins over same-named remotes" must
 	// still hold, so the co-equal lookup must resolve the local composite, not the remote.
 	model := NewModel("acme", "test", "coequalwins")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
@@ -1597,14 +1597,14 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
-	// deleting the composite drops both its canonical simpleNameCache entry and its co-equal index
+	// deleting the composite drops both its canonical byName entry and its co-equal index
 	// entry, so neither api resolves afterward.
 	g.nodes.Delete(canonical)
 	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
-	test.That(t, g.nodes.compositeByAPI, test.ShouldBeEmpty)
+	test.That(t, g.nodes.simpleNames.composite, test.ShouldBeEmpty)
 }
 
 func TestCompositeCoequalIndexModelReconfigure(t *testing.T) {

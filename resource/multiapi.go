@@ -2,9 +2,9 @@ package resource
 
 import (
 	"context"
-	"sort"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 // MultiAPIResource is a resource that serves more than one co-equal API from a single identity (a
@@ -99,7 +99,7 @@ func (c *compositeResource) APIs() []API {
 	for api := range c.byAPI {
 		apis = append(apis, api)
 	}
-	sort.Slice(apis, func(i, j int) bool { return apis[i].String() < apis[j].String() })
+	SortAPIs(apis)
 	return apis
 }
 
@@ -122,8 +122,19 @@ func (c *compositeResource) Status(ctx context.Context) (map[string]interface{},
 	return c.canonicalSub().Status(ctx)
 }
 
-// Close closes the composite once, through its canonical sub-resource. Its subs are either one shared
-// impl (closing each would double-close it) or per-API views the creator owns, so one Close is enough.
+// Close closes each distinct sub-resource once. Separate per-API objects each own resources that would
+// leak if not closed; a shared impl reached under several APIs is closed once, and Close must be
+// idempotent either way.
 func (c *compositeResource) Close(ctx context.Context) error {
-	return c.canonicalSub().Close(ctx)
+	seen := make(map[Resource]bool)
+	var errs error
+	for _, api := range c.APIs() {
+		sub := c.byAPI[api]
+		if seen[sub] {
+			continue
+		}
+		seen[sub] = true
+		errs = multierr.Combine(errs, sub.Close(ctx))
+	}
+	return errs
 }

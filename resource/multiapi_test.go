@@ -135,9 +135,10 @@ func TestCompositeRoutingToCanonical(t *testing.T) {
 	test.That(t, sens.stats, test.ShouldEqual, 0)
 }
 
-func TestCompositeCloseOnce(t *testing.T) {
-	// A composite is one lifecycle, so Close fires the shared underlying Close exactly once, even across
-	// the distinct per-API facade values (camFacade{c}/imuFacade{c}) that both delegate to the one c.
+func TestCompositeCloseClosesEachDistinctSub(t *testing.T) {
+	// Close closes every distinct sub once. Distinct per-API facade values (camFacade{c}/imuFacade{c})
+	// are separate objects, so each is closed; the shared core c is reached under both and so closed
+	// twice, which is safe because the Resource contract requires Close to be idempotent.
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 	composite, err := Compose(
 		AsSub(propCamAPI, camFacade{c}),
@@ -145,10 +146,9 @@ func TestCompositeCloseOnce(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, composite.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, c.closes, test.ShouldEqual, 1)
+	test.That(t, c.closes, test.ShouldEqual, 2)
 
-	// Close routes only to the canonical (apis[0]) sub, so a non-canonical sub value is never
-	// independently closed.
+	// Distinct per-API subs are each closed, not just the canonical one.
 	cam := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	sens := &combo{Named: NewName(testSensAPI, "dev").AsNamed()}
 	composite2 := NewMultiAPIResource(
@@ -157,7 +157,7 @@ func TestCompositeCloseOnce(t *testing.T) {
 	)
 	test.That(t, composite2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, cam.closes, test.ShouldEqual, 1)
-	test.That(t, sens.closes, test.ShouldEqual, 0)
+	test.That(t, sens.closes, test.ShouldEqual, 1)
 }
 
 func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
