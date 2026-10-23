@@ -32,6 +32,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -765,6 +767,14 @@ type reloadModuleArgs struct {
 	File string
 }
 
+// injectedFile is a file written into a source archive that is not read from disk.
+type injectedFile struct {
+	name    string
+	content []byte
+	// mode defaults to 0o644 when zero.
+	mode int64
+}
+
 // readGitRevision returns a short identifier for the git revision checked out in repoPath
 // (empty means the working directory), for example "a1b2c3d4", or "a1b2c3d4-dirty" when
 // tracked files have uncommitted changes. It returns an empty string when the revision
@@ -797,30 +807,39 @@ func gitOutput(ctx context.Context, repoPath string, args ...string) (string, er
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
-	var err error
-	repoPath, err = filepath.Abs(repoPath)
+	repoPath, err := filepath.Abs(repoPath)
 	if err != nil {
 		return "", err
 	}
-	viamReloadArchive := ".VIAM_RELOAD_ARCHIVE.tar.gz"
-	archivePath := filepath.Join(repoPath, viamReloadArchive)
+	archivePath := filepath.Join(repoPath, ".VIAM_RELOAD_ARCHIVE.tar.gz")
+	if err := c.writeSourceArchive(repoPath, archivePath, nil, nil); err != nil {
+		return "", err
+	}
+	return archivePath, nil
+}
 
+// writeSourceArchive writes a tar.gz of the gitignore-filtered files under repoPath to archivePath.
+// extraIgnores are gitignore patterns applied on top of the repo's own. Injected files are added
+// after the walk and replace any file on disk at the same path.
+func (c *viamClient) writeSourceArchive(
+	repoPath, archivePath string, extraIgnores []string, injected []injectedFile,
+) (err error) {
 	// Remove existing archive if it exists
 	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
-		return "", err
+		return err
 	}
 
 	// Load gitignore patterns
-	matcher, err := c.loadGitignorePatterns(repoPath)
+	matcher, err := c.loadGitignorePatterns(repoPath, extraIgnores...)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to load gitignore patterns")
+		return errors.Wrap(err, "failed to load gitignore patterns")
 	}
 
 	// Create the tar.gz archive
-	//nolint:gosec // archivePath is constructed from validated repoPath and constant filename
+	//nolint:gosec // archivePath is chosen by the caller, not user input
 	archiveFile, err := os.Create(archivePath)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create archive file")
+		return errors.Wrap(err, "failed to create archive file")
 	}
 	defer func() {
 		if closeErr := archiveFile.Close(); closeErr != nil {
@@ -842,6 +861,11 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		}
 	}()
 
+	injectedPaths := make(map[string]bool, len(injected))
+	for _, f := range injected {
+		injectedPaths[f.name] = true
+	}
+
 	// Walk the filesystem and add files that are not ignored
 	err = filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -857,6 +881,9 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		relPath, err := filepath.Rel(repoPath, path)
 		if err != nil {
 			return err
+		}
+		if injectedPaths[filepath.ToSlash(relPath)] {
+			return nil
 		}
 
 		// Skip directories and check if file should be ignored
@@ -910,13 +937,27 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 		return nil
 	})
 	if err != nil {
-		return "", errors.Wrap(err, "failed to process filesystem files")
+		return errors.Wrap(err, "failed to process filesystem files")
 	}
 
-	return archivePath, nil
+	for _, f := range injected {
+		mode := f.mode
+		if mode == 0 {
+			mode = 0o644
+		}
+		header := &tar.Header{Name: f.name, Mode: mode, Size: int64(len(f.content)), ModTime: time.Now()}
+		if err := tarWriter.WriteHeader(header); err != nil {
+			return errors.Wrapf(err, "failed to write header for file %s", f.name)
+		}
+		if _, err := tarWriter.Write(f.content); err != nil {
+			return errors.Wrapf(err, "failed to write content for file %s", f.name)
+		}
+	}
+
+	return nil
 }
 
-func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, error) {
+func (c *viamClient) loadGitignorePatterns(repoPath string, extraIgnores ...string) (gitignore.Matcher, error) {
 	var patterns []gitignore.Pattern
 
 	// Add default patterns to ignore common files
@@ -927,7 +968,7 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 		".VIAM_RELOAD_ARCHIVE.tar.gz", // Ignore the archive file itself
 	}
 
-	for _, pattern := range defaultIgnores {
+	for _, pattern := range append(defaultIgnores, extraIgnores...) {
 		patterns = append(patterns, gitignore.ParsePattern(pattern, nil))
 	}
 
@@ -1593,6 +1634,27 @@ func reloadModuleActionInner(
 	// Compute reload time once, used for both the package version and config reload_time
 	reloadTime := time.Now().UTC()
 
+	// Python modules can opt in to shipping their source over the shell service instead of
+	// building, locally or in the cloud. Asked before progress output starts so the prompt renders.
+	sourceReload := false
+	if !args.Local && args.File == "" && !args.NoBuild {
+		switch {
+		case partOs == osWindows:
+			if reloadsFromSource(manifest) {
+				warningf(cmd.Root().ErrWriter, "reload_from_source is not supported on Windows machines; building instead")
+			}
+		case reloadsFromSource(manifest):
+			sourceReload = true
+		case looksLikePythonTemplateModule(args.Module, manifest) && manifest.Build.ReloadFromSource == nil:
+			if sourceReload, err = offerReloadFromSource(cmd, args.Module, manifest); err != nil {
+				return err
+			}
+		}
+	}
+	if sourceReload {
+		cloudBuild = false
+	}
+
 	// The git revision of the source being reloaded, stamped onto the reload version so the
 	// running module can be traced back to a commit. Empty when the source isn't in a git repo.
 	gitRev := readGitRevision(ctx, args.Path)
@@ -1676,6 +1738,15 @@ func reloadModuleActionInner(
 		// Destination and reload_path on the robot use this basename; the upload
 		// source remains the full path in buildPath.
 		manifest.Build.Path = filepath.Base(args.File)
+	case sourceReload:
+		var tmpDir string
+		buildPath, tmpDir, err = vc.packagePythonSourceReload(cmd, args.Module)
+		if err != nil {
+			return err
+		}
+		defer goutils.UncheckedErrorFunc(func() error { return os.RemoveAll(tmpDir) })
+		// Destination and reload_path on the robot use this basename.
+		manifest.Build.Path = pythonReloadArchiveName
 	case !args.NoBuild:
 		if manifest == nil {
 			return fmt.Errorf(`manifest not found at "%s". manifest required for build`, args.Module)
@@ -1720,6 +1791,16 @@ func reloadModuleActionInner(
 	// and local reloads, which don't shell-copy an archive over.
 	var dest string
 
+	// machine is the connection opened for the shell copy, reused by the restart and reload wait.
+	var machine *client.RobotClient
+	closeMachine := func() {
+		if machine != nil {
+			goutils.UncheckedError(machine.Close(ctx))
+			machine = nil
+		}
+	}
+	defer closeMachine()
+
 	// For cloud builds, the machine downloads the package directly from the cloud.
 	// Skip the shell copy and go straight to configure.
 	if cloudBuild {
@@ -1763,51 +1844,41 @@ func reloadModuleActionInner(
 		if err != nil {
 			return err
 		}
-		// Dial once; the VIAM_HOME query and the first copy attempt share the
-		// connection. Copy retries dial fresh, since a retry usually follows a
-		// connection-level failure.
+		// Dial once and keep the connection for the VIAM_HOME query, the copy, the restart, and
+		// the reload wait, since each WebRTC dial costs a couple of seconds.
 		shellSvc, robotClient, dialErr := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
-		if dialErr != nil {
-			shellSvc = nil
+		if dialErr == nil {
+			machine = robotClient
 		}
-		shellSvcConsumed := dialErr != nil
-		defer func() {
-			if !shellSvcConsumed {
-				goutils.UncheckedError(robotClient.Close(ctx))
-			}
-		}()
 		dest = reloadingDestination(manifest, vc.machineViamHome(ctx, cmd, shellSvc))
 
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
 		copyFunc := func() error {
-			if !shellSvcConsumed {
-				// copyFilesToMachineInner closes the connection it is handed.
-				shellSvcConsumed = true
-				return vc.copyFilesToMachineInner(
-					ctx,
-					shellSvc,
-					robotClient,
-					false, // allowRecursion
-					false, // preserve
-					[]string{buildPath},
-					dest,
-					true, // noProgress
-					logger,
-				)
+			if machine == nil {
+				svc, robotClient, err := vc.connectToShellServiceFqdn(ctx, part.Part.Fqdn, globalArgs.Debug, logger)
+				if err != nil {
+					return err
+				}
+				shellSvc, machine = svc, robotClient
 			}
-			return vc.copyFilesToFqdn(
+			err := vc.copyFilesToMachineInner(
 				ctx,
-				part.Part.Fqdn,
-				globalArgs.Debug,
+				shellSvc,
+				machine,
 				false, // allowRecursion
 				false, // preserve
 				[]string{buildPath},
 				dest,
-				logger,
 				true, // noProgress
+				logger,
 			)
+			if err != nil {
+				// A retry usually follows a connection-level failure, so it dials fresh.
+				closeMachine()
+			}
+			return err
 		}
 		attemptCount, err := vc.retryableCopy(
 			cmd,
@@ -1821,6 +1892,9 @@ func reloadModuleActionInner(
 			// A logout during refresh is unrecoverable; surface it rather than suggesting a retry.
 			if errors.Is(err, errLoggedOut) {
 				return err
+			}
+			if sourceReload {
+				return fmt.Errorf("all %d copy attempts failed. Rerun the reload to try again", attemptCount)
 			}
 			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
 				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)
@@ -1876,7 +1950,7 @@ func reloadModuleActionInner(
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 			return err
 		}
-		if err = restartModule(ctx, cmd, vc, part.Part, restartReq, logger); err != nil {
+		if err = restartModule(ctx, cmd, vc, part.Part, restartReq, machine, logger); err != nil {
 			_ = pm.Fail("restart", err)                              //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 			return err
@@ -1891,7 +1965,7 @@ func reloadModuleActionInner(
 			return err
 		}
 		moduleName := configuredModuleName(part.Part, manifest.ModuleID)
-		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, logger)
+		modStatus, err := vc.waitForModuleReload(ctx, cmd, part.Part, moduleName, reloadTime, needsRestart, machine, logger)
 		if err != nil {
 			_ = pm.Fail("wait", err)                                 //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
@@ -2102,19 +2176,33 @@ func ModuleRestartAction(ctx context.Context, cmd *cli.Command, args moduleResta
 	if err != nil {
 		return err
 	}
-	return restartModule(ctx, cmd, client, part.Part, restartReq, logger)
+	return restartModule(ctx, cmd, client, part.Part, restartReq, nil, logger)
 }
 
-// restartModule restarts a module on a robot.
+// restartModule restarts a module on a robot. It uses machine if non-nil, falling back to a
+// connection authenticated with the machine's API key if machine rejects the caller's credentials.
 func restartModule(
 	ctx context.Context,
 	cmd *cli.Command,
 	vc *viamClient,
 	part *apppb.RobotPart,
 	restartReq *robot.RestartModuleRequest,
+	machine *client.RobotClient,
 	logger logging.Logger,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
+	args, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	if machine != nil {
+		debugf(cmd.Root().Writer, args.Debug, "restarting module %v", restartReq)
+		err := machine.RestartModule(ctx, *restartReq)
+		if code := status.Code(err); code != codes.PermissionDenied && code != codes.Unauthenticated {
+			return err
+		}
+		debugf(cmd.Root().Writer, args.Debug, "restart rejected (%v); retrying with the machine API key", err)
+	}
 	if err := vc.redialApp(ctx); err != nil {
 		return err
 	}
@@ -2126,10 +2214,6 @@ func restartModule(
 		return errors.New("API keys list for this machine is empty. You can create one with \"viam machine api-key create\"")
 	}
 	key := apiRes.ApiKeys[0]
-	args, err := getGlobalArgs(cmd)
-	if err != nil {
-		return err
-	}
 	debugf(cmd.Root().Writer, args.Debug, "using API key: %s %s", key.ApiKey.Id, key.ApiKey.Name)
 	creds := rpc.WithEntityCredentials(key.ApiKey.Id, rpc.Credentials{
 		Type:    rpc.CredentialsTypeAPIKey,

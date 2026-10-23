@@ -6460,29 +6460,12 @@ func (c *viamClient) copyFilesToMachine(
 	if err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(func() error { return robotClient.Close(ctx) })
 	return c.copyFilesToMachineInner(ctx, shellSvc, robotClient, allowRecursion, preserve, paths, destination, noProgress, logger)
 }
 
-// copyFilesToFqdn is a copyFilesToMachine variant that makes use of pre-fetched part FQDN.
-func (c *viamClient) copyFilesToFqdn(
-	ctx context.Context,
-	fqdn string,
-	debug bool,
-	allowRecursion bool,
-	preserve bool,
-	paths []string,
-	destination string,
-	logger logging.Logger,
-	noProgress bool,
-) error {
-	shellSvc, robotClient, err := c.connectToShellServiceFqdn(ctx, fqdn, debug, logger)
-	if err != nil {
-		return err
-	}
-	return c.copyFilesToMachineInner(ctx, shellSvc, robotClient, allowRecursion, preserve, paths, destination, noProgress, logger)
-}
-
-// copyFilesToMachineInner is the common logic for both copyFiles variants.
+// copyFilesToMachineInner copies files over an existing shell service connection. The caller owns
+// robotClient and closes it.
 func (c *viamClient) copyFilesToMachineInner(
 	ctx context.Context,
 	shellSvc shell.Service,
@@ -6494,10 +6477,6 @@ func (c *viamClient) copyFilesToMachineInner(
 	noProgress bool,
 	logger logging.Logger,
 ) error {
-	defer func() {
-		utils.UncheckedError(robotClient.Close(ctx))
-	}()
-
 	// Total size of all files to be copied, used for the end-of-copy throughput summary.
 	var totalSize int64
 	for _, path := range paths {

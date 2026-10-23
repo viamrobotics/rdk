@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/logging"
 	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 )
 
 const (
@@ -609,12 +610,12 @@ func machineStatusUnsupported(err error) bool {
 	return status.Code(err) == codes.Unimplemented
 }
 
-// isModuleReloadComplete reports whether the machine has ingested the reload config and the
-// target module has reached a terminal state for this reload.
+// isModuleReloadComplete reports whether the target module has reached a terminal state for this
+// reload and, if requireConfig, whether the machine has ingested the reload config.
 func isModuleReloadComplete(
-	status robot.MachineStatus, moduleName string, reloadTime time.Time,
+	status robot.MachineStatus, moduleName string, reloadTime time.Time, requireConfig bool,
 ) (bool, modulestatus.Status) {
-	if status.Config.LastUpdated.IsZero() || status.Config.LastUpdated.Before(reloadTime) {
+	if requireConfig && (status.Config.LastUpdated.IsZero() || status.Config.LastUpdated.Before(reloadTime)) {
 		return false, modulestatus.Status{}
 	}
 
@@ -669,14 +670,17 @@ var waitForModuleReloadHook func(
 	logger logging.Logger,
 ) (modulestatus.Status, error)
 
-// waitForModuleReload polls the machine until its config timestamp and module status reflect
-// the reload that was just pushed.
+// waitForModuleReload polls the machine until its module status, and its config timestamp unless
+// the module was restarted directly, reflect the reload that was just pushed. It uses machine if
+// non-nil and dials otherwise.
 func (c *viamClient) waitForModuleReload(
 	ctx context.Context,
 	cmd *cli.Command,
 	part *apppb.RobotPart,
 	moduleName string,
 	reloadTime time.Time,
+	restarted bool,
+	machine *client.RobotClient,
 	logger logging.Logger,
 ) (modulestatus.Status, error) {
 	if waitForModuleReloadHook != nil {
@@ -690,16 +694,21 @@ func (c *viamClient) waitForModuleReload(
 		return modulestatus.Status{}, err
 	}
 
-	dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(ctx, part.Fqdn, args.Debug)
-	if err != nil {
-		return modulestatus.Status{}, err
+	robotClient := machine
+	if robotClient == nil {
+		dialCtx, fqdn, rpcOpts, err := c.prepareDialInner(ctx, part.Fqdn, args.Debug)
+		if err != nil {
+			return modulestatus.Status{}, err
+		}
+		robotClient, err = c.connectToRobot(dialCtx, fqdn, rpcOpts, args.Debug, logger)
+		if err != nil {
+			return modulestatus.Status{}, err
+		}
+		defer robotClient.Close(ctx) //nolint:errcheck
 	}
-
-	robotClient, err := c.connectToRobot(dialCtx, fqdn, rpcOpts, args.Debug, logger)
-	if err != nil {
-		return modulestatus.Status{}, err
-	}
-	defer robotClient.Close(ctx) //nolint:errcheck
+	// The restart RPC returns once the module is back up; the config carrying reload_time only
+	// updates metadata, so waiting for the machine's next config poll would add nothing.
+	requireConfig := !restarted
 
 	deadline := time.Now().Add(moduleReloadPollingTimeout)
 	ticker := time.NewTicker(moduleReloadPollingInterval)
@@ -731,7 +740,7 @@ func (c *viamClient) waitForModuleReload(
 		}
 		lastStatus = machineStatus
 
-		if complete, modStatus := isModuleReloadComplete(lastStatus, moduleName, reloadTime); complete {
+		if complete, modStatus := isModuleReloadComplete(lastStatus, moduleName, reloadTime, requireConfig); complete {
 			return modStatus, nil
 		}
 		if machineOmitsModuleStatus(lastStatus) {

@@ -775,6 +775,45 @@ func archiveFiles(t *testing.T, archivePath string) []string {
 	return names
 }
 
+type archiveEntry struct {
+	content string
+	mode    int64
+}
+
+// archiveEntries returns the contents and modes of the files inside a .tar.gz archive, by name.
+func archiveEntries(t *testing.T, archivePath string) map[string]archiveEntry {
+	t.Helper()
+	f, err := os.Open(archivePath)
+	test.That(t, err, test.ShouldBeNil)
+	defer f.Close()
+	gr, err := gzip.NewReader(f)
+	test.That(t, err, test.ShouldBeNil)
+	defer gr.Close()
+	tr := tar.NewReader(gr)
+
+	entries := map[string]archiveEntry{}
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		test.That(t, err, test.ShouldBeNil)
+		content, err := io.ReadAll(tr)
+		test.That(t, err, test.ShouldBeNil)
+		entries[hdr.Name] = archiveEntry{content: string(content), mode: hdr.Mode}
+	}
+	return entries
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 // writeFile is a test helper that creates parent dirs and writes content.
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -885,6 +924,27 @@ func TestCreateGitArchive(t *testing.T) {
 
 		files := archiveFiles(t, archivePath)
 		test.That(t, files, test.ShouldResemble, []string{"a.txt", "sub/b.txt"})
+	})
+
+	t.Run("writeSourceArchive applies extra ignores and injected files", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "main.py"), "print()")
+		writeFile(t, filepath.Join(root, "venv", "bin", "python"), "binary")
+		writeFile(t, filepath.Join(root, "run.sh"), "on disk")
+
+		vc := newClient()
+		archivePath := filepath.Join(t.TempDir(), "out.tar.gz")
+		err := vc.writeSourceArchive(root, archivePath, []string{"venv/"}, []injectedFile{
+			{name: "run.sh", content: []byte("injected"), mode: 0o755},
+			{name: "extra.txt", content: []byte("x")},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		entries := archiveEntries(t, archivePath)
+		test.That(t, sortedKeys(entries), test.ShouldResemble, []string{"extra.txt", "main.py", "run.sh"})
+		test.That(t, entries["run.sh"].content, test.ShouldEqual, "injected")
+		test.That(t, entries["run.sh"].mode, test.ShouldEqual, int64(0o755))
+		test.That(t, entries["extra.txt"].mode, test.ShouldEqual, int64(0o644))
 	})
 
 	t.Run("viamboat-style nested gitignore", func(t *testing.T) {

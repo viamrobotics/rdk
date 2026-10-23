@@ -93,6 +93,9 @@ type manifestBuildInfo struct {
 	Arch       []string `json:"arch"`
 	Distro     string   `json:"distro,omitempty"`
 	DarwinDeps []string `json:"darwin_deps,omitempty"`
+	// ReloadFromSource makes reloads ship Python source instead of building. Nil means unset;
+	// false records that the user declined the offer to enable it.
+	ReloadFromSource *bool `json:"reload_from_source,omitempty"`
 }
 
 // defaultBuildInfo has defaults for unset fields in "build".
