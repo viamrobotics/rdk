@@ -1965,3 +1965,36 @@ func TestCompositeJobDispatchesToServingAPI(t *testing.T) {
 	})
 	test.That(t, logs.FilterMessage("grpc setup failed").Len(), test.ShouldEqual, 0)
 }
+
+// TestCompositeJobOnRemoteResource runs a job on a composite served by a remote, confirming getResource
+// resolves the remote composite and dispatch routes to the API that serves the method (here sensor,
+// the non-canonical API).
+func TestCompositeJobOnRemoteResource(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+	model := registerComboModel(t, "job-remote-combo", nil)
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: model}},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	mainCfg := &config.Config{
+		Remotes: []config.Remote{{Name: "rem", Address: addr}},
+		Jobs: []config.JobConfig{
+			{config.JobConfigData{
+				Name:     "remote combo job",
+				Schedule: "1s",
+				Resource: "combo",
+				Method:   "GetReadings",
+			}},
+		},
+	}
+	setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Job succeeded").Len(), test.ShouldBeGreaterThan, 0)
+	})
+}
