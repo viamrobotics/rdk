@@ -124,10 +124,10 @@ func int32FromExtra(extra map[string]interface{}, key string) (int, error) {
 	}
 	n, ok := v.(float64)
 	if !ok {
-		return 0, fmt.Errorf("streaming: extra %q must be a number, got %T", key, v)
+		return 0, fmt.Errorf("streaming: extra %q must be a float64, got %T", key, v)
 	}
-	if n != math.Trunc(n) || n < math.MinInt32 || n > math.MaxInt32 {
-		return 0, fmt.Errorf("streaming: extra %q must be a whole number that fits in an int32, got %v", key, n)
+	if n < 0 || math.Mod(n, 1) != 0 {
+		return 0, fmt.Errorf("streaming: extra %q must be a non-negative whole number, got %v", key, n)
 	}
 	return int(n), nil
 }

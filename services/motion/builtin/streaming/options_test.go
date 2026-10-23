@@ -98,7 +98,7 @@ func TestMaxTargetsDroppedInARowDueToTrajexExtendError(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 7)
 
-	for _, v := range []interface{}{int32(3), 3, int64(3), "3", 1.5, math.NaN(), float64(1 << 40)} {
+	for _, v := range []interface{}{int32(3), 3, int64(3), "3", 1.5, -1.0, math.NaN(), math.Inf(1)} {
 		_, err = MaxTargetsDroppedInARowDueToTrajexExtendError(extra(v))
 		test.That(t, err, test.ShouldNotBeNil)
 	}
@@ -117,7 +117,7 @@ func TestForceRebaseIfExtendLatencyExceedsMs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 15)
 
-	for _, v := range []interface{}{int32(15), 15, int64(15), "15", 1.5, math.NaN(), float64(1 << 40)} {
+	for _, v := range []interface{}{int32(15), 15, int64(15), "15", 1.5, -1.0, math.NaN(), math.Inf(1)} {
 		_, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: v})
 		test.That(t, err, test.ShouldNotBeNil)
 	}
