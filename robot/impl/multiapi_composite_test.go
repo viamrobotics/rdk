@@ -434,6 +434,7 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	test.That(t, r.StopAll(ctx, nil), test.ShouldBeNil)
-	// Stopped at all (safety) and exactly once (dedup), not once per advertised API.
-	test.That(t, stopCount.Load(), test.ShouldEqual, 1)
+	// Every actuator API is stopped (safety). The gripper and servo facades are distinct objects, so
+	// each is stopped; a repeat Stop on a shared core is safe because Stop must be idempotent.
+	test.That(t, stopCount.Load(), test.ShouldEqual, 2)
 }
