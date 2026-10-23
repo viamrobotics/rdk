@@ -2788,9 +2788,10 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "filter logs by levels (e.g., info, warn, error)",
 						},
 						&cli.StringFlag{
-							Name:        generalFlagStart,
-							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "24 hours ago, unless --" + logsFlagRange + " is set",
+							Name:  generalFlagStart,
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+							DefaultText: "24 hours before --" + generalFlagEnd + " when it is set, 24 hours ago otherwise, " +
+								"unless --" + logsFlagRange + " is set",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
