@@ -1730,7 +1730,11 @@ var defaultRemoteMachineStatusTimeout = time.Minute
 func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) map[resource.Name]resource.Status {
 	resourceStatusMap := make(map[resource.Name]resource.Status)
 	for _, resName := range manager.resources.FindNodesByAPI(client.RemoteAPI) {
-		gNode, _ := manager.resources.Node(resName)
+		gNode, ok := manager.resources.Node(resName)
+		if !ok {
+			// MachineStatus doesn't hold the reconfigure lock, so the remote may have been removed.
+			continue
+		}
 		res, err := gNode.Resource()
 		if err != nil {
 			manager.logger.Debugw("error getting remote machine node", "remote", resName.Name, "err", err)
@@ -1741,15 +1745,15 @@ func (manager *resourceManager) getRemoteResourceStatuses(ctx context.Context) m
 			manager.logger.Errorw("remote machine resource did not contain a configuration of the expected type", "remote", resName.Name)
 			continue
 		}
-		ctx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
-		defer cancel()
 		remote := res.(internalRemoteRobot)
-		md, err := remote.CloudMetadata(ctx)
+		remoteCtx, cancel := contextutils.ContextWithTimeoutIfNoDeadline(ctx, defaultRemoteMachineStatusTimeout)
+		md, err := remote.CloudMetadata(remoteCtx)
 		if err != nil {
 			manager.logger.Debugw("error getting remote cloud metadata", "remote", resName.Name, "err", err)
 		}
 		resourceStatusMap[resName] = resource.Status{CloudMetadata: md}
-		machineStatus, err := remote.MachineStatus(ctx)
+		machineStatus, err := remote.MachineStatus(remoteCtx)
+		cancel()
 		if err != nil {
 			manager.logger.Debugw("error getting remote machine status", "remote", resName.Name, "err", err)
 			continue
