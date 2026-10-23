@@ -295,6 +295,14 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	registryMu.Lock()
 	defer registryMu.Unlock()
 
+	// Skip a registration under an api outside the model's fixed composite set so a conflicting module
+	// can't corrupt the registry.
+	if set, multi := multiAPIByModel[model]; multi && !slices.Contains(set, api) {
+		initLogger.Errorw("skipping registration of a composite model under an api outside its set",
+			"model", model, "api", api, "composite_apis", set)
+		return
+	}
+
 	apiModel := APIModel{api, model}
 	_, old := registry[apiModel]
 	if old {
@@ -388,6 +396,15 @@ func RegisterMultiAPISet(model Model, apis []API) {
 	SortAPIs(sorted)
 	registryMu.Lock()
 	defer registryMu.Unlock()
+	// Skip recording a composite set for a model already registered under an api outside it, rather than
+	// leave a contradictory registration.
+	for am := range registry {
+		if am.Model == model && !slices.Contains(sorted, am.API) {
+			initLogger.Errorw("skipping composite registration; model already registered under another api",
+				"model", model, "api", am.API, "composite_apis", sorted)
+			return
+		}
+	}
 	multiAPIByModel[model] = sorted
 }
 

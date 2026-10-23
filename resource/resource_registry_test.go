@@ -74,6 +74,47 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
+func TestCompositeRegistrationGuards(t *testing.T) {
+	ctor := func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (resource.Resource, error) {
+		return nil, nil
+	}
+	reg := resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: ctor}
+	apiA := resource.APINamespace("acme").WithComponentType("guarda")
+	apiB := resource.APINamespace("acme").WithComponentType("guardb")
+	apiC := resource.APINamespace("acme").WithComponentType("guardc")
+
+	// A model name reused under unrelated APIs (the rdk:builtin:fake pattern) is fine: these are
+	// independent registrations, not a composite, so neither call panics.
+	reused := resource.NewModel("acme", "demo", "reused")
+	resource.Register(apiA, reused, reg)
+	resource.Register(apiB, reused, reg)
+	resource.Deregister(apiA, reused)
+	resource.Deregister(apiB, reused)
+
+	// Registering a composite model under an api outside its set is skipped, not recorded: the stray
+	// api does not register and the composite set is left intact.
+	comp := resource.NewModel("acme", "demo", "compfwd")
+	resource.RegisterMultiAPI([]resource.API{apiA, apiB}, comp, reg)
+	resource.Register(apiC, comp, reg)
+	_, ok := resource.LookupRegistration(apiC, comp)
+	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, resource.APIsForModel(comp), test.ShouldResemble, []resource.API{apiA, apiB})
+	resource.Deregister(apiA, comp)
+	resource.Deregister(apiB, comp)
+
+	// Reverse order: a model already registered under a foreign api does not become a composite; the
+	// composite set is not recorded and the original registration stays.
+	comp2 := resource.NewModel("acme", "demo", "comprev")
+	resource.Register(apiC, comp2, reg)
+	resource.RegisterMultiAPI([]resource.API{apiA, apiB}, comp2, reg)
+	test.That(t, resource.APIsForModel(comp2), test.ShouldBeNil)
+	_, ok = resource.LookupRegistration(apiC, comp2)
+	test.That(t, ok, test.ShouldBeTrue)
+	resource.Deregister(apiA, comp2)
+	resource.Deregister(apiB, comp2)
+	resource.Deregister(apiC, comp2)
+}
+
 func TestDefaultServiceName(t *testing.T) {
 	// An unnamed default service (registered via RegisterDefaultService) takes the reserved
 	// "builtin" name; every other unnamed service is named after its subtype, never "builtin".
