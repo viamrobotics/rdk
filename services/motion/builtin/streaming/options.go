@@ -122,17 +122,14 @@ func int32FromExtra(extra map[string]interface{}, key string) (int, error) {
 	if !ok {
 		return 0, nil
 	}
-	switch n := v.(type) {
-	case int32:
-		return int(n), nil
-	case float64:
-		if n != math.Trunc(n) || n < math.MinInt32 || n > math.MaxInt32 {
-			return 0, fmt.Errorf("streaming: extra %q must be a whole number that fits in an int32, got %v", key, n)
-		}
-		return int(n), nil
-	default:
-		return 0, fmt.Errorf("streaming: extra %q must be an int32 or a float64, got %T", key, v)
+	n, ok := v.(float64)
+	if !ok {
+		return 0, fmt.Errorf("streaming: extra %q must be a number, got %T", key, v)
 	}
+	if n != math.Trunc(n) || n < math.MinInt32 || n > math.MaxInt32 {
+		return 0, fmt.Errorf("streaming: extra %q must be a whole number that fits in an int32, got %v", key, n)
+	}
+	return int(n), nil
 }
 
 // NewStreamOptions returns a StreamOptions containing the configuration values set in opts, and
