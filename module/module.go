@@ -94,6 +94,13 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	return filepath.Join(parentDir, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
 }
 
+// localResource is one of this module's own resources: the constructor's result (a composite wrapper
+// or an ordinary resource) together with the logger built for it.
+type localResource struct {
+	res    resource.Resource
+	logger logging.Logger
+}
+
 // Module represents an external resource module that services components/services.
 type Module struct {
 	// The name of the module as per the robot config. This value is communicated via the
@@ -110,7 +117,7 @@ type Module struct {
 	// the dependent's bookkeeping (see resConfigureArgs) so we can reconstruct it when foo is
 	// rebuilt. Keying by name ensures the tracking survives remove+re-add cycles.
 	internalDeps          map[resource.Name][]resConfigureArgs
-	resLoggers            map[resource.Resource]logging.Logger
+	localResources        map[string]localResource
 	activeResourceStreams map[resource.Name]peerResourceState
 	streamSourceByName    map[resource.Name]rtppassthrough.Source
 
@@ -188,7 +195,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		ready:                 true,
 		handlers:              HandlerMap{},
 		collections:           map[resource.API]resource.APIResourceCollection[resource.Resource]{},
-		resLoggers:            map[resource.Resource]logging.Logger{},
+		localResources:        map[string]localResource{},
 		internalDeps:          map[resource.Name][]resConfigureArgs{},
 	}
 
