@@ -574,19 +574,56 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	if err != nil {
 		return nil, err
 	}
-	mgr.rMap.Store(conf.ResourceName(), mod)
-
 	mod.resourcesMu.Lock()
 	defer mod.resourcesMu.Unlock()
-	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
+	ar := &addedResource{conf: conf, deps: deps}
+	mod.resources[conf.ResourceName()] = ar
 
-	apiInfo, ok := resource.LookupGenericAPIRegistration(conf.API)
-	if !ok || apiInfo.RPCClient == nil {
-		mod.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", conf.ResourceName())
-		return rdkgrpc.NewForeignResource(conf.ResourceName(), &mod.sharedConn), nil
+	// Build a sub-client for every API the resource serves (just conf.API for an ordinary resource, the
+	// full co-equal set for a composite) and route each name to this module. On a build failure, abort
+	// undoes the routes, closes what was built, drops the mod.resources entry, and tells the module to drop
+	// the instance (AddResource already constructed it) so a retry doesn't hit "already exists".
+	apis := resource.APIsForConfig(conf)
+	base := conf.ResourceName()
+	byAPI := make(map[resource.API]resource.Resource, len(apis))
+	abort := func(cause error) (resource.Resource, error) {
+		// Close with a non-cancellable context, since the abort is often triggered by ctx expiring
+		// (e.g. the reconfigure timeout), and teardown must still run.
+		closeCtx := context.WithoutCancel(ctx)
+		for _, sub := range byAPI {
+			cause = multierr.Combine(cause, sub.Close(closeCtx))
+		}
+		for _, api := range apis {
+			mgr.rMap.Delete(base.AsAPI(api))
+		}
+		delete(mod.resources, base)
+		if _, err := mod.client.RemoveResource(closeCtx, &pb.RemoveResourceRequest{Name: base.String()}); err != nil &&
+			!errors.Is(err, rdkgrpc.ErrNotConnected) {
+			cause = multierr.Combine(cause, err)
+		}
+		return nil, cause
+	}
+	for _, api := range apis {
+		subName := base.AsAPI(api)
+		mgr.rMap.Store(subName, mod)
+		apiInfo, ok := resource.LookupGenericAPIRegistration(api)
+		if !ok || apiInfo.RPCClient == nil {
+			mod.logger.CWarnw(ctx, "No built-in grpc client for modular resource", "resource", subName)
+			byAPI[api] = rdkgrpc.NewForeignResource(subName, &mod.sharedConn)
+			continue
+		}
+		client, err := apiInfo.RPCClient(ctx, &mod.sharedConn, "", subName, mgr.logger)
+		if err != nil {
+			return abort(err)
+		}
+		byAPI[api] = client
 	}
 
-	return apiInfo.RPCClient(ctx, &mod.sharedConn, "", conf.ResourceName(), mgr.logger)
+	// An ordinary resource is served under one API, so return its bare client.
+	if len(apis) == 1 {
+		return byAPI[conf.API], nil
+	}
+	return resource.NewMultiAPIResource(base, byAPI), nil
 }
 
 // Configs returns a slice of config.Module representing the currently managed
@@ -652,6 +689,15 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
 
 	mgr.rMap.Delete(name)
+	// A resource is routed under each API it serves, so drop every route. The sub-clients themselves are
+	// closed by the wrapper's Close (run by the resource manager just before this call), which closes
+	// every distinct sub. The module process drops the instance from all its collections via the one
+	// RemoveResource call below.
+	if ar, ok := mod.resources[name]; ok {
+		for _, api := range resource.APIsForConfig(ar.conf) {
+			mgr.rMap.Delete(name.AsAPI(api))
+		}
+	}
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
 	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
@@ -959,10 +1005,15 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		// using an external handler gives us the ability to re-add dependencies in the correct order.
 		orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
 		orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
-		for resourceName := range mod.resources {
+		for resourceName, ar := range mod.resources {
 			orphanedResourceNames = append(orphanedResourceNames, resourceName)
 			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-			// let resource manager re-add instead of manually doing it here.
+			// let resource manager re-add instead of manually doing it here. Drop every co-equal API
+			// route of a composite, not just the configured name, so no stale route to the crashed module
+			// lingers if the resource is not successfully re-added.
+			for _, api := range resource.APIsForModel(ar.conf.Model) {
+				mgr.rMap.Delete(resourceName.AsAPI(api))
+			}
 			mgr.rMap.Delete(resourceName)
 			delete(mod.resources, resourceName)
 		}

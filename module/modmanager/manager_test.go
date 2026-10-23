@@ -30,7 +30,9 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	gizmoapi "go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
@@ -1984,4 +1986,108 @@ func TestHangModuleSIGQUIT(t *testing.T) {
 	// Each of the three hangingGoroutine goroutines should appear in the dump.
 	test.That(t, logs.FilterMessageSnippet("main.hangingGoroutine").Len(),
 		test.ShouldBeGreaterThanOrEqualTo, 3)
+}
+
+// TestModularCompositeRemoveClearsAllState verifies that removing a modular composite by its wrapper's
+// Name() (as the resource manager does) fully clears the module manager's state for it. Every per-API
+// sub-client is closed, every co-equal route is dropped from rMap, and no addedResource entry lingers,
+// so the module can be torn down. The combodevice composite serves camera, movement_sensor, and the
+// custom gizmo API.
+func TestModularCompositeRemoveClearsAllState(t *testing.T) {
+	// Use TCP sockets so the long test name does not overflow the Unix-socket path limit.
+	t.Setenv(rutils.ViamTCPSocketsEnvVar, "true")
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	parentAddr := setupSocketWithRobot(t)
+
+	modCfg := config.Module{
+		Name:    "combo-module",
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule"),
+	}
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	comboModel := resource.NewModel("acme", "demo", "combodevice")
+	cfgCombo := resource.Config{Name: "combo", API: camera.API, Model: comboModel}
+
+	res, err := mgr.AddResource(ctx, cfgCombo, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// The wrapper carries the configured api (camera), matching the graph node and mod.resources keys,
+	// not the canonical (gizmo) api.
+	test.That(t, res.Name().API, test.ShouldResemble, camera.API)
+
+	// Reachable under each co-equal api before removal.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+
+	// Remove exactly as the resource manager does, by the wrapper's Name().
+	test.That(t, mgr.RemoveResource(ctx, res.Name()), test.ShouldBeNil)
+
+	// No ghost addedResource remains (so the module can be torn down), and no co-equal route lingers.
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		test.That(t, mod.resources, test.ShouldBeEmpty)
+		return true
+	})
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
+}
+
+// TestModuleReloadingComposite asserts that after a composite module crashes and restarts, the composite
+// is modularly managed again under every one of its co-equal APIs, with no stale route left behind.
+func TestModuleReloadingComposite(t *testing.T) {
+	ctx := context.Background()
+	comboModel := resource.NewModel("acme", "demo", "combodevice")
+	comboCfg := resource.Config{Name: "combo", API: camera.API, Model: comboModel}
+	_, _, err := comboCfg.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	parentAddr := setupSocketWithRobot(t)
+	logger, logs := logging.NewObservedTestLogger(t)
+	modCfg := config.Module{
+		Name:    "combo-module",
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule"),
+	}
+
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	h, err := mgr.AddResource(ctx, comboCfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// The composite is modularly managed under every co-equal API.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+
+	// Crash the module via the canonical sub's DoCommand.
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	// The crash dropped every co-equal route, not just the configured one, so none stays routed to the dead module.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
+
+	// Re-add after restart; every co-equal API is modularly managed again.
+	h, err = mgr.AddResource(ctx, comboCfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(), test.ShouldEqual, 0)
+
+	// A movement_sensor call round-trips, so a non-canonical API routes to the live restarted module.
+	ms, err := resource.AsType[movementsensor.MovementSensor](h)
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = ms.Position(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
 }
