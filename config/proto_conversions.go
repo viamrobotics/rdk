@@ -380,6 +380,10 @@ func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (re
 
 // FrameConfigToProto converts Frame to the proto equivalent.
 func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
+	// the message carries one geometry, so refusing here beats sending a frame that lost some
+	if len(frame.Geometries) > 0 {
+		return nil, errors.Errorf("frame lists %d geometries beyond the first and the Frame message carries one", len(frame.Geometries))
+	}
 	pose, err := frame.Pose()
 	if err != nil {
 		return nil, err

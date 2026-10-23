@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -63,10 +65,8 @@ const (
 	DoTeleopStop   = "teleop_stop"
 	DoTeleopStatus = "teleop_status"
 
-	DoStreamStart  = "stream_start"
-	DoStreamPush   = "stream_push"
-	DoStreamFlush  = "stream_flush"
-	DoStreamAbort  = "stream_abort"
+	// DoStreamStatus polls the state of an arm-streaming session started via the
+	// TempStreamArmJointPositions RPC.
 	DoStreamStatus = "stream_status"
 )
 
@@ -108,6 +108,85 @@ type Config struct {
 	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
 	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
+
+	// CableConstraint, MaxCableTwistDegs, CableTwistReferenceDegs and CableConstraintFrames are
+	// the defaults for the planner options of the same names; a Move request's extra overrides
+	// each one it sets. Setting CableConstraint true constrains every arm unless
+	// CableConstraintFrames names some. Leaving it unset guesses: any arm with a camera mounted
+	// downstream of it in the frame system, and no input_range_override of its own, is assumed
+	// to carry that camera's cable. Set it false to turn the guess off.
+	CableConstraint         *bool                `json:"cable_constraint,omitempty"`
+	MaxCableTwistDegs       float64              `json:"max_cable_twist_degs"`
+	CableTwistReferenceDegs map[string][]float64 `json:"cable_twist_reference_degs"`
+	CableConstraintFrames   []string             `json:"cable_constraint_frames"`
+}
+
+// applyCableConstraintDefaults copies the configured cable-constraint settings into opts for
+// every one the request's extra leaves unset. cameraArms are the arms guessed to carry a
+// camera cable, used only when neither the request nor the config sets cable_constraint, and
+// neither names the frames to constrain.
+func (c *Config) applyCableConstraintDefaults(
+	opts *armplanning.PlannerOptions, extra map[string]interface{}, cameraArms []string,
+) error {
+	_, extraFrames := extra["cable_constraint_frames"]
+	if !extraFrames && c.CableConstraintFrames != nil {
+		opts.CableConstraintFrames = c.CableConstraintFrames
+	}
+	if _, ok := extra["cable_constraint"]; !ok {
+		switch {
+		case c.CableConstraint != nil:
+			opts.CableConstraint = *c.CableConstraint
+		case len(cameraArms) > 0:
+			opts.CableConstraint = true
+			if !extraFrames && c.CableConstraintFrames == nil {
+				opts.CableConstraintFrames = cameraArms
+			}
+		}
+	}
+	if _, ok := extra["max_cable_twist_degs"]; !ok && c.MaxCableTwistDegs > 0 {
+		opts.MaxCableTwistDegs = c.MaxCableTwistDegs
+	}
+	if _, ok := extra["cable_twist_reference_degs"]; !ok && c.CableTwistReferenceDegs != nil {
+		opts.CableTwistReferenceDegs = c.CableTwistReferenceDegs
+	}
+	if opts.CableConstraint && opts.MaxCableTwistDegs <= 0 {
+		return errors.New("max_cable_twist_degs has to be positive")
+	}
+	return nil
+}
+
+// armsCarryingCameras returns, sorted, the arms that have a camera mounted somewhere
+// downstream of them in the frame system.
+func armsCarryingCameras(fs *referenceframe.FrameSystem, components map[string]resource.Resource) []string {
+	cameraAPI := resource.APINamespaceRDK.WithComponentType("camera")
+	found := map[string]bool{}
+	for name, r := range components {
+		if r.Name().API != cameraAPI {
+			continue
+		}
+		f := fs.Frame(name)
+		if f == nil {
+			continue
+		}
+		chain, err := fs.TracebackFrame(f)
+		if err != nil {
+			continue
+		}
+		for _, ancestor := range chain[1:] {
+			if _, isModel := ancestor.(referenceframe.Model); !isModel {
+				continue
+			}
+			if a, ok := components[ancestor.Name()]; ok && a.Name().API == arm.API {
+				found[ancestor.Name()] = true
+			}
+		}
+	}
+	arms := make([]string, 0, len(found))
+	for name := range found {
+		arms = append(arms, name)
+	}
+	slices.Sort(arms)
+	return arms
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -138,6 +217,10 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
 	}
 
+	if c.MaxCableTwistDegs < 0 {
+		return nil, nil, fmt.Errorf("max_cable_twist_degs must be positive (0 selects the default), got %v", c.MaxCableTwistDegs)
+	}
+
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
 }
 
@@ -156,9 +239,10 @@ type builtIn struct {
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
 
-	// Arm-streaming session. Protected by streamMu (separate from mu to simplify lock ordering).
+	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
+	// (separate from mu to simplify lock ordering).
 	streamMu sync.RWMutex
-	stream   *stream
+	streams  map[string]*stream
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -236,7 +320,7 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
-	ms.streamAbort(ctx)
+	ms.abortStreams(ctx)
 
 	return nil
 }
@@ -309,69 +393,20 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 //
-// Streaming commands:
+// Streaming:
 //
-// An arm-streaming session is started with DoStreamStart, fed joint-position targets with
-// DoStreamPush, and ended with either DoStreamFlush (drain what's queued, then stop) or
-// DoStreamAbort (stop immediately). DoStreamStatus can be used to poll the session state at
-// any point.
+// Arm-streaming sessions are started via the TempStreamArmJointPositions RPC (see
+// motion.Service), one session per arm at a time. DoStreamStatus returns a running session's
+// diagnostics, given the arm's name.
 //
-//	DoStreamStart: starts a session on a named arm. Fails if a session is already running.
-//	  request:  {"stream_start": {
-//	               "arm": "myArm",
-//	               "options": {                        // optional; shown values are defaults
-//	                 "target_runway_in_arm_ms": 100,
-//	                 "send_to_arm_interval_ms": 10,
-//	                 "vel_limit_deg_per_sec": 10,
-//	                 "accel_limit_deg_per_sec2": 10,
-//	                 "diagnostics_window_secs": 60       // 0 disables window-detail retention only
-//	               }
-//	             }}
-//	  response: {"ok": 1}
-//
-//	DoStreamPush: appends joint-position targets to the running session.
-//	  request:  {"stream_push": [[j0, j1, ...], [j0, j1, ...], ...]}
-//	  response: {"ok": 1}
-//
-//	DoStreamFlush: stops accepting new targets and drains what's already queued to the arm; the
-//	session ends once that finishes. Blocks until the arm has (by the runway estimate) finished
-//	executing the drained trajectory, or ctx expires, whichever comes first.
-//	  request:  {"stream_flush": true}
+//	DoStreamStatus: reports the named arm's running session's diagnostics, if any. The response is
+//	empty when no session is running for the arm.
+//	  request:  {"stream_status": {"arm": "myArm"}}
 //	  response: {
-//	               "running": false,                   // true if ctx expired before the drain
-//	                                                     // finished; the session keeps draining
-//	                                                     // on its own -- repeat DoStreamFlush or
-//	                                                     // poll DoStreamStatus
-//	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
-//	             }
-//
-//	DoStreamAbort: signals the session to cancel, dropping any buffered trajectory that hasn't
-//	reached the arm. Waits until the session finishes tearing down or ctx expires, whichever comes first.
-//	  request:  {"stream_abort": true}
-//	  response: {
-//	               "running": false,                   // true if ctx expired before teardown
-//	                                                     // finished; the session is still
-//	                                                     // tearing down on its own -- repeat
-//	                                                     // DoStreamAbort or poll DoStreamStatus
-//	               "error": "..."                      // present only if the session ended
-//	                                                     // with an error
-//	             }
-//
-//	DoStreamStatus: reports the current session's state.
-//	  request:  {"stream_status": true}                 // or {"stream_status": {"last_window_details": true}}
-//	                                                      // to also include the (potentially
-//	                                                      // large) last window details; errors if
-//	                                                      // details are not being retained
-//	  response: {
-//	               "running": true,
-//	               "arm": "myArm",                      // present once a session has started
-//	               "options": {...},                    // the session's StreamOptions
-//	               "last_window_details": {...},        // diagnostics.SingleSessionLastWindowDetails;
-//	                                                     // present only when last_window_details:true
-//	                                                     // was requested
-//	               "error": "..."                       // present only once the session has
-//	                                                     // finished with an error
+//	               "diagnostics_window_secs": 60,       // the running session's window; 0 means no
+//	                                                     // details are being retained
+//	               "last_window_details": {...}         // diagnostics.SingleSessionLastWindowDetails;
+//	                                                     // present only when the window is positive
 //	             }
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
@@ -480,7 +515,7 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
 		}
 
-		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+		ms.logger.Debugf("limit override fName: %v mods: %v f: %v", fName, mods, f)
 
 		sm, ok := f.(*referenceframe.SimpleModel)
 		if !ok {
@@ -577,6 +612,22 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
 	if err != nil {
+		return nil, err
+	}
+	var cameraArms []string
+	if ms.conf.CableConstraint == nil {
+		cameraArms = slices.DeleteFunc(armsCarryingCameras(frameSys, ms.components), func(name string) bool {
+			_, limited := ms.conf.InputRangeOverride[name]
+			if limited {
+				logger.CDebugf(ctx, "arm %s carries a camera but has an input_range_override; not assuming a camera cable", name)
+			}
+			return limited
+		})
+		if len(cameraArms) > 0 {
+			logger.CDebugf(ctx, "assuming camera cables run through arms %v; set cable_constraint false to disable", cameraArms)
+		}
+	}
+	if err := ms.conf.applyCableConstraintDefaults(planOpts, req.Extra, cameraArms); err != nil {
 		return nil, err
 	}
 

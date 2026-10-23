@@ -73,7 +73,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 	ccf := &cacheForFrame{}
 
 	if IsTooSmallForCache() {
-		logger.Warnf("not building cache because " + okForSmartCacheBadReason)
+		logger.Warnf("%s", "not building cache because "+okForSmartCacheBadReason)
 		return ccf, nil
 	}
 
@@ -187,6 +187,11 @@ func (cff *cacheForFrame) buildCacheHelper(f referenceframe.Frame, values []floa
 		jog = r
 		values[joint] = (min + max) / 2
 	}
+	if jog == 0 {
+		// min == max -- set a value such that the for-loop terminates.
+		jog = 1
+	}
+
 	x := 0
 	for values[joint] <= max {
 		if joint > 0 || t < 0 || x%defaultNumThreads == t {

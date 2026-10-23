@@ -126,15 +126,16 @@ const (
 	moduleBuildFlagOAuthLink   = "oauth-link"
 	moduleBuildFlagRepo        = "repo"
 
-	mlTrainingFlagName             = "script-name"
-	mlTrainingFlagFramework        = "framework"
-	mlTrainingFlagDraft            = "draft"
-	mlTrainingFlagVisibility       = "visibility"
-	mlTrainingFlagDescription      = "description"
-	mlTrainingFlagURL              = "url"
-	mlTrainingFlagContainerVersion = "container-version"
-	mlTrainingFlagIncludeURIs      = "include-uris"
-	mlTrainingFlagContainerID      = "id"
+	mlTrainingFlagName           = "script-name"
+	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagModuleResource = "module-resource"
+	mlTrainingFlagDraft          = "draft"
+	mlTrainingFlagVisibility     = "visibility"
+	mlTrainingFlagDescription    = "description"
+	mlTrainingFlagURL            = "url"
+	mlTrainingFlagIncludeURIs    = "include-uris"
+	mlTrainingFlagContainerID    = "container-id"
+	mlRegisterContainersImageURI = "uri"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -2257,16 +2258,45 @@ Note: There is no progress meter while copying is in progress.
 									Name:  mlTrainingFlagIncludeURIs,
 									Usage: "show container URIs with the list of containers",
 								},
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Aliases:  []string{generalFlagAliasOrg, generalFlagOrganization},
+									Usage:    "the org ID for which to list available containers for custom training jobs",
+									Required: false,
+								},
 							},
 							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
 						},
 						{
-							Name:      "delete",
-							Usage:     "deletes a custom training container",
-							UsageText: createUsageText("train containers delete", []string{mlTrainingFlagContainerID}, false, false),
+							Name:      "register",
+							Usage:     "registers a custom container for custom training",
+							UsageText: createUsageText("train containers register", []string{mlRegisterContainersImageURI}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     mlTrainingFlagContainerID,
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID that will own the container",
+									DefaultText: "the default org set with `viam defaults set-org`",
+								},
+								&cli.StringFlag{
+									Name:     mlRegisterContainersImageURI,
+									Usage:    "docker image URI of the container",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     mlTrainingFlagDescription,
+									Usage:    "acts as the container display name",
+									Required: true,
+								},
+							},
+							Action: createActionCommandWithT[registerContainersArgs](RegisterContainer),
+						},
+						{
+							Name:      "delete",
+							Usage:     "deletes a custom training container",
+							UsageText: createUsageText("train containers delete", []string{generalFlagID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagID,
 									Usage:    "ID of the custom container to delete, as shown by `train containers list`",
 									Required: true,
 								},
@@ -2345,7 +2375,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID,
 											generalFlagModelName, mlTrainingFlagName,
-											generalFlagVersion, mlTrainingFlagContainerVersion,
+											generalFlagVersion, mlTrainingFlagContainerID,
 										},
 										true, false,
 									),
@@ -2380,10 +2410,8 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name: mlTrainingFlagContainerVersion,
-											Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the training container to use; must be a supported container for this org.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -2400,7 +2428,7 @@ Note: There is no progress meter while copying is in progress.
 										[]string{
 											generalFlagOrgID, datasetFlagDatasetID,
 											trainFlagModelOrgID, generalFlagModelName, generalFlagPath,
-											mlTrainingFlagName, mlTrainingFlagContainerVersion,
+											mlTrainingFlagName, mlTrainingFlagContainerID,
 										},
 										true, false,
 									),
@@ -2453,15 +2481,17 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 											Required: true,
 										},
+										&cli.StringSliceFlag{
+											Name:  mlTrainingFlagModuleResource,
+											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
 										},
 										&cli.StringFlag{
-											Name: mlTrainingFlagContainerVersion,
-											Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+											Name:     mlTrainingFlagContainerID,
+											Usage:    `ID of the training container to use; must be a supported container for this org.`,
 											Required: true,
 										},
 										&cli.StringSliceFlag{
@@ -3882,6 +3912,21 @@ Run this command from within the module directory.`,
 					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
+					Name: "lint-manifest",
+					Usage: "check meta.json for format errors and registry limits offline; " +
+						"passing does not guarantee an upload will succeed",
+					UsageText: createUsageText("module lint-manifest", nil, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
+						},
+					},
+					Action: createActionCommandWithT[lintManifestArgs](LintManifestAction),
+				},
+				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
 					UsageText: createUsageText("module update-models", []string{}, true, false),
@@ -4218,7 +4263,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload-local --model-name acme:module-name:mybase --name my-resource
+	viam module reload-local --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Build and configure a module running on your local machine without shipping a tarball.
 	viam module reload-local --local
@@ -4233,16 +4278,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Usage: "path to a meta.json. its module ID is the module that is configured and restarted",
 							Value: "meta.json",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --id",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagID,
-							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
@@ -4306,7 +4343,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource
+	viam module reload --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Trigger a reload build of a module located in a different directory than the current workdir
 	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
@@ -4318,7 +4355,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
+							Usage: "relative path to a meta.json from workdir (default: ./). its module ID identifies the module to reload",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
@@ -4497,6 +4534,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+						},
 					},
 					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
@@ -4536,6 +4577,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:     mlTrainingFlagFramework,
 							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -4586,6 +4631,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
 						},
+						&cli.StringFlag{
+							Name:  mlTrainingFlagFramework,
+							Usage: formatAcceptedValues("framework of the ML training script", modelFrameworks...),
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+						},
 					},
 					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
 				},
@@ -4594,7 +4647,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					Usage: "test training script locally using Docker",
 					UsageText: createUsageText("training-script test-local", []string{
 						trainFlagDatasetRoot, trainFlagTrainingScriptDirectory,
-						trainFlagDatasetFile, trainFlagContainerVersion, trainFlagModelOutputDirectory,
+						trainFlagDatasetFile, trainFlagContainerID, trainFlagModelOutputDirectory,
 					}, true, false),
 					Description: `Test your training script locally before submitting to the cloud. This runs your training script 
 in a Docker container using the same environment as cloud training.
@@ -4641,10 +4694,8 @@ NOTES:
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: trainFlagContainerVersion,
-							Usage: `ml training container version to use.
-											Must be one of the supported container names found by
-											calling ListSupportedContainers`,
+							Name:     trainFlagContainerID,
+							Usage:    "ID of the ml training container to use",
 							Required: true,
 						},
 						&cli.StringFlag{

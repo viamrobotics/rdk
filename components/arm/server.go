@@ -142,7 +142,7 @@ func (s *serviceServer) MoveThroughJointPositions(
 		}
 		allInputs = append(allInputs, inputs)
 	}
-	err = arm.MoveThroughJointPositions(ctx, allInputs, moveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
+	err = arm.MoveThroughJointPositions(ctx, allInputs, MoveOptionsFromProtobuf(req.Options), req.Extra.AsMap())
 	return &pb.MoveThroughJointPositionsResponse{}, err
 }
 

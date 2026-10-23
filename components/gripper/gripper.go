@@ -30,6 +30,10 @@ func init() {
 	}, newDoCommandCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
+		MethodName: isHoldingSomething.String(),
+	}, newIsHoldingSomethingCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
 		MethodName: getWorldPose.String(),
 	}, newGetWorldPoseCollector)
 }

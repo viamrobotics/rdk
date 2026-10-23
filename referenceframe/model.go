@@ -24,6 +24,8 @@ type Model interface {
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it.
+//
+//nolint:staticcheck // SA1019: Format, KinematicsData, and mesh maps stay until clients read KinematicModel.
 func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
@@ -57,6 +59,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 }
 
 // KinematicModelToProtobuf converts a model into a protobuf message version of that model.
+//
+//nolint:staticcheck // SA1019: Format, KinematicsData, and mesh maps stay until clients read KinematicModel.
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
@@ -167,6 +171,48 @@ func NewSimpleModel(name string) *SimpleModel {
 		primaryOutputFrame: fs.World().Name(),
 		inputSchema:        &LinearInputsSchema{},
 	}
+}
+
+// NewModelFromGeometries builds a zero-DoF Model whose only purpose is to carry multiple geometries.
+// Each geometry becomes a zero-pose static link parented to world, so a geometry's pose relative to
+// the model origin is the geometry's own pose. Labels double as link names, so they are made unique
+// and non-empty. The caller's geometries are copied, not mutated.
+func NewModelFromGeometries(name string, geometries []spatialmath.Geometry) (Model, error) {
+	if len(geometries) == 0 {
+		return NewSimpleModel(name), nil
+	}
+	cfg := &ModelConfigJSON{Name: name, Links: make([]LinkConfig, 0, len(geometries))}
+	seen := make(map[string]struct{}, len(geometries))
+	for i, g := range geometries {
+		base := g.Label()
+		if base == "" || base == World {
+			base = fmt.Sprintf("geometry_%d", i)
+		}
+		label := base
+		for n := 1; ; n++ {
+			if _, dup := seen[label]; !dup {
+				break
+			}
+			label = fmt.Sprintf("%s_%d", base, n)
+		}
+		seen[label] = struct{}{}
+
+		geom := g.Transform(spatialmath.NewZeroPose())
+		geom.SetLabel(label)
+		frame, err := NewStaticFrameWithGeometry(label, spatialmath.NewZeroPose(), geom)
+		if err != nil {
+			return nil, err
+		}
+		lc, err := NewLinkConfig(frame)
+		if err != nil {
+			return nil, err
+		}
+		lc.Parent = World
+		cfg.Links = append(cfg.Links, *lc)
+	}
+	// The links are siblings, so the model has several leaves; ParseConfig needs one named output.
+	cfg.OutputFrames = []string{cfg.Links[0].ID}
+	return cfg.ParseConfig(name)
 }
 
 // NewModel constructs a model from a FrameSystem and a primary output frame.
@@ -326,6 +372,30 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 	}
 	m.modelConfig = base.modelConfig
 	return m, nil
+}
+
+// withSerializedLimits returns base with the position bounds of limits applied to its joints,
+// where limits is in DoF order. A limits slice that does not line up one-to-one with base's
+// single-DoF joints is ignored, leaving base as parsed.
+func withSerializedLimits(base *SimpleModel, limits []Limit) (*SimpleModel, error) {
+	names := base.MoveableFrameNames()
+	if len(limits) != len(base.DoF()) || len(names) != len(limits) {
+		return base, nil
+	}
+	overrides := map[string]Limit{}
+	for i, name := range names {
+		declared := base.internalFS.Frame(name).DoF()
+		if len(declared) != 1 {
+			return base, nil
+		}
+		if declared[0].Min != limits[i].Min || declared[0].Max != limits[i].Max {
+			overrides[name] = limits[i]
+		}
+	}
+	if len(overrides) == 0 {
+		return base, nil
+	}
+	return NewModelWithLimitOverrides(base, overrides)
 }
 
 // MoveableFrameNames returns the names of frames with non-zero DoF, in schema order.
@@ -666,6 +736,13 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		newModel, ok := parsed.(*SimpleModel)
 		if !ok {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+		}
+		// The kinematics config carries the joints' declared limits, so a model serialized after an
+		// input_range_override only has the override in Limits. Push it back into the joints, or
+		// anything rebuilt from internalFS (e.g. NewModelWithLimitOverrides) silently reverts it.
+		newModel, err = withSerializedLimits(newModel, ser.Limits)
+		if err != nil {
+			return err
 		}
 		m.internalFS = newModel.internalFS
 		m.primaryOutputFrame = newModel.primaryOutputFrame

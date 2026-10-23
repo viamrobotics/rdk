@@ -16,6 +16,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -950,6 +951,11 @@ func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, rob
 		return &framesystem.Config{}, nil
 	}
 
+	// Default to a running machine so a robot client's implicit GetMachineStatus (on connect) has
+	// something to return; individual tests override this via withMachineStatus.
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
 	if options.machineStatus != nil {
 		injectRobot.MachineStatusFunc = options.machineStatus
 	}
@@ -1582,12 +1588,20 @@ func testResourceLimitsAndFTDC(
 
 	blockCall := make(chan struct{})
 	callBlocking := make(chan struct{})
+	// A robot client issues its own implicit GetMachineStatus when connecting. Only start blocking
+	// (and counting) the method under test once `armed` is set, after the client is connected, so
+	// those setup calls don't consume the request this test is measuring.
+	var armed atomic.Bool
 	opt := setupBlock(
 		func() {
-			close(callBlocking)
+			if armed.Load() {
+				close(callBlocking)
+			}
 		},
 		func() {
-			<-blockCall
+			if armed.Load() {
+				<-blockCall
+			}
 		},
 	)
 	ctx, injectRobot := setupRobotCtx(t, opt)
@@ -1610,6 +1624,8 @@ func testResourceLimitsAndFTDC(
 
 	// Create a caller to invoke the gRPC method used for testing
 	call := createCall(addr, logger)
+	// The client is connected now; start blocking/counting the method under test.
+	armed.Store(true)
 
 	// Check that the in-flight request counter is zero
 	statsKey := keyPrefix + ".inFlightRequests"
@@ -1753,7 +1769,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
 					onEnter()
 					wait()
-					return robot.MachineStatus{}, nil
+					return robot.MachineStatus{State: robot.StateRunning}, nil
 				})
 			},
 			func(addr string, logger logging.Logger) clientCall {
@@ -1782,7 +1798,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
 					onEnter()
 					wait()
-					return robot.MachineStatus{}, nil
+					return robot.MachineStatus{State: robot.StateRunning}, nil
 				})
 			},
 			func(addr string, logger logging.Logger) clientCall {

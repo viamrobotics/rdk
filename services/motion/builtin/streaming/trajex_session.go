@@ -11,9 +11,9 @@ import (
 	trajex "github.com/viam-modules/trajex/go"
 	totgstream "github.com/viam-modules/trajex/go/totg/streaming"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -22,11 +22,14 @@ const (
 )
 
 type trajexSession struct {
+	logger      logging.Logger
 	opts        StreamOptions
 	diagnostics *diagnostics.SingleSessionDiagnostics
 
 	// State for the underlying trajex library session, set up by startSession.
 	sess               *totgstream.Session
+	extend             func(context.Context, *trajex.TensorMap) (totgstream.ExtendResult, error)
+	droppedInARow      int
 	dof                int
 	lastJointPositions []referenceframe.Input
 }
@@ -39,11 +42,26 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 	defer trajexOpts.Close()
 
 	dof := len(startJointPositions)
-	vel := make([]float64, dof)
-	accel := make([]float64, dof)
-	for i := range dof {
-		vel[i] = utils.DegToRad(s.opts.VelLimitDegPerSec)
-		accel[i] = utils.DegToRad(s.opts.AccelLimitDegPerSec2)
+	jointLimits := func(perJoint []float64, scalar float64) ([]float64, error) {
+		if len(perJoint) == 0 {
+			limits := make([]float64, dof)
+			for i := range limits {
+				limits[i] = scalar
+			}
+			return limits, nil
+		}
+		if len(perJoint) != dof {
+			return nil, fmt.Errorf("has %d elements, but the arm has %d joints", len(perJoint), dof)
+		}
+		return perJoint, nil
+	}
+	vel, err := jointLimits(s.opts.MoveOptions.MaxVelRadsJoints, s.opts.MoveOptions.MaxVelRads)
+	if err != nil {
+		return fmt.Errorf("move_options.max_vel_degs_per_sec_joints %w", err)
+	}
+	accel, err := jointLimits(s.opts.MoveOptions.MaxAccRadsJoints, s.opts.MoveOptions.MaxAccRads)
+	if err != nil {
+		return fmt.Errorf("move_options.max_acc_degs_per_sec2_joints %w", err)
 	}
 	dofShape := []uint64{uint64(dof)}
 	if err := trajexOpts.InsertFloat64s(totgstream.KeyVelocityLimitsRadsPerSec, dofShape, vel); err != nil {
@@ -66,6 +84,7 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 		return err
 	}
 	s.sess = sess
+	s.extend = sess.Extend
 	s.dof = dof
 	s.lastJointPositions = startJointPositions
 	s.diagnostics.RecordTrajexSessionOpenEvent()
@@ -94,13 +113,30 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 		return err
 	}
 	extendStart := time.Now()
-	err = s.sess.Extend(ctx, waypoints)
-	s.diagnostics.RecordTrajexExtendLatency(extendStart, time.Since(extendStart))
+	res, err := s.extend(ctx, waypoints)
+	extendLatency := time.Since(extendStart)
 	if err != nil {
+		s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, "error", nil, nil)
+		if s.droppedInARow < s.opts.MaxTargetsDroppedInARowDueToTrajexExtendError {
+			s.droppedInARow++
+			s.logger.CWarnw(ctx, "skipping a target trajex rejected", "error", err, "dropped_in_a_row", s.droppedInARow)
+			s.diagnostics.RecordJointPositionTargetDroppedDueToTrajexExtendError()
+			return nil
+		}
 		return err
 	}
+	s.droppedInARow = 0
+	s.diagnostics.RecordTrajexExtend(extendStart, extendLatency, res.Kind.String(), res.BranchSlack, &res.DeltaTotalDuration)
+	s.stageIfSlow(extendLatency)
 	s.lastJointPositions = nextJointPositions
 	return nil
+}
+
+func (s *trajexSession) stageIfSlow(extendLatency time.Duration) {
+	threshold := time.Duration(s.opts.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
+	if threshold > 0 && extendLatency > threshold {
+		s.sess.StartStaging()
+	}
 }
 
 func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration) ([]pvat, error) {
@@ -123,6 +159,10 @@ func (s *trajexSession) sampleAtLeast(ctx context.Context, horizon time.Duration
 		s.diagnostics.RecordSampledPVAT(p.positions, p.velocities, p.accelerations, p.time)
 	}
 	return pvats, nil
+}
+
+func (s *trajexSession) trajexRunway() time.Duration {
+	return s.sess.RemainingTotalDuration()
 }
 
 func (s *trajexSession) close() {

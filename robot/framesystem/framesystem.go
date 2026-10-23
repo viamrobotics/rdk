@@ -35,11 +35,18 @@ var InternalServiceName = resource.NewName(API, "$"+SubtypeName)
 // PublicServiceName is used by modules to refer to the robot's frame system.
 var PublicServiceName = resource.NewName(API, "$framesystem")
 
+// ModelFramer is implemented by resources that describe themselves to the frame system with a
+// kinematic model. Actuated resources also implement InputEnabled; static ones, such as an
+// obstacle assembled from several frames, only need this.
+type ModelFramer interface {
+	Kinematics(ctx context.Context) (referenceframe.Model, error)
+}
+
 // InputEnabled is a standard interface for all things that interact with the frame system
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
 type InputEnabled interface {
-	Kinematics(ctx context.Context) (referenceframe.Model, error)
+	ModelFramer
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
@@ -386,12 +393,12 @@ func NewFromServiceMustBeConnected(
 		// Dan: This "must be connected" API is for RDK builtin motion service move requests. Which
 		// would be in the same process as this frame system service. I cannot imagine this code
 		// path being relevant, but being cautious and preserving what would be returned.
-		fsCfg, err := service.FrameSystemConfig(ctx)
+		fsCfg, err := serviceI.FrameSystemConfig(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
+		return referenceframe.NewFrameSystem(serviceI.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
 	}
 
 	service.partsMu.RLock()

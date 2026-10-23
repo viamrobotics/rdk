@@ -20,7 +20,8 @@ type MoveOptions struct {
 	MaxTCPSpeedMPerSec *float64
 }
 
-func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
+// MoveOptionsFromProtobuf converts a pb.MoveOptions (degrees) to a MoveOptions (radians).
+func MoveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	if protobuf == nil {
 		return nil
 	}
@@ -55,7 +56,8 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	return opts
 }
 
-func (opts *MoveOptions) toProtobuf() *pb.MoveOptions {
+// ToProtobuf converts a MoveOptions (radians) to a pb.MoveOptions (degrees).
+func (opts *MoveOptions) ToProtobuf() *pb.MoveOptions {
 	vel := utils.RadToDeg(opts.MaxVelRads)
 	acc := utils.RadToDeg(opts.MaxAccRads)
 	pbOpts := &pb.MoveOptions{

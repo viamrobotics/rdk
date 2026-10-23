@@ -22,6 +22,8 @@ import (
 	packagespb "go.viam.com/api/app/packages/v1"
 	v1 "go.viam.com/api/app/v1"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/resource"
 )
 
 const (
@@ -36,7 +38,7 @@ const (
 	trainingStatusPrefix = "TRAINING_STATUS_"
 
 	// Flags for test-local command
-	trainFlagContainerVersion        = "container-version"
+	trainFlagContainerID             = "container-id"
 	trainFlagDatasetFile             = "dataset-file"
 	trainFlagDatasetRoot             = "dataset-root"
 	trainFlagModelOutputDirectory    = "model-output-directory"
@@ -47,14 +49,14 @@ const (
 var validArgumentKeyRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 type mlSubmitCustomTrainingJobArgs struct {
-	DatasetID        string
-	OrgID            string
-	ModelName        string
-	ModelVersion     string
-	ScriptName       string
-	Version          string
-	ContainerVersion string
-	Args             []string
+	DatasetID    string
+	OrgID        string
+	ModelName    string
+	ModelVersion string
+	ScriptName   string
+	Version      string
+	ContainerID  string
+	Args         []string
 }
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
@@ -69,7 +71,7 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, args.ScriptName, args.Version, args.OrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerID, args.Args,
 	)
 	if err != nil {
 		return err
@@ -79,19 +81,20 @@ func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSub
 }
 
 type mlSubmitCustomTrainingJobWithUploadArgs struct {
-	URL              string
-	DatasetID        string
-	ModelName        string
-	ModelVersion     string
-	Path             string
-	OrgID            string
-	ModelOrgID       string
-	ScriptName       string
-	Version          string
-	Framework        string
-	ModelType        string
-	ContainerVersion string
-	Args             []string
+	URL            string
+	DatasetID      string
+	ModelName      string
+	ModelVersion   string
+	Path           string
+	OrgID          string
+	ModelOrgID     string
+	ScriptName     string
+	Version        string
+	Framework      string
+	ModelType      string
+	ContainerID    string
+	Args           []string
+	ModuleResource []string
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
@@ -109,7 +112,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 	}
 
 	resp, err := client.uploadTrainingScript(ctx, true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private", args.ModuleResource)
 	if err != nil {
 		return err
 	}
@@ -125,7 +128,7 @@ func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, 
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
 		args.DatasetID, registryItemID, resp.Version, args.ModelOrgID,
-		args.ModelName, args.ModelVersion, args.ContainerVersion, args.Args,
+		args.ModelName, args.ModelVersion, args.ContainerID, args.Args,
 	)
 	if err != nil {
 		return err
@@ -145,15 +148,19 @@ type mlSubmitTrainingJobArgs struct {
 }
 
 type mlListContainersArgs struct {
+	OrgID       string
 	IncludeURIs bool
 }
 
 type prettyPrintContainer struct {
 	Name        string
-	EndOfLife   string
+	EndOfLife   string `json:",omitempty"`
 	Description string
-	Framework   string
+	Framework   string `json:",omitempty"`
 	URI         string `json:",omitempty"`
+	ID          string
+	CreatedOn   string
+	Visibility  string
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
@@ -162,20 +169,27 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 	if err != nil {
 		return err
 	}
-	supportedContainers, err := client.mlTrainingClient.ListSupportedContainers(
-		context.Background(), &mltrainingpb.ListSupportedContainersRequest{},
+	supportedContainers, err := client.mlTrainingClient.ListContainers(
+		context.Background(), &mltrainingpb.ListContainersRequest{OrganizationId: args.OrgID},
 	)
 	if err != nil {
 		return err
 	}
 
 	var returnContainers []prettyPrintContainer
-	for _, v := range supportedContainers.ContainerMap {
+	for _, v := range supportedContainers.Containers {
 		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
+			Visibility:  v.Visibility.String(),
 			Framework:   v.Framework,
-			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
+			ID:          v.Id,
+		}
+		if v.Eol != nil && !v.Eol.AsTime().IsZero() {
+			container.EndOfLife = v.Eol.AsTime().Format(time.RFC3339)
+		}
+		if v.CreatedOn != nil && !v.CreatedOn.AsTime().IsZero() {
+			container.CreatedOn = v.CreatedOn.AsTime().Format(time.RFC3339)
 		}
 		if args.IncludeURIs {
 			container.URI = v.Uri
@@ -187,6 +201,42 @@ func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContaine
 		return err
 	}
 	printf(cmd.Root().Writer, "%s", b)
+	return nil
+}
+
+type registerContainersArgs struct {
+	OrgID       string
+	URI         string
+	Description string
+}
+
+// RegisterContainer is the corresponding action for 'train containers register'.
+func RegisterContainer(ctx context.Context, cmd *cli.Command, args registerContainersArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID via --org-id or set one with 'viam defaults set-org'")
+	}
+	if args.Description == "" {
+		return errors.New("must provide a description")
+	}
+
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	description := args.Description
+
+	resp, err := client.mlTrainingClient.RegisterCustomTrainingContainer(ctx,
+		&mltrainingpb.RegisterCustomTrainingContainerRequest{
+			OrganizationId: args.OrgID,
+			ImageUri:       args.URI,
+			Description:    description,
+		})
+	if err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Container successfully registered. Container ID: %s", resp.Id)
 	return nil
 }
 
@@ -248,6 +298,13 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 		return "", errors.Errorf("%s must be a valid ModelFramework, got %s. See `viam train submit --help` for supported options",
 			trainFlagModelFramework, modelFramework)
 	}
+	// Registry selects modular resources to deploy with a model. Managed training stays on tflite and tensorflow.
+	if mltrainingpb.ModelFramework(modelFrameworkEnum) == mltrainingpb.ModelFramework_MODEL_FRAMEWORK_REGISTRY {
+		return "", errors.Errorf(
+			"managed training does not support %s %q. See `viam train submit --help` for supported options",
+			trainFlagModelFramework, modelFramework,
+		)
+	}
 
 	resp, err := c.mlTrainingClient.SubmitTrainingJob(context.Background(),
 		&mltrainingpb.SubmitTrainingJobRequest{
@@ -264,7 +321,7 @@ func (c *viamClient) mlSubmitTrainingJob(datasetID, orgID, modelName, modelVersi
 
 // mlSubmitCustomTrainingJob trains on data with the specified dataset and registry item.
 func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, registryItemVersion, orgID, modelName,
-	modelVersion, containerVersion string, args []string,
+	modelVersion, containerID string, args []string,
 ) (string, error) {
 	splitName := strings.Split(registryItemID, ":")
 	if len(splitName) != 2 {
@@ -283,7 +340,7 @@ func (c *viamClient) mlSubmitCustomTrainingJob(datasetID, registryItemID, regist
 		OrganizationId:      orgID,
 		ModelName:           modelName,
 		ModelVersion:        modelVersion,
-		ContainerVersion:    containerVersion,
+		ContainerId:         containerID,
 	}
 
 	if len(args) > 0 {
@@ -468,15 +525,16 @@ func defaultTrainingStatus() string {
 }
 
 type mlTrainingUploadArgs struct {
-	Path       string
-	OrgID      string
-	ScriptName string
-	Version    string
-	Framework  string
-	Type       string
-	Draft      bool
-	URL        string
-	Visibility string
+	Path           string
+	OrgID          string
+	ScriptName     string
+	Version        string
+	Framework      string
+	Type           string
+	Draft          bool
+	URL            string
+	Visibility     string
+	ModuleResource []string
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
@@ -491,7 +549,7 @@ func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTraini
 
 	_, err = client.uploadTrainingScript(ctx, args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path, args.Visibility,
+		args.Version, args.Path, args.Visibility, args.ModuleResource,
 	)
 	if err != nil {
 		return err
@@ -510,10 +568,11 @@ func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTraini
 
 func (c *viamClient) uploadTrainingScript(
 	ctx context.Context, draft bool, modelType, framework, url, orgID, name, version, path, visibility string,
+	moduleResources []string,
 ) (
 	*packagespb.CreatePackageResponse, error,
 ) {
-	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
+	metadata, err := createMetadata(draft, modelType, framework, url, visibility, moduleResources)
 	if err != nil {
 		return nil, err
 	}
@@ -536,11 +595,13 @@ func (c *viamClient) uploadTrainingScript(
 }
 
 type mlTrainingUpdateArgs struct {
-	OrgID       string
-	ScriptName  string
-	Visibility  string
-	Description string
-	URL         string
+	OrgID          string
+	ScriptName     string
+	Visibility     string
+	Description    string
+	URL            string
+	Framework      string
+	ModuleResource []string
 }
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
@@ -554,7 +615,7 @@ func MLTrainingUpdateAction(ctx context.Context, cmd *cli.Command, args mlTraini
 	}
 
 	err = client.updateTrainingScript(ctx, args.OrgID, args.ScriptName,
-		args.Visibility, args.Description, args.URL,
+		args.Visibility, args.Description, args.URL, args.Framework, args.ModuleResource,
 	)
 	if err != nil {
 		return err
@@ -569,7 +630,9 @@ func MLTrainingUpdateAction(ctx context.Context, cmd *cli.Command, args mlTraini
 	return nil
 }
 
-func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visibility, description, url string) error {
+func (c *viamClient) updateTrainingScript(
+	ctx context.Context, orgID, name, visibility, description, url, framework string, moduleResources []string,
+) error {
 	// Get registry item
 	itemID := fmt.Sprintf("%s:%s", orgID, name)
 	resp, err := c.client.GetRegistryItem(ctx, &v1.GetRegistryItemRequest{
@@ -596,14 +659,44 @@ func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visi
 	} else {
 		stringURL = nil
 	}
-	// Update registry item
-	if _, err = c.client.UpdateRegistryItem(ctx, &v1.UpdateRegistryItemRequest{
+	req := &v1.UpdateRegistryItemRequest{
 		ItemId:      itemID,
 		Type:        resp.GetItem().GetType(),
 		Description: updatedDescription,
 		Visibility:  *visibilityProto,
 		Url:         stringURL,
-	}); err != nil {
+	}
+	if framework != "" || len(moduleResources) > 0 {
+		existing := resp.GetItem().GetMlTrainingMetadata()
+		if framework == "" && existing != nil {
+			framework = strings.ToLower(strings.TrimPrefix(existing.GetModelFramework().String(), "MODEL_FRAMEWORK_"))
+		}
+		resolvedFramework, err := findValueOrSetDefault(modelFrameworks, framework, "")
+		if err != nil {
+			return err
+		}
+		if err := validateRegistryModuleResources(mlTrainingFlagFramework, resolvedFramework, moduleResources); err != nil {
+			return err
+		}
+		frameworkEnum, err := modelFrameworkProto(resolvedFramework)
+		if err != nil {
+			return err
+		}
+		meta := &v1.UpdateMLTrainingMetadata{
+			ModelFramework:             frameworkEnum,
+			DeploymentModularResources: moduleResources,
+		}
+		// Keep the task type and draft bit already stored on the script. This update only
+		// replaces the framework and the module resources to deploy.
+		if existing != nil {
+			meta.ModelType = existing.GetModelType()
+			meta.Draft = existing.GetDraft()
+		}
+		req.Metadata = &v1.UpdateRegistryItemRequest_UpdateMlTrainingMetadata{
+			UpdateMlTrainingMetadata: meta,
+		}
+	}
+	if _, err = c.client.UpdateRegistryItem(ctx, req); err != nil {
 		return err
 	}
 	return nil
@@ -635,36 +728,75 @@ const (
 	ModelFrameworkTensorFlow  = ModelFramework("tensorflow")
 	ModelFrameworkPyTorch     = ModelFramework("pytorch")
 	ModelFrameworkONNX        = ModelFramework("onnx")
+	ModelFrameworkRegistry    = ModelFramework("registry")
 )
 
 var modelFrameworks = []string{
 	string(ModelFrameworkUnspecified), string(ModelFrameworkTFLite), string(ModelFrameworkTensorFlow),
-	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX),
+	string(ModelFrameworkPyTorch), string(ModelFrameworkONNX), string(ModelFrameworkRegistry),
+}
+
+const deploymentModularResourcesKey = "deployment_modular_resources"
+
+// validateRegistryModuleResources checks that module resources are a non-empty list of model
+// triples when framework is registry, and are absent for every other framework.
+func validateRegistryModuleResources(frameworkFlag, framework string, resources []string) error {
+	if framework == string(ModelFrameworkRegistry) {
+		if len(resources) == 0 {
+			return fmt.Errorf("--%s is required when --%s is %s", mlTrainingFlagModuleResource, frameworkFlag, ModelFrameworkRegistry)
+		}
+	} else if len(resources) > 0 {
+		return fmt.Errorf("--%s requires --%s %s", mlTrainingFlagModuleResource, frameworkFlag, ModelFrameworkRegistry)
+	}
+	for _, value := range resources {
+		model, err := resource.NewModelFromString(value)
+		if err == nil {
+			err = model.Validate()
+		}
+		// A bare name parses as rdk:builtin:<name>, so require the round trip to match.
+		if err != nil || model.String() != value {
+			return fmt.Errorf("--%s %q must be a model triple (namespace:module:model)", mlTrainingFlagModuleResource, value)
+		}
+	}
+	return nil
+}
+
+func modelFrameworkProto(framework string) (mltrainingpb.ModelFramework, error) {
+	enum, ok := mltrainingpb.ModelFramework_value["MODEL_FRAMEWORK_"+strings.ToUpper(framework)]
+	if !ok {
+		return 0, errors.Errorf("framework must be one of: %s", strings.Join(modelFrameworks, ", "))
+	}
+	return mltrainingpb.ModelFramework(enum), nil
 }
 
 // MLMetadata struct stores package info for ML training packages.
 type MLMetadata struct {
-	Draft      bool
-	ModelType  string
-	Framework  string
-	URL        string
-	Visibility string
+	Draft           bool
+	ModelType       string
+	Framework       string
+	URL             string
+	Visibility      string
+	ModuleResources []string
 }
 
-func createMetadata(draft bool, modelType, framework, url, visibility string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url, visibility string, moduleResources []string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
 	if typeErr != nil || frameWorkErr != nil {
 		return nil, errors.Wrap(multierr.Combine(typeErr, frameWorkErr), "failed to set metadata")
 	}
+	if err := validateRegistryModuleResources(mlTrainingFlagFramework, f, moduleResources); err != nil {
+		return nil, err
+	}
 
 	return &MLMetadata{
-		Draft:      draft,
-		ModelType:  t,
-		Framework:  f,
-		URL:        url,
-		Visibility: visibility,
+		Draft:           draft,
+		ModelType:       t,
+		Framework:       f,
+		URL:             url,
+		Visibility:      visibility,
+		ModuleResources: moduleResources,
 	}, nil
 }
 
@@ -690,6 +822,19 @@ var (
 	visibilityKey     = "visibility"
 )
 
+// stringList converts a string slice to a form structpb.NewStruct accepts. An empty slice is
+// omitted so non-registry uploads do not write deployment_modular_resources.
+func stringList(values []string) []any {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]any, len(values))
+	for i, value := range values {
+		out[i] = value
+	}
+	return out
+}
+
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap := make(map[string]interface{})
 	metadataMap[modelTypeKey] = metadata.ModelType
@@ -697,6 +842,9 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[draftKey] = metadata.Draft
 	metadataMap[urlKey] = metadata.URL
 	metadataMap[visibilityKey] = metadata.Visibility
+	if resources := stringList(metadata.ModuleResources); resources != nil {
+		metadataMap[deploymentModularResourcesKey] = resources
+	}
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err
@@ -719,7 +867,7 @@ func convertVisibilityToProto(visibility string) (*v1.Visibility, error) {
 }
 
 type mlTrainingScriptTestLocalArgs struct {
-	ContainerVersion        string
+	ContainerID             string
 	DatasetFile             string
 	DatasetRoot             string
 	ModelOutputDirectory    string
@@ -729,6 +877,10 @@ type mlTrainingScriptTestLocalArgs struct {
 
 // MLTrainingScriptTestLocalAction runs training locally in a Docker container.
 func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args mlTrainingScriptTestLocalArgs) error {
+	if args.ContainerID == "" {
+		return errors.Errorf("--%s must not be empty", trainFlagContainerID)
+	}
+
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
@@ -768,7 +920,7 @@ func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args
 	defer os.Remove(tmpScript)
 
 	// Get container image name
-	containerImageURI, err := getContainerImageURI(client, args.ContainerVersion)
+	containerImageURI, err := getContainerImageURI(ctx, client, args.ContainerID)
 	if err != nil {
 		return err
 	}
@@ -998,24 +1150,11 @@ func isValidArgumentKey(key string) bool {
 	return key != "" && validArgumentKeyRegex.MatchString(key)
 }
 
-// getContainerImageURI returns the full container image URI based on the version.
-func getContainerImageURI(c *viamClient, version string) (string, error) {
-	res, err := c.mlTrainingClient.ListSupportedContainers(context.Background(), &mltrainingpb.ListSupportedContainersRequest{})
+// getContainerImageURI resolves a container ID to its image URI.
+func getContainerImageURI(ctx context.Context, c *viamClient, containerID string) (string, error) {
+	res, err := c.mlTrainingClient.GetContainer(ctx, &mltrainingpb.GetContainerRequest{Id: containerID})
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to list supported containers")
+		return "", errors.Wrapf(err, "failed to get container %s", containerID)
 	}
-
-	containerKeyList := []string{}
-	for key := range res.ContainerMap {
-		containerKeyList = append(containerKeyList, key)
-	}
-	slices.Sort(containerKeyList)
-
-	container, ok := res.ContainerMap[version]
-	if !ok {
-		warningf(c.c.Root().ErrWriter, "Container version %s not found. Supported versions: %s. "+
-			"Attempting to use provided value as container URI: %s", version, strings.Join(containerKeyList, ", "), version)
-		return version, nil
-	}
-	return container.Uri, nil
+	return res.GetContainer().GetUri(), nil
 }

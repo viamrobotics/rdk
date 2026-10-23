@@ -1015,8 +1015,9 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	logger.Info("got packets")
 
 	logger.Info("calling close")
-	test.That(t, remoteRobot2.Close(context.Background()), test.ShouldBeNil)
+	// Web service before robot: matches real viam-server shutdown; prevents remote-1 misreading an empty resource list as removal.
 	test.That(t, remoteWebSvc2.Close(context.Background()), test.ShouldBeNil)
+	test.That(t, remoteRobot2.Close(context.Background()), test.ShouldBeNil)
 	logger.Info("close called")
 
 	logger.Info("waiting for SubscribeRTP to stop receiving packets")
@@ -1162,8 +1163,9 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	logger.Info("got packets")
 
 	logger.Info("calling close")
-	test.That(t, remoteRobot2.Close(remote2Ctx), test.ShouldBeNil)
+	// Web service before robot; see TestWhyMustTimeoutOnReadRTP for why order matters.
 	test.That(t, remoteWebSvc2.Close(remote2Ctx), test.ShouldBeNil)
+	test.That(t, remoteRobot2.Close(remote2Ctx), test.ShouldBeNil)
 	logger.Info("close called")
 
 	logger.Info("waiting for SubscribeRTP to stop receiving packets")

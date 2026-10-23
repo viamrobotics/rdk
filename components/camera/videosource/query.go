@@ -13,7 +13,6 @@ import (
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
 	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
-	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -27,6 +26,12 @@ import (
 // Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
 // allowing all real camera resolutions while ensuring proper distance calculations.
 const minResolutionDimension = 2
+
+// Open V4L2 FDs with O_CLOEXEC so subprocesses (modules, shell) don't inherit them and keep
+// the device busy (EBUSY) when the webcam reopens. Linux only.
+func init() {
+	mediadevicescamera.SetCloseOnExec(true)
+}
 
 // Below is adapted from github.com/pion/mediadevices.
 // It is further adapted from gostream's query.go
@@ -56,19 +61,8 @@ func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.Med
 				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
 			}
 
-			if conf.Format == "" {
-				constraint.FrameFormat = prop.FrameFormatOneOf{
-					frame.FormatI420,
-					frame.FormatI444,
-					frame.FormatYUY2,
-					frame.FormatUYVY,
-					frame.FormatRGBA,
-					frame.FormatMJPEG,
-					frame.FormatNV12,
-					frame.FormatNV21,
-					frame.FormatZ16,
-				}
-			} else {
+			// An unset format is skipped during matching, so any format the driver reports is eligible
+			if conf.Format != "" {
 				constraint.FrameFormat = prop.FrameFormatExact(conf.Format)
 			}
 

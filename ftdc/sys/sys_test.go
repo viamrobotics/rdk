@@ -5,12 +5,20 @@
 package sys
 
 import (
+	"runtime"
 	"testing"
 
 	"go.viam.com/test"
 )
 
 func TestSelfSysUsageStatser(t *testing.T) {
+	// The 32-bit armhf CI job runs under qemu-user, which reports the /proc/<pid>/stat memory
+	// fields as 0, so RssMB/VssMB come back 0. That's a qemu limitation, not a 32-bit bug; skip
+	// on arm (the test runs normally on amd64/arm64).
+	if runtime.GOARCH == "arm" {
+		t.Skip("qemu-user hard-codes /proc/<pid>/stat memory fields to 0; can't verify under emulation")
+	}
+
 	statser, err := NewSelfSysUsageStatser()
 	test.That(t, err, test.ShouldBeNil)
 
