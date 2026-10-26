@@ -29,7 +29,7 @@ func ModelToProto(m Model) (*commonpb.KinematicModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	pb, err := ModelConfigToProto(sva)
+	pb, err := svaConfigToProto(sva)
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +102,11 @@ func ModelConfigToProto(cfg *ModelConfigJSON) (*commonpb.KinematicModel, error) 
 	if err != nil {
 		return nil, err
 	}
+	return svaConfigToProto(sva)
+}
+
+// svaConfigToProto converts a configuration whose DH parameters are already expanded.
+func svaConfigToProto(sva *ModelConfigJSON) (*commonpb.KinematicModel, error) {
 	pb := &commonpb.KinematicModel{
 		Name:         sva.Name,
 		OutputFrames: sva.OutputFrames,

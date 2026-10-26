@@ -74,11 +74,12 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
+	resp := fileKinematicsResponse(model.ModelConfig())
 	pb, err := ModelToProto(model)
 	if err != nil {
-		return fileKinematicsResponse(model.ModelConfig())
+		// a model that cannot be written as a message sends the file alone, as it always did
+		return resp
 	}
-	resp := fileKinematicsResponse(model.ModelConfig())
 	if len(resp.GetKinematicsData()) == 0 {
 		// a joint with no position bound cannot be written as JSON, in which case the bytes stay
 		// empty and the model alone carries the kinematics
@@ -222,7 +223,7 @@ type SimpleModel struct {
 type KinematicProperties struct {
 	// OperatingFreqHz is the rate the component expects to be driven at.
 	OperatingFreqHz float64
-	// MaxLinearTCPSpeedMMPerSec is the fastest the tool center point may move.
+	// MaxLinearTCPSpeedMMPerSec is the maximum speed of the tool center point.
 	MaxLinearTCPSpeedMMPerSec float64
 }
 
