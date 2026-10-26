@@ -404,48 +404,29 @@ jobs:
         secrets: |-
           public_key:projects/385154741571/secrets/ev-code-signing-public-key
 
-    - name: Set up Authenticode signing
-      env:
-        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
-        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
-      run: |
-        curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
-        printf '%s\n' "$SIGNING_CERT" > /tmp/cert.pem
-        printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
-        # java is a native Windows program, so msys2 paths are converted with cygpath -m
-        cat > /tmp/sign-binary.sh <<'EOF'
-        #!/bin/bash
-        set -euo pipefail
-        java -jar "$(cygpath -m /tmp/jsign.jar)" \
-          --storetype GOOGLECLOUD \
-          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key \
-          --storepass "$(cat /tmp/gcp-access-token)" \
-          --alias ev-code-signing-key/cryptoKeyVersions/2 \
-          --certfile "$(cygpath -m /tmp/cert.pem)" \
-          --name "Viam Server" \
-          --tsaurl http://timestamp.digicert.com \
-          --tsmode rfc3161 \
-          "$(cygpath -m "$1")"
-        EOF
-        chmod 755 /tmp/sign-binary.sh
-
     - name: Authorize GCP Upload
       # google-github-actions/auth@v3.0.0
       uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
+    # single quotes keep the display name one word through packaging.make's `test -z "$(SIGN_CMD)"`
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      env:
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
       run: |
-        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" SIGN_CMD=/tmp/sign-binary.sh static-release-win
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       env:
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
       run: |
-        make BUILD_CHANNEL="pr-${PR_NUMBER}" SIGN_CMD=/tmp/sign-binary.sh static-release-win
+        make BUILD_CHANNEL="pr-${PR_NUMBER}" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -461,16 +442,21 @@ jobs:
 
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
+      env:
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
       run: |
-        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" SIGN_CMD=/tmp/sign-binary.sh static-release-win
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       env:
         RELEASE_TYPE: ${{ inputs.release_type }}
         REF_NAME: ${{ github.ref_name }}
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
       run: |
-        make RELEASE_TYPE="${RELEASE_TYPE}" BUILD_CHANNEL="${REF_NAME}" SIGN_CMD=/tmp/sign-binary.sh static-release-win
+        make RELEASE_TYPE="${RELEASE_TYPE}" BUILD_CHANNEL="${REF_NAME}" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
 
     - name: Set Date
       id: build_date
