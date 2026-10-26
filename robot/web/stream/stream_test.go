@@ -682,6 +682,29 @@ func TestAddStreamBeforeWebReconfigure(t *testing.T) {
 	listResp, err = livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, listResp.Names, test.ShouldHaveLength, 2)
+
+	// AddStream and the web reconfigure can race to register the same stream.
+	raceNames := []string{"race1", "race2", "race3", "race4"}
+	for _, name := range raceNames {
+		cfg.Components = append(cfg.Components, cameraConfig(name))
+	}
+	robot.Reconfigure(ctx, cfg)
+	errs := make(chan error, len(raceNames)+1)
+	for _, name := range raceNames {
+		go func() {
+			_, err := livestreamClient.AddStream(ctx, &streampb.AddStreamRequest{Name: name})
+			errs <- err
+		}()
+	}
+	go func() {
+		errs <- webSvc.(resource.BuiltInResource).BuiltInReconfigure(ctx, nil, resource.Config{})
+	}()
+	for range len(raceNames) + 1 {
+		test.That(t, <-errs, test.ShouldBeNil)
+	}
+	listResp, err = livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, listResp.Names, test.ShouldHaveLength, 2+len(raceNames))
 }
 
 // TestRemoveStreamWhileCameraUnavailable asserts a stream removed while its camera is

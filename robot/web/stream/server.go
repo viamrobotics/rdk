@@ -194,7 +194,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// A camera can be ready before the web service's reconfigure has registered its stream.
-	if err := server.ensureStream(req.Name); err != nil {
+	if err := server.ensureStream(ctx, req.Name); err != nil {
 		server.logger.Error(err.Error())
 		return nil, err
 	}
@@ -516,7 +516,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 // if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera APIs
-	// and mutate the `svc.videoSources` map.
+	// and mutate the `server.videoSources` map.
 	server.refreshVideoSources(ctx)
 
 	server.mu.RLock()
@@ -541,11 +541,8 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			server.logger.Warn("video streaming not supported on Windows yet")
 			break
 		}
-		// We walk the updated set of `videoSources` and ensure all of the sources are "created" and
-		// "started".
-		// Call `createStream`. `createStream` is responsible for first checking if the stream
-		// already exists. If it does, it skips creating a new stream and we continue to the next source.
-		stream, alreadyRegistered, err := server.createStream(server.newStreamConfig(name), name)
+		// Skip streams already registered, including by AddStream.
+		stream, alreadyRegistered, err := server.createStream(server.newStreamConfig(ctx, name), name)
 		if err != nil {
 			return err
 		} else if alreadyRegistered {
@@ -559,7 +556,7 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 
 // ensureStream registers and starts a stream for the named camera if the camera exists and no
 // stream is registered for it yet.
-func (server *Server) ensureStream(name string) error {
+func (server *Server) ensureStream(ctx context.Context, name string) error {
 	server.mu.RLock()
 	_, ok := server.nameToStreamState[name]
 	server.mu.RUnlock()
@@ -567,7 +564,7 @@ func (server *Server) ensureStream(name string) error {
 		return nil
 	}
 
-	// Camera lookups can reach out to a module, so stay unlocked until registration.
+	// Don't hold mu while querying the camera: its Properties call can reach out to a module.
 	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		// AddStream reports the missing stream.
@@ -577,10 +574,13 @@ func (server *Server) ensureStream(name string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create video source from camera %q: %w", name, err)
 	}
-	config := server.newStreamConfig(name)
+	config := server.newStreamConfig(ctx, name)
 
 	server.mu.Lock()
 	defer server.mu.Unlock()
+	if !server.isAlive {
+		return errors.New("stream server is closed")
+	}
 	if _, ok := server.nameToStreamState[name]; ok {
 		return nil
 	}
@@ -604,12 +604,12 @@ func (server *Server) ensureStream(name string) error {
 }
 
 // newStreamConfig returns the stream config for the named camera.
-func (server *Server) newStreamConfig(name string) gostream.StreamConfig {
+func (server *Server) newStreamConfig(ctx context.Context, name string) gostream.StreamConfig {
 	// Attempt to look up the framerate for the camera. If the framerate is not available, we'll
 	// end up with a framerate of 0. This is fine as gostream will default to 30fps in this case.
 	//
 	// TODO(RSDK-9079) Add reliable framerate fetcher for stream videosources
-	framerate, err := server.getFramerateFromCamera(name)
+	framerate, err := server.getFramerateFromCamera(ctx, name)
 	if err != nil {
 		server.logger.Debugf("error getting framerate from camera %q: %v", name, err)
 	}
@@ -841,12 +841,12 @@ func (server *Server) startVideoStream(ctx context.Context, source gostream.Vide
 	})
 }
 
-func (server *Server) getFramerateFromCamera(name string) (int, error) {
+func (server *Server) getFramerateFromCamera(ctx context.Context, name string) (int, error) {
 	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get camera from robot: %w", err)
 	}
-	props, err := cam.Properties(context.Background())
+	props, err := cam.Properties(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get camera properties: %w", err)
 	}
