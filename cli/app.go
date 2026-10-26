@@ -1659,6 +1659,105 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
+					Name:            "sequence",
+					Usage:           "work with sequences of captured data",
+					UsageText:       createUsageText("data sequence", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create a sequence spanning a time range of data captured on a part",
+							UsageText: createUsageText("data sequence create",
+								[]string{generalFlagPartID, sequenceFlagResources, generalFlagStart, generalFlagEnd}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagPartID,
+									Required: true,
+									Usage:    "part ID the sequence's data was captured on",
+								},
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagResources,
+									Required: true,
+									Usage: "resources in the sequence, each as <resource-name>:<method> " +
+										"(e.g. camera-1:ReadImage); repeat the flag or comma-separate values",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagStart,
+									Required: true,
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the sequence",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagEnd,
+									Required: true,
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the sequence",
+								},
+								&cli.StringSliceFlag{
+									Name:  generalFlagTags,
+									Usage: "tags to apply to the sequence",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceCreateArgs](DataSequenceCreateAction),
+						},
+						{
+							Name:      "get",
+							Usage:     "get a sequence by ID",
+							UsageText: createUsageText("data sequence get", []string{sequenceFlagSequenceID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     sequenceFlagSequenceID,
+									Required: true,
+									Usage:    "ID of the sequence",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceGetArgs](DataSequenceGetAction),
+						},
+						{
+							Name:  "update",
+							Usage: "update a sequence; only the fields whose flags are passed are changed",
+							UsageText: createUsageText("data sequence update",
+								[]string{sequenceFlagSequenceID}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     sequenceFlagSequenceID,
+									Required: true,
+									Usage:    "ID of the sequence to update",
+								},
+								&cli.StringSliceFlag{
+									Name: sequenceFlagResources,
+									Usage: "replaces the sequence's full resource list, each as <resource-name>:<method>; " +
+										"repeat the flag or comma-separate values",
+								},
+								&cli.StringSliceFlag{
+									Name:  generalFlagTags,
+									Usage: "replaces the sequence's tags; pass \"\" to clear them",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagStart,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the new start of the sequence",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagEnd,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the new end of the sequence",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceUpdateArgs](DataSequenceUpdateAction),
+						},
+						{
+							Name:      "delete",
+							Usage:     "delete sequences by ID",
+							UsageText: createUsageText("data sequence delete", []string{sequenceFlagSequenceIDs}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagSequenceIDs,
+									Required: true,
+									Usage:    "IDs of the sequences to delete",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceDeleteArgs](DataSequenceDeleteAction),
+						},
+					},
+				},
+				{
 					Name:            "database",
 					Usage:           "interact with a MongoDB Atlas Data Federation instance",
 					UsageText:       createUsageText("data database", nil, false, true),
@@ -1859,6 +1958,11 @@ Note: There is no progress meter while copying is in progress.
 							Name:     datasetFlagName,
 							Required: true,
 							Usage:    "name of the new dataset",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagType,
+							Usage: formatAcceptedValues("type of data the dataset holds", datasetTypeBinary, datasetTypeSequence),
+							Value: datasetTypeBinary,
 						},
 					},
 					Action: createActionCommandWithT[datasetCreateArgs](DatasetCreateAction),
@@ -2098,6 +2202,52 @@ Note: There is no progress meter while copying is in progress.
 									Action: createActionCommandWithT[dataRemoveFromDatasetByFilterArgs](DataRemoveFromDatasetByFilter),
 								},
 							},
+						},
+					},
+				},
+				{
+					Name:            "sequence",
+					Usage:           "add or remove sequences from a sequence dataset",
+					UsageText:       createUsageText("dataset sequence", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:  "add",
+							Usage: "adds sequences to a sequence dataset",
+							UsageText: createUsageText("dataset sequence add",
+								[]string{datasetFlagDatasetID, sequenceFlagSequenceIDs}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Required: true,
+									Usage:    "ID of the sequence dataset to which sequences will be added",
+								},
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagSequenceIDs,
+									Required: true,
+									Usage:    "IDs of the sequences to add",
+								},
+							},
+							Action: createActionCommandWithT[datasetSequenceArgs](DatasetSequenceAddAction),
+						},
+						{
+							Name:  "remove",
+							Usage: "removes sequences from a sequence dataset",
+							UsageText: createUsageText("dataset sequence remove",
+								[]string{datasetFlagDatasetID, sequenceFlagSequenceIDs}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Required: true,
+									Usage:    "ID of the sequence dataset from which sequences will be removed",
+								},
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagSequenceIDs,
+									Required: true,
+									Usage:    "IDs of the sequences to remove",
+								},
+							},
+							Action: createActionCommandWithT[datasetSequenceArgs](DatasetSequenceRemoveAction),
 						},
 					},
 				},
