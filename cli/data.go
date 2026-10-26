@@ -355,7 +355,7 @@ func createDataFilter(cmd *cli.Command) (*datapb.Filter, error) {
 	}
 	// Similar to the above comment, we only want to add filter tags with --tags if we're NOT
 	// running the tag command.
-	if !strings.Contains(cmd.UsageText, "tag") && args.Tags != nil {
+	if !strings.Contains(cmd.UsageText, "tag") && len(args.Tags) > 0 {
 		if len(args.FilterTags) == 0 {
 			switch {
 			case len(args.Tags) == 1 && args.Tags[0] == "tagged":
