@@ -25,6 +25,22 @@ import (
 
 const defaultTeleopSmoothAlpha = 0.5
 
+// teleopMoveOptions builds the arm.MoveOptions the teleop executor passes with
+// every arm move. Returns nil when no caps are set so the arm driver falls back
+// to its own configured limits.
+func teleopMoveOptions(conf *Config) *arm.MoveOptions {
+	if conf == nil {
+		return nil
+	}
+	if conf.TeleopMaxVelDegsPerSec == 0 && conf.TeleopMaxAccDegsPerSecSquared == 0 {
+		return nil
+	}
+	return &arm.MoveOptions{
+		MaxVelRads: utils.DegToRad(conf.TeleopMaxVelDegsPerSec),
+		MaxAccRads: utils.DegToRad(conf.TeleopMaxAccDegsPerSecSquared),
+	}
+}
+
 // teleopComponent tracks a single component being teleop'd within the pipeline.
 type teleopComponent struct {
 	name        string
@@ -305,11 +321,13 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 	// NOTE: caller (runExecutor) already holds ms.mu.RLock, so safe to read ms.conf directly.
 	smoothAlpha := defaultTeleopSmoothAlpha
 	interpolateOverride := false
+	var moveOpts *arm.MoveOptions
 	if ms.conf != nil {
 		if ms.conf.TeleopSmoothAlpha > 0 {
 			smoothAlpha = ms.conf.TeleopSmoothAlpha
 		}
 		interpolateOverride = ms.conf.TeleopInterpolateOverride
+		moveOpts = teleopMoveOptions(ms.conf)
 	}
 
 	// Send joint targets to all components in parallel.
@@ -346,12 +364,12 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			var err error
 			if armComp, ok := r.(arm.Arm); ok {
 				if interpolateOverride {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
+					err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, map[string]interface{}{
 						"waitAtEnd":   true,
 						"interpolate": true,
 					})
 				} else {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
+					err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, map[string]interface{}{
 						"waitAtEnd":   false,
 						"interpolate": false,
 					})
@@ -495,6 +513,12 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			trajCh:           make(chan motionplan.Trajectory, 1),
 			planningHead:     fsInputs,
 			smoothedJoints:   make(map[string][]referenceframe.Input),
+		}
+		if mo := teleopMoveOptions(ms.conf); mo != nil {
+			tp.logger.CInfof(cmdCtx, "teleop pipeline starting with speed caps: max_vel_rads=%v max_acc_rads=%v",
+				mo.MaxVelRads, mo.MaxAccRads)
+		} else {
+			tp.logger.CInfo(cmdCtx, "teleop pipeline starting with no speed caps (arm driver limits apply)")
 		}
 
 		comp := &teleopComponent{

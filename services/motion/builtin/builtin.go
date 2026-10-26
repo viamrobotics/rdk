@@ -106,6 +106,16 @@ type Config struct {
 	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
 	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
+
+	// TeleopMaxVelDegsPerSec caps joint velocity (degrees per second) on every arm move the
+	// teleop executor dispatches. Forwarded as arm.MoveOptions.MaxVelRads. Zero means no cap
+	// from the motion service — the arm's own driver config is the only ceiling. Set this for
+	// any teleop deployment where the stock arm speed would be unsafe for human-in-the-loop use.
+	TeleopMaxVelDegsPerSec float64 `json:"teleop_max_vel_degs_per_sec"`
+	// TeleopMaxAccDegsPerSecSquared caps joint acceleration (degrees per second squared) on
+	// every arm move the teleop executor dispatches. Forwarded as arm.MoveOptions.MaxAccRads.
+	// Zero means no cap from the motion service.
+	TeleopMaxAccDegsPerSecSquared float64 `json:"teleop_max_acc_degs_per_sec_squared"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -134,6 +144,13 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
 	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
+	}
+
+	if c.TeleopMaxVelDegsPerSec < 0 {
+		return nil, nil, fmt.Errorf("teleop_max_vel_degs_per_sec must be non-negative, got %v", c.TeleopMaxVelDegsPerSec)
+	}
+	if c.TeleopMaxAccDegsPerSecSquared < 0 {
+		return nil, nil, fmt.Errorf("teleop_max_acc_degs_per_sec_squared must be non-negative, got %v", c.TeleopMaxAccDegsPerSecSquared)
 	}
 
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
