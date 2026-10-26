@@ -35,21 +35,20 @@ const (
 
 var errTestCloudConnection = errors.New("cloud connection error")
 
-// useShortInitTimeouts lowers the property-initialization timeouts so tests exercising
-// failure-to-initialize paths fail quickly. The original values are restored via t.Cleanup so
-// that subsequent tests in the package run with the production timeouts. Otherwise the shortened
-// deadlines leak across tests (package-level vars are shared) and make later tests flaky under
-// load, since a single slow TabularDataByFilter call exceeds the 1s deadline (RSDK-14334).
-func useShortInitTimeouts(t *testing.T) {
+// useShortPropertiesInitTimeout lowers the property-initialization timeout so tests exercising
+// failure-to-initialize paths fail quickly. The original value is restored via t.Cleanup so that
+// subsequent tests in the package run with the production timeout, as the package-level var is
+// shared (RSDK-14334). tabularDataByFilterTimeout is deliberately left at its production value:
+// the failure paths time out via initializePropertiesTimeout regardless, whereas shortening the
+// per-call deadline makes any single slow TabularDataByFilter call fail a test under CI load
+// (RSDK-14821).
+func useShortPropertiesInitTimeout(t *testing.T) {
 	t.Helper()
 	origInitializePropertiesTimeout := initializePropertiesTimeout
-	origTabularDataByFilterTimeout := tabularDataByFilterTimeout
 	t.Cleanup(func() {
 		initializePropertiesTimeout = origInitializePropertiesTimeout
-		tabularDataByFilterTimeout = origTabularDataByFilterTimeout
 	})
 	initializePropertiesTimeout = 2 * time.Second
-	tabularDataByFilterTimeout = 1 * time.Second
 }
 
 // mockDataServiceServer is a struct that includes unimplemented versions of all the Data Service endpoints. These

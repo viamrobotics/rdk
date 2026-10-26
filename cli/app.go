@@ -4264,7 +4264,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload-local --model-name acme:module-name:mybase --name my-resource
+	viam module reload-local --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Build and configure a module running on your local machine without shipping a tarball.
 	viam module reload-local --local
@@ -4279,16 +4279,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Usage: "path to a meta.json. its module ID is the module that is configured and restarted",
 							Value: "meta.json",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --id",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagID,
-							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
@@ -4352,7 +4344,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource
+	viam module reload --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Trigger a reload build of a module located in a different directory than the current workdir
 	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
@@ -4364,7 +4356,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
+							Usage: "relative path to a meta.json from workdir (default: ./). its module ID identifies the module to reload",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{

@@ -16,6 +16,9 @@ const (
 	defaultVelLimitRadPerSec     = 10 * math.Pi / 180 // 10 deg/s
 	defaultAccelLimitRadPerSec2  = 10 * math.Pi / 180 // 10 deg/s^2
 	defaultDiagnosticsWindowSecs = 60
+
+	maxTargetsDroppedInARowDueToTrajexExtendErrorKey = "max_targets_dropped_in_a_row_due_to_trajex_extend_error"
+	forceRebaseIfExtendLatencyExceedsMsKey           = "force_rebase_if_extend_latency_exceeds_ms"
 )
 
 // StreamOptions tunes the streaming executor.
@@ -36,6 +39,20 @@ type StreamOptions struct {
 	// 0 disables retention of that history, though whole-run diagnostic stats are still
 	// collected regardless.
 	DiagnosticsWindowSecs int
+
+	// MaxTargetsDroppedInARowDueToTrajexExtendError bounds how many targets in a row trajex may reject before the
+	// session gives up. The default, zero, ends the session on the first rejected target.
+	//
+	// This is a band-aid because trajex still returns errors where it could be made to accept the target.
+	// It should eventually be removed.
+	MaxTargetsDroppedInARowDueToTrajexExtendError int
+
+	// ForceRebaseIfExtendLatencyExceedsMs is the Extend latency past which the session is forced to
+	// stage. The default, zero, never forces a stage.
+	//
+	// This option can be removed once trajex extend latency no longer grows without bound with the number
+	// of targets added to the trajex session.
+	ForceRebaseIfExtendLatencyExceedsMs int
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
@@ -73,13 +90,46 @@ func (o *StreamOptions) Validate() error {
 	); err != nil {
 		return err
 	}
-	if o.MoveOptions.MaxTCPSpeedMPerSec != nil {
-		return errors.New("streaming: move_options.max_tcp_speed is not currently supported for arm streaming")
+	if o.MoveOptions.MaxTCPSpeedMPerSec != nil && *o.MoveOptions.MaxTCPSpeedMPerSec <= 0 {
+		return errors.New("streaming: move_options.max_tcp_speed must be positive")
 	}
 	if o.DiagnosticsWindowSecs < 0 {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
+	if o.MaxTargetsDroppedInARowDueToTrajexExtendError < 0 {
+		return errors.New("streaming: max_targets_dropped_in_a_row_due_to_trajex_extend_error must be non-negative")
+	}
+	if o.ForceRebaseIfExtendLatencyExceedsMs < 0 {
+		return errors.New("streaming: force_rebase_if_extend_latency_exceeds_ms must be non-negative")
+	}
 	return nil
+}
+
+// MaxTargetsDroppedInARowDueToTrajexExtendError reads maxTargetsDroppedInARowDueToTrajexExtendErrorKey from a
+// TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
+func MaxTargetsDroppedInARowDueToTrajexExtendError(extra map[string]interface{}) (int, error) {
+	return int32FromExtra(extra, maxTargetsDroppedInARowDueToTrajexExtendErrorKey)
+}
+
+// ForceRebaseIfExtendLatencyExceedsMs reads forceRebaseIfExtendLatencyExceedsMsKey from a
+// TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
+func ForceRebaseIfExtendLatencyExceedsMs(extra map[string]interface{}) (int, error) {
+	return int32FromExtra(extra, forceRebaseIfExtendLatencyExceedsMsKey)
+}
+
+func int32FromExtra(extra map[string]interface{}, key string) (int, error) {
+	v, ok := extra[key]
+	if !ok {
+		return 0, nil
+	}
+	n, ok := v.(float64)
+	if !ok {
+		return 0, fmt.Errorf("streaming: extra %q must be a float64, got %T", key, v)
+	}
+	if n < 0 || n != math.Trunc(n) {
+		return 0, fmt.Errorf("streaming: extra %q must be a non-negative whole number, got %v", key, n)
+	}
+	return int(n), nil
 }
 
 // NewStreamOptions returns a StreamOptions containing the configuration values set in opts, and

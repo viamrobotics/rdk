@@ -73,7 +73,7 @@ func newCacheForFrame(f referenceframe.Frame, logger logging.Logger) (*cacheForF
 	ccf := &cacheForFrame{}
 
 	if IsTooSmallForCache() {
-		logger.Warnf("not building cache because " + okForSmartCacheBadReason)
+		logger.Warnf("%s", "not building cache because "+okForSmartCacheBadReason)
 		return ccf, nil
 	}
 

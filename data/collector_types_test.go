@@ -11,6 +11,7 @@ import (
 	commonPB "go.viam.com/api/common/v1"
 	armPB "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -295,20 +296,19 @@ func verifyStruct(t *testing.T, res CaptureResult, now time.Time, output *struct
 	test.That(t, res.TimeReceived, test.ShouldHappenBefore, time.Now())
 	test.That(t, res.Binaries, test.ShouldBeNil)
 	test.That(t, res.TabularData.Payload, test.ShouldNotBeNil)
-	test.That(t, res.TabularData.Payload, test.ShouldResemble, output)
+	// proto.Equal, since RecordMessageSize populates the payload's internal size cache.
+	test.That(t, proto.Equal(res.TabularData.Payload, output), test.ShouldBeTrue)
 
 	test.That(t, res.Validate(), test.ShouldBeNil)
 
 	// confirm input conforms to ToProto expectations
-	for _, proto := range res.ToProto() {
-		test.That(t, proto.Metadata, test.ShouldResemble, &datasyncPB.SensorMetadata{
+	for _, sd := range res.ToProto() {
+		test.That(t, sd.Metadata, test.ShouldResemble, &datasyncPB.SensorMetadata{
 			TimeRequested: timestamppb.New(res.TimeRequested.UTC()),
 			TimeReceived:  timestamppb.New(res.TimeReceived.UTC()),
 		})
 
-		test.That(t, proto.Data, test.ShouldResemble, &datasyncPB.SensorData_Struct{
-			Struct: output,
-		})
+		test.That(t, proto.Equal(sd.GetStruct(), output), test.ShouldBeTrue)
 	}
 }
 

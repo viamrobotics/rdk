@@ -1055,20 +1055,35 @@ func TestPartialStart(t *testing.T) {
 }
 
 func TestPackageTypeConversion(t *testing.T) {
-	emptyType := PackageType("")
-	_, err := PackageTypeToProto(emptyType)
-	test.That(t, err, test.ShouldNotBeNil)
+	testCases := []struct {
+		configType PackageType
+		protoType  packagespb.PackageType
+	}{
+		{PackageTypeArchive, packagespb.PackageType_PACKAGE_TYPE_ARCHIVE},
+		{PackageTypeMlModel, packagespb.PackageType_PACKAGE_TYPE_ML_MODEL},
+		{PackageTypeModule, packagespb.PackageType_PACKAGE_TYPE_MODULE},
+		{PackageTypeSlamMap, packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP},
+		{PackageTypeUnspecified, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED},
+		{PackageTypeMlTraining, packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING},
+	}
+	for _, tc := range testCases {
+		convertedProto, err := PackageTypeToProto(tc.configType)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, convertedProto, test.ShouldResemble, tc.protoType.Enum())
 
-	moduleType := PackageType("module")
-	converted, err := PackageTypeToProto(moduleType)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum())
+		convertedConfig, err := PackageTypeFromProto(tc.protoType)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, convertedConfig, test.ShouldEqual, tc.configType)
+	}
 
-	badType := PackageType("invalid-package-type")
-	converted, err = PackageTypeToProto(badType)
+	convertedProto, err := PackageTypeToProto(PackageType("invalid-package-type"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
-	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
+	test.That(t, convertedProto, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
+
+	convertedConfig, err := PackageTypeFromProto(packagespb.PackageType(100))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, convertedConfig, test.ShouldEqual, PackageType(""))
 }
 
 func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
@@ -1312,4 +1327,14 @@ func TestTracingConfigFromProto(t *testing.T) {
 			test.That(t, traceCfg.OTLPEndpoint, test.ShouldResemble, cfg.OtlpEndpoint)
 		})
 	}
+}
+
+func TestFrameConfigToProtoRefusesSeveralGeometries(t *testing.T) {
+	_, err := FrameConfigToProto(referenceframe.LinkConfig{
+		Parent:     "world",
+		Geometry:   &spatial.GeometryConfig{Type: spatial.SphereType, R: 1},
+		Geometries: []spatial.GeometryConfig{{Type: spatial.SphereType, R: 2}},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "carries one")
 }

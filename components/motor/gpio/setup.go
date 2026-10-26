@@ -208,7 +208,7 @@ func createNewMotor(
 		resp, err := e.DoCommand(ctx, cmd)
 		if err != nil {
 			if !errors.Is(err, resource.ErrDoUnimplemented) {
-				logger.Infof("DoCommand Errored, likely not a single encoder, err = %w", err)
+				logger.Infof("DoCommand Errored, likely not a single encoder, err = %v", err)
 			}
 		}
 

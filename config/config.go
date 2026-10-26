@@ -513,6 +513,11 @@ func (conf *Remote) validate(path string) error {
 		if conf.Frame.Parent == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
+		// as for a component, pb.Frame carries one geometry
+		if len(conf.Frame.Geometries) > 0 {
+			return resource.NewConfigValidationError(path,
+				errors.New("frame.geometries is not supported in a machine config, a frame holds one geometry under frame.geometry"))
+		}
 	}
 
 	if conf.Secret != "" {
@@ -1175,6 +1180,10 @@ const (
 	PackageTypeSlamMap PackageType = "slam_map"
 	// PackageTypeArchive represents a generic archive.
 	PackageTypeArchive PackageType = "archive"
+	// PackageTypeUnspecified is the zero value for package type.
+	PackageTypeUnspecified PackageType = ""
+	// PackageTypeMlTraining is ML training
+	PackageTypeMlTraining PackageType = "ml_training"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.

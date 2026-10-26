@@ -103,7 +103,7 @@ func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePack
 
 		err := server.httpserver.Serve(httplistener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Warnf("Error shutting down test server", "error", err)
+			logger.Warnw("Error shutting down test server", "error", err)
 		}
 	})
 
@@ -131,7 +131,7 @@ func NewFakePackageServer(ctx context.Context, logger logging.Logger) (*FakePack
 
 		err := server.rpcServer.Serve(rpclistener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Warnf("Error shutting down grpc server", "error", err)
+			logger.Warnw("Error shutting down grpc server", "error", err)
 		}
 	})
 
