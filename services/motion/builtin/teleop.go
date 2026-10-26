@@ -363,17 +363,18 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			defer wg.Done()
 			var err error
 			if armComp, ok := r.(arm.Arm); ok {
-				if interpolateOverride {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, map[string]interface{}{
-						"waitAtEnd":   true,
-						"interpolate": true,
-					})
-				} else {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, map[string]interface{}{
-						"waitAtEnd":   false,
-						"interpolate": false,
-					})
+				var extras map[string]interface{}
+				switch {
+				case moveOpts != nil:
+					// Enable driver-side interpolation so arm time-parameterizes against
+					// MaxVelRads/MaxAccRads. waitAtEnd=false keeps the pipeline unblocked.
+					extras = map[string]interface{}{"waitAtEnd": false, "interpolate": true}
+				case interpolateOverride:
+					extras = map[string]interface{}{"waitAtEnd": true, "interpolate": true}
+				default:
+					extras = map[string]interface{}{"waitAtEnd": false, "interpolate": false}
 				}
+				err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, extras)
 			} else {
 				err = ie.GoToInputs(ctx, smoothed...)
 			}
