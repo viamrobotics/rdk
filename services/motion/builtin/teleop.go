@@ -358,6 +358,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		}
 		tp.smoothedJoints[name] = prev
 
+		tp.logger.CInfof(ctx, "teleop executor: dispatching to %q, r type=%T", name, r)
 		wg.Add(1)
 		go func(i int, ie framesystem.InputEnabled, smoothed [][]referenceframe.Input, r resource.Resource) {
 			defer wg.Done()
@@ -377,10 +378,11 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 					velRads = moveOpts.MaxVelRads
 					accRads = moveOpts.MaxAccRads
 				}
-				tp.logger.CInfof(ctx, "teleop->arm: steps=%d extras=%v MaxVelRads=%v MaxAccRads=%v",
+				tp.logger.CInfof(ctx, "teleop->arm.Arm path: steps=%d extras=%v MaxVelRads=%v MaxAccRads=%v",
 					len(smoothed), extras, velRads, accRads)
 				err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, extras)
 			} else {
+				tp.logger.CInfof(ctx, "teleop->GoToInputs path (no caps): steps=%d", len(smoothed))
 				err = ie.GoToInputs(ctx, smoothed...)
 			}
 			if err != nil {
