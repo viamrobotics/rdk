@@ -150,7 +150,9 @@ type fakeCamera struct {
 	props      []prop.Media
 	openErr    error
 	propsPanic bool
-	recorded   atomic.Pointer[prop.Media]
+	// onOpen, when set, runs on every Open so a test can change the driver registry mid-query.
+	onOpen   func()
+	recorded atomic.Pointer[prop.Media]
 }
 
 func newFakeCamera(available bool) *fakeCamera {
@@ -163,7 +165,12 @@ func media(width, height int, frameRate float32, format frame.Format) prop.Media
 	return prop.Media{Video: prop.Video{Width: width, Height: height, FrameRate: frameRate, FrameFormat: format}}
 }
 
-func (f *fakeCamera) Open() error  { return f.openErr }
+func (f *fakeCamera) Open() error {
+	if f.onOpen != nil {
+		f.onOpen()
+	}
+	return f.openErr
+}
 func (f *fakeCamera) Close() error { return nil }
 
 func (f *fakeCamera) Properties() []prop.Media {

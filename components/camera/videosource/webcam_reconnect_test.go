@@ -155,7 +155,8 @@ func TestMonitorRefusesNameFallbackWhenMultipleAppear(t *testing.T) {
 	waitForDisconnect(t, c)
 
 	// Both candidates are registered unavailable first so that a monitor tick landing between the two
-	// registrations cannot open the lone candidate; they are only made available once both exist.
+	// registrations cannot open the lone candidate; they are only made available once both exist. Such a
+	// tick still finds both registered when findReaderAndDriverByName re-checks after opening one.
 	fakeA2, _ := registerFakeCamera(t, "rdk-test-multi-a2", "rdk-test-multi-cam", false)
 	fakeA3, a3 := registerFakeCamera(t, "rdk-test-multi-a3", "rdk-test-multi-cam", false)
 	fakeA2.available.Store(true)
