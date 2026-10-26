@@ -180,13 +180,18 @@ func meshDataByLink(cfg *ModelConfigJSON) map[string][]byte {
 	return meshes
 }
 
+// checkKinematicsPreserved checks that what the wire carried came through whole, the mesh bytes
+// on every link and the typed model, which is what a reader on the other side builds from.
 func checkKinematicsPreserved(t *testing.T, want Model, got *FrameSystemPart) {
 	t.Helper()
 	test.That(t, got.ModelFrame, test.ShouldNotBeNil)
 	test.That(t, len(got.ModelFrame.DoF()), test.ShouldEqual, len(want.DoF()))
-	test.That(t, got.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, want.ModelConfig().OriginalFile)
 	test.That(t, meshDataByLink(got.ModelFrame.ModelConfig()), test.ShouldResemble, meshDataByLink(want.ModelConfig()))
-	test.That(t, proto2.Equal(KinematicModelToProtobuf(got.ModelFrame), KinematicModelToProtobuf(want)), test.ShouldBeTrue)
+	wantModel, err := ModelToProto(want)
+	test.That(t, err, test.ShouldBeNil)
+	gotModel, err := ModelToProto(got.ModelFrame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto2.Equal(gotModel, wantModel), test.ShouldBeTrue)
 }
 
 func TestFrameSystemPartKinematicsBytes(t *testing.T) {
@@ -234,6 +239,8 @@ func TestProtobufToFrameSystemPartAcceptsByteLists(t *testing.T) {
 			restored, err := ProtobufToFrameSystemPart(&robotpb.FrameSystemConfig{Frame: frame, Kinematics: legacy})
 			test.That(t, err, test.ShouldBeNil)
 			checkKinematicsPreserved(t, model, restored)
+			// the Struct carries the file the model was read from, and a reader of the Struct keeps it
+			test.That(t, restored.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, model.ModelConfig().OriginalFile)
 		})
 	}
 }
@@ -886,10 +893,9 @@ func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
 	return b
 }
 
-// A part carries the typed model beside the Struct. While the Struct is there a reader keeps using
-// it, since it carries the file the model was read from, and a reader of a message with the Struct
-// left out, which is what a server past the deprecation window sends, builds the same part from
-// the model.
+// A part carries the typed model beside the Struct, a reader builds the part from the model whenever
+// it is there, and a message with the Struct left out, which is what a server past the deprecation
+// window sends, builds the same part.
 func TestFrameSystemPartCarriesTypedModel(t *testing.T) {
 	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -904,11 +910,15 @@ func TestFrameSystemPartCarriesTypedModel(t *testing.T) {
 	//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 	test.That(t, len(pbMsg.GetKinematics().GetFields()), test.ShouldBeGreaterThan, 0)
 
-	// with both present the Struct is read, and the part re-serves the file it was given
+	// with both present the model is read, so a Struct describing another model is never seen
+	other, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	otherStruct, err := modelConfigToStructPb(other.ModelConfig())
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg.Kinematics = otherStruct //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 	restored, err := ProtobufToFrameSystemPart(pbMsg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, restored.ModelFrame.Name(), test.ShouldEqual, "arm")
-	test.That(t, restored.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, model.ModelConfig().OriginalFile)
 	assertSameKinematics(t, model, restored.ModelFrame)
 
 	// with the Struct gone the model alone carries the part

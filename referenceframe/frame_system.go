@@ -1297,17 +1297,19 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 	}
 
-	// the Struct is read first while a server still sends it, since it carries the file the model
-	// was read from and the typed model does not, so the part re-serves the same kinematics it
-	// was given. The model alone carries the part once the Struct is gone.
-	if len(fsc.GetKinematics().AsMap()) == 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
-		if model := fsc.GetModel(); len(model.GetLinks())+len(model.GetJoints()) > 0 {
-			modelFrame, err := ModelFromProto(model, frameConfig.Name())
-			if err != nil {
-				return nil, err
-			}
-			part.ModelFrame = modelFrame
+	// the typed model wins whenever a server sent one with something in it. The Struct also
+	// carries the file the model was read from, which the model does not, but nothing reads that
+	// file out of a frame system config, and reading the model here is what exercises it between
+	// machines before the Struct goes away.
+	if model := fsc.GetModel(); len(model.GetLinks())+len(model.GetJoints()) > 0 {
+		modelFrame, err := ModelFromProto(model, frameConfig.Name())
+		if err != nil {
+			return nil, err
 		}
+		part.ModelFrame = modelFrame
+		return part, nil
+	}
+	if len(fsc.GetKinematics().AsMap()) == 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 		return part, nil
 	}
 
