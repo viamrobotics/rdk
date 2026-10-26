@@ -366,14 +366,19 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 				var extras map[string]interface{}
 				switch {
 				case moveOpts != nil:
-					// Enable driver-side interpolation so arm time-parameterizes against
-					// MaxVelRads/MaxAccRads. waitAtEnd=false keeps the pipeline unblocked.
 					extras = map[string]interface{}{"waitAtEnd": false, "interpolate": true}
 				case interpolateOverride:
 					extras = map[string]interface{}{"waitAtEnd": true, "interpolate": true}
 				default:
 					extras = map[string]interface{}{"waitAtEnd": false, "interpolate": false}
 				}
+				var velRads, accRads float64
+				if moveOpts != nil {
+					velRads = moveOpts.MaxVelRads
+					accRads = moveOpts.MaxAccRads
+				}
+				tp.logger.CInfof(ctx, "teleop->arm: steps=%d extras=%v MaxVelRads=%v MaxAccRads=%v",
+					len(smoothed), extras, velRads, accRads)
 				err = armComp.MoveThroughJointPositions(ctx, smoothed, moveOpts, extras)
 			} else {
 				err = ie.GoToInputs(ctx, smoothed...)
