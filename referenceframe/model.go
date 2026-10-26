@@ -68,7 +68,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 // the message, gets them written as an SVA file instead so a client that predates the model still
 // has something to parse. A model the message cannot describe, one holding a pose frame or
 // another model, or a geometry the message has no shape for, sends the file alone as before,
-// which for a model built in code is nothing.
+// which for a model built in code is nothing. Every mesh carries its bytes here. A server
+// answering GetKinematics goes through KinematicsResponse, which applies the request's mesh flags.
 //
 //nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
