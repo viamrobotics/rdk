@@ -169,6 +169,10 @@ func findRegisteredReaderAndDriver(
 	return reader, driver, path, nil
 }
 
+// errMultipleSameName is returned when more than one registered device reports the hardware name being
+// searched for, since identical devices cannot be told apart by Name.
+var errMultipleSameName = errors.New("cannot reconnect by name: multiple webcams with identical hardware names")
+
 // findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name.
 // It only proceeds when exactly one registered device has that Name to prevent ambiguity
 func findReaderAndDriverByName(
@@ -177,19 +181,25 @@ func findReaderAndDriverByName(
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
 	if countDevicesWithName(name) != 1 {
-		return nil, nil, "", errors.Errorf(
-			"cannot reconnect by name: multiple webcams with identical hardware names",
-		)
+		return nil, nil, "", errMultipleSameName
 	}
 
 	constraints := makeConstraints(conf, logger)
 
-	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
+	reader, d, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
-	return reader, driver, labels[0], nil
+	// Hot-plug registers devices while this runs, so a device sharing the name can appear after the count
+	// above. Re-check rather than hand back a driver that was picked arbitrarily from several identical ones.
+	if countDevicesWithName(name) != 1 {
+		if err := d.Close(); err != nil {
+			logger.Errorw("failed to close driver found by name", "error", err)
+		}
+		return nil, nil, "", errMultipleSameName
+	}
+	labels := strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)
+	return reader, d, labels[0], nil
 }
 
 // countDevicesWithName returns how many registered video devices have the given driver Name.
