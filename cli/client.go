@@ -6251,7 +6251,7 @@ func (c *viamClient) startRobotPartShell(
 	}()
 
 	utils.PanicCapturingGo(func() {
-		var data [64]byte
+		var data [4096]byte
 		for {
 			select {
 			case <-ctx.Done():
@@ -6265,11 +6265,13 @@ func (c *viamClient) startRobotPartShell(
 				close(input)
 				return
 			}
+			// a rune can split across stdin reads; coerce so the proto send stays valid UTF-8
+			text := shell.ValidUTF8(string(data[:n]))
 			select {
 			case <-ctx.Done():
 				close(input)
 				return
-			case input <- string(data[:n]):
+			case input <- text:
 			}
 		}
 	})

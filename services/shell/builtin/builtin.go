@@ -157,7 +157,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 
 	utils.PanicCapturingGo(func() {
 		defer close(output)
-		var data [64]byte
+		var data [4096]byte
 		for {
 			select {
 			case <-ctx.Done():
@@ -179,10 +179,12 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			if n == 0 {
 				continue
 			}
+			// a rune can split across pty reads; coerce so the proto send stays valid UTF-8
+			text := shell.ValidUTF8(string(data[:n]))
 			select {
 			case <-ctx.Done():
 				return
-			case output <- shell.Output{Output: string(data[:n])}:
+			case output <- shell.Output{Output: text}:
 			}
 		}
 	})

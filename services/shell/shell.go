@@ -3,6 +3,8 @@ package shell
 
 import (
 	"context"
+	"strings"
+	"unicode/utf8"
 
 	servicepb "go.viam.com/api/service/shell/v1"
 
@@ -71,6 +73,15 @@ type Output struct {
 	Output string // reflects stdout
 	Error  string // reflects stderr
 	EOF    bool
+}
+
+// ValidUTF8 coerces shell stream data to valid UTF-8. The Shell RPC carries it in a proto3
+// string, which fails to marshal on invalid bytes and would drop the stream.
+func ValidUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "�")
 }
 
 // SubtypeName is the name of the type of service.
