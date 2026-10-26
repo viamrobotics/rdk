@@ -186,20 +186,21 @@ func findReaderAndDriverByName(
 
 	constraints := makeConstraints(conf, logger)
 
-	reader, d, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
+	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
 	}
-	// Hot-plug registers devices while this runs, so a device sharing the name can appear after the count
-	// above. Re-check rather than hand back a driver that was picked arbitrarily from several identical ones.
+	// On darwin the hot-plug observer updates the driver manager as cameras are plugged in, so a second
+	// device with this name can appear between the count above and the open here. Re-check rather than hand
+	// back a driver that was picked arbitrarily from several identical ones.
 	if countDevicesWithName(name) != 1 {
-		if err := d.Close(); err != nil {
+		if err := driver.Close(); err != nil {
 			logger.Errorw("failed to close driver found by name", "error", err)
 		}
 		return nil, nil, "", errMultipleSameName
 	}
-	labels := strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)
-	return reader, d, labels[0], nil
+	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
+	return reader, driver, labels[0], nil
 }
 
 // countDevicesWithName returns how many registered video devices have the given driver Name.
