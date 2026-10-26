@@ -83,33 +83,53 @@ func findReaderAndDriver(
 	// The driver manager locks each of its own operations but not a sequence of them
 	driverRefreshMu.Lock()
 	defer driverRefreshMu.Unlock()
+	refreshDrivers()
+	return findRegisteredReaderAndDriver(conf, path, logger)
+}
+
+// refreshDrivers re-enumerates cameras so ones plugged in since startup can be found. On darwin the hot-plug
+// observer keeps the driver manager current instead. Must be called with driverRefreshMu held.
+func refreshDrivers() {
 	switch runtime.GOOS {
 	case "linux":
 		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
 		// So we can call Initialize() only once, and call discover() as many times as we need.
 		mediadevicescamera.Initialize()
 	case "windows":
-		manager := driver.GetManager()
-		held := map[string]string{}
-		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
-			if d.Status() == driver.StateClosed {
-				manager.Delete(d.ID())
-			} else {
-				held[d.Info().Label] = d.ID()
-			}
-		}
+		refreshWindowsDrivers(mediadevicescamera.Initialize)
+	}
+}
 
-		// Calling Initialize() creates new driver entries for every connected webcam (even ones already held)
-		mediadevicescamera.Initialize()
-
-		// Delete already held webcams to avoid duplication
-		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
-			if heldID, ok := held[d.Info().Label]; ok && d.ID() != heldID && d.Status() == driver.StateClosed {
-				manager.Delete(d.ID())
-			}
+// refreshWindowsDrivers drops closed drivers, then runs initialize and drops the duplicates it registers for
+// cameras that are already open.
+func refreshWindowsDrivers(initialize func()) {
+	manager := driver.GetManager()
+	held := map[string]string{}
+	for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+		if d.Status() == driver.StateClosed {
+			manager.Delete(d.ID())
+		} else {
+			held[d.Info().Label] = d.ID()
 		}
 	}
 
+	// Calling Initialize() creates new driver entries for every connected webcam (even ones already held)
+	initialize()
+
+	// Delete already held webcams to avoid duplication
+	for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+		if heldID, ok := held[d.Info().Label]; ok && d.ID() != heldID && d.Status() == driver.StateClosed {
+			manager.Delete(d.ID())
+		}
+	}
+}
+
+// findRegisteredReaderAndDriver is findReaderAndDriver without re-enumerating cameras first.
+func findRegisteredReaderAndDriver(
+	conf *WebcamConfig,
+	path string,
+	logger logging.Logger,
+) (video.Reader, driver.Driver, string, error) {
 	constraints := makeConstraints(conf, logger)
 
 	// Handle specific path
