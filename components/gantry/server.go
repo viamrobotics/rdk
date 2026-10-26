@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 )
 
 var unimplemented = "unimplemented"
@@ -133,7 +134,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.KinematicModelToProtobuf(model), nil
+	return referenceframe.KinematicsResponse(model, req), nil
 }
 
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
@@ -143,32 +144,14 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	}
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
-		// if the error tells us the method is unimplemented, then we
-		// can use the kinematics and joint positions endpoints to
-		// construct the geometries of the gantry
-		if strings.Contains(err.Error(), unimplemented) {
-			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
-			if err != nil {
-				return nil, err
-			}
-			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
-			if err != nil {
-				return nil, err
-			}
-
-			posResp, err := s.GetPosition(ctx, &pb.GetPositionRequest{Name: req.GetName()})
-			if err != nil {
-				return nil, err
-			}
-			gifs, err := model.Geometries(posResp.PositionsMm)
-			if err != nil {
-				return nil, err
-			}
-			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
-				gifs.Geometries(),
-			)}, nil
+		// a gantry that does not implement Geometries still has a model and a position, which
+		// together say where its geometry is
+		if !strings.Contains(err.Error(), unimplemented) {
+			return nil, err
 		}
-		return nil, err
+		if geometries, err = framesystem.GeometriesFromKinematics(ctx, res); err != nil {
+			return nil, err
+		}
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

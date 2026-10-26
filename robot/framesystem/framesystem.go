@@ -51,6 +51,25 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
+// GeometriesFromKinematics poses a resource's collision geometry at its current inputs. A
+// component server uses it when the resource does not implement Geometries itself, since the
+// model and the inputs together say where everything is.
+func GeometriesFromKinematics(ctx context.Context, res InputEnabled) ([]spatialmath.Geometry, error) {
+	model, err := res.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := res.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gifs, err := model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gifs.Geometries(), nil
+}
+
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource

@@ -358,7 +358,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 
 	// for performance we cache the model after building it once, and can quickly return if its already been created.
 	if c.model == nil {
-		resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+		resp, err := c.client.GetKinematics(ctx, referenceframe.KinematicsRequest(c.name))
 		if err != nil {
 			return nil, err
 		}

@@ -299,11 +299,60 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldResemble, errKinematicsUnimplemented)
 	})
 
+	t.Run("get kinematics for a client that reads the model", func(t *testing.T) {
+		resp, err := armServer.GetKinematics(context.Background(), referenceframe.KinematicsRequest(testArmName))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetModel().GetName(), test.ShouldEqual, testArmName)
+		//nolint:staticcheck // a client that asks for meshes reads the model, so the file is left out
+		test.That(t, resp.GetKinematicsData(), test.ShouldBeEmpty)
+	})
+
+	t.Run("get 3d models", func(t *testing.T) {
+		errNoModels := errors.New("Get3DModels unimplemented")
+		injectArm.Get3DModelsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+			return nil, errNoModels
+		}
+		injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			model, err := goodKinematicsJSON(ctx)
+			if err != nil {
+				return nil, err
+			}
+			sm, ok := model.(*referenceframe.SimpleModel)
+			test.That(t, ok, test.ShouldBeTrue)
+			err = sm.SetVisualGeometries("base_link", []spatialmath.GeometryConfig{
+				{Type: spatialmath.MeshType, MeshData: []byte("glb bytes"), MeshContentType: "glb"},
+			})
+			return sm, err
+		}
+		// an arm with no table of its own serves the visual meshes on its model
+		resp, err := armServer.Get3DModels(context.Background(), &commonpb.Get3DModelsRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetModels(), test.ShouldHaveLength, 1)
+		test.That(t, string(resp.GetModels()["base_link"].GetMesh()), test.ShouldEqual, "glb bytes")
+
+		// an arm with its own table keeps it
+		injectArm.Get3DModelsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+			return map[string]*commonpb.Mesh{"own": {ContentType: "glb", Mesh: []byte("own")}}, nil
+		}
+		resp, err = armServer.Get3DModels(context.Background(), &commonpb.Get3DModelsRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetModels(), test.ShouldHaveLength, 1)
+		test.That(t, string(resp.GetModels()["own"].GetMesh()), test.ShouldEqual, "own")
+
+		// with no table and no visuals the arm's own answer comes back
+		injectArm.Get3DModelsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+			return nil, errNoModels
+		}
+		injectArm.KinematicsFunc = goodKinematicsJSON
+		_, err = armServer.Get3DModels(context.Background(), &commonpb.Get3DModelsRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeError, errNoModels)
+		injectArm.KinematicsFunc = goodKinematics
+	})
+
 	t.Run("get geometries", func(t *testing.T) {
 		positions = []float64{0.0, -math.Pi / 2.0, 0.0, 0.0, math.Pi / 2.0, 0.0}
 		injectArm.KinematicsFunc = goodKinematicsJSON
-		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
-			extraOptions = extra
+		injectArm.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
 			return positions, nil
 		}
 		geometries, err := armServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testArmName})
