@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -43,15 +44,29 @@ type ModelFile struct {
 }
 
 // UnmarshalModelJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
-// will use the name from the JSON if string is empty.
+// will use the name from the JSON if string is empty. The data may be an SVA or DH document or the proto JSON of a
+// KinematicModel, see ReadKinematicModelFile. A kinematic model whose meshes live in files beside it has to be read
+// through ParseModelJSONFile, since bytes alone give no directory to find them in.
 func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
-	m := &ModelConfigJSON{OriginalFile: &ModelFile{Bytes: jsonData, Extension: "json"}}
+	return unmarshalModelJSON(jsonData, modelName, "")
+}
 
+// unmarshalModelJSON reads either encoding. dir is where a kinematic model's mesh files are
+// looked for, and is empty when the caller has nothing but bytes.
+func unmarshalModelJSON(jsonData []byte, modelName, dir string) (Model, error) {
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
 		return nil, ErrNoModelInformation
 	}
+	if isKinematicModelDocument(jsonData) {
+		pb, err := unmarshalKinematicModel(jsonData, dir)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse kinematic model")
+		}
+		return ModelFromProto(pb, modelName)
+	}
 
+	m := &ModelConfigJSON{OriginalFile: &ModelFile{Bytes: jsonData, Extension: "json"}}
 	err := json.Unmarshal(jsonData, m)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal json file")
@@ -244,14 +259,15 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 	return result, nil
 }
 
-// ParseModelJSONFile will read a given file and then parse the contained JSON data.
+// ParseModelJSONFile will read a given file and then parse the contained JSON data, which may be an SVA or DH
+// document or the proto JSON of a KinematicModel. Mesh files a kinematic model names are read relative to the file.
 func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	jsonData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	return UnmarshalModelJSON(jsonData, modelName)
+	return unmarshalModelJSON(jsonData, modelName, filepath.Dir(filename))
 }
 
 // buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
