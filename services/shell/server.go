@@ -175,7 +175,10 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 					DataErr: out.Error,
 					Eof:     out.EOF,
 				}); err != nil {
-					return srv.Context().Err()
+					// don't mask the send failure behind a nil context error; a marshaling
+					// failure here used to end the stream silently and looked like a clean exit.
+					server.logger.CErrorw(srv.Context(), "error sending shell output to client", "error", err)
+					return err
 				}
 				if out.EOF {
 					return nil

@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/charmbracelet/x/xpty"
 	"go.viam.com/utils"
@@ -44,6 +46,53 @@ type builtIn struct {
 	resource.TriviallyReconfigurable
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
+}
+
+// utf8Chunker reassembles pty reads so every emitted chunk is valid UTF-8. A multibyte
+// rune can straddle a read boundary, and proto3 string fields reject invalid UTF-8, so a
+// split rune would otherwise fail to marshal and tear down the whole shell stream.
+type utf8Chunker struct {
+	carry []byte
+}
+
+// push returns the portion of this read that is safe to send now, holding back a trailing
+// incomplete rune for the next read. Genuinely malformed bytes are replaced rather than
+// dropped so the stream survives non-UTF-8 output.
+func (c *utf8Chunker) push(b []byte) string {
+	chunk := make([]byte, 0, len(c.carry)+len(b))
+	chunk = append(append(chunk, c.carry...), b...)
+	boundary := safeUTF8Boundary(chunk)
+	out := string(chunk[:boundary])
+	c.carry = append([]byte(nil), chunk[boundary:]...)
+	if !utf8.ValidString(out) {
+		out = strings.ToValidUTF8(out, "�")
+	}
+	return out
+}
+
+// flush returns any held-back trailing bytes, sanitized, for use at EOF.
+func (c *utf8Chunker) flush() string {
+	if len(c.carry) == 0 {
+		return ""
+	}
+	out := strings.ToValidUTF8(string(c.carry), "�")
+	c.carry = nil
+	return out
+}
+
+// safeUTF8Boundary returns the length of the prefix of b whose final rune is complete.
+// Only a trailing incomplete multibyte sequence (at most utf8.UTFMax-1 bytes) is withheld;
+// an invalid-but-complete byte counts as whole so it can be sanitized downstream.
+func safeUTF8Boundary(b []byte) int {
+	for i := len(b) - 1; i >= 0 && i > len(b)-utf8.UTFMax; i-- {
+		if utf8.RuneStart(b[i]) {
+			if utf8.FullRune(b[i:]) {
+				return len(b)
+			}
+			return i
+		}
+	}
+	return len(b)
 }
 
 // DoCommand answers environment queries a client cannot resolve on its own,
@@ -157,7 +206,19 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 
 	utils.PanicCapturingGo(func() {
 		defer close(output)
-		var data [64]byte
+		var data [4096]byte
+		var chunker utf8Chunker
+		send := func(s string) bool {
+			if s == "" {
+				return true
+			}
+			select {
+			case <-ctx.Done():
+				return false
+			case output <- shell.Output{Output: s}:
+				return true
+			}
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -166,6 +227,8 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			}
 			n, err := f.Read(data[:])
 			if err != nil {
+				// flush any held-back trailing rune before signaling EOF so it isn't dropped
+				send(chunker.flush())
 				if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
 					svc.logger.CErrorw(ctx, "error reading output", "error", err)
 				}
@@ -179,10 +242,8 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			if n == 0 {
 				continue
 			}
-			select {
-			case <-ctx.Done():
+			if !send(chunker.push(data[:n])) {
 				return
-			case output <- shell.Output{Output: string(data[:n])}:
 			}
 		}
 	})
