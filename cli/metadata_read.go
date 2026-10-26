@@ -21,7 +21,8 @@ type metadataReadArgs struct {
 // MetadataReadAction is the action for the CLI command "viam metadata read".
 func MetadataReadAction(ctx context.Context, cmd *cli.Command, args metadataReadArgs) error {
 	if args.OrgID == "" && args.LocationID == "" && args.MachineID == "" && args.PartID == "" {
-		return errors.New("You must specify at least one of --organization-id, --location-id, --machine-id, --machine-part-id")
+		return errors.Errorf("You must specify at least one of --%s, --%s, --%s, --%s",
+			generalFlagOrgID, generalFlagLocationID, generalFlagMachineID, generalFlagPartID)
 	}
 
 	viamClient, err := newViamClient(ctx, cmd)

@@ -401,7 +401,7 @@ func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cmd *cli.Co
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
 			return errors.Errorf("cannot create api-key for location: %s as there are multiple orgs on the location. "+
-				"Please re-run the command with an organization-id flag set", locationID)
+				"Please re-run the command with the --%s flag set", locationID, generalFlagOrgID)
 		}
 		return err
 	}
@@ -465,8 +465,8 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Comma
 	key, err := c.client.CreateKey(ctx, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
-			return errors.New("cannot create the machine api-key as there are multiple orgs on the location. " +
-				"Please re-run the command with an organization-id flag set")
+			return errors.Errorf("cannot create the machine api-key as there are multiple orgs on the location. "+
+				"Please re-run the command with the --%s flag set", generalFlagOrgID)
 		}
 		return err
 	}

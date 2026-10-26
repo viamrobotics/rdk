@@ -155,6 +155,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 
 	test.That(t, len(out.messages), test.ShouldEqual, 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create the machine api-key as there are multiple orgs on the location.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "--"+generalFlagOrgID)
 }
 
 func TestLocationAPIKeyCreateAction(t *testing.T) {
@@ -225,6 +226,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
 		fmt.Sprintf("cannot create api-key for location: %s as there are multiple orgs on the location", fakeLocID))
+	test.That(t, err.Error(), test.ShouldContainSubstring, "--"+generalFlagOrgID)
 }
 
 func TestAPIKeyDeleteAction(t *testing.T) {
