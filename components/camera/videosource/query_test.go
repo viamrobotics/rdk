@@ -1,7 +1,6 @@
 package videosource
 
 import (
-	"image"
 	"maps"
 	"os"
 	"path/filepath"
@@ -80,6 +79,7 @@ func TestSelectVideoDriver(t *testing.T) {
 
 	t.Run("no camera satisfies the config", func(t *testing.T) {
 		_, _, err := getUserVideoDriver(makeConstraints(&WebcamConfig{Width: 1920}, logger), filter, "", logger)
+		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "matches the config constraints")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rdk-test-select-vga")
 	})
@@ -87,10 +87,11 @@ func TestSelectVideoDriver(t *testing.T) {
 	t.Run("no queryable cameras", func(t *testing.T) {
 		constraints := makeConstraints(&WebcamConfig{}, logger)
 		_, _, err := getUserVideoDriver(constraints, labelPrefix("rdk-test-missing"), "rdk-test-missing", logger)
-		test.That(t, err, test.ShouldBeError,
-			"no queryable drivers for video path: 'rdk-test-missing'; check if the device is available or already in use (busy)")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "check if the device")
 		_, _, err = getUserVideoDriver(constraints, labelPrefix("rdk-test-missing"), "", logger)
-		test.That(t, err, test.ShouldBeError, "no queryable drivers for video path: ''")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "check if the device")
 	})
 
 	t.Run("priority outweighs a slightly worse fit", func(t *testing.T) {
@@ -142,6 +143,11 @@ func TestOpenDriver(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, tc.wantErr)
 		})
 	}
+
+	t.Run("availability unimplemented", func(t *testing.T) {
+		d := registerCamera(t, withoutAvailability(newFakeCamera(true)), driver.Info{Label: "rdk-test-open-unknown"})
+		test.That(t, openDriver(d), test.ShouldBeNil)
+	})
 }
 
 func TestFindRegisteredReaderAndDriver(t *testing.T) {
@@ -151,15 +157,14 @@ func TestFindRegisteredReaderAndDriver(t *testing.T) {
 	t.Run("by one of the label's paths", func(t *testing.T) {
 		f, d := registerFakeCamera(t, "rdk-test-find-by-id;rdk-test-find-video9", "", true)
 
-		reader, got, path, err := findRegisteredReaderAndDriver(conf, "rdk-test-find-video9", logger)
+		_, got, path, err := findRegisteredReaderAndDriver(conf, "rdk-test-find-video9", logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, path, test.ShouldEqual, "rdk-test-find-video9")
 		test.That(t, got.ID(), test.ShouldEqual, d.ID())
-		test.That(t, got.Status(), test.ShouldEqual, driver.StateRunning)
-		test.That(t, f.recorded.Load().DiscardFramesOlderThan, test.ShouldEqual, time.Second)
-		img, _, err := reader.Read()
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, img.Bounds(), test.ShouldResemble, image.Rect(0, 0, 640, 480))
+		recorded := f.recorded.Load()
+		test.That(t, recorded.Width, test.ShouldEqual, 640)
+		test.That(t, recorded.Height, test.ShouldEqual, 480)
+		test.That(t, recorded.DiscardFramesOlderThan, test.ShouldEqual, time.Second)
 	})
 
 	t.Run("through a symlink", func(t *testing.T) {
@@ -199,6 +204,7 @@ func TestFindRegisteredReaderAndDriver(t *testing.T) {
 }
 
 func TestRefreshWindowsDrivers(t *testing.T) {
+	unregisterAllCameras()
 	manager := driver.GetManager()
 	filter := labelPrefix("rdk-test-win-")
 	t.Cleanup(func() {

@@ -52,9 +52,11 @@ func TestWebcamMonitor(t *testing.T) {
 	t.Run("drops the unplugged camera's buffered and in-flight frames", func(t *testing.T) {
 		firstReader, secondReader := &fakeReader{}, &fakeReader{}
 		firstDriver, secondDriver := &fakeDriver{}, &fakeDriver{}
-		c := newFakeWebcam(t, 0, firstReader, firstDriver, &fakeOpener{reader: secondReader, driver: secondDriver})
+		opener := &fakeOpener{reader: secondReader, driver: secondDriver}
+		c := newFakeWebcam(t, 0, firstReader, firstDriver, opener)
 		waitFrame(t, c)
 		unblockFirst := firstReader.block(t)
+		unblockOpen := opener.block(t)
 		secondReader.block(t)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			test.That(tb, firstReader.reads.Load(), test.ShouldBeGreaterThan, firstReader.frames.Load())
@@ -62,13 +64,16 @@ func TestWebcamMonitor(t *testing.T) {
 
 		firstDriver.unavailable.Store(true)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, usesDriver(c, secondDriver), test.ShouldBeTrue)
+			test.That(tb, opener.opens.Load(), test.ShouldEqual, int32(1))
 		})
+		// The held read returns while the camera is detached, so its frame must be released rather than buffered.
 		unblockFirst()
-		// The read held across the swap has returned and its frame was released rather than buffered.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, firstReader.frames.Load(), test.ShouldEqual, firstReader.reads.Load())
-			test.That(tb, firstReader.releases.Load(), test.ShouldEqual, firstReader.frames.Load())
+			test.That(tb, firstReader.releases.Load(), test.ShouldEqual, firstReader.reads.Load())
+		})
+		unblockOpen()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, usesDriver(c, secondDriver), test.ShouldBeTrue)
 		})
 		_, _, err := c.Images(ctx, nil, nil)
 		test.That(t, errors.Is(err, errNoFrames), test.ShouldBeTrue)
@@ -103,6 +108,7 @@ func TestWebcamMonitor(t *testing.T) {
 		test.That(t, firstDriver.closes.Load(), test.ShouldEqual, int32(1))
 	})
 
+	// Under -race this also guards the buffer worker's exit log reading c.logger while the reconnect updates it.
 	t.Run("close during a reconnect closes the reopened camera", func(t *testing.T) {
 		firstDriver, secondDriver := &fakeDriver{}, &fakeDriver{}
 		opener := &fakeOpener{reader: &fakeReader{}, driver: secondDriver}

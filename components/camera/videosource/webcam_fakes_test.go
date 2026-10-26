@@ -188,13 +188,13 @@ func (f *fakeCamera) IsAvailable() (bool, error) {
 	return true, nil
 }
 
-// registerCamera registers a in the global mediadevices driver manager and removes it when the test ends.
+// registerCamera registers adapter in the global mediadevices driver manager and removes it when the test ends.
 // Labels must be unique and free of path separators so that findReaderAndDriver's filepath.Base leaves them unchanged.
-func registerCamera(t *testing.T, a driverutils.Adapter, info driverutils.Info) driverutils.Driver {
+func registerCamera(t *testing.T, adapter driverutils.Adapter, info driverutils.Info) driverutils.Driver {
 	t.Helper()
 	info.DeviceType = driverutils.Camera
 	manager := driverutils.GetManager()
-	test.That(t, manager.Register(a, info), test.ShouldBeNil)
+	test.That(t, manager.Register(adapter, info), test.ShouldBeNil)
 
 	drivers := manager.Query(labelFilter(info.Label, false, false))
 	test.That(t, drivers, test.ShouldHaveLength, 1)
