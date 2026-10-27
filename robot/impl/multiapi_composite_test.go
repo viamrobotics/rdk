@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -436,11 +437,15 @@ func (f gripperFacade) Geometries(
 }
 
 func (f gripperFacade) Kinematics(context.Context) (referenceframe.Model, error) {
-	return referenceframe.NewSimpleModel("gripper-kin"), nil
+	return referenceframe.New2DMobileModelFrame(
+		"gripper-kin",
+		[]referenceframe.Limit{{Min: -1, Max: 1}, {Min: -1, Max: 1}},
+		spatialmath.NewPoint(r3.Vector{}, "gripper-kin-geom"),
+	)
 }
 
 func (f gripperFacade) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
-	return nil, nil
+	return []referenceframe.Input{0, 0}, nil
 }
 func (f gripperFacade) GoToInputs(context.Context, ...[]referenceframe.Input) error { return nil }
 
@@ -694,6 +699,45 @@ func TestCompositeFrameKinematicPrecedesGeometry(t *testing.T) {
 		}
 	}
 	test.That(t, found, test.ShouldBeTrue)
+}
+
+// TestServiceConfiguredCompositeKinematicResolvesInFrameSystem configures a composite under a service API
+// (generic) while it also serves a kinematic component (gripper), with a frame. Its kinematics must still
+// attach to the frame system. getLocalFrameSystemParts walks services as well as components so the frame is
+// built, and updateWeakAndOptionalDependents fans the composite's component subs into the frame system
+// component map so CurrentInputs can resolve it across whichever API it is configured under. Without either
+// half, CurrentInputs omits the composite.
+func TestServiceConfiguredCompositeKinematicResolvesInFrameSystem(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	model := resource.NewModel("acme", "test", "fs-service-combo")
+	resource.RegisterMultiAPI([]resource.API{gripper.API, genericservice.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+				d := &comboFacadeDevice{Named: conf.ResourceName().AsNamed()}
+				return resource.Compose(
+					genericservice.AsSub(d),
+					gripper.AsSub(gripperFacade{d}),
+				)
+			},
+		})
+	t.Cleanup(func() {
+		resource.Deregister(gripper.API, model)
+		resource.Deregister(genericservice.API, model)
+	})
+
+	// Configure the composite under its service API (in the Services list), with a frame.
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Services: []resource.Config{
+			{Name: "combo", API: genericservice.API, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+		},
+	}, logger)
+
+	inputs, err := r.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok := inputs["combo"]
+	test.That(t, ok, test.ShouldBeTrue)
 }
 
 // TestModularCompositeResource exercises the combomodule, a composite serving camera.Camera and

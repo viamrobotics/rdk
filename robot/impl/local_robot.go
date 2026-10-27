@@ -1175,10 +1175,21 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			continue
 		}
 		allResources[n] = res
-		switch {
-		case n.API.IsComponent():
-			components[n] = res
-		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
+		// A composite is reached once under its configured API, unwrapped to that one sub. Fan its subs out so
+		// a kinematic component sub reaches the frame system even when the composite is configured under a
+		// service API, not only a component one. A no-op for an ordinary resource, whose only sub is itself.
+		wrapper := res
+		if node, nerr := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API); nerr == nil {
+			if nodeRes, rerr := node.Resource(); rerr == nil {
+				wrapper = nodeRes
+			}
+		}
+		for aliased, sub := range resource.SubsByName(n, wrapper) {
+			if aliased.API.IsComponent() {
+				components[aliased] = sub
+			}
+		}
+		if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			internalResources[n] = res
 		}
 	}
@@ -1433,8 +1444,12 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// fetched from `InputEnabled` resources; other resources may offer a model through
 	// `ModelFramer`. Geometries can be specified in the robot config. If none exists, we will
 	// perform a `Geometries` query on the resource; a single geometry is attached to the frame
-	// directly and several are wrapped in a zero-DoF model.
-	for _, resConfig := range cfg.Components {
+	// directly and several are wrapped in a zero-DoF model. Services are walked alongside components, so a
+	// composite configured under a service API still contributes a frame when one of its co-equal subs is
+	// kinematic; the body finds that sub across every API the resource serves, so the configured kind does
+	// not matter.
+	framedConfigs := append(append([]resource.Config{}, cfg.Components...), cfg.Services...)
+	for _, resConfig := range framedConfigs {
 		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
