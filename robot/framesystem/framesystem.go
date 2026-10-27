@@ -273,7 +273,7 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 
 	// Group deps by short name so a composite's co-equal APIs collapse to one frame entry, each unwrapped
 	// to its API's sub (a no-op for an ordinary resource) so PickKinematicSub's InputEnabled check sees
-	// the real sub, not the wrapper. Iterate sorted so a name's subs land in a stable order, keeping
+	// the real impl, not the wrapper. Iterate sorted so a name's subs land in a stable order, keeping
 	// PickKinematicSub's non-kinematic fallback (subs[0]) deterministic.
 	componentsByName := make(map[string][]resource.Resource)
 	depNames := make([]resource.Name, 0, len(deps))
