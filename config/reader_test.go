@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
 
@@ -1269,4 +1270,21 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 		observed := additionalModuleEnvVars(&cloud1, authWithAPIKeyCreds, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
+}
+
+func TestResolveAssociatedName(t *testing.T) {
+	camera := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "combo")
+	msAPI := resource.APINamespaceRDK.WithComponentType("movement_sensor")
+
+	// No owning resource name: the associated name is left untouched.
+	only := resource.NewName(msAPI, "x")
+	test.That(t, resolveAssociatedName(only, nil), test.ShouldResemble, only)
+
+	// A name with no valid API is inferred wholesale from the resource config.
+	test.That(t, resolveAssociatedName(resource.Name{Name: "combo"}, &camera), test.ShouldResemble, camera)
+
+	// A user-specified API (a composite capture method targeting a served API other than the configured
+	// one) is preserved; the name still comes from the resource config.
+	test.That(t, resolveAssociatedName(resource.NewName(msAPI, "combo"), &camera),
+		test.ShouldResemble, resource.NewName(msAPI, "combo"))
 }
