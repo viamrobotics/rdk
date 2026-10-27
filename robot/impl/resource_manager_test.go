@@ -14,7 +14,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
 	boardpb "go.viam.com/api/component/board/v1"
@@ -2249,7 +2252,7 @@ func TestReconfigureParity(t *testing.T) {
 // that remote resource will always be returned until it is configured away. When either the remote
 // robot removes it from its config. Or when the main part removes the remote.
 func TestOfflineRemoteResources(t *testing.T) {
-	logger, _ := logging.NewObservedTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
 	motorName := "remoteMotorFoo"
@@ -2305,6 +2308,10 @@ func TestOfflineRemoteResources(t *testing.T) {
 	test.That(t, mainToRemoteClientRes, test.ShouldNotBeNil)
 	mainToRemoteClient := mainToRemoteClientRes.(*client.RobotClient)
 	test.That(t, mainToRemoteClient.Connected(), test.ShouldBeTrue)
+	connectLogs := func() int {
+		return logs.FilterMessageSnippet("Connected to remote directly").FilterField(zap.String("remote", "remote")).Len()
+	}
+	test.That(t, connectLogs(), test.ShouldEqual, 1)
 
 	// Stop the remote's web server. Wait for the main robot to observe there's a connection problem.
 	logger.Info("Stopping web")
@@ -2344,6 +2351,10 @@ func TestOfflineRemoteResources(t *testing.T) {
 		tb.Helper()
 		test.That(tb, mainToRemoteClient.Connected(), test.ShouldBeTrue)
 	})
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, connectLogs(), test.ShouldEqual, 2)
+	})
 
 	// Again, manually refresh the list of resources to clear the cache. Assert the remote motor
 	// still exists.
@@ -2371,4 +2382,87 @@ func TestOfflineRemoteResources(t *testing.T) {
 	// longer appears.
 	mainClient.Refresh(ctx)
 	test.That(t, resourceNames, test.ShouldNotContain, mainClient.ResourceNames())
+}
+
+func TestRemoteConnectionPath(t *testing.T) {
+	report := func(local, remote webrtc.ICECandidateType) webrtc.StatsReport {
+		return webrtc.StatsReport{
+			"pair": webrtc.ICECandidatePairStats{
+				Nominated:         true,
+				State:             webrtc.StatsICECandidatePairStateSucceeded,
+				LocalCandidateID:  "local",
+				RemoteCandidateID: "remote",
+			},
+			"local":  webrtc.ICECandidateStats{CandidateType: local, IP: "10.0.0.1"},
+			"remote": webrtc.ICECandidateStats{CandidateType: remote, IP: "10.0.0.2"},
+		}
+	}
+
+	test.That(t, remoteConnectionPath(nil), test.ShouldResemble, remoteConnPath{})
+	test.That(t, remoteConnectionPath(report(webrtc.ICECandidateTypeHost, webrtc.ICECandidateTypeSrflx)), test.ShouldResemble,
+		remoteConnPath{overWebRTC: true, local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeSrflx})
+	test.That(t, remoteConnectionPath(webrtc.StatsReport{}), test.ShouldResemble, remoteConnPath{overWebRTC: true})
+	path := remoteConnectionPath(report(webrtc.ICECandidateTypeHost, webrtc.ICECandidateTypeRelay))
+	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.2")
+	path = remoteConnectionPath(report(webrtc.ICECandidateTypeRelay, webrtc.ICECandidateTypeRelay))
+	test.That(t, path.relayAddr, test.ShouldEqual, "10.0.0.1")
+}
+
+func TestRemoteConnStats(t *testing.T) {
+	manager := newResourceManager(resourceManagerOptions{}, logging.NewTestLogger(t))
+	for _, name := range []string{"failed", "dropped"} {
+		test.That(t, manager.resources.AddNode(fromRemoteNameToRemoteNodeName(name), resource.NewUninitializedNode()), test.ShouldBeNil)
+	}
+	relayed := remoteConnPath{
+		overWebRTC: true, local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeRelay, relayAddr: "10.0.0.2",
+	}
+	manager.remoteConns["dropped"] = remoteConnState{path: relayed, connected: true}
+	manager.remoteConns["removed"] = remoteConnState{connected: true}
+
+	statser := remoteConnStatser{manager}
+	test.That(t, statser.Stats(), test.ShouldResemble, map[string]remoteConnStats{
+		"failed":  {},
+		"dropped": {Connected: true, WebRTC: true, LocalCandidate: 1, RemoteCandidate: 4, Relayed: true},
+	})
+
+	// Neither remote has a client, so both are marked disconnected; "dropped" keeps its last path.
+	manager.refreshRemotePaths()
+	test.That(t, statser.Stats(), test.ShouldResemble, map[string]remoteConnStats{
+		"failed":  {},
+		"dropped": {WebRTC: true, LocalCandidate: 1, RemoteCandidate: 4, Relayed: true},
+	})
+	test.That(t, manager.remoteConns, test.ShouldNotContainKey, "removed")
+}
+
+func TestLogRemoteConnectionPath(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	manager := newResourceManager(resourceManagerOptions{}, logger)
+
+	manager.logRemoteConnectionPath("grpc", remoteConnPath{})
+	manager.logRemoteConnectionPath("direct", remoteConnPath{
+		overWebRTC: true, local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeSrflx,
+	})
+	manager.logRemoteConnectionPath("relayed", remoteConnPath{
+		overWebRTC: true, local: webrtc.ICECandidateTypeHost, remote: webrtc.ICECandidateTypeRelay, relayAddr: "10.0.0.2",
+	})
+	manager.logRemoteConnectionPath("nopair", remoteConnPath{overWebRTC: true})
+
+	entries := logs.All()
+	test.That(t, entries, test.ShouldHaveLength, 4)
+	test.That(t, entries[0].Level, test.ShouldEqual, zapcore.InfoLevel)
+	test.That(t, entries[0].Message, test.ShouldEqual, "Connected to remote over gRPC")
+	test.That(t, entries[0].ContextMap(), test.ShouldResemble, map[string]any{"remote": "grpc"})
+	test.That(t, entries[1].Level, test.ShouldEqual, zapcore.InfoLevel)
+	test.That(t, entries[1].Message, test.ShouldEqual, "Connected to remote directly")
+	test.That(t, entries[1].ContextMap(), test.ShouldResemble, map[string]any{
+		"remote": "direct", "local_candidate": "host", "remote_candidate": "srflx",
+	})
+	test.That(t, entries[2].Level, test.ShouldEqual, zapcore.WarnLevel)
+	test.That(t, entries[2].Message, test.ShouldEqual, "Connected to remote over relay")
+	test.That(t, entries[2].ContextMap(), test.ShouldResemble, map[string]any{
+		"remote": "relayed", "local_candidate": "host", "remote_candidate": "relay", "relay_address": "10.0.0.2",
+	})
+	test.That(t, entries[3].Level, test.ShouldEqual, zapcore.InfoLevel)
+	test.That(t, entries[3].Message, test.ShouldEqual, "Connected to remote over WebRTC")
+	test.That(t, entries[3].ContextMap(), test.ShouldResemble, map[string]any{"remote": "nopair"})
 }

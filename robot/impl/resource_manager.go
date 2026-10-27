@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jhump/protoreflect/desc"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -102,6 +103,11 @@ type resourceManager struct {
 	logger         logging.Logger
 
 	viz resource.Visualizer
+
+	// remoteConns holds each remote's remoteConnState, keyed by remote name. The pair is fixed for
+	// a connection's lifetime, so it is cached on (re)connect rather than read on every FTDC poll.
+	remoteConnsMu sync.Mutex
+	remoteConns   map[string]remoteConnState
 }
 
 type resourceManagerOptions struct {
@@ -128,9 +134,10 @@ func newResourceManager(
 	}
 
 	return &resourceManager{
-		resources: resourceGraph,
-		opts:      opts,
-		logger:    resLogger,
+		resources:   resourceGraph,
+		opts:        opts,
+		logger:      resLogger,
+		remoteConns: map[string]remoteConnState{},
 	}
 }
 
@@ -1070,6 +1077,8 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 				}
 				manager.addRemote(ctx, rr, gNode, *remConf)
 				rr.SetParentNotifier(func() {
+					// Also fires on disconnect.
+					manager.recordRemoteConn(remConf.Name, rr)
 					lr.sendTriggerConfig(remConf.Name)
 				})
 			default:
@@ -1187,7 +1196,198 @@ func (manager *resourceManager) processRemote(
 		return nil, fmt.Errorf("couldn't connect to robot remote (%s): %w", config.Address, err)
 	}
 	manager.logger.Activity("remote", "connect", "remote", config.Name)
+	manager.recordRemoteConn(config.Name, robotClient)
 	return robotClient, nil
+}
+
+// recordRemoteConn records whether a remote is connected, logging its path if so. The client
+// updates Connected before notifying, so checking it under remoteConnsMu leaves the last writer
+// with the current value.
+func (manager *resourceManager) recordRemoteConn(name string, rc *client.RobotClient) {
+	manager.remoteConnsMu.Lock()
+	if !rc.Connected() {
+		manager.markRemoteDisconnected(name)
+		manager.remoteConnsMu.Unlock()
+		return
+	}
+	path := remoteConnectionPath(rc.WebRTCStats())
+	manager.remoteConns[name] = remoteConnState{path: path, connected: true}
+	manager.remoteConnsMu.Unlock()
+	manager.logRemoteConnectionPath(name, path)
+}
+
+// logRemoteConnectionPath logs how a remote is connected on the user-facing manager logger,
+// warning if relayed.
+func (manager *resourceManager) logRemoteConnectionPath(name string, path remoteConnPath) {
+	switch {
+	case !path.overWebRTC:
+		manager.logger.Infow("Connected to remote over gRPC", "remote", name)
+	case path.local == 0:
+		// No selected candidate pair to report.
+		manager.logger.Infow("Connected to remote over WebRTC", "remote", name)
+	case path.relayAddr != "":
+		manager.logger.Warnw("Connected to remote over relay", path.logFields(name)...)
+	default:
+		manager.logger.Infow("Connected to remote directly", path.logFields(name)...)
+	}
+}
+
+// refreshRemotePaths re-reads every remote's connection path into remoteConns, in case a
+// (re)connect or disconnect was missed, and warns about relayed remotes.
+func (manager *resourceManager) refreshRemotePaths() {
+	// Clients are looked up before locking so remoteConnsMu is never held while taking graph locks.
+	names := manager.configuredRemoteNames()
+	clients := make([]*client.RobotClient, len(names))
+	for i, name := range names {
+		clients[i], _ = manager.remoteClient(name)
+	}
+
+	var logs []func()
+	manager.remoteConnsMu.Lock()
+	for i, name := range names {
+		rc := clients[i]
+		if rc == nil || !rc.Connected() {
+			manager.markRemoteDisconnected(name)
+			continue
+		}
+		path := remoteConnectionPath(rc.WebRTCStats())
+		if prev := manager.remoteConns[name]; prev.connected && prev.path != path {
+			logs = append(logs, func() {
+				manager.logger.Infow("Remote connection path changed without a reconnect", path.logFields(name)...)
+			})
+		}
+		manager.remoteConns[name] = remoteConnState{path: path, connected: true}
+		if path.relayAddr != "" {
+			logs = append(logs, func() { manager.logger.Warnw("Remote connection is relayed", path.logFields(name)...) })
+		}
+	}
+	for name := range manager.remoteConns {
+		if !slices.Contains(names, name) {
+			delete(manager.remoteConns, name)
+		}
+	}
+	manager.remoteConnsMu.Unlock()
+
+	for _, log := range logs {
+		log()
+	}
+}
+
+// remoteClient returns a remote's client, and false if it has none, e.g. after a failed dial.
+// Unlike RemoteByName, it does not log the failure.
+func (manager *resourceManager) remoteClient(name string) (*client.RobotClient, bool) {
+	gNode, ok := manager.resources.Node(fromRemoteNameToRemoteNodeName(name))
+	if !ok {
+		return nil, false
+	}
+	res, err := gNode.Resource()
+	if err != nil {
+		return nil, false
+	}
+	rc, ok := res.(*client.RobotClient)
+	return rc, ok
+}
+
+// markRemoteDisconnected keeps a remote's last path so FTDC shows what it was on before dropping.
+// Callers must hold remoteConnsMu.
+func (manager *resourceManager) markRemoteDisconnected(name string) {
+	manager.remoteConns[name] = remoteConnState{path: manager.remoteConns[name].path, connected: false}
+}
+
+// configuredRemoteNames returns every remote in the graph, including ones whose client failed to
+// dial, unlike RemoteNames.
+func (manager *resourceManager) configuredRemoteNames() []string {
+	var names []string
+	for _, name := range manager.resources.Names() {
+		if name.API == client.RemoteAPI {
+			names = append(names, name.Name)
+		}
+	}
+	return names
+}
+
+// remoteConn returns a remote's cached state, zero if it has never connected.
+func (manager *resourceManager) remoteConn(name string) remoteConnState {
+	manager.remoteConnsMu.Lock()
+	defer manager.remoteConnsMu.Unlock()
+	return manager.remoteConns[name]
+}
+
+// remoteConnState is a remote's last known connection path and whether it is still connected.
+type remoteConnState struct {
+	path      remoteConnPath
+	connected bool
+}
+
+// remoteConnStats is a remote's connection state for FTDC, from its last connection. Candidate
+// types are those of its selected ICE candidate pair as webrtc.ICECandidateType values (1 host,
+// 2 srflx, 3 prflx, 4 relay), or 0 if there was none.
+type remoteConnStats struct {
+	Connected                       bool
+	WebRTC                          bool
+	LocalCandidate, RemoteCandidate int
+	Relayed                         bool
+}
+
+// remoteConnStatser reports every remote's connection state to FTDC.
+type remoteConnStatser struct {
+	manager *resourceManager
+}
+
+// Stats satisfies ftdc.Statser. Every configured remote is reported, connected or not, so the
+// schema changes only when remotes are added to or removed from the config.
+func (s remoteConnStatser) Stats() any {
+	ret := map[string]remoteConnStats{}
+	for _, name := range s.manager.configuredRemoteNames() {
+		state := s.manager.remoteConn(name)
+		ret[name] = remoteConnStats{
+			Connected:       state.connected,
+			WebRTC:          state.path.overWebRTC,
+			LocalCandidate:  int(state.path.local),
+			RemoteCandidate: int(state.path.remote),
+			Relayed:         state.path.relayAddr != "",
+		}
+	}
+	return ret
+}
+
+// remoteConnPath is how a remote is connected: over gRPC, or over WebRTC with its selected ICE
+// candidate pair, if any.
+type remoteConnPath struct {
+	overWebRTC    bool
+	local, remote webrtc.ICECandidateType
+	// relayAddr is the TURN server address, empty unless a side is relayed.
+	relayAddr string
+}
+
+func (p remoteConnPath) logFields(name string) []any {
+	fields := []any{"remote", name, "local_candidate", p.local.String(), "remote_candidate", p.remote.String()}
+	if p.relayAddr != "" {
+		fields = append(fields, "relay_address", p.relayAddr)
+	}
+	return fields
+}
+
+// remoteConnectionPath returns the connection path in stats, which are nil for a gRPC connection.
+func remoteConnectionPath(stats webrtc.StatsReport) remoteConnPath {
+	path := remoteConnPath{overWebRTC: stats != nil}
+	pair, ok := rpc.SelectedCandidatePair(stats)
+	if !ok {
+		return path
+	}
+	local, localOK := stats[pair.LocalCandidateID].(webrtc.ICECandidateStats)
+	remote, remoteOK := stats[pair.RemoteCandidateID].(webrtc.ICECandidateStats)
+	if !localOK || !remoteOK {
+		return path
+	}
+	path.local, path.remote = local.CandidateType, remote.CandidateType
+	switch {
+	case local.CandidateType == webrtc.ICECandidateTypeRelay:
+		path.relayAddr = local.IP
+	case remote.CandidateType == webrtc.ICECandidateTypeRelay:
+		path.relayAddr = remote.IP
+	}
+	return path
 }
 
 // RemoteByName returns the given remote robot by name, if it exists;
