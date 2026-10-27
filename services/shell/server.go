@@ -175,7 +175,8 @@ func (server *serviceServer) Shell(srv pb.ShellService_ShellServer) (retErr erro
 					DataErr: out.Error,
 					Eof:     out.EOF,
 				}); err != nil {
-					return srv.Context().Err()
+					server.logger.CErrorw(srv.Context(), "error sending shell output to client", "error", err)
+					return err
 				}
 				if out.EOF {
 					return nil

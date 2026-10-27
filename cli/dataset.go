@@ -172,7 +172,7 @@ func DatasetListAction(ctx context.Context, cmd *cli.Command, args datasetListAr
 	datasetIDs := args.DatasetIDs
 	orgID := args.OrgID
 
-	if datasetIDs != nil {
+	if len(datasetIDs) > 0 {
 		if err := client.listDatasetByIDs(datasetIDs); err != nil {
 			return err
 		}

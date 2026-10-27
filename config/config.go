@@ -939,13 +939,17 @@ const (
 	UserTypeDefault = "default"
 )
 
-// A UserPermission describes a User and the permissions granted to that user. If
-// no UserPermissions are configured, all users are unrestricted. If any are, users
+// A UserPermission describes the Users a set of permissions is granted to. If no
+// UserPermissions are configured, all users are unrestricted. If any are, users
 // are allowed only the methods their UserPermission (or the default user's, if
 // they have none) explicitly grants.
 type UserPermission struct {
-	// User is the User this UserPermission applies to. A User can only be listed
-	// in a single UserPermission for a set of UserPermissions.
+	// Users are the Users this UserPermission applies to. A User can only be listed
+	// in a single UserPermission for a set of UserPermissions, counting both Users
+	// and User.
+	Users []User `json:"users,omitempty"`
+	// User is a single User this UserPermission applies to. Superseded by Users,
+	// which takes precedence when set.
 	User        User         `json:"user"`
 	Permissions []Permission `json:"permissions"`
 }

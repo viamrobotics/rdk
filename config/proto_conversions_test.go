@@ -835,6 +835,64 @@ func TestAuthConfigToProto(t *testing.T) {
 		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
 	})
 
+	t.Run("user permissions naming several users", func(t *testing.T) {
+		authConfig := AuthConfig{
+			UserPermissions: []UserPermission{
+				{
+					Users: []User{
+						{Type: UserTypeAPIKeyID, ID: "c6f77790-5405-488a-9c9c-9612402fb9b0"},
+						{Type: UserTypeAppUserID, ID: "a1b2c3d4-0000-4000-8000-000000000001"},
+						{Type: UserTypeDefault},
+					},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/ResourceNames"},
+						},
+					},
+				},
+			},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.GetUserPermissions(), test.ShouldHaveLength, 1)
+		test.That(t, proto.GetUserPermissions()[0].GetUsers(), test.ShouldHaveLength, 3)
+		test.That(t, proto.GetUserPermissions()[0].GetUsers()[1].GetId(), test.ShouldEqual,
+			"a1b2c3d4-0000-4000-8000-000000000001")
+		test.That(t, proto.GetUserPermissions()[0].GetUsers()[2].GetId(), test.ShouldBeEmpty)
+
+		out, err := AuthConfigFromProto(proto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
+	})
+
+	t.Run("user permissions naming only user", func(t *testing.T) {
+		authConfig := AuthConfig{
+			UserPermissions: []UserPermission{
+				{
+					User: User{Type: UserTypeAPIKeyID, ID: "c6f77790-5405-488a-9c9c-9612402fb9b0"},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"cam1"},
+							AllowedMethods: []string{"/viam.component.camera.v1.CameraService/GetImages"},
+						},
+					},
+				},
+			},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.GetUserPermissions()[0].GetUsers(), test.ShouldBeEmpty)
+
+		out, err := AuthConfigFromProto(proto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		// Nil rather than an empty slice, so a user-only config round-trips to exactly itself.
+		test.That(t, out.UserPermissions[0].Users, test.ShouldBeNil)
+		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
+	})
+
 	t.Run("no user permissions", func(t *testing.T) {
 		proto, err := AuthConfigToProto(&AuthConfig{})
 		test.That(t, err, test.ShouldBeNil)

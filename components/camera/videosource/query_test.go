@@ -1,12 +1,14 @@
 package videosource
 
 import (
+	"errors"
 	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -200,6 +202,39 @@ func TestFindRegisteredReaderAndDriver(t *testing.T) {
 		_, _, _, err := findRegisteredReaderAndDriver(conf, "", logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "found no webcams")
+	})
+}
+
+func TestFindReaderAndDriverByName(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	conf := &WebcamConfig{}
+
+	t.Run("the only device with the name", func(t *testing.T) {
+		_, d := registerFakeCamera(t, "rdk-test-byname-a;rdk-test-byname-a-id", "rdk-test-byname-cam", true)
+
+		_, got, path, err := findReaderAndDriverByName(conf, "rdk-test-byname-cam", logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got.ID(), test.ShouldEqual, d.ID())
+		test.That(t, path, test.ShouldEqual, "rdk-test-byname-a")
+	})
+
+	t.Run("two devices share the name", func(t *testing.T) {
+		registerFakeCamera(t, "rdk-test-byname-dup-a", "rdk-test-byname-dup-cam", true)
+		registerFakeCamera(t, "rdk-test-byname-dup-b", "rdk-test-byname-dup-cam", true)
+
+		_, _, _, err := findReaderAndDriverByName(conf, "rdk-test-byname-dup-cam", logger)
+		test.That(t, errors.Is(err, errMultipleSameName), test.ShouldBeTrue)
+	})
+
+	t.Run("a device with the name appears during the search", func(t *testing.T) {
+		f, d := registerFakeCamera(t, "rdk-test-byname-race-a", "rdk-test-byname-race-cam", true)
+		f.onOpen = sync.OnceFunc(func() {
+			registerFakeCamera(t, "rdk-test-byname-race-b", "rdk-test-byname-race-cam", true)
+		})
+
+		_, _, _, err := findReaderAndDriverByName(conf, "rdk-test-byname-race-cam", logger)
+		test.That(t, errors.Is(err, errMultipleSameName), test.ShouldBeTrue)
+		test.That(t, d.Status(), test.ShouldEqual, driver.StateClosed)
 	})
 }
 
