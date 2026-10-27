@@ -2338,7 +2338,6 @@ Note: There is no progress meter while copying is in progress.
 									Usage: formatAcceptedValues(
 										"type of model to train",
 										"single_label_classification", "multi_label_classification", "object_detection",
-										"robot_policy",
 									),
 									Required: true,
 								},
