@@ -25,14 +25,18 @@ type Model interface {
 	ModelConfig() *ModelConfigJSON
 }
 
-// KinematicModelFromProtobuf returns a model from a protobuf message representing it.
+// KinematicModelFromProtobuf returns a model from a protobuf message representing it. The typed
+// model is read when it has links or joints, otherwise the deprecated bytes are, so a server that
+// fills the bytes and sends an empty model is still readable.
 func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
 	}
-	// the typed model wins over the deprecated bytes whenever a server sent one
-	if resp.GetModel() != nil {
-		return ModelFromProto(resp.GetModel(), name)
+	// the typed model wins over the deprecated bytes whenever a server sent one with content. a
+	// server that still fills the bytes but leaves the model without links or joints has not
+	// migrated yet, so we read what it did fill
+	if model := resp.GetModel(); len(model.GetLinks()) > 0 || len(model.GetJoints()) > 0 {
+		return ModelFromProto(model, name)
 	}
 	format := resp.GetFormat()       //nolint:staticcheck // read from servers that predate the typed model
 	data := resp.GetKinematicsData() //nolint:staticcheck // read from servers that predate the typed model
