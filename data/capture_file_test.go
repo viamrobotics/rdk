@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -397,6 +398,27 @@ func TestCaptureFileLifecycle(t *testing.T) {
 // TestCloseIsIdempotent ensures repeated Close calls return nil rather than
 // "file already closed" errors, so callers retrying after a transient failure
 // can recover (RSDK-14184).
+func TestCaptureFilesWithIdenticalTimestampsDoNotCollide(t *testing.T) {
+	// Windows' ~15.6ms clock granularity makes consecutive NewCaptureFile calls
+	// produce the same timestamp. Before O_EXCL the second one reopened the first
+	// file and appended a second metadata header, orphaning every reading past it.
+	dir := t.TempDir()
+	ts := time.Date(2026, 10, 27, 12, 0, 0, 0, time.UTC)
+
+	seen := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		f, err := createInProgressCaptureFile(dir, ts)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { goutils.UncheckedError(f.Close()) })
+		test.That(t, seen[f.Name()], test.ShouldBeFalse)
+		seen[f.Name()] = true
+	}
+
+	entries, err := os.ReadDir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(entries), test.ShouldEqual, 3)
+}
+
 func TestCloseIsIdempotent(t *testing.T) {
 	t.Run("close after successful close returns nil", func(t *testing.T) {
 		dir := t.TempDir()
