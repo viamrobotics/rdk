@@ -1232,12 +1232,6 @@ func logOrderFromArg(order string) (*apppb.LogOrder, error) {
 
 // streamLogsForPart streams logs for a specific part directly to a file.
 func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
-	// `--range` resolves against whichever of start and end is present, so defaulting start here
-	// would silently pin the window to the last 24 hours and make `--range` a no-op.
-	if args.Start == "" && args.Range == "" {
-		args.Start = time.Now().Add(defaultLogStartTime).UTC().Format(time.RFC3339)
-	}
-
 	startTime, err := parseTimeString(args.Start)
 	if err != nil {
 		return errors.Wrap(err, "invalid start time format")
@@ -1245,6 +1239,17 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	endTime, err := parseTimeString(args.End)
 	if err != nil {
 		return errors.Wrap(err, "invalid end time format")
+	}
+	// `--range` resolves against whichever of start and end is present, so defaulting start here
+	// would silently pin the window to the last 24 hours and make `--range` a no-op. The default
+	// window hangs off `--end` when there is one: anchoring it to now instead asks app for
+	// [now - 24h, end], which is empty for any `--end` older than a day.
+	if startTime == nil && args.Range == "" {
+		defaultWindowEnd := time.Now()
+		if endTime != nil {
+			defaultWindowEnd = endTime.AsTime()
+		}
+		startTime = timestamppb.New(defaultWindowEnd.Add(defaultLogStartTime))
 	}
 	order, err := logOrderFromArg(args.Order)
 	if err != nil {
@@ -1266,7 +1271,7 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	for fetchedLogCount := 0; ; {
 		// We never request a specific limit: app caps a single response at its own batch size, so
 		// asking for the full batch each time keeps the RDK independent of whatever that cap is.
-		resp, err := c.client.GetRobotPartLogs(ctx, &apppb.GetRobotPartLogsRequest{
+		resp, err := c.getRobotPartLogsPage(ctx, &apppb.GetRobotPartLogsRequest{
 			Id:        part.Id,
 			Filter:    keyword,
 			PageToken: &pageToken,
@@ -1317,6 +1322,35 @@ func (c *viamClient) streamLogsForPart(ctx context.Context, part *apppb.RobotPar
 	}
 
 	return nil
+}
+
+// getRobotPartLogsPage fetches a single page of logs, retrying transient failures. Exporting the
+// logs of a busy machine is hundreds of sequential requests over several minutes, so a connection
+// app drops partway through must not cost the user the whole export.
+func (c *viamClient) getRobotPartLogsPage(
+	ctx context.Context, req *apppb.GetRobotPartLogsRequest,
+) (*apppb.GetRobotPartLogsResponse, error) {
+	var lastErr error
+	for attempt := 0; attempt < maxRetryCount; attempt++ {
+		if attempt > 0 {
+			warningf(c.c.Root().ErrWriter, "Retrying log fetch: attempt %d/%d, error: %v", attempt+1, maxRetryCount, lastErr)
+			select {
+			case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		resp, err := c.client.GetRobotPartLogs(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+		if code := status.Code(err); code != codes.Unavailable && code != codes.DeadlineExceeded {
+			return nil, err
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 // formatLog formats a single log entry based on the specified format.
