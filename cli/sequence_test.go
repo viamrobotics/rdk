@@ -285,8 +285,8 @@ func TestDatasetSequenceAddRemove(t *testing.T) {
 	test.That(t, removed.GetSequenceIds(), test.ShouldResemble, ids[:1])
 
 	output := strings.Join(out.messages, "")
-	test.That(t, output, test.ShouldContainSubstring, "Added 2 sequences to dataset ds-1")
-	test.That(t, output, test.ShouldContainSubstring, "Removed 1 sequence from dataset ds-1")
+	test.That(t, output, test.ShouldContainSubstring, "Added sequences to dataset ds-1")
+	test.That(t, output, test.ShouldContainSubstring, "Removed sequences from dataset ds-1")
 }
 
 func TestDatasetCreateType(t *testing.T) {

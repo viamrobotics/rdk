@@ -245,7 +245,7 @@ func (c *viamClient) addSequencesToDataset(ctx context.Context, datasetID string
 	}); err != nil {
 		return errors.Wrap(err, serverErrorMessage)
 	}
-	printf(c.c.Root().Writer, "Added %d %s to dataset %s", len(sequenceIDs), pluralize(len(sequenceIDs), "sequence"), datasetID)
+	printf(c.c.Root().Writer, "Added sequences to dataset %s", datasetID)
 	return nil
 }
 
@@ -265,6 +265,6 @@ func (c *viamClient) removeSequencesFromDataset(ctx context.Context, datasetID s
 	}); err != nil {
 		return errors.Wrap(err, serverErrorMessage)
 	}
-	printf(c.c.Root().Writer, "Removed %d %s from dataset %s", len(sequenceIDs), pluralize(len(sequenceIDs), "sequence"), datasetID)
+	printf(c.c.Root().Writer, "Removed sequences from dataset %s", datasetID)
 	return nil
 }
