@@ -711,11 +711,13 @@ const (
 	ModelTypeSingleLabelClassification = ModelType("single_label_classification")
 	ModelTypeMultiLabelClassification  = ModelType("multi_label_classification")
 	ModelTypeObjectDetection           = ModelType("object_detection")
+	ModelTypeRobotPolicy               = ModelType("robot_policy")
 )
 
 var modelTypes = []string{
 	string(ModelTypeUnspecified), string(ModelTypeSingleLabelClassification),
 	string(ModelTypeMultiLabelClassification), string(ModelTypeObjectDetection),
+	string(ModelTypeRobotPolicy),
 }
 
 // ModelFramework refers to the backend framework of the model.
