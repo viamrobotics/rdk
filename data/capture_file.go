@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,10 +21,6 @@ import (
 
 	"go.viam.com/rdk/resource"
 )
-
-// captureFileTimestampFormat is the layout capture file names use. summary.go parses
-// it back with time.RFC3339Nano, so the shape must stay compatible.
-const captureFileTimestampFormat = "2006-01-02T15:04:05.000000Z07:00"
 
 // ErrNoBinaryField is returned by BinaryPayloadReader when a SensorData message
 // contains no binary payload field. This typically indicates a legacy camera.GetImages
@@ -121,11 +116,11 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 
 // NewCaptureFile creates a new *CaptureFile with the specified md in the specified directory.
 func NewCaptureFile(dir string, md *v1.DataCaptureMetadata) (*CaptureFile, error) {
-	// Capture files are named by timestamp, and Windows' ~15.6ms clock granularity
-	// lets consecutive calls produce the same name. Without O_EXCL the second caller
-	// silently appends a second metadata header into the first file, and every reading
-	// past it is unreadable. Nudge the timestamp until the name is free.
-	f, err := createInProgressCaptureFile(dir, time.Now())
+	fileName := CaptureFilePathWithReplacedReservedChars(
+		filepath.Join(dir, getFileTimestampName()) + InProgressCaptureFileExt,
+	)
+	//nolint:gosec
+	f, err := os.OpenFile(fileName, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return nil, err
 	}
@@ -302,26 +297,7 @@ func IsDataCaptureFile(f *os.File) bool {
 
 // Create a filename based on the current time.
 func getFileTimestampName() string {
-	return time.Now().Format(captureFileTimestampFormat)
-}
-
-// createInProgressCaptureFile opens a new .prog file named for ts, advancing ts by a
-// microsecond for each name already taken so two files never share one path.
-func createInProgressCaptureFile(dir string, ts time.Time) (*os.File, error) {
-	for {
-		name := CaptureFilePathWithReplacedReservedChars(
-			filepath.Join(dir, ts.Format(captureFileTimestampFormat)) + InProgressCaptureFileExt,
-		)
-		//nolint:gosec
-		f, err := os.OpenFile(name, os.O_APPEND|os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
-		if err == nil {
-			return f, nil
-		}
-		if !errors.Is(err, fs.ErrExist) {
-			return nil, err
-		}
-		ts = ts.Add(time.Microsecond)
-	}
+	return time.Now().Format("2006-01-02T15:04:05.000000Z07:00")
 }
 
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.

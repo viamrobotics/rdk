@@ -48,6 +48,9 @@ var (
 
 // TODO: rewrite tests.
 func TestCaptureQueue(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("capture files created in one ~15.6ms Windows clock tick overwrite each other (RSDK-14834)")
+	}
 	maxFileSize := 50
 	tests := []struct {
 		name               string
