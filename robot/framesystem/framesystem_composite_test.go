@@ -28,11 +28,11 @@ type plainRes struct {
 }
 
 // TestBuiltInReconfigureComposite covers how the frame system folds a composite's per-API siblings
-// (sharing a short name) into its short-name-keyed component map. It unwraps a modular composite to
-// this API's real sub, without which the kinematic sub is never detected and CurrentInputs later
-// fails NotInputEnabledError, keeps the single kinematic sub, refuses a composite serving more than
-// one kinematic API (unsupported) instead of crashing, and never errors on the duplicate short name.
-// The kept kinematic sub need not be the canonical API.
+// (sharing a short name) into its short-name-keyed component map. It unwraps the composite to each API's
+// real impl so the kinematic sub is detected; otherwise CurrentInputs later fails NotInputEnabledError.
+// It keeps the single kinematic sub, whose API need not be the canonical one, and refuses a composite
+// serving more than one kinematic API as unsupported rather than crashing. The shared short name alone
+// never errors.
 func TestBuiltInReconfigureComposite(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
