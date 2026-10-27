@@ -53,6 +53,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         env:
           ORG_TOKEN: ${{ steps.app-token.outputs.token }}
+          TRUSTED_BOTS: ${{ vars.TRUSTED_BOTS }}  # comma-separated logins, shared with pr-labeler.yml
         with:
           script: |
             const run = require('./etc/cla-gate.js');

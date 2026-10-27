@@ -1,8 +1,5 @@
 // Posts the required `cla/gate` commit status for .github/workflows/cla-gate.yml, through actions/github-script.
 
-// Honored only on same-repo PRs, matching pr-labeler.yml.
-const TRUSTED_BOTS = ['dependabot[bot]', 'github-actions[bot]', 'viam-ci-org-reader[bot]', 'viam-overwatch[bot]'];
-
 function memberChecker(orgClient, org) {
   const cache = new Map();
   return (login) => {
@@ -26,21 +23,21 @@ async function findPulls(github, context) {
   return context.eventName === 'status' ? open.filter((pr) => pr.head.sha === context.payload.sha) : open;
 }
 
-async function findOutsiders(github, repo, pr, isMember) {
+async function findOutsiders(github, repo, pr, isTrusted) {
   const isFork = pr.head.repo?.full_name !== pr.base.repo.full_name;
   const commits = await github.paginate(github.rest.pulls.listCommits, { ...repo, pull_number: pr.number, per_page: 100 });
   // Same identity cla-assistant.io checks: the author's GitHub user, else the committer's.
   const logins = new Set([pr.user.login, ...commits.map((c) => c.author?.login ?? c.committer?.login ?? null)]);
   const outsiders = [];
   for (const login of logins) {
-    const trusted = login !== null && ((!isFork && TRUSTED_BOTS.includes(login)) || (await isMember(login)));
+    const trusted = login !== null && (await isTrusted(login, isFork));
     if (!trusted) outsiders.push(login ?? 'unlinked commit author');
   }
   return outsiders;
 }
 
-async function gateStatus(github, repo, pr, isMember) {
-  const outsiders = await findOutsiders(github, repo, pr, isMember);
+async function gateStatus(github, repo, pr, isTrusted) {
+  const outsiders = await findOutsiders(github, repo, pr, isTrusted);
   if (outsiders.length === 0) {
     return { state: 'success', description: 'All committers are viamrobotics members' };
   }
@@ -55,9 +52,12 @@ async function gateStatus(github, repo, pr, isMember) {
 
 module.exports = async ({ github, context, core, orgClient }) => {
   const repo = context.repo;
+  const trustedBots = (process.env.TRUSTED_BOTS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const isMember = memberChecker(orgClient, repo.owner);
+  // Bots are honored only on same-repo PRs, matching pr-labeler.yml.
+  const isTrusted = (login, isFork) => (!isFork && trustedBots.includes(login)) || isMember(login);
   for (const pr of await findPulls(github, context)) {
-    const status = await gateStatus(github, repo, pr, isMember);
+    const status = await gateStatus(github, repo, pr, isTrusted);
     await github.rest.repos.createCommitStatus({ ...repo, sha: pr.head.sha, context: 'cla/gate', ...status });
     core.info(`#${pr.number} ${pr.head.sha}: ${status.state} (${status.description})`);
   }
