@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -199,6 +200,97 @@ func TestUserPermsAuthorizerDuplicateUser(t *testing.T) {
 	}, logging.NewTestLogger(t))
 	appUserCtx := ctxWithAppUserID("95ae43d3-a007-4e75-afd0-ea9317758a48", testAppUserID)
 	assertDenied(t, ra.authorize(appUserCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+}
+
+func TestUserPermsAuthorizerMultipleUsers(t *testing.T) {
+	const otherAppUserID = "a1b2c3d4-0000-4000-8000-000000000002"
+	camPerm := []config.Permission{{Resources: []string{"cam1"}, AllowedMethods: []string{getImages}}}
+	sensorPerm := []config.Permission{{Resources: []string{"sensor1"}, AllowedMethods: []string{getReadings}}}
+	appUserCtx := ctxWithAppUserID("95ae43d3-a007-4e75-afd0-ea9317758a48", testAppUserID)
+
+	t.Run("one entry grants every user it names", func(t *testing.T) {
+		ra := newUserPermsAuthorizer([]config.UserPermission{
+			{
+				Users:       []config.User{apiKeyUser(testKeyID), appUserIDUser(testAppUserID), appUserIDUser(otherAppUserID)},
+				Permissions: camPerm,
+			},
+		}, logging.NewTestLogger(t))
+
+		for _, ctx := range []context.Context{
+			ctxWithUser(testKeyID),
+			appUserCtx,
+			ctxWithAppUserID("0ad2d0b4-4a1e-4a60-9b44-2ff1a0b3a0a6", otherAppUserID),
+		} {
+			err := ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+			test.That(t, err, test.ShouldBeNil)
+			assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
+		}
+
+		// Grouped users share one permSet rather than each holding a copy, so a machine's
+		// memory tracks the number of entries, not the number of subjects.
+		byKeyID := ra.identityPerms[rdkgrpc.Identity{Entity: testKeyID}]
+		byAppUserID := ra.identityPerms[rdkgrpc.Identity{AppUserID: testAppUserID}]
+		test.That(t, reflect.ValueOf(byKeyID).Pointer(), test.ShouldEqual, reflect.ValueOf(byAppUserID).Pointer())
+	})
+
+	t.Run("users supersedes user", func(t *testing.T) {
+		ra := newUserPermsAuthorizer([]config.UserPermission{
+			{User: apiKeyUser(testKeyID), Users: []config.User{appUserIDUser(testAppUserID)}, Permissions: camPerm},
+		}, logging.NewTestLogger(t))
+
+		err := ra.authorize(appUserCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+		test.That(t, err, test.ShouldBeNil)
+		// The ignored user gets no entry at all, so it is fully restricted.
+		assertDenied(t, ra.authorize(ctxWithUser(testKeyID), getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+	})
+
+	t.Run("a user named twice in one entry is not a collision", func(t *testing.T) {
+		ra := newUserPermsAuthorizer([]config.UserPermission{
+			{Users: []config.User{apiKeyUser(testKeyID), apiKeyUser(testKeyID)}, Permissions: camPerm},
+		}, logging.NewTestLogger(t))
+		err := ra.authorize(ctxWithUser(testKeyID), getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("a user named by two entries is fully restricted", func(t *testing.T) {
+		ra := newUserPermsAuthorizer([]config.UserPermission{
+			{Users: []config.User{apiKeyUser(testKeyID), appUserIDUser(testAppUserID)}, Permissions: camPerm},
+			{User: apiKeyUser(testKeyID), Permissions: sensorPerm},
+		}, logging.NewTestLogger(t))
+
+		ctx := ctxWithUser(testKeyID)
+		assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+		assertDenied(t, ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
+
+		// The collision restricts only the colliding user, not everyone the entry named.
+		err := ra.authorize(appUserCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("default inside users behaves like default in user", func(t *testing.T) {
+		ra := newUserPermsAuthorizer([]config.UserPermission{
+			{Users: []config.User{apiKeyUser(testKeyID), {Type: config.UserTypeDefault}}, Permissions: camPerm},
+		}, logging.NewTestLogger(t))
+
+		otherCtx := ctxWithUser("someone-else")
+		err := ra.authorize(otherCtx, getImages, &camerapb.GetImagesRequest{Name: "cam1"})
+		test.That(t, err, test.ShouldBeNil)
+		assertDenied(t, ra.authorize(otherCtx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"}))
+	})
+
+	t.Run("an entry naming nobody is skipped", func(t *testing.T) {
+		ra := newUserPermsAuthorizer([]config.UserPermission{
+			{Permissions: camPerm},
+			{Users: []config.User{apiKeyUser(testKeyID)}, Permissions: sensorPerm},
+		}, logging.NewTestLogger(t))
+
+		ctx := ctxWithUser(testKeyID)
+		err := ra.authorize(ctx, getReadings, &commonpb.GetReadingsRequest{Name: "sensor1"})
+		test.That(t, err, test.ShouldBeNil)
+		assertDenied(t, ra.authorize(ctx, getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+		// The skipped entry grants nothing to anyone, rather than becoming a default.
+		assertDenied(t, ra.authorize(ctxWithUser("someone-else"), getImages, &camerapb.GetImagesRequest{Name: "cam1"}))
+	})
 }
 
 func TestUserPermsAuthorizerSameNameDifferentAPI(t *testing.T) {

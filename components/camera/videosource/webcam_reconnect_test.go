@@ -6,16 +6,10 @@ package videosource
 
 import (
 	"context"
-	"image"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/pion/mediadevices/pkg/driver"
-	"github.com/pion/mediadevices/pkg/driver/availability"
-	"github.com/pion/mediadevices/pkg/frame"
-	"github.com/pion/mediadevices/pkg/io/video"
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
@@ -23,63 +17,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
-
-// fakeCamera is a mediadevices video adapter whose availability the test controls. Reporting
-// availability.ErrNoDevice is what the real darwin driver does once a device is unplugged, so flipping
-// available to false is how a test simulates a hot unplug.
-type fakeCamera struct {
-	available atomic.Bool
-}
-
-func newFakeCamera(available bool) *fakeCamera {
-	f := &fakeCamera{}
-	f.available.Store(available)
-	return f
-}
-
-func (f *fakeCamera) Open() error  { return nil }
-func (f *fakeCamera) Close() error { return nil }
-
-func (f *fakeCamera) Properties() []prop.Media {
-	return []prop.Media{{Video: prop.Video{Width: 640, Height: 480, FrameRate: 30, FrameFormat: frame.FormatI420}}}
-}
-
-func (f *fakeCamera) VideoRecord(p prop.Media) (video.Reader, error) {
-	img := image.NewRGBA(image.Rect(0, 0, p.Width, p.Height))
-	return video.ReaderFunc(func() (image.Image, func(), error) {
-		return img, func() {}, nil
-	}), nil
-}
-
-func (f *fakeCamera) IsAvailable() (bool, error) {
-	if !f.available.Load() {
-		return false, availability.ErrNoDevice
-	}
-	return true, nil
-}
-
-// registerFakeCamera registers a fakeCamera in the global mediadevices driver manager under the given Label
-// and Name and returns both the fake and the registered driver. The registration is removed when the test ends.
-// Labels must not contain path separators so that findReaderAndDriver's filepath.Base leaves them unchanged.
-func registerFakeCamera(t *testing.T, label, name string, available bool) (*fakeCamera, driver.Driver) {
-	t.Helper()
-	fake := newFakeCamera(available)
-	manager := driver.GetManager()
-	err := manager.Register(fake, driver.Info{Label: label, Name: name, DeviceType: driver.Camera})
-	test.That(t, err, test.ShouldBeNil)
-
-	drivers := manager.Query(labelFilter(label, false, false))
-	test.That(t, drivers, test.ShouldHaveLength, 1)
-	d := drivers[0]
-
-	t.Cleanup(func() {
-		if d.Status() != driver.StateClosed {
-			test.That(t, d.Close(), test.ShouldBeNil)
-		}
-		manager.Delete(d.ID())
-	})
-	return fake, d
-}
 
 // Ten monitor ticks is long enough to be sure a reconnect that was going to happen would have happened.
 const monitorSettleTime = 10 * testMonitorInterval
@@ -218,7 +155,8 @@ func TestMonitorRefusesNameFallbackWhenMultipleAppear(t *testing.T) {
 	waitForDisconnect(t, c)
 
 	// Both candidates are registered unavailable first so that a monitor tick landing between the two
-	// registrations cannot open the lone candidate; they are only made available once both exist.
+	// registrations cannot open the lone candidate; they are only made available once both exist. Such a
+	// tick still finds both registered when findReaderAndDriverByName re-checks after opening one.
 	fakeA2, _ := registerFakeCamera(t, "rdk-test-multi-a2", "rdk-test-multi-cam", false)
 	fakeA3, a3 := registerFakeCamera(t, "rdk-test-multi-a3", "rdk-test-multi-cam", false)
 	fakeA2.available.Store(true)

@@ -123,6 +123,8 @@ type webcam struct {
 
 	reader video.Reader
 	driver driverutils.Driver
+	// detaches counts detachLocked calls so a read in flight across one knows its camera is gone.
+	detaches uint64
 
 	// This is returned to us as a label in mediadevices but our config
 	// treats it as a video path.
@@ -205,7 +207,8 @@ func NewWebcam(
 	if targetPath == "" {
 		targetPath = label
 	}
-	logger = logger.WithFields("camera_label", targetPath)
+	// WithFields replaces a logger's fields rather than adding to them, so camera_name is repeated.
+	logger = logger.WithFields("camera_name", name.ShortName(), "camera_label", targetPath)
 
 	c := newWebcam(name, *nativeConf, targetPath, reader, driver, findReaderAndDriver, logger)
 	c.start()
@@ -267,6 +270,7 @@ func (c *webcam) ensureActive() error {
 // closeCamera outside the lock. Must be called with mu held.
 func (c *webcam) detachLocked() (driverutils.Driver, func()) {
 	driver, release := c.driver, c.buffer.release
+	c.detaches++
 	c.driver = nil
 	c.reader = nil
 	c.buffer.release = nil
@@ -426,7 +430,10 @@ func (c *webcam) startBufferWorker() {
 		for {
 			select {
 			case <-ctx.Done():
-				c.logger.Debug("buffer worker context done")
+				c.mu.Lock()
+				logger := c.logger
+				c.mu.Unlock()
+				logger.Debug("buffer worker context done")
 				return
 			case <-c.wakeCh:
 				c.wake()
@@ -465,7 +472,7 @@ func (c *webcam) readFrame() {
 		c.mu.Unlock()
 		return
 	}
-	reader := c.reader
+	reader, detaches := c.reader, c.detaches
 	// Release and read happen outside the lock to avoid holding it during I/O.
 	oldRelease := c.buffer.release
 	c.buffer.release = nil
@@ -477,6 +484,13 @@ func (c *webcam) readFrame() {
 	img, release, err := reader.Read()
 
 	c.mu.Lock()
+	if c.detaches != detaches {
+		c.mu.Unlock()
+		if release != nil {
+			release()
+		}
+		return
+	}
 	defer c.mu.Unlock()
 	c.buffer.err = err
 	if err != nil {

@@ -49,13 +49,29 @@ func TestWebcamMonitor(t *testing.T) {
 		assertAllReleased(t, secondReader)
 	})
 
-	t.Run("drops the unplugged camera's frame", func(t *testing.T) {
-		firstDriver, secondDriver, secondReader := &fakeDriver{}, &fakeDriver{}, &fakeReader{}
-		c := newFakeWebcam(t, 0, &fakeReader{}, firstDriver, &fakeOpener{reader: secondReader, driver: secondDriver})
+	t.Run("drops the unplugged camera's buffered and in-flight frames", func(t *testing.T) {
+		firstReader, secondReader := &fakeReader{}, &fakeReader{}
+		firstDriver, secondDriver := &fakeDriver{}, &fakeDriver{}
+		opener := &fakeOpener{reader: secondReader, driver: secondDriver}
+		c := newFakeWebcam(t, 0, firstReader, firstDriver, opener)
 		waitFrame(t, c)
+		unblockFirst := firstReader.block(t)
+		unblockOpen := opener.block(t)
 		secondReader.block(t)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, firstReader.reads.Load(), test.ShouldBeGreaterThan, firstReader.frames.Load())
+		})
 
 		firstDriver.unavailable.Store(true)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, opener.opens.Load(), test.ShouldEqual, int32(1))
+		})
+		// The held read returns while the camera is detached, so its frame must be released rather than buffered.
+		unblockFirst()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, firstReader.releases.Load(), test.ShouldEqual, firstReader.reads.Load())
+		})
+		unblockOpen()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			test.That(tb, usesDriver(c, secondDriver), test.ShouldBeTrue)
 		})
@@ -90,6 +106,25 @@ func TestWebcamMonitor(t *testing.T) {
 
 		test.That(t, c.Close(ctx), test.ShouldBeNil)
 		test.That(t, firstDriver.closes.Load(), test.ShouldEqual, int32(1))
+	})
+
+	// Under -race this also guards the buffer worker's exit log reading c.logger while the reconnect updates it.
+	t.Run("close during a reconnect closes the reopened camera", func(t *testing.T) {
+		firstDriver, secondDriver := &fakeDriver{}, &fakeDriver{}
+		opener := &fakeOpener{reader: &fakeReader{}, driver: secondDriver}
+		c := newFakeWebcam(t, 0, &fakeReader{}, firstDriver, opener)
+		unblock := opener.block(t)
+
+		firstDriver.unavailable.Store(true)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, opener.opens.Load(), test.ShouldEqual, int32(1))
+		})
+		closed := make(chan error, 1)
+		go func() { closed <- c.Close(ctx) }()
+		unblock()
+
+		test.That(t, <-closed, test.ShouldBeNil)
+		test.That(t, secondDriver.closes.Load(), test.ShouldEqual, int32(1))
 	})
 
 	t.Run("does not pause for idle while disconnected", func(t *testing.T) {

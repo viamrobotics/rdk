@@ -83,33 +83,53 @@ func findReaderAndDriver(
 	// The driver manager locks each of its own operations but not a sequence of them
 	driverRefreshMu.Lock()
 	defer driverRefreshMu.Unlock()
+	refreshDrivers()
+	return findRegisteredReaderAndDriver(conf, path, logger)
+}
+
+// refreshDrivers re-enumerates cameras so ones plugged in since startup can be found. On darwin the hot-plug
+// observer keeps the driver manager current instead. Must be called with driverRefreshMu held.
+func refreshDrivers() {
 	switch runtime.GOOS {
 	case "linux":
 		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
 		// So we can call Initialize() only once, and call discover() as many times as we need.
 		mediadevicescamera.Initialize()
 	case "windows":
-		manager := driver.GetManager()
-		held := map[string]string{}
-		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
-			if d.Status() == driver.StateClosed {
-				manager.Delete(d.ID())
-			} else {
-				held[d.Info().Label] = d.ID()
-			}
-		}
+		refreshWindowsDrivers(mediadevicescamera.Initialize)
+	}
+}
 
-		// Calling Initialize() creates new driver entries for every connected webcam (even ones already held)
-		mediadevicescamera.Initialize()
-
-		// Delete already held webcams to avoid duplication
-		for _, d := range manager.Query(driver.FilterVideoRecorder()) {
-			if heldID, ok := held[d.Info().Label]; ok && d.ID() != heldID && d.Status() == driver.StateClosed {
-				manager.Delete(d.ID())
-			}
+// refreshWindowsDrivers drops closed drivers, then runs initialize and drops the duplicates it registers for
+// cameras that are already open.
+func refreshWindowsDrivers(initialize func()) {
+	manager := driver.GetManager()
+	held := map[string]string{}
+	for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+		if d.Status() == driver.StateClosed {
+			manager.Delete(d.ID())
+		} else {
+			held[d.Info().Label] = d.ID()
 		}
 	}
 
+	// Calling Initialize() creates new driver entries for every connected webcam (even ones already held)
+	initialize()
+
+	// Delete already held webcams to avoid duplication
+	for _, d := range manager.Query(driver.FilterVideoRecorder()) {
+		if heldID, ok := held[d.Info().Label]; ok && d.ID() != heldID && d.Status() == driver.StateClosed {
+			manager.Delete(d.ID())
+		}
+	}
+}
+
+// findRegisteredReaderAndDriver is findReaderAndDriver without re-enumerating cameras first.
+func findRegisteredReaderAndDriver(
+	conf *WebcamConfig,
+	path string,
+	logger logging.Logger,
+) (video.Reader, driver.Driver, string, error) {
 	constraints := makeConstraints(conf, logger)
 
 	// Handle specific path
@@ -149,6 +169,10 @@ func findReaderAndDriver(
 	return reader, driver, path, nil
 }
 
+// errMultipleSameName is returned when more than one registered device reports the hardware name being
+// searched for, since identical devices cannot be told apart by Name.
+var errMultipleSameName = errors.New("cannot reconnect by name: multiple webcams with identical hardware names")
+
 // findReaderAndDriverByName finds a video device whose driver Name matches the given name. The driver Name is the OS-reported device name.
 // It only proceeds when exactly one registered device has that Name to prevent ambiguity
 func findReaderAndDriverByName(
@@ -157,9 +181,7 @@ func findReaderAndDriverByName(
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
 	if countDevicesWithName(name) != 1 {
-		return nil, nil, "", errors.Errorf(
-			"cannot reconnect by name: multiple webcams with identical hardware names",
-		)
+		return nil, nil, "", errMultipleSameName
 	}
 
 	constraints := makeConstraints(conf, logger)
@@ -167,6 +189,15 @@ func findReaderAndDriverByName(
 	reader, driver, err := getReaderAndDriver(labelFilter(name, false, true), name, constraints, logger)
 	if err != nil {
 		return nil, nil, "", err
+	}
+	// On darwin the hot-plug observer updates the driver manager as cameras are plugged in, so a second
+	// device with this name can appear between the count above and the open here. Re-check rather than hand
+	// back a driver that was picked arbitrarily from several identical ones.
+	if countDevicesWithName(name) != 1 {
+		if err := driver.Close(); err != nil {
+			logger.Errorw("failed to close driver found by name", "error", err)
+		}
+		return nil, nil, "", errMultipleSameName
 	}
 	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
 	return reader, driver, labels[0], nil
