@@ -137,6 +137,9 @@ func TestCaptureQueue(t *testing.T) {
 
 // Tests reading the data written by a CaptureBuffer.
 func TestCaptureBufferReader(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("capture files created in one ~15.6ms Windows clock tick overwrite each other (RSDK-14834)")
+	}
 	t.Run("tabular data", func(t *testing.T) {
 		type testCase struct {
 			name             string
