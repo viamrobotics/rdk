@@ -135,7 +135,7 @@ func (c *Capture) newCollectors(
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
 	for res, cfgs := range collectorConfigsByResource {
 		for _, cfg := range cfgs {
-			md := newCollectorMetadata(cfg, captureAPIForMethod(res, cfg.Method, cfg.Name.API))
+			md := newCollectorMetadata(res, cfg)
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
@@ -363,6 +363,9 @@ func (c *Capture) buildCollector(
 	// Get collector constructor for the owning API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
+		if err := unresolvedCaptureMethodError(res, collectorConfig); err != nil {
+			return nil, err
+		}
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 

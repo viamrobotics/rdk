@@ -62,8 +62,7 @@ func (c *Capture) buildEffectiveCollectors(
 			if result == nil {
 				continue
 			}
-			api := captureAPIForMethod(res, result.Method, result.Name.API)
-			effectiveCollectors[newCollectorMetadata(*result, api)] = effectiveCollectorConfig{res, *result, key}
+			effectiveCollectors[newCollectorMetadata(res, *result)] = effectiveCollectorConfig{res, *result, key}
 		}
 	}
 
@@ -74,7 +73,7 @@ func (c *Capture) buildEffectiveCollectors(
 			continue
 		}
 
-		res, api, ok := c.shouldAutoEnable(override)
+		res, ok := c.shouldAutoEnable(override)
 		if !ok {
 			continue
 		}
@@ -89,7 +88,7 @@ func (c *Capture) buildEffectiveCollectors(
 		if result == nil {
 			continue
 		}
-		effectiveCollectors[newCollectorMetadata(*result, api)] = effectiveCollectorConfig{res, *result, key}
+		effectiveCollectors[newCollectorMetadata(res, *result)] = effectiveCollectorConfig{res, *result, key}
 	}
 
 	return effectiveCollectors
@@ -204,12 +203,12 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 // data capture is not configured on the machine config for that resource/method pair. It returns the
 // resource and the API that owns the method, which for a composite may differ from the resource's
 // configured API.
-func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, resource.API, bool) {
+func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, bool) {
 	res, ok := c.resourcesByShortName[override.ResourceName]
 	if !ok {
 		c.logger.Warnw("capture control sensor referenced unknown resource",
 			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, resource.API{}, false
+		return nil, false
 	}
 
 	api := captureAPIForMethod(res, override.MethodName, res.Name().API)
@@ -217,13 +216,13 @@ func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (r
 	if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: override.MethodName}) == nil {
 		c.logger.Warnw("capture control sensor referenced unknown method for resource",
 			"resource", override.ResourceName, "method", override.MethodName, "api", api)
-		return nil, resource.API{}, false
+		return nil, false
 	}
 
 	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(api.String(), override.MethodName)]; needsParams {
 		c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
 			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, resource.API{}, false
+		return nil, false
 	}
-	return res, api, true
+	return res, true
 }
