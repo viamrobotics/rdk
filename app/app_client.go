@@ -540,6 +540,13 @@ type UpdateFragmentOptions struct {
 	Visibility *FragmentVisibility
 }
 
+// GetRobotPartHistoryOptions contains optional parameters for GetRobotPartHistory.
+type GetRobotPartHistoryOptions struct {
+	Start     *time.Time
+	End       *time.Time
+	PageLimit *int
+}
+
 // GetFragmentHistoryOptions contains optional parameters for GetFragmentHistory.
 type GetFragmentHistoryOptions struct {
 	PageToken *string
@@ -1715,13 +1722,34 @@ func (c *AppClient) TailRobotPartLogs(
 //		context.Background(),
 //		"1ab2345c-a123-1ab2-1abc-1ab234567a12")
 //
+//	limit := 50
+//	history, err := cloud.GetRobotPartHistory(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		&GetRobotPartHistoryOptions{Start: &startTime, End: &endTime, PageLimit: &limit})
+//
 // For more information, see the [GetRobotPartHistory method docs].
 //
+// opts is variadic so existing callers that pass only ctx and id keep compiling; only the first value is used.
+//
 // [GetRobotPartHistory method docs]: https://docs.viam.com/reference/apis/fleet/#getrobotparthistory
-func (c *AppClient) GetRobotPartHistory(ctx context.Context, id string) ([]*RobotPartHistoryEntry, error) {
-	resp, err := c.client.GetRobotPartHistory(ctx, &pb.GetRobotPartHistoryRequest{
-		Id: id,
-	})
+func (c *AppClient) GetRobotPartHistory(
+	ctx context.Context, id string, opts ...*GetRobotPartHistoryOptions,
+) ([]*RobotPartHistoryEntry, error) {
+	req := &pb.GetRobotPartHistoryRequest{Id: id}
+	if len(opts) > 0 && opts[0] != nil {
+		if opts[0].Start != nil {
+			req.Start = timestamppb.New(*opts[0].Start)
+		}
+		if opts[0].End != nil {
+			req.End = timestamppb.New(*opts[0].End)
+		}
+		if opts[0].PageLimit != nil {
+			limit := int64(*opts[0].PageLimit)
+			req.PageLimit = &limit
+		}
+	}
+	resp, err := c.client.GetRobotPartHistory(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -1973,6 +2001,25 @@ func (c *AppClient) DeleteRobotPartSecret(ctx context.Context, partID, secretID 
 func (c *AppClient) ListRobots(ctx context.Context, locationID string) ([]*Robot, error) {
 	resp, err := c.client.ListRobots(ctx, &pb.ListRobotsRequest{
 		LocationId: locationID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var robots []*Robot
+	for _, robot := range resp.Robots {
+		robots = append(robots, robotFromProto(robot))
+	}
+	return robots, nil
+}
+
+// ListRobotsForLocations gets the robots across all of the given locations in one call.
+//
+// ListRobotsForLocations example:
+//
+//	robots, err := cloud.ListRobotsForLocations(context.Background(), []string{"ab1c2d3e45", "bc2d3e4f56"})
+func (c *AppClient) ListRobotsForLocations(ctx context.Context, locationIDs []string) ([]*Robot, error) {
+	resp, err := c.client.ListRobotsForLocations(ctx, &pb.ListRobotsForLocationsRequest{
+		LocationIds: locationIDs,
 	})
 	if err != nil {
 		return nil, err

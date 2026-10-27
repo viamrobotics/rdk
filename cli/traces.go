@@ -7,7 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
@@ -119,9 +118,7 @@ func (c *viamClient) tracesGetRemoteAction(
 	}
 	gArgs, err := getGlobalArgs(ctx)
 	quiet := err == nil && gArgs != nil && gArgs.Quiet
-	var startTime time.Time
 	if !quiet {
-		startTime = time.Now()
 		printf(ctx.Root().Writer, "Saving to %s ...", path.Join(target))
 	}
 	if err := c.copyFilesFromMachine(
@@ -136,6 +133,7 @@ func (c *viamClient) tracesGetRemoteAction(
 		[]string{src},
 		target,
 		logger,
+		quiet,
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
@@ -143,9 +141,6 @@ func (c *viamClient) tracesGetRemoteAction(
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
-	}
-	if !quiet {
-		printf(ctx.Root().Writer, "Download finished in %s.", time.Since(startTime))
 	}
 	return nil
 }

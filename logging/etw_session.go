@@ -37,17 +37,14 @@ type logmanSessionController struct {
 	maxSizeMB    int
 }
 
-// Start normalizes any prior session/definition state, then creates a fresh
-// definition and starts it. The two-step create-then-start (instead of a
-// single create-with-ets) is deliberate: logman's -ets-create path drops
-// the -ft flag, so we use the persistent definition path where it takes
-// effect, then activate the definition.
+// Start creates and starts the ETW session. -ets acts on the session directly
+// and saves no data collector definition, so there is nothing for Stop to
+// delete afterwards.
 //
-// stop+delete-first makes Start idempotent regardless of prior state (no
-// session, leftover session from a crash, stale definition from a prior
-// viam-server version). It also ensures definition changes between
-// viam-server versions get picked up — the delete clears any stale config
-// before we recreate it.
+// The stop-first keeps Start idempotent against a session leaked by a crash.
+// Note that session names are global to the machine: starting a controller
+// under a name another process is already using will stop that process's
+// session out from under it.
 func (l *logmanSessionController) Start(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(l.outputPath), 0o755); err != nil {
 		return fmt.Errorf("create etl dir: %w", err)
@@ -57,7 +54,6 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 	// no session means stop fails harmlessly.
 	_ = l.logman(ctx, "stop", l.name, "-ets")
 
-	// Create the persistent definition and run it automatically with -ets
 	if err := l.logman(ctx, "create", "trace", l.name,
 		"-p", bracedGUID(l.providerGUID),
 		"-o", l.outputPath,

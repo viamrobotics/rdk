@@ -835,6 +835,64 @@ func TestAuthConfigToProto(t *testing.T) {
 		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
 	})
 
+	t.Run("user permissions naming several users", func(t *testing.T) {
+		authConfig := AuthConfig{
+			UserPermissions: []UserPermission{
+				{
+					Users: []User{
+						{Type: UserTypeAPIKeyID, ID: "c6f77790-5405-488a-9c9c-9612402fb9b0"},
+						{Type: UserTypeAppUserID, ID: "a1b2c3d4-0000-4000-8000-000000000001"},
+						{Type: UserTypeDefault},
+					},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"_machine"},
+							AllowedMethods: []string{"/viam.robot.v1.RobotService/ResourceNames"},
+						},
+					},
+				},
+			},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.GetUserPermissions(), test.ShouldHaveLength, 1)
+		test.That(t, proto.GetUserPermissions()[0].GetUsers(), test.ShouldHaveLength, 3)
+		test.That(t, proto.GetUserPermissions()[0].GetUsers()[1].GetId(), test.ShouldEqual,
+			"a1b2c3d4-0000-4000-8000-000000000001")
+		test.That(t, proto.GetUserPermissions()[0].GetUsers()[2].GetId(), test.ShouldBeEmpty)
+
+		out, err := AuthConfigFromProto(proto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
+	})
+
+	t.Run("user permissions naming only user", func(t *testing.T) {
+		authConfig := AuthConfig{
+			UserPermissions: []UserPermission{
+				{
+					User: User{Type: UserTypeAPIKeyID, ID: "c6f77790-5405-488a-9c9c-9612402fb9b0"},
+					Permissions: []Permission{
+						{
+							Resources:      []string{"cam1"},
+							AllowedMethods: []string{"/viam.component.camera.v1.CameraService/GetImages"},
+						},
+					},
+				},
+			},
+		}
+
+		proto, err := AuthConfigToProto(&authConfig)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, proto.GetUserPermissions()[0].GetUsers(), test.ShouldBeEmpty)
+
+		out, err := AuthConfigFromProto(proto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		// Nil rather than an empty slice, so a user-only config round-trips to exactly itself.
+		test.That(t, out.UserPermissions[0].Users, test.ShouldBeNil)
+		test.That(t, out.UserPermissions, test.ShouldResemble, authConfig.UserPermissions)
+	})
+
 	t.Run("no user permissions", func(t *testing.T) {
 		proto, err := AuthConfigToProto(&AuthConfig{})
 		test.That(t, err, test.ShouldBeNil)
@@ -1055,20 +1113,35 @@ func TestPartialStart(t *testing.T) {
 }
 
 func TestPackageTypeConversion(t *testing.T) {
-	emptyType := PackageType("")
-	_, err := PackageTypeToProto(emptyType)
-	test.That(t, err, test.ShouldNotBeNil)
+	testCases := []struct {
+		configType PackageType
+		protoType  packagespb.PackageType
+	}{
+		{PackageTypeArchive, packagespb.PackageType_PACKAGE_TYPE_ARCHIVE},
+		{PackageTypeMlModel, packagespb.PackageType_PACKAGE_TYPE_ML_MODEL},
+		{PackageTypeModule, packagespb.PackageType_PACKAGE_TYPE_MODULE},
+		{PackageTypeSlamMap, packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP},
+		{PackageTypeUnspecified, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED},
+		{PackageTypeMlTraining, packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING},
+	}
+	for _, tc := range testCases {
+		convertedProto, err := PackageTypeToProto(tc.configType)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, convertedProto, test.ShouldResemble, tc.protoType.Enum())
 
-	moduleType := PackageType("module")
-	converted, err := PackageTypeToProto(moduleType)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_MODULE.Enum())
+		convertedConfig, err := PackageTypeFromProto(tc.protoType)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, convertedConfig, test.ShouldEqual, tc.configType)
+	}
 
-	badType := PackageType("invalid-package-type")
-	converted, err = PackageTypeToProto(badType)
+	convertedProto, err := PackageTypeToProto(PackageType("invalid-package-type"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "invalid-package-type")
-	test.That(t, converted, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
+	test.That(t, convertedProto, test.ShouldResemble, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum())
+
+	convertedConfig, err := PackageTypeFromProto(packagespb.PackageType(100))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, convertedConfig, test.ShouldEqual, PackageType(""))
 }
 
 func TestMaintenanceConfigToProtoSuccess(t *testing.T) {
@@ -1312,4 +1385,14 @@ func TestTracingConfigFromProto(t *testing.T) {
 			test.That(t, traceCfg.OTLPEndpoint, test.ShouldResemble, cfg.OtlpEndpoint)
 		})
 	}
+}
+
+func TestFrameConfigToProtoRefusesSeveralGeometries(t *testing.T) {
+	_, err := FrameConfigToProto(referenceframe.LinkConfig{
+		Parent:     "world",
+		Geometry:   &spatial.GeometryConfig{Type: spatial.SphereType, R: 1},
+		Geometries: []spatial.GeometryConfig{{Type: spatial.SphereType, R: 2}},
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "carries one")
 }

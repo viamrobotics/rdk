@@ -16,6 +16,11 @@ var ErrAPIKeyLogin = errors.New("cached credentials are an API key, which has no
 // expired and holds no refresh token to renew it with.
 var errTokenExpired = errors.New("cached token has expired and cannot be refreshed; run `viam login`")
 
+// errLoggedOut is returned by refreshAuthIfExpired after a failed token refresh
+// has cleared the cached credentials. Further retries within the same command
+// cannot recover; the user must run `viam login` to re-authenticate.
+var errLoggedOut = errors.New("logged out — run `viam login` to re-authenticate")
+
 // TokenFromCache loads the CLI's cached credentials (written by `viam login`)
 // and returns a bearer access token for authenticating with app.viam.com — for
 // example as an "authorization: Bearer <token>" gRPC/HTTP header.

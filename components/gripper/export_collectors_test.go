@@ -3,6 +3,7 @@ package gripper
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
 var (
-	NewDoCommandCollector    = newDoCommandCollector
-	NewGetWorldPoseCollector = newGetWorldPoseCollector
+	NewIsHoldingSomethingCollector = newIsHoldingSomethingCollector
+	NewDoCommandCollector          = newDoCommandCollector
+	NewGetWorldPoseCollector       = newGetWorldPoseCollector
 )

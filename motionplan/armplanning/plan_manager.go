@@ -278,10 +278,9 @@ func (pm *planManager) planSingleGoal(
 		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && reconfigL2 > reconfigWallRad {
 			pm.logger.Warnf("goal is %0.1fmm of end-effector motion but the nearest valid goal configuration is "+
 				"%0.2f rad (joint-space L2) away; a linear constraint of %0.0fmm likely cannot accommodate that "+
-				"reconfiguration. Planning one search round only. Consider relaxing the constraint for this step "+
-				"or approaching in a different joint configuration.",
+				"reconfiguration. Giving up.",
 				eeDelta, reconfigL2, lc)
-			allowRelaunch = false
+			return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 		}
 	}
 
@@ -302,15 +301,21 @@ func (pm *planManager) planSingleGoal(
 	// such a request is explainable from the log.
 	if c := pm.request.Constraints; c != nil && len(c.OrientationConstraint) > 0 {
 		tol := math.Inf(1)
+		ignoreTheta := false
 		for _, oc := range c.OrientationConstraint {
-			if oc.OrientationToleranceDegs > 0 {
-				tol = min(tol, oc.OrientationToleranceDegs)
+			if oc.OrientationToleranceDegs > 0 && oc.OrientationToleranceDegs < tol {
+				tol = oc.OrientationToleranceDegs
+				ignoreTheta = oc.IgnoreTheta
 			}
+		}
+		reorientDist := motionplan.OrientDist
+		if ignoreTheta {
+			reorientDist = motionplan.OrientVecDist
 		}
 		maxReorient := 0.0
 		for f, g := range psc.goal {
 			if s, ok := psc.startPoses[f]; ok {
-				maxReorient = max(maxReorient, motionplan.OrientDist(s.Pose().Orientation(), g.Pose().Orientation()))
+				maxReorient = max(maxReorient, reorientDist(s.Pose().Orientation(), g.Pose().Orientation()))
 			}
 		}
 		if maxReorient > tol {

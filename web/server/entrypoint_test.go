@@ -35,7 +35,8 @@ import (
 )
 
 // cgoBuiltinsExcluded reports whether the built viam-server drops cgo-only
-// builtins. cgo is only enabled on amd64/arm64.
+// builtins. cgo is only enabled on amd64/arm64. Windows builds never get the
+// full set.
 func cgoBuiltinsExcluded() bool {
 	return runtime.GOOS == "windows" || (runtime.GOARCH != "amd64" && runtime.GOARCH != "arm64")
 }
@@ -84,7 +85,7 @@ func TestEntrypoint(t *testing.T) {
 
 		// numResources is the # of resources in /etc/configs/fake.json + the 1
 		// expected builtin resources.
-		numResources := 21
+		numResources := 20
 		if cgoBuiltinsExcluded() {
 			numResources = 18
 		}

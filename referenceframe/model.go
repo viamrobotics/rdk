@@ -1,8 +1,10 @@
 package referenceframe
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand"
 	"strings"
@@ -28,14 +30,18 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
 	}
-	format := resp.GetFormat()
-	data := resp.GetKinematicsData()
+	// the typed model wins over the deprecated bytes whenever a server sent one
+	if resp.GetModel() != nil {
+		return ModelFromProto(resp.GetModel(), name)
+	}
+	format := resp.GetFormat()       //nolint:staticcheck // read from servers that predate the typed model
+	data := resp.GetKinematicsData() //nolint:staticcheck // read from servers that predate the typed model
 
 	switch format {
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return UnmarshalModelJSON(data, name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		meshMap := resp.GetMeshesByUrdfFilepath()
+		meshMap := resp.GetMeshesByUrdfFilepath() //nolint:staticcheck // read from servers that predate the typed model
 		modelconf, err := UnmarshalModelXML(data, name, meshMap, nil)
 		if err != nil {
 			return nil, err
@@ -56,13 +62,60 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	}
 }
 
-// KinematicModelToProtobuf converts a model into a protobuf message version of that model.
+// KinematicModelToProtobuf converts a model into the GetKinematics response. The typed model is
+// the answer. The deprecated bytes fields replay the file the model was read from, as they always
+// have, and a model that never had a file, one built from a configuration in code or read from
+// the message, gets them written as an SVA file instead so a client that predates the model still
+// has something to parse. A model that cannot be written as a message, one built from frames with
+// no configuration, sends the file alone as before.
+//
+//nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	if model == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
+	resp := fileKinematicsResponse(model.ModelConfig())
+	pb, err := ModelToProto(model)
+	if err != nil {
+		// a model that cannot be written as a message sends the file alone, as it always did
+		return resp
+	}
+	if len(resp.GetKinematicsData()) == 0 {
+		// a joint with no position bound cannot be written as JSON, in which case the bytes stay
+		// empty and the model alone carries the kinematics
+		if synthesized, err := legacyKinematicsResponse(pb); err == nil {
+			resp = synthesized
+		}
+	}
+	resp.Model = pb
+	return resp
+}
 
-	cfg := model.ModelConfig()
+// legacyKinematicsResponse writes the typed model out as an SVA file for the deprecated bytes
+// fields. Whatever the SVA schema has no place for, such as visual geometry, is left out, since a
+// client reading these fields never saw it.
+//
+//nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
+func legacyKinematicsResponse(pb *commonpb.KinematicModel) (*commonpb.GetKinematicsResponse, error) {
+	cfg, _, err := modelConfigFromProto(pb)
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetKinematicsResponse{
+		Format:         commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA,
+		KinematicsData: data,
+	}, nil
+}
+
+// fileKinematicsResponse replays the file the model was read from, which is all GetKinematics
+// returned before the typed model existed.
+//
+//nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
+func fileKinematicsResponse(cfg *ModelConfigJSON) *commonpb.GetKinematicsResponse {
 	if cfg == nil || cfg.OriginalFile == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
@@ -156,6 +209,22 @@ type SimpleModel struct {
 	// mimicMappings maps frame name to its mimic mapping. A mimic frame derives
 	// its input from a source frame rather than consuming a slot in the flat input vector.
 	mimicMappings map[string]*mimicMapping
+
+	// visual, keyed by link name, and properties are the parts of the typed kinematic model that
+	// the SVA configuration has no place for. They ride the KinematicModel message and nothing
+	// in RDK reads them.
+	visual     map[string][]spatialmath.GeometryConfig
+	properties KinematicProperties
+}
+
+// KinematicProperties describes the component as a whole rather than any one joint. Zero means a
+// property was never set, since neither value is meaningful at zero, and a zero property is left
+// off the wire.
+type KinematicProperties struct {
+	// OperatingFreqHz is the rate the component expects to be driven at.
+	OperatingFreqHz float64
+	// MaxLinearTCPSpeedMMPerSec is the maximum speed of the tool center point.
+	MaxLinearTCPSpeedMMPerSec float64
 }
 
 // NewSimpleModel constructs a new empty model with no kinematics.
@@ -167,6 +236,48 @@ func NewSimpleModel(name string) *SimpleModel {
 		primaryOutputFrame: fs.World().Name(),
 		inputSchema:        &LinearInputsSchema{},
 	}
+}
+
+// NewModelFromGeometries builds a zero-DoF Model whose only purpose is to carry multiple geometries.
+// Each geometry becomes a zero-pose static link parented to world, so a geometry's pose relative to
+// the model origin is the geometry's own pose. Labels double as link names, so they are made unique
+// and non-empty. The caller's geometries are copied, not mutated.
+func NewModelFromGeometries(name string, geometries []spatialmath.Geometry) (Model, error) {
+	if len(geometries) == 0 {
+		return NewSimpleModel(name), nil
+	}
+	cfg := &ModelConfigJSON{Name: name, Links: make([]LinkConfig, 0, len(geometries))}
+	seen := make(map[string]struct{}, len(geometries))
+	for i, g := range geometries {
+		base := g.Label()
+		if base == "" || base == World {
+			base = fmt.Sprintf("geometry_%d", i)
+		}
+		label := base
+		for n := 1; ; n++ {
+			if _, dup := seen[label]; !dup {
+				break
+			}
+			label = fmt.Sprintf("%s_%d", base, n)
+		}
+		seen[label] = struct{}{}
+
+		geom := g.Transform(spatialmath.NewZeroPose())
+		geom.SetLabel(label)
+		frame, err := NewStaticFrameWithGeometry(label, spatialmath.NewZeroPose(), geom)
+		if err != nil {
+			return nil, err
+		}
+		lc, err := NewLinkConfig(frame)
+		if err != nil {
+			return nil, err
+		}
+		lc.Parent = World
+		cfg.Links = append(cfg.Links, *lc)
+	}
+	// The links are siblings, so the model has several leaves; ParseConfig needs one named output.
+	cfg.OutputFrames = []string{cfg.Links[0].ID}
+	return cfg.ParseConfig(name)
 }
 
 // NewModel constructs a model from a FrameSystem and a primary output frame.
@@ -325,7 +436,33 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		return nil, err
 	}
 	m.modelConfig = base.modelConfig
+	m.visual = maps.Clone(base.visual)
+	m.properties = base.properties
 	return m, nil
+}
+
+// withSerializedLimits returns base with the position bounds of limits applied to its joints,
+// where limits is in DoF order. A limits slice that does not line up one-to-one with base's
+// single-DoF joints is ignored, leaving base as parsed.
+func withSerializedLimits(base *SimpleModel, limits []Limit) (*SimpleModel, error) {
+	names := base.MoveableFrameNames()
+	if len(limits) != len(base.DoF()) || len(names) != len(limits) {
+		return base, nil
+	}
+	overrides := map[string]Limit{}
+	for i, name := range names {
+		declared := base.internalFS.Frame(name).DoF()
+		if len(declared) != 1 {
+			return base, nil
+		}
+		if declared[0].Min != limits[i].Min || declared[0].Max != limits[i].Max {
+			overrides[name] = limits[i]
+		}
+	}
+	if len(overrides) == 0 {
+		return base, nil
+	}
+	return NewModelWithLimitOverrides(base, overrides)
 }
 
 // MoveableFrameNames returns the names of frames with non-zero DoF, in schema order.
@@ -385,6 +522,54 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 // ModelConfig returns the ModelConfig object used to create this model.
 func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
+}
+
+// SetVisualGeometries attaches display geometry to a link, replacing whatever it had. Nothing in
+// RDK reads it, it travels on the wire for viewers, so unlike collision meshes a mesh here may be
+// any format a viewer can load and is never parsed. The geometries are copied.
+func (m *SimpleModel) SetVisualGeometries(link string, geometries []spatialmath.GeometryConfig) error {
+	if m.internalFS.Frame(link) == nil {
+		return NewFrameMissingError(link)
+	}
+	if m.visual == nil {
+		m.visual = map[string][]spatialmath.GeometryConfig{}
+	}
+	m.visual[link] = copyGeometryConfigs(geometries)
+	return nil
+}
+
+// VisualGeometries returns copies of the visual geometries set on a link, or nil when it has none.
+func (m *SimpleModel) VisualGeometries(link string) []spatialmath.GeometryConfig {
+	if len(m.visual[link]) == 0 {
+		return nil
+	}
+	return copyGeometryConfigs(m.visual[link])
+}
+
+// SetKinematicProperties records what describes the component as a whole rather than any one
+// joint, such as the rate it expects to be driven at.
+func (m *SimpleModel) SetKinematicProperties(p KinematicProperties) {
+	m.properties = p
+}
+
+// KinematicProperties returns the component level properties, zero valued when none were set.
+func (m *SimpleModel) KinematicProperties() KinematicProperties {
+	return m.properties
+}
+
+// copyGeometryConfigs copies the slice and what it points at, so the model and its callers
+// never share mesh bytes they could change under each other.
+func copyGeometryConfigs(geometries []spatialmath.GeometryConfig) []spatialmath.GeometryConfig {
+	if geometries == nil {
+		return nil
+	}
+	copied := make([]spatialmath.GeometryConfig, len(geometries))
+	for i, g := range geometries {
+		copied[i] = g
+		copied[i].MeshData = bytes.Clone(g.MeshData)
+		copied[i].OrientationOffset.Value = maps.Clone(g.OrientationOffset.Value)
+	}
+	return copied
 }
 
 // Hash returns a hash value for this simple model.
@@ -666,6 +851,13 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		newModel, ok := parsed.(*SimpleModel)
 		if !ok {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+		}
+		// The kinematics config carries the joints' declared limits, so a model serialized after an
+		// input_range_override only has the override in Limits. Push it back into the joints, or
+		// anything rebuilt from internalFS (e.g. NewModelWithLimitOverrides) silently reverts it.
+		newModel, err = withSerializedLimits(newModel, ser.Limits)
+		if err != nil {
+			return err
 		}
 		m.internalFS = newModel.internalFS
 		m.primaryOutputFrame = newModel.primaryOutputFrame

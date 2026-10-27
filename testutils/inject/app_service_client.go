@@ -138,6 +138,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.DeleteRobotPartSecretResponse, error)
 	ListRobotsFunc func(ctx context.Context, in *apppb.ListRobotsRequest,
 		opts ...grpc.CallOption) (*apppb.ListRobotsResponse, error)
+	ListRobotsForLocationsFunc func(ctx context.Context, in *apppb.ListRobotsForLocationsRequest,
+		opts ...grpc.CallOption) (*apppb.ListRobotsForLocationsResponse, error)
 	NewRobotFunc func(ctx context.Context, in *apppb.NewRobotRequest,
 		opts ...grpc.CallOption) (*apppb.NewRobotResponse, error)
 	UpdateRobotFunc func(ctx context.Context, in *apppb.UpdateRobotRequest,
@@ -855,6 +857,16 @@ func (asc *AppServiceClient) ListRobots(
 		return asc.AppServiceClient.ListRobots(ctx, in, opts...)
 	}
 	return asc.ListRobotsFunc(ctx, in, opts...)
+}
+
+// ListRobotsForLocations calls the injected ListRobotsForLocationsFunc or the real version.
+func (asc *AppServiceClient) ListRobotsForLocations(
+	ctx context.Context, in *apppb.ListRobotsForLocationsRequest, opts ...grpc.CallOption,
+) (*apppb.ListRobotsForLocationsResponse, error) {
+	if asc.ListRobotsForLocationsFunc == nil {
+		return asc.AppServiceClient.ListRobotsForLocations(ctx, in, opts...)
+	}
+	return asc.ListRobotsForLocationsFunc(ctx, in, opts...)
 }
 
 // NewRobot calls the injected NewRobotFunc or the real version.

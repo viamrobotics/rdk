@@ -39,6 +39,28 @@ const (
 	NodeStateUnhealthy
 )
 
+// Reachability captures whether calls to a resource by name can be routed through this machine.
+// It is independent of [NodeState]; an unreachable resource keeps its last known state.
+type Reachability uint8
+
+const (
+	// ReachabilityUnknown is reported by machines that predate reachability; treat as reachable.
+	ReachabilityUnknown Reachability = iota
+
+	// ReachabilityReachable denotes a resource that can be called by name.
+	ReachabilityReachable
+
+	// ReachabilityRemoteDisconnected denotes a resource on, or representing, a disconnected remote.
+	ReachabilityRemoteDisconnected
+
+	// ReachabilityShadowedByLocal denotes a remote resource whose name is owned by a local resource.
+	ReachabilityShadowedByLocal
+
+	// ReachabilityAmbiguousRemote denotes a remote resource whose name is claimed by other remote
+	// resources and by no local resource.
+	ReachabilityAmbiguousRemote
+)
+
 // A GraphNode contains the current state of a resource.
 // Based on these states, the underlying Resource may or may not be available.
 // Additionally, the node can be informed that the resource either needs to be
@@ -587,61 +609,8 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	return nil
 }
 
-func (w *GraphNode) canTransitionTo(state NodeState) bool {
-	switch w.state {
-	case NodeStateUnknown:
-	case NodeStateUnconfigured:
-
-		//nolint: exhaustive
-		switch state {
-		case NodeStateConfiguring, NodeStateRemoving:
-			return true
-		}
-	case NodeStateConfiguring:
-
-		//nolint: exhaustive
-		switch state {
-		case NodeStateReady, NodeStateUnhealthy:
-			return true
-		}
-	case NodeStateReady:
-
-		//nolint: exhaustive
-		switch state {
-		case NodeStateConfiguring, NodeStateRemoving:
-			return true
-		}
-	case NodeStateRemoving:
-	case NodeStateUnhealthy:
-
-		//nolint: exhaustive
-		switch state {
-		case NodeStateRemoving, NodeStateUnhealthy:
-			return true
-		case NodeStateReady:
-			// TODO(NEEDS TICKET): ideally, a node should "recover" by the following transition
-			// steps: "unhealthy" -> "configuring" -> "ready".
-			//
-			// However, once a node becomes "unhealthy" it is filtered out from most
-			// reconfiguration operations, and is not available to be transitioned to
-			// "configuring" when we want it to be.
-			//
-			// We eventually want to change the reconfiguration system to show unhealthy
-			// nodes instead of filtering them out at each step of the process.
-			//
-			// In the meantime, we allow nodes to "recover" by transitioning directly
-			// from "unhealthy" -> "ready".
-			//
-			// See this discussion for more details: https://github.com/viamrobotics/rdk/pull/4257#discussion_r1712173743
-			return true
-		}
-	}
-	return false
-}
-
-// transitionTo transitions the GraphNode to a new state. This method will log a warning
-// if the state transition is not expected. This method is not thread-safe and must be
-// called while holding a write lock on `mu` if accessed concurrently.
+// transitionTo transitions the GraphNode to a new state. This method is not thread-safe
+// and must be called while holding a write lock on `mu` if accessed concurrently.
 func (w *GraphNode) transitionTo(state NodeState) {
 	if w.state == state && w.logger != nil {
 		w.logger.Debugw("resource state self-transition", "state", w.state.String())
@@ -654,10 +623,6 @@ func (w *GraphNode) transitionTo(state NodeState) {
 	if w.state == NodeStateRemoving && state == NodeStateUnhealthy {
 		w.logger.Debug("node cannot transition from [NodeStateRemoving] to [NodeStateUnhealthy], blocking transition")
 		return
-	}
-
-	if !w.canTransitionTo(state) && w.logger != nil {
-		w.logger.Warnw("unexpected resource state transition", "from", w.state.String(), "to", state.String())
 	}
 
 	w.state = state
@@ -735,4 +700,6 @@ type NodeStatus struct {
 	// Error contains any errors on the resource if it currently unhealthy.
 	// This field will be nil if the resource is not in the [NodeStateUnhealthy] state.
 	Error error
+
+	Reachability Reachability
 }

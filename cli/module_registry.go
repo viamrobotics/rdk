@@ -111,7 +111,7 @@ type ModuleManifest struct {
 	URL          string            `json:"url"`
 	Description  string            `json:"description"`
 	Models       []ModuleComponent `json:"models,omitempty"`
-	Apps         []AppComponent    `json:"applications"`
+	Apps         []AppComponent    `json:"applications,omitempty"`
 	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
 	modconfig.JSONManifest
@@ -240,6 +240,9 @@ func UpdateModuleAction(ctx context.Context, cmd *cli.Command, args updateModule
 	}
 
 	validateModels(cmd.Root().ErrWriter, &manifest)
+	if err := validateManifestLimits(&manifest); err != nil {
+		return err
+	}
 
 	response, err := client.updateModule(ctx, moduleID, manifest)
 	if err != nil {
@@ -338,6 +341,9 @@ func UploadModuleAction(ctx context.Context, cmd *cli.Command, args uploadModule
 		}
 
 		validateModels(cmd.Root().ErrWriter, &manifest)
+		if err := validateManifestLimits(&manifest); err != nil {
+			return err
+		}
 
 		_, err = client.updateModule(ctx, moduleID, manifest)
 		if err != nil {
@@ -380,6 +386,68 @@ func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 			warningf(errWriter, "error validating API string %s: %s", model.API, err)
 		}
 	}
+}
+
+// Longest values, in bytes, that app.viam.com accepts for these manifest fields.
+const (
+	maxModelDescriptionLength        = 100
+	maxMachinePickerHeadingLength    = 60
+	maxMachinePickerSubheadingLength = 256
+)
+
+// validateManifestLimits mirrors the length limits app.viam.com enforces on a manifest, so they fail
+// locally (and in CI via 'module lint-manifest') instead of only when a release publishes the module.
+func validateManifestLimits(manifest *ModuleManifest) error {
+	var errs error
+	for _, model := range manifest.Models {
+		if model.Description != nil && len(*model.Description) > maxModelDescriptionLength {
+			errs = multierr.Append(errs, errors.Errorf(
+				"short_description for model %s is %d characters, exceeds maximum length of %d",
+				model.Model, len(*model.Description), maxModelDescriptionLength,
+			))
+		}
+	}
+	for _, app := range manifest.Apps {
+		if app.Customizations == nil || app.Customizations.MachinePicker == nil {
+			continue
+		}
+		picker := app.Customizations.MachinePicker
+		if len(picker.Heading) > maxMachinePickerHeadingLength {
+			errs = multierr.Append(errs, errors.Errorf(
+				"machinePicker heading for application %s is %d characters, exceeds maximum length of %d",
+				app.Name, len(picker.Heading), maxMachinePickerHeadingLength,
+			))
+		}
+		if len(picker.Subheading) > maxMachinePickerSubheadingLength {
+			errs = multierr.Append(errs, errors.Errorf(
+				"machinePicker subheading for application %s is %d characters, exceeds maximum length of %d",
+				app.Name, len(picker.Subheading), maxMachinePickerSubheadingLength,
+			))
+		}
+	}
+	return errs
+}
+
+type lintManifestArgs struct {
+	Module string
+}
+
+// LintManifestAction is the corresponding Action for 'module lint-manifest'. It checks meta.json
+// offline, without credentials, so CI can catch manifest errors before a release publishes it.
+func LintManifestAction(ctx context.Context, cmd *cli.Command, args lintManifestArgs) error {
+	manifest, err := loadManifest(args.Module)
+	if err != nil {
+		return err
+	}
+	if _, err := parseModuleID(manifest.ModuleID); err != nil {
+		return err
+	}
+	validateModels(cmd.Root().ErrWriter, &manifest)
+	if err := validateManifestLimits(&manifest); err != nil {
+		return err
+	}
+	printf(cmd.Root().Writer, "no problems found in %s", args.Module)
+	return nil
 }
 
 // return a useful error if the model string looks wrong.

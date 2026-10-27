@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -451,15 +452,18 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
+	// mDNS names are visible host-wide, so a fixed FQDN can resolve to another package's test server.
+	specificHost := primitive.NewObjectID().Hex()
+
 	for _, tc := range []struct {
 		Case       string
 		Managed    bool
 		EntityName string
 	}{
 		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityName: "something-different"},
+		{Case: "unmanaged and specific host", EntityName: specificHost},
 		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
+		{Case: "managed and specific host", Managed: true, EntityName: specificHost},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			ctx := context.Background()
@@ -534,6 +538,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Payload: locationSecret,
 			}
 
+			mdnsSupported := robottestutils.MDNSAvailable()
+
 			var r2 robot.LocalRobot
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
@@ -551,9 +557,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
-				if tc.EntityName != "" {
-					remoteConfig.Remotes[1].Address = options.FQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+					if tc.EntityName != "" {
+						remoteConfig.Remotes[1].Address = options.FQDN
+					}
 				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			} else {
@@ -566,7 +574,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 
 				ctx2 := context.Background()
-				remoteConfig.Remotes[0].Address = options.LocalFQDN
+				if mdnsSupported {
+					remoteConfig.Remotes[0].Address = options.LocalFQDN
+				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
 			}
 
@@ -605,6 +615,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	ctx := context.Background()
 
 	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	mdnsSupported := robottestutils.MDNSAvailable()
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -685,8 +697,10 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS
-	remoteConfig.Remotes[0].Address = options.FQDN
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+		test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+	}
 
 	// use signaling creds
 	remoteConfig.Remotes[0].Address = addr
@@ -705,7 +719,9 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
 		Payload: locationSecret + "bad",
 	}
-	remoteConfig.Remotes[0].Address = options.FQDN
+	if mdnsSupported {
+		remoteConfig.Remotes[0].Address = options.FQDN
+	}
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
 
 	expected := []resource.Name{
@@ -2477,10 +2493,13 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Assert that restoring the testmodule binary makes h start working again
-	// after the auto-restart code succeeds.
+	// after the auto-restart code succeeds. This can take a while: the restart
+	// loop only retries every oueRestartInterval (5s), and a freshly-forked
+	// module process can be slow to start listening on its socket when the CI
+	// machine is under load, so allow a generous window here to avoid flakiness.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
@@ -4531,15 +4550,21 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 	// test that if MachineStatus returns correctly if the remote has a remote
 	// The topography is local -> remote1 -> remote2
 	// remote2 will always have cloud metadata, but this test will test behavior
-	// depending on whether remote1 is online and has cloud metadata
+	// depending on whether remote1 is online and has cloud metadata, and whether remote2 is online
 	logger := logging.NewTestLogger(t)
 
 	testCases := []struct {
-		name          string
-		remoteOffline bool
-		remoteCloudMd bool
-		remotePrefix  string
+		name           string
+		remoteOffline  bool
+		remote2Offline bool
+		remoteCloudMd  bool
+		remotePrefix   string
 	}{
+		{
+			name:           "remote2 is offline while remote1 is online",
+			remote2Offline: true,
+			remoteCloudMd:  true,
+		},
 		{
 			name:          "remote1 is online and has cloud metadata",
 			remoteOffline: false,
@@ -4652,6 +4677,8 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 				config.Remote{Name: remoteName1, Prefix: tc.remotePrefix},
 			)
 
+			remote2Dummy.SetOffline(tc.remote2Offline)
+			remote1.(*localRobot).manager.updateRemotesResourceNames(ctx)
 			remote1Dummy.SetOffline(tc.remoteOffline)
 			// even though the remote1 is now offline, resources will be kept in the resource graph
 			// but marked unreachable
@@ -4665,26 +4692,37 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 
 			expectedMd := cloud.Metadata{}
 			expectedRemote2Md := cloud.Metadata{}
+			expectedReachability := resource.ReachabilityReachable
+			expectedRemote2Reachability := resource.ReachabilityReachable
 			if !tc.remoteOffline {
 				if tc.remoteCloudMd {
 					expectedMd = md
 				}
-				expectedRemote2Md = remote2Md
+				if !tc.remote2Offline {
+					expectedRemote2Md = remote2Md
+				}
+			} else {
+				expectedReachability = resource.ReachabilityRemoteDisconnected
+			}
+			if tc.remoteOffline || tc.remote2Offline {
+				expectedRemote2Reachability = resource.ReachabilityRemoteDisconnected
 			}
 			expectedStatuses := rtestutils.ConcatResourceStatuses(
 				getExpectedDefaultStatuses("", cloud.Metadata{}),
 				[]resource.Status{
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  resource.NewName(client.RemoteAPI, remoteName1),
-							State: resource.NodeStateReady,
+							Name:         resource.NewName(client.RemoteAPI, remoteName1),
+							State:        resource.NodeStateReady,
+							Reachability: expectedReachability,
 						},
 						CloudMetadata: expectedMd,
 					},
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  resName1.PrependRemote(remoteName2).WithPrefix(tc.remotePrefix),
-							State: resource.NodeStateReady,
+							Name:         resName1.PrependRemote(remoteName2).WithPrefix(tc.remotePrefix),
+							State:        resource.NodeStateReady,
+							Reachability: expectedRemote2Reachability,
 						},
 						CloudMetadata: expectedRemote2Md,
 					},
@@ -5590,6 +5628,85 @@ func TestMaintenanceConfigLogs(t *testing.T) {
 		// does), so expect 2 logs.
 		test.That(t, logs.FilterMessage("Reconfigure allowed despite error while checking").Len(), test.ShouldEqual, 2)
 	})
+}
+
+func TestMaintenanceSensorRecheckedAfterFirstRun(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	var allowed atomic.Bool
+	allowed.Store(true)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			s := &inject.Sensor{}
+			s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+				return map[string]interface{}{"allowed": allowed.Load()}, nil
+			}
+			return s, nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// The first_run script connects to this listener and blocks until the test writes a line back.
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	firstRunScript := fmt.Sprintf(`#!/usr/bin/env bash
+exec 3<>/dev/tcp/127.0.0.1/%d
+read <&3
+exit 0
+`, listener.Addr().(*net.TCPAddr).Port)
+
+	tarballPath := createTarballModule(t, firstRunScript)
+	newConfig := func(revision string, modules ...config.Module) *config.Config {
+		return &config.Config{
+			Revision:          revision,
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/maint", MaintenanceAllowedKey: "allowed"},
+			Components:        []resource.Config{{Name: "maint", API: sensor.API, Model: model}},
+			Modules:           modules,
+		}
+	}
+	module := config.Module{Name: "tarball-module", Type: config.ModuleTypeLocal, ExePath: tarballPath}
+	r := setupLocalRobot(t, ctx, newConfig("rev1"), logger, WithViamHomeDir(t.TempDir()))
+
+	reconfigureDone := make(chan struct{})
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, newConfig("rev2", module))
+	}()
+
+	// The machine becomes busy while the first_run script is executing.
+	conn, err := listener.Accept()
+	test.That(t, err, test.ShouldBeNil)
+	allowed.Store(false)
+	_, err = conn.Write([]byte("done\n"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	<-reconfigureDone
+
+	test.That(t, r.Config().Modules, test.ShouldBeEmpty)
+	mStatus, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.Config.Revision, test.ShouldEqual, "rev1")
+	test.That(t, logs.FilterMessage("Reconfigure NOT allowed by maintenance sensor").Len(), test.ShouldEqual, 1)
+
+	// A rerun of the first_run script would fail to connect and abort the reconfigure.
+	test.That(t, listener.Close(), test.ShouldBeNil)
+	allowed.Store(true)
+	r.Reconfigure(ctx, newConfig("rev2", module))
+
+	test.That(t, r.Config().Modules, test.ShouldHaveLength, 1)
+	mStatus, err = r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mStatus.Config.Revision, test.ShouldEqual, "rev2")
 }
 
 func TestRemovingOfflineRemote(t *testing.T) {

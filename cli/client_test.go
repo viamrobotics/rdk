@@ -33,15 +33,18 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/cloud"
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
@@ -202,10 +205,9 @@ func setupWithRunningPart(
 ) (*cli.Command, *viamClient, *testWriter, *testWriter) {
 	t.Helper()
 
-	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
-
-	// this config could later become a parameter
-	r, err := robotimpl.New(context.Background(), &robotconfig.Config{
+	cfg := &robotconfig.Config{
+		// the shell service lookup refuses a part that cannot report its own part ID
+		Cloud: &robotconfig.Cloud{ID: "part-main"},
 		Services: []resource.Config{
 			{
 				Name:  "shell1",
@@ -213,7 +215,31 @@ func setupWithRunningPart(
 				Model: resource.DefaultServiceModel,
 			},
 		},
-	}, nil, logging.NewInMemoryLogger(t))
+	}
+	cCtx, ac, _, out, errOut := setupWithRunningPartConfig(
+		t, asc, dataClient, buildClient, defaultFlags, authMethod, partFQDN, cfg, cliArgs...,
+	)
+	return cCtx, ac, out, errOut
+}
+
+// setupWithRunningPartConfig starts an in-process machine part from cfg and points the CLI
+// client's dialer at it. It also returns the part so tests can observe its state directly.
+func setupWithRunningPartConfig(
+	t *testing.T,
+	asc apppb.AppServiceClient,
+	dataClient datapb.DataServiceClient,
+	buildClient buildpb.BuildServiceClient,
+	defaultFlags map[string]any,
+	authMethod string,
+	partFQDN string,
+	cfg *robotconfig.Config,
+	cliArgs ...string,
+) (*cli.Command, *viamClient, robot.LocalRobot, *testWriter, *testWriter) {
+	t.Helper()
+
+	cCtx, ac, out, errOut := setup(asc, dataClient, buildClient, defaultFlags, authMethod, cliArgs...)
+
+	r, err := robotimpl.New(context.Background(), cfg, nil, logging.NewInMemoryLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -236,7 +262,7 @@ func setupWithRunningPart(
 	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	})
-	return cCtx, ac, out, errOut
+	return cCtx, ac, r, out, errOut
 }
 
 func TestListOrganizationsAction(t *testing.T) {
@@ -1072,6 +1098,69 @@ func TestStreamLogsForPart(t *testing.T) {
 		test.That(t, countLines(buf.String()), test.ShouldEqual, 5)
 		test.That(t, firstRequest.End, test.ShouldBeNil)
 	})
+	t.Run("end without start anchors the default window to end", func(t *testing.T) {
+		end := "2026-02-06T00:54:43Z"
+		flags := map[string]any{generalFlagEnd: end}
+		cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+		requests, firstRequest = 0, nil
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		endTime, err := time.Parse(time.RFC3339, end)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, firstRequest, test.ShouldNotBeNil)
+		test.That(t, firstRequest.End.AsTime(), test.ShouldEqual, endTime)
+		// Defaulting start to 24 hours before *now* would describe an empty window for any end
+		// older than a day.
+		test.That(t, firstRequest.Start, test.ShouldNotBeNil)
+		test.That(t, firstRequest.Start.AsTime(), test.ShouldEqual, endTime.Add(defaultLogStartTime))
+	})
+	t.Run("transient fetch failures are retried", func(t *testing.T) {
+		var failures int
+		flaky := &inject.AppServiceClient{
+			GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartLogsResponse, error) {
+				if failures == 0 && in.PageToken != nil && *in.PageToken == "2" {
+					failures++
+					return nil, status.Error(codes.Unavailable, "connection termination")
+				}
+				return getRobotPartLogsFunc(ctx, in, opts...)
+			},
+		}
+		cCtx, ac, _, errOut := setup(flaky, nil, nil, nil, "")
+		requests = 0
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		test.That(t, ac.streamLogsForPart(context.Background(), part, args, &buf), test.ShouldBeNil)
+
+		// A dropped page mid-export costs a retry, not the remaining logs.
+		test.That(t, failures, test.ShouldEqual, 1)
+		test.That(t, countLines(buf.String()), test.ShouldEqual, testTotalLogs)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "Retrying log fetch")
+	})
+	t.Run("non-transient fetch failures are not retried", func(t *testing.T) {
+		var attempts int
+		broken := &inject.AppServiceClient{
+			GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartLogsResponse, error) {
+				attempts++
+				return nil, status.Error(codes.InvalidArgument, "bad range")
+			},
+		}
+		cCtx, ac, _, _ := setup(broken, nil, nil, nil, "")
+
+		var buf bytes.Buffer
+		args := parseStructFromCtx[robotsLogsArgs](cCtx)
+		err := ac.streamLogsForPart(context.Background(), part, args, &buf)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "bad range")
+		test.That(t, attempts, test.ShouldEqual, 1)
+	})
 }
 
 // TestRobotsLogsAction covers `machines logs` from the action entrypoint, where flag validation
@@ -1145,6 +1234,98 @@ func TestRobotsLogsAction(t *testing.T) {
 		test.That(t, len(out.messages), test.ShouldEqual, 0)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	})
+}
+
+// TestRobotsLogsActionLargeExport covers the export reported in RSDK-13345: a keyword over an
+// explicit [start, end] window written to a file, with a `--count` well above the 10000-log cap
+// the CLI used to reject and above app's page size.
+func TestRobotsLogsActionLargeExport(t *testing.T) {
+	const (
+		availableLogs = 25000
+		pageSize      = 1000
+		requestedLogs = 20000
+		keyword       = "Upload sending"
+	)
+
+	logs := make([]*commonpb.LogEntry, 0, availableLogs)
+	for i := 0; i < availableLogs; i++ {
+		logs = append(logs, &commonpb.LogEntry{Message: fmt.Sprintf("%s %d", keyword, i)})
+	}
+
+	var firstRequest *apppb.GetRobotPartLogsRequest
+	loc := apppb.Location{Name: "naboo"}
+	asc := &inject.AppServiceClient{
+		GetRobotPartLogsFunc: func(ctx context.Context, in *apppb.GetRobotPartLogsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartLogsResponse, error) {
+			if firstRequest == nil {
+				firstRequest = in
+			}
+			page := 1
+			if pt := in.PageToken; pt != nil && *pt != "" {
+				var err error
+				page, err = strconv.Atoi(*pt)
+				test.That(t, err, test.ShouldBeNil)
+			}
+			batchStart := (page - 1) * pageSize
+			if batchStart >= availableLogs {
+				return &apppb.GetRobotPartLogsResponse{}, nil
+			}
+			return &apppb.GetRobotPartLogsResponse{
+				Logs:          logs[batchStart:min(page*pageSize, availableLogs)],
+				NextPageToken: fmt.Sprintf("%d", page+1),
+			}, nil
+		},
+		ListOrganizationsFunc: func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListOrganizationsResponse, error) {
+			return &apppb.ListOrganizationsResponse{Organizations: []*apppb.Organization{{Name: "jedi", Id: "123"}}}, nil
+		},
+		ListLocationsFunc: func(ctx context.Context, in *apppb.ListLocationsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListLocationsResponse, error) {
+			return &apppb.ListLocationsResponse{Locations: []*apppb.Location{&loc}}, nil
+		},
+		GetLocationFunc: func(ctx context.Context, in *apppb.GetLocationRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetLocationResponse, error) {
+			return &apppb.GetLocationResponse{Location: &loc}, nil
+		},
+		ListRobotsFunc: func(ctx context.Context, in *apppb.ListRobotsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.ListRobotsResponse, error) {
+			return &apppb.ListRobotsResponse{Robots: []*apppb.Robot{{Name: "r2d2"}}}, nil
+		},
+		GetRobotPartsFunc: func(ctx context.Context, in *apppb.GetRobotPartsRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartsResponse, error) {
+			return &apppb.GetRobotPartsResponse{Parts: []*apppb.RobotPart{{Name: "main"}}}, nil
+		},
+	}
+
+	start, end := "2026-02-05T00:54:43Z", "2026-02-06T00:54:43Z"
+	outputFile := filepath.Join(t.TempDir(), "logs")
+	flags := map[string]any{
+		logsFlagKeyword:    keyword,
+		generalFlagStart:   start,
+		generalFlagEnd:     end,
+		logsFlagOutputFile: outputFile,
+		logsFlagFormat:     "text",
+		generalFlagCount:   requestedLogs,
+	}
+	cCtx, ac, _, _ := setup(asc, nil, nil, flags, "")
+
+	test.That(t, ac.robotsLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsLogsArgs](cCtx)), test.ShouldBeNil)
+
+	test.That(t, firstRequest, test.ShouldNotBeNil)
+	test.That(t, *firstRequest.Filter, test.ShouldEqual, keyword)
+	test.That(t, firstRequest.Start.AsTime().Format(time.RFC3339), test.ShouldEqual, start)
+	test.That(t, firstRequest.End.AsTime().Format(time.RFC3339), test.ShouldEqual, end)
+
+	contents, err := os.ReadFile(outputFile)
+	test.That(t, err, test.ShouldBeNil)
+	// The export stops at `--count`, not at app's page size.
+	test.That(t, strings.Count(string(contents), keyword), test.ShouldEqual, requestedLogs)
 }
 
 func TestMachinesPartHistoryAction(t *testing.T) {
@@ -1774,6 +1955,71 @@ func TestShellFileCopy(t *testing.T) {
 
 	tfs := shelltestutils.SetupTestFileSystem(t)
 
+	t.Run("unreachable part is retried, not blamed on the destination", func(t *testing.T) {
+		originalRetryBaseDelay := copyRetryBaseDelay
+		copyRetryBaseDelay = time.Millisecond
+		defer func() {
+			copyRetryBaseDelay = originalRetryBaseDelay
+		}()
+
+		tempDir := t.TempDir()
+		args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
+		cCtx, viamClient, _, errOut := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+		)
+
+		var dials int
+		viamClient.dialOverride = func(
+			ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger,
+		) (*client.RobotClient, error) {
+			dials++
+			return nil, status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again")
+		}
+
+		err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx,
+			parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring,
+			fmt.Sprintf("all %d copy attempts failed", maxCopyAttempts))
+		test.That(t, dials, test.ShouldEqual, maxCopyAttempts)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldNotContainSubstring, "destination path does not exist")
+	})
+
+	t.Run("a logout during refresh is surfaced, not retried or blamed on the copy", func(t *testing.T) {
+		useTempCLICache(t)
+
+		// A refresh that the identity provider rejects logs the CLI out. The copy must abort
+		// and report the logout, not exhaust its retries and return "all N copy attempts failed".
+		refreshSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, `{"error":"invalid_grant","error_description":"refresh token revoked"}`, http.StatusBadRequest)
+		}))
+		t.Cleanup(refreshSrv.Close)
+
+		tempDir := t.TempDir()
+		args := []string{tfs.SingleFileNested, fmt.Sprintf("machine:%s", tempDir)}
+		cCtx, viamClient, _, _ := setupWithRunningPart(
+			t, asc, nil, nil, partFlags, "token", partFqdn, args...,
+		)
+		viamClient.authFlow = newCLIAuthFlow(io.Discard, true)
+		viamClient.conf.Auth = expiredToken(refreshSrv.URL)
+
+		var dials int
+		viamClient.dialOverride = func(
+			ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger,
+		) (*client.RobotClient, error) {
+			dials++
+			return nil, errors.New("should not dial after a logout")
+		}
+
+		err := viamClient.machinesPartCopyFilesAction(context.Background(), cCtx,
+			parseStructFromCtx[machinesPartCopyFilesArgs](cCtx), logger)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "copy attempts failed")
+		// The refresh fails before any machine dial, so the copy is never attempted.
+		test.That(t, dials, test.ShouldEqual, 0)
+	})
+
 	t.Run("from", func(t *testing.T) {
 		t.Run("single file", func(t *testing.T) {
 			tempDir := t.TempDir()
@@ -2224,10 +2470,10 @@ func TestMachineViamHome(t *testing.T) {
 	t.Run("machine reports its VIAM_HOME", func(t *testing.T) {
 		// the "machine" is in-process, so its shell service reports this process's ViamDotDir
 		cCtx, vc, _, _ := setupWithRunningPart(t, asc, nil, nil, nil, "token", partFqdn)
-		shellSvc, closeClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
+		shellSvc, robotClient, err := vc.connectToShellServiceFqdn(context.Background(), partFqdn, false, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, closeClient(context.Background()), test.ShouldBeNil)
+			test.That(t, robotClient.Close(context.Background()), test.ShouldBeNil)
 		}()
 		test.That(t, vc.machineViamHome(context.Background(), cCtx, shellSvc),
 			test.ShouldEqual, utils.ViamDotDir)
@@ -2245,6 +2491,141 @@ func TestMachineViamHome(t *testing.T) {
 		test.That(t, vc.machineViamHome(context.Background(), cCtx, nil),
 			test.ShouldEqual, legacyViamHomeDir)
 		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "did not report its VIAM_HOME")
+	})
+}
+
+func TestPartShellServiceName(t *testing.T) {
+	ctx := context.Background()
+	partMD := cloud.Metadata{MachinePartID: "part-main"}
+	remoteMD := cloud.Metadata{MachinePartID: "part-remote"}
+	remoteShell := resource.Status{NodeStatus: resource.NodeStatus{Name: shell.Named("shell-remote")}, CloudMetadata: remoteMD}
+	partShell := resource.Status{NodeStatus: resource.NodeStatus{Name: shell.Named("shell1")}, CloudMetadata: partMD}
+
+	newRobot := func(md cloud.Metadata, mdErr error, statuses []resource.Status, statusErr error) *inject.Robot {
+		r := &inject.Robot{}
+		r.CloudMetadataFunc = func(context.Context) (cloud.Metadata, error) { return md, mdErr }
+		r.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{Resources: statuses}, statusErr
+		}
+		// the resource list alone cannot tell a remote's shell from the part's own, so a
+		// lookup that consults it would pick this lone remote shell
+		r.ResourceNamesFunc = func() []resource.Name { return []resource.Name{shell.Named("shell-remote")} }
+		return r
+	}
+
+	t.Run("matches the part ID", func(t *testing.T) {
+		name, err := partShellServiceName(ctx, newRobot(partMD, nil, []resource.Status{remoteShell, partShell}, nil))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, name, test.ShouldResemble, shell.Named("shell1"))
+	})
+
+	t.Run("only a remote's shell service is no shell service", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(partMD, nil, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+	})
+
+	t.Run("a part without cloud metadata is refused", func(t *testing.T) {
+		noCloud := status.Error(codes.Unknown, "cloud metadata not available")
+		_, err := partShellServiceName(ctx, newRobot(cloud.Metadata{}, noCloud, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+	})
+
+	t.Run("a part with an empty part ID is refused", func(t *testing.T) {
+		_, err := partShellServiceName(ctx, newRobot(cloud.Metadata{}, nil, []resource.Status{remoteShell}, nil))
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+	})
+
+	t.Run("machine status failures propagate", func(t *testing.T) {
+		for _, code := range []codes.Code{codes.Unimplemented, codes.Unavailable} {
+			_, err := partShellServiceName(ctx, newRobot(partMD, nil, nil, status.Error(code, "gone")))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeFalse)
+			test.That(t, errors.Is(err, errNoShellService), test.ShouldBeFalse)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "gone")
+		}
+	})
+}
+
+func TestConnectToShellServiceSelectsPartShell(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	asc := &inject.AppServiceClient{}
+
+	shellCfg := func(name string) resource.Config {
+		return resource.Config{Name: name, API: shell.API, Model: resource.DefaultServiceModel}
+	}
+
+	// startRemote runs a second machine part, with its own part ID and shell service, and
+	// returns the address a main part connects to it at.
+	startRemote := func(t *testing.T) string {
+		t.Helper()
+		remote, err := robotimpl.New(ctx, &robotconfig.Config{
+			Cloud:    &robotconfig.Cloud{ID: "part-remote"},
+			Services: []resource.Config{shellCfg("shell-remote")},
+		}, nil, logging.NewInMemoryLogger(t))
+		test.That(t, err, test.ShouldBeNil)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, remote.StartWeb(ctx, options), test.ShouldBeNil)
+		t.Cleanup(func() { test.That(t, remote.Close(ctx), test.ShouldBeNil) })
+		return addr
+	}
+
+	// waitForRemoteShell blocks until the main part has imported the remote's shell service.
+	waitForRemoteShell := func(t *testing.T, r robot.LocalRobot) {
+		t.Helper()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			var seen bool
+			for _, name := range r.ResourceNames() {
+				if name.API == shell.API && name.Name == "shell-remote" {
+					seen = true
+				}
+			}
+			test.That(tb, seen, test.ShouldBeTrue)
+		})
+	}
+
+	t.Run("the part's own shell service wins over a remote's", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Cloud:    &robotconfig.Cloud{ID: "part-main"},
+			Services: []resource.Config{shellCfg("shell1")},
+			Remotes:  []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		// the machine enumerates resources in map order, so a wrong pick is intermittent
+		for range 10 {
+			shellSvc, robotClient, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, shellSvc.Name().Name, test.ShouldEqual, "shell1")
+			test.That(t, robotClient.Close(ctx), test.ShouldBeNil)
+		}
+	})
+
+	t.Run("a remote's shell service does not stand in for the part's missing one", func(t *testing.T) {
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Cloud:   &robotconfig.Cloud{ID: "part-main"},
+			Remotes: []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+		test.That(t, errors.Is(err, errNoShellService), test.ShouldBeTrue)
+	})
+
+	t.Run("a part without a cloud config is refused even when one shell service is visible", func(t *testing.T) {
+		// without a part ID the lone shell service in the list cannot be told apart from the
+		// part's own, and here it belongs to the remote
+		partFqdn := uuid.NewString()
+		_, vc, r, _, _ := setupWithRunningPartConfig(t, asc, nil, nil, nil, "token", partFqdn, &robotconfig.Config{
+			Remotes: []robotconfig.Remote{{Name: "r", Address: startRemote(t)}},
+		})
+		waitForRemoteShell(t, r)
+
+		_, _, err := vc.connectToShellServiceFqdn(ctx, partFqdn, false, logger)
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
 	})
 }
 
@@ -2980,7 +3361,54 @@ func TestIsRunningAptBinary(t *testing.T) {
 	}
 }
 
+func TestClassifyCopyError(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		isFrom    bool
+		retryable bool
+		hint      string
+	}{
+		{name: "plain error", err: errors.New("boom"), retryable: true},
+		{name: "no shell service", err: errNoShellService, hint: "does not have the shell service enabled"},
+		{name: "shell requires cloud", err: errShellRequiresCloud, hint: "no cloud configuration"},
+		{name: "wrapped shell requires cloud", err: fmt.Errorf("%w: dial failed", errShellRequiresCloud), hint: "no cloud configuration"},
+		{name: "logged out", err: fmt.Errorf("refresh failed: %w", errLoggedOut)},
+		{name: "permission denied writing", err: status.Error(codes.PermissionDenied, "nope"), hint: "couldn't write"},
+		{name: "permission denied reading", err: status.Error(codes.PermissionDenied, "nope"), isFrom: true, hint: "couldn't read"},
+		{name: "invalid argument", err: status.Error(codes.InvalidArgument, "bad path"), hint: "invalid argument: rpc error"},
+		{name: "destination not found", err: status.Error(codes.NotFound, "no such dir"), hint: "does not exist: no such dir"},
+		{
+			name:      "not found while connecting is transient",
+			err:       fmt.Errorf("%w: %w", errConnectToPart, status.Error(codes.NotFound, "offline")),
+			retryable: true,
+		},
+		{
+			name:      "permission denied while connecting is transient",
+			err:       fmt.Errorf("%w: %w", errConnectToPart, status.Error(codes.PermissionDenied, "handshake")),
+			retryable: true,
+		},
+		{name: "unavailable", err: status.Error(codes.Unavailable, "down"), retryable: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict := classifyCopyError(tc.err, tc.isFrom)
+			test.That(t, verdict.retryable, test.ShouldEqual, tc.retryable)
+			if tc.hint == "" {
+				test.That(t, verdict.hint, test.ShouldBeEmpty)
+			} else {
+				test.That(t, verdict.hint, test.ShouldContainSubstring, tc.hint)
+			}
+		})
+	}
+}
+
 func TestRetryableCopy(t *testing.T) {
+	originalRetryBaseDelay := copyRetryBaseDelay
+	copyRetryBaseDelay = time.Millisecond
+	defer func() {
+		copyRetryBaseDelay = originalRetryBaseDelay
+	}()
+
 	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
@@ -3331,6 +3759,121 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, errMsg, test.ShouldContainSubstring, `"/some/dir" does not exist or is not a directory`)
 	})
 
+	t.Run("ConnectNotFoundIsRetried", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		// An unreachable part answers with NotFound, the same code the shell service uses for
+		// a path that isn't there.
+		mockCopyFunc := func() error {
+			attemptCount++
+			return fmt.Errorf("%w: %w", errConnectToPart,
+				status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again"))
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "host appears to be offline")
+		test.That(t, attempts, test.ShouldEqual, maxCopyAttempts)
+		test.That(t, attemptCount, test.ShouldEqual, maxCopyAttempts)
+
+		// The user's destination was never in question here
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "destination path does not exist")
+	})
+
+	t.Run("ConnectNotFoundRecoversOnRetry", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			if attemptCount <= 2 {
+				return fmt.Errorf("%w: %w", errConnectToPart,
+					status.Error(codes.NotFound, "host appears to be offline; ensure machine is online and try again"))
+			}
+			return nil
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attempts, test.ShouldEqual, 3)
+	})
+
+	t.Run("BacksOffBetweenAttempts", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		originalRetryBaseDelay := copyRetryBaseDelay
+		copyRetryBaseDelay = 20 * time.Millisecond
+		defer func() {
+			copyRetryBaseDelay = originalRetryBaseDelay
+		}()
+
+		var attemptTimes []time.Time
+		mockCopyFunc := func() error {
+			attemptTimes = append(attemptTimes, time.Now())
+			return errors.New("transient connection failure")
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptTimes, test.ShouldHaveLength, maxCopyAttempts)
+		// Each retry waits longer than the last, so a burst of attempts can't be spent inside
+		// one transient failure.
+		for i := 1; i < len(attemptTimes); i++ {
+			test.That(t, attemptTimes[i].Sub(attemptTimes[i-1]), test.ShouldBeGreaterThanOrEqualTo,
+				time.Duration(i)*copyRetryBaseDelay)
+		}
+	})
+
 	t.Run("NoShellServiceError", func(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
@@ -3366,4 +3909,113 @@ func TestRetryableCopy(t *testing.T) {
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "does not have the shell service enabled")
 	})
+
+	t.Run("ShellRequiresCloudError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return errShellRequiresCloud
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// A part without a cloud config will not gain one by retrying.
+		test.That(t, errors.Is(err, errShellRequiresCloud), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+		test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "no cloud configuration")
+	})
+
+	t.Run("LoggedOutError", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return fmt.Errorf("token refresh failed — %w", errLoggedOut)
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attempts, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		// The copy must abort on the first attempt; retrying cannot recover from a logout.
+		test.That(t, errors.Is(err, errLoggedOut), test.ShouldBeTrue)
+		test.That(t, attempts, test.ShouldEqual, 1)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+	})
+}
+
+func TestPruneCopyCaptures(t *testing.T) {
+	dir := t.TempDir()
+	logger := logging.NewTestLogger(t)
+
+	write := func(name string, age time.Duration) string {
+		p := filepath.Join(dir, name)
+		test.That(t, os.WriteFile(p, []byte("x"), 0o600), test.ShouldBeNil)
+		modTime := time.Now().Add(-age)
+		test.That(t, os.Chtimes(p, modTime, modTime), test.ShouldBeNil)
+		return p
+	}
+	exists := func(p string) bool {
+		_, err := os.Stat(p)
+		return err == nil
+	}
+
+	// Files that are not captures are never touched, however old.
+	other := write("notes.txt", 100*time.Hour)
+	otherExt := write("cp-stale.log", 100*time.Hour)
+
+	// Oldest first, so the survivors are the tail of this slice.
+	captures := make([]string, 0, copyCaptureRetention+3)
+	for i := copyCaptureRetention + 3; i > 0; i-- {
+		captures = append(captures, write(fmt.Sprintf("cp-target-%02d.ftdc", i), time.Duration(i)*time.Hour))
+	}
+
+	pruneCopyCaptures(dir, logger)
+
+	// Room is left for the capture the caller is about to create.
+	for _, p := range captures[:4] {
+		test.That(t, exists(p), test.ShouldBeFalse)
+	}
+	for _, p := range captures[4:] {
+		test.That(t, exists(p), test.ShouldBeTrue)
+	}
+	test.That(t, exists(other), test.ShouldBeTrue)
+	test.That(t, exists(otherExt), test.ShouldBeTrue)
+
+	// Under the retention limit nothing is removed, and a missing dir is not an error.
+	pruneCopyCaptures(dir, logger)
+	test.That(t, exists(captures[4]), test.ShouldBeTrue)
+	pruneCopyCaptures(filepath.Join(dir, "nonexistent"), logger)
 }

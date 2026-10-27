@@ -22,7 +22,7 @@ static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -tags no_cgo $(WINDOWS_LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
@@ -37,7 +37,7 @@ static-release-win:
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
 	go run ./etc/subsystem_manifest \
-		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
+		--binary-path bin/static/viam-server-windows.exe \
 		--upload-path packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \

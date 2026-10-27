@@ -27,6 +27,17 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// MDNSAvailable reports whether mDNS (multicast DNS) can be relied on in this test process.
+//
+// Dialing a server by its FQDN resolves over mDNS, which relies on multicast. That is unreliable
+// under QEMU on the emulated 32-bit armhf CI runner: qemu-user does not implement the multicast
+// socket options mDNS needs, so registration/resolution fails and FQDN dials hang. Tests should
+// gate FQDN/mDNS dials on this and fall back to a direct address on unsupported arches, so we keep
+// coverage without masking real mDNS bugs on other platforms.
+func MDNSAvailable() bool {
+	return runtime.GOARCH != "arm"
+}
+
 // CreateBaseOptionsAndListener creates a new web options with random port as listener.
 func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listener, string) {
 	tb.Helper()

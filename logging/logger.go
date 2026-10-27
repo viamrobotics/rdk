@@ -23,11 +23,13 @@ type Logger interface {
 	Write(*LogEntry)
 	WithFields(args ...interface{}) Logger
 
-	// Activity emits an activity event through this logger's activity logger
-	// (<root>.activity). It always emits regardless of any configured level and is
-	// never deduplicated. activity names what the event is about (e.g. "reconfigure",
-	// "module", "remote"); event is the transition verb (e.g. "start", "complete",
-	// "fail", "connect"). Callers must not set "activity" or "event" in keysAndValues.
+	// Activity emits an activity event. On registry-backed loggers it routes through
+	// <root>.activity, at INFO and never deduplicated; the emitting logger's level does
+	// not apply, as <root>.activity carries its own and is configured like any other
+	// logger. As for any logger, global debug emits regardless of level. activity names
+	// what the event is about (e.g. "reconfigure", "module", "remote"); event is the
+	// transition verb (e.g. "start", "complete", "fail", "connect"). Callers must not
+	// set "activity" or "event" in keysAndValues.
 	Activity(activity, event string, keysAndValues ...any)
 
 	CDebug(ctx context.Context, args ...interface{})

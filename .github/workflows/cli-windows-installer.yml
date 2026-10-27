@@ -44,10 +44,6 @@ jobs:
           secrets: |-
             public_key:projects/385154741571/secrets/ev-code-signing-public-key
 
-      - if: github.repository == 'viamrobotics/rdk'
-        run: echo '${{ steps.secrets.outputs.public_key }}' > cert.pem
-        shell: bash
-
       - uses: actions/setup-java@v4
         with:
           java-version: 17
@@ -81,21 +77,13 @@ jobs:
           mkdir -p cli/windows-installer/build
           cp bin/windows-amd64/viam-cli cli/windows-installer/build/viam.exe
 
-      - name: Download jsign
-        shell: bash
-        run: curl -L -o jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
-
       - name: Sign viam.exe
         if: github.repository == 'viamrobotics/rdk'
-        run: java -jar jsign.jar
-          --name "Viam CLI"
-          --storetype GOOGLECLOUD
-          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key
-          --storepass "${{ steps.auth.outputs.access_token }}"
-          --alias ev-code-signing-key/cryptoKeyVersions/2
-          --tsaurl http://timestamp.digicert.com
-          --tsmode rfc3161
-          --certfile cert.pem cli\windows-installer\build\viam.exe
+        shell: bash
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          SIGNING_CERT: ${{ steps.secrets.outputs.public_key }}
+        run: ./etc/sign-windows-binary.sh "Viam CLI" cli/windows-installer/build/viam.exe
 
       - name: Compile installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
@@ -105,15 +93,11 @@ jobs:
 
       - name: Sign installer
         if: github.repository == 'viamrobotics/rdk'
-        run: java -jar jsign.jar
-          --name "Viam CLI Installer"
-          --storetype GOOGLECLOUD
-          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key
-          --storepass "${{ steps.auth.outputs.access_token }}"
-          --alias ev-code-signing-key/cryptoKeyVersions/2
-          --tsaurl http://timestamp.digicert.com
-          --tsmode rfc3161
-          --certfile cert.pem cli\windows-installer\releases\viam-cli-windows-installer.exe
+        shell: bash
+        env:
+          GCP_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          SIGNING_CERT: ${{ steps.secrets.outputs.public_key }}
+        run: ./etc/sign-windows-binary.sh "Viam CLI Installer" cli/windows-installer/releases/viam-cli-windows-installer.exe
 
       - uses: actions/upload-artifact@v4
         with:

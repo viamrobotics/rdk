@@ -71,6 +71,8 @@ type ProgressManager struct {
 type ProgressManagerOption func(*ProgressManager)
 
 // WithProgressOutput enables or disables terminal output for a ProgressManager.
+// Enabling output is a request, not a guarantee: NewProgressManager still
+// suppresses output when stdout is not a terminal.
 func WithProgressOutput(enabled bool) ProgressManagerOption {
 	return func(pm *ProgressManager) {
 		pm.disabled = !enabled
@@ -117,6 +119,12 @@ func NewProgressManager(steps []*Step, opts ...ProgressManagerOption) *ProgressM
 
 	for _, opt := range opts {
 		opt(pm)
+	}
+
+	// Spinners emit ANSI escapes to stdout, so they would corrupt piped or
+	// redirected output regardless of what the caller asked for.
+	if !isOutputTTY() {
+		pm.disabled = true
 	}
 
 	return pm

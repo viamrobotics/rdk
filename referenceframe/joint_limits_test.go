@@ -394,3 +394,30 @@ func TestJointLimitsAreNotHashed(t *testing.T) {
 	// but they are not "equal" for the purposes of comparing two frames
 	test.That(t, limitsAlmostEqual(withVelocity.DoF(), without.DoF(), defaultFloatPrecision), test.ShouldBeFalse)
 }
+
+// A model serialized after an input_range_override carries the override only in its limits, next
+// to a kinematics config that still declares the original joints. Reading it back has to keep the
+// override in the joints themselves, or the next model built from them quietly drops it.
+func TestLimitOverridesSurviveJSONRoundTrip(t *testing.T) {
+	m, err := UnmarshalModelJSON(revoluteModelJSON(`, "max_velocity": 180`), "")
+	test.That(t, err, test.ShouldBeNil)
+	overridden, err := NewModelWithLimitOverrides(m.(*SimpleModel), map[string]Limit{"j1": {Min: -1, Max: 1}})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := json.Marshal(overridden)
+	test.That(t, err, test.ShouldBeNil)
+	reparsed := &SimpleModel{}
+	test.That(t, json.Unmarshal(data, reparsed), test.ShouldBeNil)
+
+	test.That(t, reparsed.DoF()[0].Min, test.ShouldEqual, -1.0)
+	test.That(t, reparsed.DoF()[0].Max, test.ShouldEqual, 1.0)
+	joint := reparsed.internalFS.Frame("j1").DoF()[0]
+	test.That(t, joint.Min, test.ShouldEqual, -1.0)
+	test.That(t, joint.Max, test.ShouldEqual, 1.0)
+
+	rebuilt, err := NewModelWithLimitOverrides(reparsed, map[string]Limit{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rebuilt.DoF()[0].Min, test.ShouldEqual, -1.0)
+	test.That(t, rebuilt.DoF()[0].Max, test.ShouldEqual, 1.0)
+	test.That(t, *rebuilt.DoF()[0].MaxVelocity, test.ShouldAlmostEqual, math.Pi, defaultFloatPrecision)
+}

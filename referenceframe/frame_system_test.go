@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 	proto2 "google.golang.org/protobuf/proto"
 
@@ -55,8 +56,10 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
 	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
 	// exp.Kinematics is nil, but the struct in the struct PB
+	//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 	expKin, err := protoutils.StructToStructPb(exp.Kinematics)
 	test.That(t, err, test.ShouldBeNil)
+	//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 	test.That(t, result.Kinematics, test.ShouldResemble, expKin)
 	// return to FrameSystemPart
 	partAgain, err := ProtobufToFrameSystemPart(result)
@@ -98,6 +101,7 @@ func TestFrameModelPart(t *testing.T) {
 	}
 	test.That(t, result.Frame.ReferenceFrame, test.ShouldEqual, exp.Frame.ReferenceFrame)
 	test.That(t, result.Frame.PoseInObserverFrame, test.ShouldResemble, exp.Frame.PoseInObserverFrame)
+	//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 	test.That(t, result.Kinematics, test.ShouldNotBeNil)
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)
@@ -145,13 +149,93 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 
 	// The reconstructed model must be re-serializable with valid format.
 	kinResp := KinematicModelToProtobuf(restored.ModelFrame)
+	//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 	test.That(t, kinResp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	//nolint:staticcheck // SA1019: KinematicsData stays until clients read KinematicModel.
 	test.That(t, len(kinResp.KinematicsData), test.ShouldBeGreaterThan, 0)
 
 	// And that response must parse back into a working model.
 	finalModel, err := KinematicModelFromProtobuf("xarm6", kinResp)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(finalModel.DoF()), test.ShouldEqual, len(model.DoF()))
+}
+
+func kinematicsBytesModels(t *testing.T) []Model {
+	t.Helper()
+	xarm6, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	_ = artifact.MustPath("urdfs/ur20meshes")
+	ur20, err := ParseModelXMLFile(artifact.MustPath("urdfs/ur20.urdf"), "ur20", nil)
+	test.That(t, err, test.ShouldBeNil)
+	return []Model{xarm6, ur20}
+}
+
+func meshDataByLink(cfg *ModelConfigJSON) map[string][]byte {
+	meshes := map[string][]byte{}
+	for _, link := range cfg.Links {
+		if link.Geometry != nil && len(link.Geometry.MeshData) > 0 {
+			meshes[link.ID] = link.Geometry.MeshData
+		}
+	}
+	return meshes
+}
+
+func checkKinematicsPreserved(t *testing.T, want Model, got *FrameSystemPart) {
+	t.Helper()
+	test.That(t, got.ModelFrame, test.ShouldNotBeNil)
+	test.That(t, len(got.ModelFrame.DoF()), test.ShouldEqual, len(want.DoF()))
+	test.That(t, got.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, want.ModelConfig().OriginalFile)
+	test.That(t, meshDataByLink(got.ModelFrame.ModelConfig()), test.ShouldResemble, meshDataByLink(want.ModelConfig()))
+	test.That(t, proto2.Equal(KinematicModelToProtobuf(got.ModelFrame), KinematicModelToProtobuf(want)), test.ShouldBeTrue)
+}
+
+func TestFrameSystemPartKinematicsBytes(t *testing.T) {
+	for _, model := range kinematicsBytesModels(t) {
+		t.Run(model.Name(), func(t *testing.T) {
+			rawBytes := len(model.ModelConfig().OriginalFile.Bytes)
+			for _, mesh := range meshDataByLink(model.ModelConfig()) {
+				rawBytes += len(mesh)
+			}
+
+			part := &FrameSystemPart{
+				FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), model.Name(), nil),
+				ModelFrame:  model,
+			}
+			pbMsg, err := part.ToProtobuf()
+			test.That(t, err, test.ShouldBeNil)
+			//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
+			originalFile := pbMsg.Kinematics.Fields["original_file"].GetStructValue()
+			test.That(t, originalFile.Fields["bytes"].GetStringValue(), test.ShouldNotBeEmpty)
+			// A list with one number per byte costs about 11 wire bytes per raw byte.
+			test.That(t, proto2.Size(pbMsg), test.ShouldBeLessThan, 3*rawBytes)
+
+			wireBytes, err := proto2.Marshal(pbMsg)
+			test.That(t, err, test.ShouldBeNil)
+			received := &robotpb.FrameSystemConfig{}
+			test.That(t, proto2.Unmarshal(wireBytes, received), test.ShouldBeNil)
+			restored, err := ProtobufToFrameSystemPart(received)
+			test.That(t, err, test.ShouldBeNil)
+			checkKinematicsPreserved(t, model, restored)
+		})
+	}
+}
+
+func TestProtobufToFrameSystemPartAcceptsByteLists(t *testing.T) {
+	for _, model := range kinematicsBytesModels(t) {
+		t.Run(model.Name(), func(t *testing.T) {
+			legacy, err := protoutils.StructToStructPb(model.ModelConfig())
+			test.That(t, err, test.ShouldBeNil)
+			originalFile := legacy.Fields["original_file"].GetStructValue()
+			test.That(t, originalFile.Fields["bytes"].GetListValue().GetValues(), test.ShouldNotBeEmpty)
+
+			frame, err := LinkInFrameToTransformProtobuf(NewLinkInFrame(World, spatial.NewZeroPose(), model.Name(), nil))
+			test.That(t, err, test.ShouldBeNil)
+			//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
+			restored, err := ProtobufToFrameSystemPart(&robotpb.FrameSystemConfig{Frame: frame, Kinematics: legacy})
+			test.That(t, err, test.ShouldBeNil)
+			checkKinematicsPreserved(t, model, restored)
+		})
+	}
 }
 
 func TestFramesFromPart(t *testing.T) {
@@ -757,4 +841,47 @@ func TestNewFrameToWorldUnknownFrame(t *testing.T) {
 
 	_, _, err = fk.PoseQT(World)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestTopologicallySortPartsInternalFrameParent(t *testing.T) {
+	// A part parented to a frame inside another part's model ("arm:link") sorts after that part
+	// rather than being reported as unlinked, and the resulting frame system resolves the parent.
+	model, err := NewModelFromGeometries("arm", []spatial.Geometry{
+		mustBox(t, "link", r3.Vector{X: 1, Y: 1, Z: 1}),
+	})
+	test.That(t, err, test.ShouldBeNil)
+	armLink, err := (&LinkConfig{ID: "arm", Parent: World, Translation: r3.Vector{X: 10}}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	camLink, err := (&LinkConfig{ID: "cam", Parent: "arm:link", Translation: r3.Vector{Y: 5}}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	parts := []*FrameSystemPart{
+		{FrameConfig: camLink},
+		{FrameConfig: armLink, ModelFrame: model},
+	}
+
+	sorted, unlinked := TopologicallySortParts(parts)
+	test.That(t, unlinked, test.ShouldBeEmpty)
+	test.That(t, sorted, test.ShouldHaveLength, 2)
+	test.That(t, sorted[0].FrameConfig.Name(), test.ShouldEqual, "arm")
+	test.That(t, sorted[1].FrameConfig.Name(), test.ShouldEqual, "cam")
+
+	fs, err := NewFrameSystem("test", sorted, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pose, err := fs.Transform(NewZeroInputs(fs).ToLinearInputs(), NewPoseInFrame("cam", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(pose.(*PoseInFrame).Pose(), spatial.NewPoseFromPoint(r3.Vector{X: 10, Y: 5})), test.ShouldBeTrue)
+
+	// A parent that names no part at all is still unlinked.
+	orphan, err := (&LinkConfig{ID: "orphan", Parent: "ghost:link"}).ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	_, unlinked = TopologicallySortParts(append(parts, &FrameSystemPart{FrameConfig: orphan}))
+	test.That(t, unlinked, test.ShouldHaveLength, 1)
+	test.That(t, unlinked[0].FrameConfig.Name(), test.ShouldEqual, "orphan")
+}
+
+func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
+	t.Helper()
+	b, err := spatial.NewBox(spatial.NewZeroPose(), dims, label)
+	test.That(t, err, test.ShouldBeNil)
+	return b
 }

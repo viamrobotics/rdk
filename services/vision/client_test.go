@@ -151,10 +151,10 @@ func TestClient(t *testing.T) {
 		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 		opts := viscapture.CaptureOptions{
-			true,
-			true,
-			true,
-			true,
+			ReturnImage:           true,
+			ReturnDetections:      true,
+			ReturnClassifications: true,
+			ReturnObject:          true,
 		}
 		extra := map[string]interface{}{"foo": "captureAll"}
 		capt, err := client.CaptureAllFromCamera(context.Background(), "", opts, extra)

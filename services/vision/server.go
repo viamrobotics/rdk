@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
@@ -15,10 +16,12 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
 )
@@ -225,6 +228,54 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	return protoSegs, nil
 }
 
+// GetDetections3D returns the objects the service perceives through a camera. Unlike GetObjectPointClouds, frames are
+// forwarded exactly as the implementation produced them rather than stamped from the request.
+func (server *serviceServer) GetDetections3D(
+	ctx context.Context,
+	req *pb.GetDetections3DRequest,
+) (*pb.GetDetections3DResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "service::vision::server::GetDetections3D")
+	defer span.End()
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	detections, err := svc.GetDetections3D(ctx, req.CameraName, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	protoDets, err := detections3DToProto(detections)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetDetections3DResponse{Detections_3D: protoDets}, nil
+}
+
+func detections3DToProto(detections []*detection3d.Detection) ([]*pb.Detection3D, error) {
+	protoDets := make([]*pb.Detection3D, 0, len(detections))
+	for i, det := range detections {
+		if det == nil {
+			return nil, errors.Errorf("3D detection %d is nil", i)
+		}
+		transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(det.Transforms)
+		if err != nil {
+			return nil, errors.Wrapf(err, "3D detection %d", i)
+		}
+		protoDet := &pb.Detection3D{
+			Transforms:      transforms,
+			Classifications: clasToProto(det.Classifications),
+		}
+		if det.Metadata != nil {
+			protoDet.Metadata, err = protoutils.StructToStructPb(det.Metadata)
+			if err != nil {
+				return nil, errors.Wrapf(err, "3D detection %d", i)
+			}
+		}
+		protoDets = append(protoDets, protoDet)
+	}
+	return protoDets, nil
+}
+
 func (server *serviceServer) GetProperties(ctx context.Context,
 	req *pb.GetPropertiesRequest,
 ) (*pb.GetPropertiesResponse, error) {
@@ -244,6 +295,7 @@ func (server *serviceServer) GetProperties(ctx context.Context,
 		DetectionsSupported:        props.DetectionSupported,
 		ObjectPointCloudsSupported: props.ObjectPCDsSupported,
 		DefaultCamera:              props.DefaultCamera,
+		Detections_3DSupported:     props.Detections3DSupported,
 	}
 	return out, nil
 }
@@ -263,6 +315,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 		ReturnDetections:      req.ReturnDetections,
 		ReturnClassifications: req.ReturnClassifications,
 		ReturnObject:          req.ReturnObjectPointClouds,
+		ReturnDetections3D:    req.ReturnDetections_3D,
 	}
 
 	capt, err := svc.CaptureAllFromCamera(ctx,
@@ -275,6 +328,11 @@ func (server *serviceServer) CaptureAllFromCamera(
 	}
 
 	objProto, err := segmentsToProto(req.CameraName, capt.Objects)
+	if err != nil {
+		return nil, err
+	}
+
+	dets3DProto, err := detections3DToProto(capt.Detections3D)
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +350,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 		Detections:      detsToProto(capt.Detections),
 		Classifications: clasToProto(capt.Classifications),
 		Objects:         objProto,
+		Detections_3D:   dets3DProto,
 		Extra:           extraProto,
 	}, nil
 }

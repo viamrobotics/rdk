@@ -85,7 +85,7 @@ func NewFakeCloudServer(t *testing.T, ctx context.Context, logger logging.Logger
 
 		err := server.rpcServer.Serve(server.listener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Warnf("Error shutting down grpc server", "error", err)
+			logger.Warnw("Error shutting down grpc server", "error", err)
 		}
 	})
 	shutdown := func() {

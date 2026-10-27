@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -13,9 +14,9 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/utils/protoutils"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -1249,28 +1250,37 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	var modelJSON SimpleModel
+	var modelConfig *ModelConfigJSON
 	if part.ModelFrame != nil {
-		bytes, err := part.ModelFrame.MarshalJSON()
-		if err != nil {
-			return nil, err
-		}
-		err = json.Unmarshal(bytes, &modelJSON)
-		if err != nil {
-			return nil, err
-		}
+		modelConfig = part.ModelFrame.ModelConfig()
 	}
-	kinematics, err := protoutils.StructToStructPb(modelJSON.modelConfig)
+	kinematics, err := modelConfigToStructPb(modelConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.FrameSystemConfig{
 		Frame:      linkFrame,
-		Kinematics: kinematics,
+		Kinematics: kinematics, //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 	}, nil
 }
 
+// modelConfigToStructPb encodes cfg as encoding/json does, so []byte fields become base64 strings.
+// protoutils.StructToStructPb would send them as a list with one number per byte.
+func modelConfigToStructPb(cfg *ModelConfigJSON) (*structpb.Struct, error) {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	return structpb.NewStruct(fields)
+}
+
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
+//
+//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
 	frameConfig, err := LinkInFrameFromTransformProtobuf(fsc.Frame)
 	if err != nil {
@@ -1280,7 +1290,23 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 	}
 
-	if len(fsc.Kinematics.AsMap()) > 0 {
+	// fsc.Kinematics is a google.protobuf.Struct whose []byte fields (e.g.
+	// original_file.bytes, mesh_data) may arrive in one of two forms depending
+	// on which server version produced the message:
+	//
+	//   Old form (pre-RSDK-14708): protoutils.StructToStructPb encoded each byte
+	//   as a JSON number, so a field arrived as a JSON array of numbers, e.g.
+	//   [116, 101, 115, 116].
+	//
+	//   New form: modelConfigToStructPb encodes the config through encoding/json
+	//   first, which represents []byte as a base64 string, e.g. "dGVzdA==".
+	//
+	// json.Unmarshal (called inside UnmarshalModelJSON) handles both forms when
+	// targeting a []byte struct field: a JSON string is base64-decoded; a JSON
+	// array is decoded element-by-element as uint8 values. No custom unmarshaler
+	// is needed and old/new viam-server versions interoperate in both directions.
+	if len(fsc.Kinematics.AsMap()) > 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+		//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 		if err != nil {
 			return nil, err
@@ -1376,10 +1402,22 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 		partNameIndex[part.FrameConfig.Name()] = true
 	}
 
+	// A parent of the form "<part>:<internal>" names a frame inside a part's flattened model. For
+	// ordering purposes the child belongs under that part, which must be added first.
+	resolveParent := func(parent string) string {
+		if partNameIndex[parent] {
+			return parent
+		}
+		if owner, _, ok := strings.Cut(parent, ":"); ok && partNameIndex[owner] {
+			return owner
+		}
+		return parent
+	}
+
 	// make map of children
 	children := make(map[string][]*FrameSystemPart)
 	for _, part := range parts {
-		parent := part.FrameConfig.Parent()
+		parent := resolveParent(part.FrameConfig.Parent())
 		if !partNameIndex[parent] {
 			continue
 		}

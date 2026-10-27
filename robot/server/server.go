@@ -25,7 +25,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	modulestatus "go.viam.com/rdk/module/status"
 	"go.viam.com/rdk/operation"
@@ -556,6 +555,22 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			Revision:      resStatus.Revision,
 			CloudMetadata: protoutils.MetadataToProto(resStatus.CloudMetadata),
 		}
+		if resStatus.Name.Remote != "" {
+			pbResStatus.Remote = &resStatus.Name.Remote
+		}
+
+		switch resStatus.Reachability {
+		case resource.ReachabilityUnknown:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_UNSPECIFIED
+		case resource.ReachabilityReachable:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_REACHABLE
+		case resource.ReachabilityRemoteDisconnected:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_REMOTE_DISCONNECTED
+		case resource.ReachabilityShadowedByLocal:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_SHADOWED_BY_LOCAL
+		case resource.ReachabilityAmbiguousRemote:
+			pbResStatus.Reachability = pb.ResourceStatus_REACHABILITY_AMBIGUOUS_REMOTE
+		}
 
 		switch resStatus.State {
 		case resource.NodeStateUnknown:
@@ -599,20 +614,11 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	if len(mStatus.Packages) > 0 {
 		result.Packages = make([]*pb.PackageStatus, 0, len(mStatus.Packages))
 		for _, pkgStatus := range mStatus.Packages {
-			pkgType, err := config.PackageTypeToProto(pkgStatus.Type)
+			protoStatus, err := packages.PackageStatusToProto(pkgStatus)
 			if err != nil {
-				s.robot.Logger().CWarnw(ctx, "unknown package type in status", "type", pkgStatus.Type)
+				s.robot.Logger().CWarnw(ctx, "invalid package status", "package", pkgStatus.Name, "error", err)
 			}
-			result.Packages = append(result.Packages, &pb.PackageStatus{
-				Name:            pkgStatus.Name,
-				Type:            *pkgType,
-				State:           packageStateToProto(pkgStatus.State),
-				Error:           pkgStatus.Error,
-				LastUpdated:     timestamppb.New(pkgStatus.LastUpdated),
-				Version:         pkgStatus.Version,
-				BytesDownloaded: pkgStatus.BytesDownloaded,
-				TotalBytes:      pkgStatus.TotalBytes,
-			})
+			result.Packages = append(result.Packages, protoStatus)
 		}
 	}
 
@@ -635,25 +641,6 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 	}
 
 	return &result, nil
-}
-
-func packageStateToProto(s packages.PackageState) pb.PackageStatus_State {
-	switch s {
-	case packages.PackageStateDownloading:
-		return pb.PackageStatus_STATE_DOWNLOADING
-	case packages.PackageStateLoading:
-		return pb.PackageStatus_STATE_LOADING
-	case packages.PackageStateFirstRun:
-		return pb.PackageStatus_STATE_FIRST_RUN
-	case packages.PackageStateReady:
-		return pb.PackageStatus_STATE_READY
-	case packages.PackageStateFailed:
-		return pb.PackageStatus_STATE_FAILED
-	case packages.PackageStateUnknown:
-		return pb.PackageStatus_STATE_UNSPECIFIED
-	default:
-		return pb.PackageStatus_STATE_UNSPECIFIED
-	}
 }
 
 // GetVersion returns version information about the robot.

@@ -1458,6 +1458,25 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, expectedEntries)
 	})
 
+	t.Run("GetRobotPartHistory with options", func(t *testing.T) {
+		start := time.Unix(1000, 0)
+		end := time.Unix(2000, 0)
+		limit := 50
+		grpcClient.GetRobotPartHistoryFunc = func(
+			ctx context.Context, in *pb.GetRobotPartHistoryRequest, opts ...grpc.CallOption,
+		) (*pb.GetRobotPartHistoryResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, partID)
+			test.That(t, in.Start.AsTime(), test.ShouldEqual, start.UTC())
+			test.That(t, in.End.AsTime(), test.ShouldEqual, end.UTC())
+			test.That(t, *in.PageLimit, test.ShouldEqual, int64(limit))
+			return &pb.GetRobotPartHistoryResponse{}, nil
+		}
+		_, err := client.GetRobotPartHistory(
+			context.Background(), partID, &GetRobotPartHistoryOptions{Start: &start, End: &end, PageLimit: &limit},
+		)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
 	t.Run("UpdateRobotPart", func(t *testing.T) {
 		grpcClient.UpdateRobotPartFunc = func(
 			ctx context.Context, in *pb.UpdateRobotPartRequest, opts ...grpc.CallOption,
@@ -1589,6 +1608,22 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, err := client.ListRobots(context.Background(), locationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedRobots)
+	})
+
+	t.Run("ListRobotsForLocations", func(t *testing.T) {
+		expectedRobots := []*Robot{&robot}
+		locationIDs := []string{locationID, parentLocationID}
+		grpcClient.ListRobotsForLocationsFunc = func(
+			ctx context.Context, in *pb.ListRobotsForLocationsRequest, opts ...grpc.CallOption,
+		) (*pb.ListRobotsForLocationsResponse, error) {
+			test.That(t, in.LocationIds, test.ShouldResemble, locationIDs)
+			return &pb.ListRobotsForLocationsResponse{
+				Robots: []*pb.Robot{&pbRobot},
+			}, nil
+		}
+		resp, err := client.ListRobotsForLocations(context.Background(), locationIDs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, expectedRobots)
 	})

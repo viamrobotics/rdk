@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,8 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -612,6 +616,101 @@ func TestConfiguredModuleName(t *testing.T) {
 	test.That(t, configuredModuleName(partWithConfig(`{}`), "viam:mymod"), test.ShouldEqual, "viam_mymod")
 }
 
+func TestReloadRestartRequestUsesManifestID(t *testing.T) {
+	manifest := &ModuleManifest{ModuleID: "acme:rssi-triangulation"}
+	// Config names are derived from the module ID. Older CLIs appended "_from_reload".
+	configured := []rdkConfig.Module{
+		{Name: "acme_rssi-triangulation", ModuleID: manifest.ModuleID},
+		{Name: "acme_rssi-triangulation_from_reload", ModuleID: manifest.ModuleID},
+	}
+
+	req, err := reloadRestartRequest(manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleID, test.ShouldEqual, manifest.ModuleID)
+	test.That(t, req.ModuleName, test.ShouldBeEmpty)
+	for _, mod := range configured {
+		test.That(t, req.MatchesModule(mod), test.ShouldBeTrue)
+	}
+	// A request built from the short name does not match either config name.
+	byName := &robot.RestartModuleRequest{ModuleName: "rssi-triangulation"}
+	for _, mod := range configured {
+		test.That(t, byName.MatchesModule(mod), test.ShouldBeFalse)
+	}
+
+	_, err = reloadRestartRequest(nil)
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+// Standalone `module restart` still prefers --name over the manifest module ID.
+func TestResolveTargetModuleKeepsNameForRestartCommand(t *testing.T) {
+	manifest := &ModuleManifest{ModuleID: "acme:rssi-triangulation"}
+
+	cmd := newTestContext(t, map[string]any{generalFlagName: "rssi-triangulation"})
+	req, err := resolveTargetModule(cmd, manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleName, test.ShouldEqual, "rssi-triangulation")
+	test.That(t, req.ModuleID, test.ShouldBeEmpty)
+
+	cmd = newTestContext(t, map[string]any{})
+	req, err = resolveTargetModule(cmd, manifest)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.ModuleID, test.ShouldEqual, manifest.ModuleID)
+	test.That(t, req.ModuleName, test.ShouldBeEmpty)
+}
+
+func TestReloadHelpUsesResourceName(t *testing.T) {
+	app := NewApp(&testWriter{}, &testWriter{})
+	moduleCmd := commandByName(t, app.Commands, "module")
+	for _, name := range []string{"reload-local", "reload"} {
+		cmd := commandByName(t, moduleCmd.Commands, name)
+		test.That(t, cmd.Description, test.ShouldContainSubstring, "--resource-name my-resource")
+		test.That(t, cmd.Description, test.ShouldNotContainSubstring, "--name my-resource")
+		test.That(t, hasStringFlag(cmd, generalFlagName), test.ShouldBeFalse)
+		test.That(t, hasStringFlag(cmd, generalFlagID), test.ShouldBeFalse)
+	}
+
+	reloadLocal := commandByName(t, moduleCmd.Commands, "reload-local")
+	test.That(t, stringFlagUsage(t, reloadLocal, moduleFlagPath), test.ShouldNotContainSubstring, "overridden with --id or --name")
+
+	// `module restart` is where --name still selects the module.
+	restart := commandByName(t, moduleCmd.Commands, "restart")
+	test.That(t, stringFlagUsage(t, restart, generalFlagName), test.ShouldContainSubstring, "name of module to restart")
+	test.That(t, hasStringFlag(restart, generalFlagID), test.ShouldBeTrue)
+}
+
+func commandByName(t *testing.T, cmds []*cli.Command, name string) *cli.Command {
+	t.Helper()
+	for _, cmd := range cmds {
+		if cmd.Name == name {
+			return cmd
+		}
+	}
+	t.Fatalf("command %q not found", name)
+	return nil
+}
+
+func stringFlagUsage(t *testing.T, cmd *cli.Command, name string) string {
+	t.Helper()
+	for _, flag := range cmd.Flags {
+		stringFlag, ok := flag.(*cli.StringFlag)
+		if ok && stringFlag.Name == name {
+			return stringFlag.Usage
+		}
+	}
+	t.Fatalf("flag %q not found on %s", name, cmd.Name)
+	return ""
+}
+
+func hasStringFlag(cmd *cli.Command, name string) bool {
+	for _, flag := range cmd.Flags {
+		stringFlag, ok := flag.(*cli.StringFlag)
+		if ok && stringFlag.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func TestReloadWithMissingBuildSection(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -1195,6 +1294,43 @@ func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
 	test.That(t, modules[0].Get("reload_time").String(), test.ShouldNotBeEmpty)
 }
 
+// TestReloadPrintsGitRevision checks that a reload reports the git revision of the
+// source it is reloading, so the version running on the machine can be traced back
+// to a commit.
+func TestReloadPrintsGitRevision(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	stubModuleReloadWait(t)
+	logger := logging.NewTestLogger(t)
+
+	repo := t.TempDir()
+	runTestGit(t, repo, "init", "--quiet")
+	writeFile(t, filepath.Join(repo, "main.go"), "package main")
+	runTestGit(t, repo, "add", ".")
+	runTestGit(t, repo, "commit", "--quiet", "-m", "initial")
+	sha := runTestGit(t, repo, "rev-parse", "--short=8", "HEAD")
+
+	manifestPath := createTestManifest(t, "", nil)
+	confStruct, err := structpb.NewStruct(map[string]any{"modules": []any{}})
+	test.That(t, err, test.ShouldBeNil)
+
+	cmd, vc, _, errOut := setup(
+		mockFullAppServiceClient(confStruct, nil, nil),
+		nil,
+		&inject.BuildServiceClient{},
+		map[string]any{
+			moduleFlagPath: manifestPath, generalFlagPartID: "part-123",
+			moduleBuildFlagNoBuild: true, moduleFlagLocal: true,
+			generalFlagNoProgress: true, generalFlagPath: repo,
+		},
+		"token",
+	)
+	err = reloadModuleActionInner(context.Background(), cmd, vc, parseStructFromCtx[reloadModuleArgs](cmd), logger, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, strings.Join(errOut.messages, ""), test.ShouldContainSubstring, "reloading git revision "+sha)
+}
+
 func TestIsModuleReloadComplete(t *testing.T) {
 	reloadTime := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC)
 	moduleName := "viam-labs_test-module"
@@ -1259,4 +1395,31 @@ func TestIsModuleReloadComplete(t *testing.T) {
 		test.That(t, complete, test.ShouldBeTrue)
 		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 	})
+}
+
+func TestMachineOmitsModuleStatus(t *testing.T) {
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{}), test.ShouldBeTrue)
+	test.That(t, machineOmitsModuleStatus(robot.MachineStatus{
+		Modules: []modulestatus.Status{{Name: "mod"}},
+	}), test.ShouldBeFalse)
+}
+
+func TestPartReportsModuleStatus(t *testing.T) {
+	partWithVersion := func(version string) *apppb.RobotPart {
+		info, err := structpb.NewStruct(map[string]any{"version": version})
+		test.That(t, err, test.ShouldBeNil)
+		return &apppb.RobotPart{UserSuppliedInfo: info}
+	}
+	test.That(t, partReportsModuleStatus(partWithVersion("1.0.0")), test.ShouldBeFalse)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.0.9")), test.ShouldBeFalse)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.1.0")), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(partWithVersion("1.2.0")), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(&apppb.RobotPart{}), test.ShouldBeTrue)
+	test.That(t, partReportsModuleStatus(partWithVersion("dev-unknown")), test.ShouldBeTrue)
+}
+
+func TestMachineStatusUnsupported(t *testing.T) {
+	test.That(t, machineStatusUnsupported(status.Error(codes.Unimplemented, "GetMachineStatus")), test.ShouldBeTrue)
+	test.That(t, machineStatusUnsupported(status.Error(codes.Unavailable, "transient")), test.ShouldBeFalse)
+	test.That(t, machineStatusUnsupported(errors.New("dial failed")), test.ShouldBeFalse)
 }

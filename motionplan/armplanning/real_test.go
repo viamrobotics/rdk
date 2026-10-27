@@ -185,7 +185,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 	t.Run("orientation", func(t *testing.T) {
 		req.Constraints.OrientationConstraint = append(req.Constraints.OrientationConstraint,
-			motionplan.OrientationConstraint{60})
+			motionplan.OrientationConstraint{OrientationToleranceDegs: 60})
 
 		plan, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
@@ -302,6 +302,10 @@ func TestBadSpray1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+
+	// Above defaultTimeout, IK obeys the request timeout instead of its sub-second budget, which a loaded
+	// CI runner can exhaust before finding the direct solution across this path's wrist singularity.
+	req.PlannerOptions.Timeout = defaultTimeout + 1
 
 	t.Run("basic", func(t *testing.T) {
 		_, _, err := PlanMotion(context.Background(), logger, req)
@@ -627,4 +631,35 @@ func BenchmarkPlanningOnMeshes(b *testing.B) {
 		_, _, err := PlanMotion(context.Background(), mpLogger, req)
 		test.That(b, err, test.ShouldBeNil)
 	}
+}
+
+// Only the left arm's spoon has goals, so the right arm has no reason to move. It used to drift a
+// little on every joint at once: the IK gradient's probe off an upper joint limit was never put
+// back, and the leftover showed up as an identical bogus gradient on every joint the goal
+// ignores.
+func TestVesselPathRightArmStaysPut(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/vessel-path-right-arm-idle.json")
+	test.That(t, err, test.ShouldBeNil)
+	start := req.StartState.Configuration()["right-arm"]
+
+	plan, _, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plan.Trajectory()), test.ShouldEqual, len(req.Goals)+1)
+
+	for _, step := range plan.Trajectory() {
+		test.That(t, step["right-arm"], test.ShouldResemble, start)
+	}
+}
+
+func TestEarlyExitWhenLinearConstraintOutcomeLooksBleak(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	req, err := ReadRequestFromFile("data/big-movement-linear-constraint-early-exit.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "linear with cbirrt not allowed and no direct solutions found")
 }
