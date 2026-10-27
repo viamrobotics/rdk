@@ -185,3 +185,26 @@ func TestVisualMeshes(t *testing.T) {
 	test.That(t, VisualMeshes(NewSimpleModel("bare")), test.ShouldBeEmpty)
 	test.That(t, VisualMeshes(nil), test.ShouldBeNil)
 }
+
+// A server that fills the deprecated bytes but sends a model without links or joints has not
+// migrated yet. The bytes carry the kinematics, so the client reads those instead.
+func TestKinematicModelFromProtobufHollowModel(t *testing.T) {
+	model := meshModel(t)
+	resp := KinematicModelToProtobuf(model)
+	test.That(t, len(resp.GetKinematicsData()), test.ShouldBeGreaterThan, 0) //nolint:staticcheck // deprecated fields are still served
+	resp.Model = &commonpb.KinematicModel{Name: "stopgap"}
+
+	got, err := KinematicModelFromProtobuf("arm1", resp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Name(), test.ShouldEqual, "arm1")
+	assertSameKinematics(t, model, got)
+
+	// with no bytes either, an empty model is all the server has
+	resp.KinematicsData = nil //nolint:staticcheck // deprecated fields are still served
+	//nolint:staticcheck // deprecated fields are still served
+	resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	got, err = KinematicModelFromProtobuf("arm1", resp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Name(), test.ShouldEqual, "arm1")
+	test.That(t, got.DoF(), test.ShouldBeEmpty)
+}
