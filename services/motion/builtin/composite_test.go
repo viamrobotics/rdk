@@ -31,9 +31,9 @@ type plainComp struct {
 
 // TestBuiltInReconfigureComposite verifies motion unwraps a composite dependency to the correct
 // per-API sub before classifying it, and applies the one-kinematic-API rule to the component map.
-// A composite wrapper aliased under several API names resolves to each API's real sub, the single
-// kinematic sub is kept (even when its API is not canonical), a service-typed sub routes to its own
-// map rather than the component map, and a composite serving two kinematic APIs is refused (not guessed).
+// A composite wrapper aliased under several API names resolves to each API's real sub. The single
+// kinematic sub is kept, even when its API is not canonical, and a service-typed sub routes to its own
+// map rather than the component map. A composite serving two kinematic APIs is refused, not guessed.
 func TestBuiltInReconfigureComposite(t *testing.T) {
 	ctx := context.Background()
 	ms := &builtIn{logger: logging.NewTestLogger(t)}
