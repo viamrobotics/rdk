@@ -17,7 +17,14 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		// The simulated arm's own model name selects the generic kinematics.
 		model = kinematics.Fake
 	}
-	return kinematics.ModelFromName(model, name)
+	m, err := kinematics.ModelFromName(model, name)
+	if err != nil {
+		return nil, err
+	}
+	if err := models3d.AttachVisuals(m, model); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func buildModel(resName string, conf *Config) (referenceframe.Model, error) {
@@ -36,26 +43,17 @@ func buildModel(resName string, conf *Config) (referenceframe.Model, error) {
 	}
 }
 
+// Get3DModels returns the visual meshes the simulated arm's model carries, keyed by link, which
+// is empty for an arm model that ships none.
 func (sa *simulatedArm) Get3DModels(
 	ctx context.Context, extra map[string]interface{},
 ) (map[string]*commonpb.Mesh, error) {
-	models := make(map[string]*commonpb.Mesh)
-	armModelParts := models3d.ArmTo3DModelParts[sa.modelName]
-	if armModelParts == nil {
-		return models, nil
+	sa.mu.Lock()
+	defer sa.mu.Unlock()
+	models := referenceframe.VisualMeshes(sa.model)
+	if models == nil {
+		models = map[string]*commonpb.Mesh{}
 	}
-
-	for _, modelPart := range armModelParts {
-		modelPartMesh := models3d.ThreeDMeshFromName(sa.modelName, modelPart)
-		if len(modelPartMesh.Mesh) > 0 {
-			// len > 0 indicates we actually have a 3D model for thus armModel and part Name
-			models[modelPart] = &modelPartMesh
-		} else {
-			sa.logger.CWarnw(ctx, "No 3D model found for arm model and part",
-				"armModel", sa.modelName, "modelPart", modelPart)
-		}
-	}
-
 	return models, nil
 }
 

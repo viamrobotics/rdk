@@ -71,19 +71,35 @@ func TestGet3DModels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	models, err = fakeArm.Get3DModels(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
+	want := models3d.Visuals("ur5e")
 	test.That(t, len(models), test.ShouldEqual, 7)
-	test.That(t, models["ee_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "ee_link").Mesh)
-	test.That(t, models["ee_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["forearm_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "forearm_link").Mesh)
-	test.That(t, models["forearm_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["upper_arm_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "upper_arm_link").Mesh)
-	test.That(t, models["upper_arm_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["wrist_1_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "wrist_1_link").Mesh)
-	test.That(t, models["wrist_1_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["wrist_2_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "wrist_2_link").Mesh)
-	test.That(t, models["wrist_2_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["base_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "base_link").Mesh)
-	test.That(t, models["base_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
-	test.That(t, models["shoulder_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "shoulder_link").Mesh)
-	test.That(t, models["shoulder_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	for link, glb := range want {
+		test.That(t, models[link].GetMesh(), test.ShouldResemble, glb)
+		test.That(t, models[link].GetContentType(), test.ShouldEqual, "model/gltf-binary")
+	}
+
+	// the typed model carries the same meshes, so a client reading it sees what Get3DModels serves
+	model, err := fakeArm.Kinematics(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	pb, err := referenceframe.ModelToProto(model)
+	test.That(t, err, test.ShouldBeNil)
+	for _, link := range pb.GetLinks() {
+		glb, ok := want[link.GetId()]
+		if !ok {
+			test.That(t, link.GetVisual(), test.ShouldBeEmpty)
+			continue
+		}
+		test.That(t, link.GetVisual(), test.ShouldHaveLength, 1)
+		test.That(t, link.GetVisual()[0].GetMesh().GetMesh(), test.ShouldResemble, glb)
+	}
+
+	// a model read from a file carries whatever the file holds, which for the SVA files is nothing
+	confFromFile := resource.Config{
+		Name:                "testArm",
+		ConvertedAttributes: &Config{ModelFilePath: "../kinematics/ur5e.json"},
+	}
+	test.That(t, fakeArm.reconfigure(ctx, nil, confFromFile), test.ShouldBeNil)
+	models, err = fakeArm.Get3DModels(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(models), test.ShouldEqual, 0)
 }
