@@ -118,6 +118,8 @@ type AppServiceClient struct {
 		opts ...grpc.CallOption) (*apppb.GetRobotPartHistoryResponse, error)
 	UpdateRobotPartFunc func(ctx context.Context, in *apppb.UpdateRobotPartRequest,
 		opts ...grpc.CallOption) (*apppb.UpdateRobotPartResponse, error)
+	SetConfigPropertyFunc func(ctx context.Context, in *apppb.SetConfigPropertyRequest,
+		opts ...grpc.CallOption) (*apppb.SetConfigPropertyResponse, error)
 	NewRobotPartFunc func(ctx context.Context, in *apppb.NewRobotPartRequest,
 		opts ...grpc.CallOption) (*apppb.NewRobotPartResponse, error)
 	DeleteRobotPartFunc func(ctx context.Context, in *apppb.DeleteRobotPartRequest,
@@ -757,6 +759,16 @@ func (asc *AppServiceClient) UpdateRobotPart(
 		return asc.AppServiceClient.UpdateRobotPart(ctx, in, opts...)
 	}
 	return asc.UpdateRobotPartFunc(ctx, in, opts...)
+}
+
+// SetConfigProperty calls the injected SetConfigPropertyFunc or the real version.
+func (asc *AppServiceClient) SetConfigProperty(
+	ctx context.Context, in *apppb.SetConfigPropertyRequest, opts ...grpc.CallOption,
+) (*apppb.SetConfigPropertyResponse, error) {
+	if asc.SetConfigPropertyFunc == nil {
+		return asc.AppServiceClient.SetConfigProperty(ctx, in, opts...)
+	}
+	return asc.SetConfigPropertyFunc(ctx, in, opts...)
 }
 
 // NewRobotPart calls the injected NewRobotPartFunc or the real version.
