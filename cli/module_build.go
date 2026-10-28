@@ -765,37 +765,6 @@ type reloadModuleArgs struct {
 	File string
 }
 
-// readGitRevision returns a short identifier for the git revision checked out in repoPath
-// (empty means the working directory), for example "a1b2c3d4", or "a1b2c3d4-dirty" when
-// tracked files have uncommitted changes. It returns an empty string when the revision
-// can't be read: the revision is informational, so a missing git binary or a directory
-// that isn't a repo must not fail a reload.
-func readGitRevision(ctx context.Context, repoPath string) string {
-	if repoPath == "" {
-		repoPath = "."
-	}
-	sha, err := gitOutput(ctx, repoPath, "rev-parse", "--short=8", "HEAD")
-	if err != nil || sha == "" {
-		return ""
-	}
-	// "dirty" follows `git describe --dirty`: only tracked files count, so build
-	// artifacts left in the working directory don't mark every reload dirty. A status
-	// we can't read only means we can't prove the tree is dirty.
-	if status, err := gitOutput(ctx, repoPath, "status", "--porcelain", "--untracked-files=no"); err == nil && status != "" {
-		return sha + "-dirty"
-	}
-	return sha
-}
-
-func gitOutput(ctx context.Context, repoPath string, args ...string) (string, error) {
-	//nolint:gosec // the git subcommand is constant; only the repo path comes from the user
-	out, err := exec.CommandContext(ctx, "git", append([]string{"-C", repoPath}, args...)...).Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 	var err error
 	repoPath, err = filepath.Abs(repoPath)
@@ -1039,7 +1008,6 @@ func (c *viamClient) triggerCloudReloadBuild(
 	manifest ModuleManifest,
 	archivePath, partID string,
 	reloadUnixTS int64,
-	gitRev string,
 ) (string, error) {
 	part, err := c.getRobotPart(ctx, partID)
 	if err != nil {
@@ -1085,7 +1053,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 					Info: &v1.PackageInfo{
 						OrganizationId: orgID,
 						Name:           moduleID.name,
-						Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS, gitRev),
+						Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
 						Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 					},
 				},
@@ -1389,7 +1357,6 @@ func (c *viamClient) moduleCloudReload(
 	partID string,
 	pm *ProgressManager,
 	reloadUnixTS int64,
-	gitRev string,
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
@@ -1424,7 +1391,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("upload-source"); err != nil {
 		return nil, err
 	}
-	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTS, gitRev)
+	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTS)
 	if err != nil {
 		_ = pm.FailWithMessage("upload-source", "Upload failed")    //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
@@ -1476,7 +1443,7 @@ func (c *viamClient) moduleCloudReload(
 	return &moduleCloudBuildInfo{
 		ModuleID:    manifest.ModuleID,
 		OrgID:       orgID,
-		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTS, gitRev),
+		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTS),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
@@ -1516,14 +1483,8 @@ func reloadModuleAction(ctx context.Context, cmd *cli.Command, args reloadModule
 	return reloadModuleActionInner(ctx, cmd, vc, args, logger, cloudBuild)
 }
 
-// getReloadVersion builds the pseudo-version used for reload packages. gitRev, when known,
-// is appended so the version names the source revision the module was built from.
-func getReloadVersion(versionPrefix, partID string, unixTS int64, gitRev string) string {
-	version := fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTS)
-	if gitRev != "" {
-		version += "-" + gitRev
-	}
-	return version
+func getReloadVersion(versionPrefix, partID string, unixTS int64) string {
+	return fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTS)
 }
 
 // reload with cloudbuild was supported starting in 0.90.0
@@ -1593,10 +1554,6 @@ func reloadModuleActionInner(
 	// Compute reload time once, used for both the package version and config reload_time
 	reloadTime := time.Now().UTC()
 
-	// The git revision of the source being reloaded, stamped onto the reload version so the
-	// running module can be traced back to a commit. Empty when the source isn't in a git repo.
-	gitRev := readGitRevision(ctx, args.Path)
-
 	// note: configureModule and restartModule signal the robot via different channels.
 	// Running this command in rapid succession can cause an extra restart because the
 	// CLI will see configuration changes before the robot, and skip to the needsRestart
@@ -1646,10 +1603,6 @@ func reloadModuleActionInner(
 		printf(cmd.Root().ErrWriter, "Reloading to the machine configured at %s", args.CloudConfig)
 	}
 
-	if gitRev != "" {
-		infof(cmd.Root().ErrWriter, "reloading git revision %s", gitRev)
-	}
-
 	if args.File != "" {
 		args.NoBuild = true
 	}
@@ -1687,7 +1640,7 @@ func reloadModuleActionInner(
 			err = moduleBuildLocalAction(ctx, cmd, manifest, environment)
 			buildPath = manifest.Build.Path
 		} else {
-			buildInfo, err = vc.moduleCloudReload(ctx, cmd, args, platform, *manifest, partID, pm, reloadTime.Unix(), gitRev)
+			buildInfo, err = vc.moduleCloudReload(ctx, cmd, args, platform, *manifest, partID, pm, reloadTime.Unix())
 			if err != nil {
 				return err
 			}
