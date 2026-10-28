@@ -107,6 +107,19 @@ func ShapedSub(res resource.Resource) (resource.Shaped, bool) {
 	return nil, false
 }
 
+// ModelFramerSub returns a ModelFramer sub that describes a frame-system model, if any: the resource
+// itself for an ordinary component, or, for a composite, any co-equal sub that implements ModelFramer.
+// A composite is one physical device with a single model, so returning any ModelFramer sub is fine.
+// Returns (nil, false) when no sub is a ModelFramer.
+func ModelFramerSub(res resource.Resource) (ModelFramer, bool) {
+	for _, api := range resource.APIsOf(res) {
+		if mf, ok := resource.SubresourceForAPI(res, api).(ModelFramer); ok {
+			return mf, true
+		}
+	}
+	return nil, false
+}
+
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource

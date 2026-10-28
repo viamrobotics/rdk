@@ -1578,8 +1578,13 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		// Any other resource may still describe itself with a kinematic model, e.g. a static
 		// obstacle assembled from several frames. That is preferred over a flat `Geometries`
-		// query because it keeps the resource's internal frame hierarchy.
-		if modelFramer, ok := res.(framesystem.ModelFramer); isAvailable && ok {
+		// query because it keeps the resource's internal frame hierarchy. Detect it across every API the
+		// resource serves, so a composite's model-framing sub is found whichever API exposes it.
+		var modelFramer framesystem.ModelFramer
+		if rawRes != nil {
+			modelFramer, _ = framesystem.ModelFramerSub(rawRes)
+		}
+		if modelFramer != nil {
 			model, err := modelFramer.Kinematics(ctx)
 			if err != nil {
 				logger.Warnw("Error getting kinematics for resource. Falling back to its geometries.", "err", err)

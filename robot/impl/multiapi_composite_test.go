@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -1254,4 +1255,118 @@ func TestOptionalDependencyOnRemoteComposite(t *testing.T) {
 	test.That(t, underSensor, test.ShouldBeTrue)
 	_, underGeneric := cons.deps[generic.Named("combo")]
 	test.That(t, underGeneric, test.ShouldBeTrue)
+}
+
+// TestCompositeRemoteResourceBecomesSingleAPI is the reverse of TestCompositeRemoteResourceBecomesComposite:
+// a remote composite is reconfigured down to a plain single-API resource. Main learns of it through its
+// routine remote refresh (ticker path), and the dropped co-equal API must stop resolving while the kept
+// one still does. Both directions of the starting API are covered.
+func TestCompositeRemoteResourceBecomesSingleAPI(t *testing.T) {
+	for _, keepAPI := range []resource.API{sensor.API, generic.API} {
+		t.Run(keepAPI.SubtypeName, func(t *testing.T) {
+			logger := logging.NewTestLogger(t)
+			ctx := context.Background()
+
+			// singleModel serves only keepAPI; the composite model serves sensor + generic.
+			singleModel := resource.NewModel("acme", "test", "remote-downgrade-single-"+keepAPI.SubtypeName)
+			resource.Register(keepAPI, singleModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(
+					_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
+				) (resource.Resource, error) {
+					return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
+				},
+			})
+			defer resource.Deregister(keepAPI, singleModel)
+			multiModel := registerComboModel(t, "remote-downgrade-multi-"+keepAPI.SubtypeName, nil)
+
+			droppedAPI := generic.API
+			if keepAPI == generic.API {
+				droppedAPI = sensor.API
+			}
+
+			// The remote starts with combo as the composite serving both co-equal APIs.
+			remote := setupLocalRobot(t, ctx, &config.Config{
+				Components: []resource.Config{{Name: "combo", API: keepAPI, Model: multiModel}},
+			}, logger.Sublogger("remote"))
+			opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+			test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+			main := setupLocalRobot(t, ctx, &config.Config{
+				Remotes: []config.Remote{{Name: "rem", Address: addr}},
+			}, logger.Sublogger("main"))
+
+			// Initially both co-equal APIs resolve on main.
+			_, err := main.ResourceByName(resource.NewName(droppedAPI, "rem:combo"))
+			test.That(t, err, test.ShouldBeNil)
+			_, err = main.ResourceByName(resource.NewName(keepAPI, "rem:combo"))
+			test.That(t, err, test.ShouldBeNil)
+
+			// Reconfigure the remote so combo becomes a plain single-API resource (in-place model change).
+			remote.Reconfigure(ctx, &config.Config{
+				Components: []resource.Config{{Name: "combo", API: keepAPI, Model: singleModel}},
+			})
+
+			// Main must pick up the downgrade via its routine remote refresh (ticker path): the dropped
+			// co-equal API stops resolving.
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				if rem, ok := main.RemoteByName("rem"); ok {
+					if rc, ok := rem.(interface{ Refresh(context.Context) error }); ok {
+						test.That(tb, rc.Refresh(ctx), test.ShouldBeNil)
+					}
+				}
+				// Mirror production's refresh. Update the remote names, then sweep what the downgrade
+				// marked for removal (the co-equal API node the composite no longer serves).
+				main.(*localRobot).manager.updateRemotesResourceNames(ctx)
+				test.That(tb, main.(*localRobot).manager.removeMarkedAndClose(ctx, nil), test.ShouldBeNil)
+				_, rerr := main.ResourceByName(resource.NewName(droppedAPI, "rem:combo"))
+				test.That(tb, rerr, test.ShouldNotBeNil)
+				// ResourceNames advertises only the kept API once the downgrade settles.
+				var advertised []resource.API
+				for _, n := range main.ResourceNames() {
+					if n.Name == "combo" && n.Remote == "rem" {
+						advertised = append(advertised, n.API)
+					}
+				}
+				test.That(tb, advertised, test.ShouldContain, keepAPI)
+				test.That(tb, advertised, test.ShouldNotContain, droppedAPI)
+			})
+
+			// The kept API still resolves; the dropped one does not.
+			_, err = main.ResourceByName(resource.NewName(keepAPI, "rem:combo"))
+			test.That(t, err, test.ShouldBeNil)
+			_, err = main.ResourceByName(resource.NewName(droppedAPI, "rem:combo"))
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+	}
+}
+
+// TestCompositeInFrameSystemMultiKinematicRefusedOnRemote is the remote variant of
+// TestCompositeInFrameSystemMultiKinematicRefused: a gripper+servo composite that exposes Kinematics on
+// two served APIs must be dropped from the frame system even when it reaches the robot through a remote,
+// since the model-frame builder still can't pick one kinematic sub.
+func TestCompositeInFrameSystemMultiKinematicRefusedOnRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+	model := registerComboFacadeModel(t, "remote-fs-multikin", []resource.API{gripper.API, servo.API}, nil, nil)
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{
+			{Name: "combo", API: gripper.API, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+		},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	main := setupLocalRobot(t, ctx, &config.Config{
+		Remotes: []config.Remote{{Name: "rem", Address: addr}},
+	}, logger.Sublogger("main"))
+
+	fsCfg, err := main.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	// No frame part should model the multi-kinematic composite, under any (possibly remote-prefixed) name.
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil {
+			test.That(t, strings.HasSuffix(part.FrameConfig.Name(), "combo"), test.ShouldBeFalse)
+		}
+	}
 }
