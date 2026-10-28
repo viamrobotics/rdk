@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -136,6 +137,9 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			if runtime.GOOS == "windows" && tc.expFiles > 1 {
+				t.Skip("capture files created in one ~15.6ms Windows clock tick overwrite each other (RSDK-14834)")
+			}
 			ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
 			defer cancel()
 			tmpDir := t.TempDir()

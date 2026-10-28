@@ -292,8 +292,9 @@ func verifyStruct(t *testing.T, res CaptureResult, now time.Time, output *struct
 
 	test.That(t, res.Type, test.ShouldEqual, CaptureTypeTabular)
 	test.That(t, res.TimeRequested, test.ShouldEqual, now)
-	test.That(t, res.TimeReceived, test.ShouldHappenAfter, now)
-	test.That(t, res.TimeReceived, test.ShouldHappenBefore, time.Now())
+	// Windows' ~15.6ms clock granularity can make two consecutive time.Now() calls equal.
+	test.That(t, res.TimeReceived, test.ShouldHappenOnOrAfter, now)
+	test.That(t, res.TimeReceived, test.ShouldHappenOnOrBefore, time.Now())
 	test.That(t, res.Binaries, test.ShouldBeNil)
 	test.That(t, res.TabularData.Payload, test.ShouldNotBeNil)
 	// proto.Equal, since RecordMessageSize populates the payload's internal size cache.

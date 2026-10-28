@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -47,6 +48,9 @@ var (
 
 // TODO: rewrite tests.
 func TestCaptureQueue(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("capture files created in one ~15.6ms Windows clock tick overwrite each other (RSDK-14834)")
+	}
 	maxFileSize := 50
 	tests := []struct {
 		name               string
@@ -133,6 +137,9 @@ func TestCaptureQueue(t *testing.T) {
 
 // Tests reading the data written by a CaptureBuffer.
 func TestCaptureBufferReader(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("capture files created in one ~15.6ms Windows clock tick overwrite each other (RSDK-14834)")
+	}
 	t.Run("tabular data", func(t *testing.T) {
 		type testCase struct {
 			name             string
@@ -789,6 +796,9 @@ func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 // path which no longer exists, producing ENOENT. Per RSDK-14184, that failure must be
 // transient: subsequent writes and flushes should succeed with a fresh file.
 func TestFlushRecoversAfterProgRenamedExternally(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("renames a file this process holds open, which Windows disallows (RSDK-14833)")
+	}
 	dir := t.TempDir()
 	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
 	buf := NewCaptureBuffer(dir, md, 1<<20)
@@ -828,6 +838,9 @@ func TestFlushRecoversAfterProgRenamedExternally(t *testing.T) {
 // idempotent, that retry succeeds and capture continues with a fresh file instead
 // of failing with "file already closed" forever.
 func TestWriteTabularRecoversAfterRotationCloseFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("renames a file this process holds open, which Windows disallows (RSDK-14833)")
+	}
 	dir := t.TempDir()
 	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
 	// A 1-byte max file size forces a rotation on every write.
