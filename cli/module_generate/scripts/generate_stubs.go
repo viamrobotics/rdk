@@ -469,14 +469,14 @@ func varNameFromType(typ string) string {
 }
 
 // formatNotImplementedBody generates the Go function body for an unimplemented stub.
-// It returns zero values and a "not implemented" error according to the function's return types.
+// It returns zero values and errUnimplemented according to the function's return types.
 func formatNotImplementedBody(returns []string) string {
 	switch len(returns) {
 	case 0:
 		return "\t// not implemented"
 	case 1:
 		if returns[0] == "error" {
-			return "\treturn fmt.Errorf(\"not implemented\")"
+			return "\treturn errUnimplemented"
 		}
 		returnVar, needsVar := zeroValueForType(returns[0], 1)
 		if needsVar {
@@ -492,7 +492,7 @@ func formatNotImplementedBody(returns []string) string {
 			typeCount[r]++
 			returnVar, needsVar := zeroValueForType(r, typeCount[r])
 			if r == "error" {
-				vals[i] = "fmt.Errorf(\"not implemented\")"
+				vals[i] = "errUnimplemented"
 			} else {
 				if needsVar {
 					vars = append(vars, fmt.Sprintf("\tvar %s %s\n", returnVar, r))

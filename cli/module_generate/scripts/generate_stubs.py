@@ -132,6 +132,21 @@ def main(
 
     imports, subclasses, abstract_methods = [], [], []
     nodes = set()
+    # Names the resource file header below imports itself. Re-importing one from the
+    # subtype's own imports (e.g. arm's collections.abc Mapping) would be a redefinition.
+    bound_names = {
+        "ClassVar",
+        "Mapping",
+        "Sequence",
+        "Tuple",
+        "Self",
+        "ComponentConfig",
+        "ResourceName",
+        "ResourceBase",
+        "EasyResource",
+        "Model",
+        "ModelFamily",
+    }
     modules_to_ignore = [
         "abc",
         "component_base",
@@ -145,6 +160,7 @@ def main(
                 for imp in stmt.names:
                     if imp.name in modules_to_ignore:
                         continue
+                    bound_names.add(imp.asname or imp.name.split(".")[0])
                     imports.append(
                         f"import {imp.name} as {imp.asname}"
                         if imp.asname
@@ -156,7 +172,13 @@ def main(
                     if stmt.level > 0
                     else stmt.module
                 )
-                if abs_module and abs_module not in modules_to_ignore:
+                names = [
+                    imp
+                    for imp in stmt.names
+                    if (imp.asname or imp.name) not in bound_names
+                ]
+                if abs_module and abs_module not in modules_to_ignore and names:
+                    bound_names.update(imp.asname or imp.name for imp in names)
                     i_strings = ", ".join(
                         [
                             (
@@ -164,7 +186,7 @@ def main(
                                 if imp.asname is not None
                                 else imp.name
                             )
-                            for imp in stmt.names
+                            for imp in names
                         ]
                     )
                     imports.append(f"from {abs_module} import {i_strings}")
@@ -205,6 +227,16 @@ def main(
                             )
                             imports.append("from viam.proto.common import Geometry")
 
+    # Import the subtype package's public names explicitly rather than with a star import,
+    # so linters can check the generated file. The ruff F401 fix below drops the unused ones.
+    subtype_package = import_module(f"viam.{resource_type}s.{resource_subtype}")
+    subtype_names = getattr(subtype_package, "__all__", None) or [
+        name for name in dir(subtype_package) if not name.startswith("_")
+    ]
+    subtype_imports = ", ".join(
+        name for name in subtype_names if name not in bound_names
+    )
+
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
@@ -217,7 +249,7 @@ from viam.resource.base import ResourceBase
 from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
 {0}
-from viam.{1}s.{2} import *
+from viam.{1}s.{2} import {10}
 
 
 class {3}({4}, EasyResource):
@@ -267,21 +299,22 @@ class {3}({4}, EasyResource):
         model_name,
         "\n\n".join([subclass for subclass in subclasses]),
         "\n\n".join([f"{method}" for method in abstract_methods]),
+        subtype_imports,
     )
     with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as f:
         f_name = f.name
         f.write(resource_file)
     try:
         try:
-            subprocess.check_call(
-                [sys.executable, "-m", "ruff", "format", "--quiet", f_name]
-            )
+            # --isolated so the output matches the module's own ruff config rather than
+            # whatever ruff config surrounds the directory the CLI runs in.
             subprocess.check_call(
                 [
                     sys.executable,
                     "-m",
                     "ruff",
                     "check",
+                    "--isolated",
                     "--select",
                     "F401,F811,I",
                     "--fix",
@@ -289,6 +322,9 @@ class {3}({4}, EasyResource):
                     "--quiet",
                     f_name,
                 ]
+            )
+            subprocess.check_call(
+                [sys.executable, "-m", "ruff", "format", "--isolated", "--quiet", f_name]
             )
             with open(f_name, "r") as f:
                 resource_file = f.read()
@@ -328,4 +364,4 @@ if __name__ == "__main__":
         packages.append("numpy")
     install_requirements(packages)
     result = main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
-    print(result)
+    print(result, end="")
