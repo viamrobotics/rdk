@@ -134,6 +134,10 @@ func (c *Config) applyCableConstraintDefaults(
 	}
 	if _, ok := extra["cable_constraint"]; !ok {
 		switch {
+		// Dan: Disable cable constraints by default. In its current incarnation it affected too
+		// many existing machines.
+		case c.CableConstraint == nil:
+			return nil
 		case c.CableConstraint != nil:
 			opts.CableConstraint = *c.CableConstraint
 		case len(cameraArms) > 0:
