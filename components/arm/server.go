@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"strings"
 	"time"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -14,6 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -22,8 +22,6 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
-
-const unimplemented = "unimplemented"
 
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
@@ -317,16 +315,9 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	geometries, err := framesystem.GeometriesWithFallback(ctx, res, req.Extra.AsMap())
 	if err != nil {
-		// an arm that does not implement Geometries still has a model and joint positions, which
-		// together say where its geometry is
-		if !strings.Contains(err.Error(), unimplemented) {
-			return nil, err
-		}
-		if geometries, err = framesystem.GeometriesFromKinematics(ctx, res); err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
@@ -338,7 +329,7 @@ func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DMode
 		return nil, err
 	}
 	models, err := arm.Get3DModels(ctx, req.Extra.AsMap())
-	if err != nil && !strings.Contains(err.Error(), unimplemented) {
+	if err != nil && !rdkgrpc.IsUnimplementedError(err) {
 		return nil, err
 	}
 	if len(models) == 0 {

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gripper"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -150,8 +151,14 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{})
 
 		// a gripper without Geometries still answers from its model and inputs
+		prevGeometries := injectGripper2.GeometriesFunc
+		t.Cleanup(func() {
+			injectGripper2.GeometriesFunc = prevGeometries
+			injectGripper2.KinematicsFunc = nil
+			injectGripper2.CurrentInputsFunc = nil
+		})
 		injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
-			return nil, errors.New("Geometries unimplemented")
+			return nil, rdkgrpc.UnimplementedError
 		}
 		injectGripper2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
 			box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), r3.Vector{X: 1, Y: 1, Z: 1}, "jaw")

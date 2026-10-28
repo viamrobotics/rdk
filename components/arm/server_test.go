@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -308,6 +309,10 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("get 3d models", func(t *testing.T) {
+		t.Cleanup(func() {
+			injectArm.Get3DModelsFunc = nil
+			injectArm.KinematicsFunc = goodKinematics
+		})
 		errNoModels := errors.New("Get3DModels unimplemented")
 		injectArm.Get3DModelsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
 			return nil, errNoModels
@@ -346,7 +351,6 @@ func TestServer(t *testing.T) {
 		injectArm.KinematicsFunc = goodKinematicsJSON
 		_, err = armServer.Get3DModels(context.Background(), &commonpb.Get3DModelsRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeError, errNoModels)
-		injectArm.KinematicsFunc = goodKinematics
 	})
 
 	t.Run("get geometries", func(t *testing.T) {
@@ -358,6 +362,16 @@ func TestServer(t *testing.T) {
 		geometries, err := armServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(geometries.Geometries), test.ShouldEqual, 6)
+
+		// the Unimplemented status an rpc returns is read the same way as the plain error above
+		prevGeometries := injectArm.GeometriesFunc
+		t.Cleanup(func() { injectArm.GeometriesFunc = prevGeometries })
+		injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+			return nil, rdkgrpc.UnimplementedError
+		}
+		fromStatus, err := armServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(fromStatus.Geometries), test.ShouldEqual, 6)
 		// NOTE: these pose values were taken from a working fake Ur5e arm given the input joint positions,
 		// represnting a ground truth value for the geometries.
 		test.That(
