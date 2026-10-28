@@ -178,6 +178,10 @@
           "examples": [
             ["go", "pkg-config", "nlopt-static", "x264"]
           ]
+        },
+        "reload_from_source": {
+          "type": "boolean",
+          "description": "Python modules only. When true, 'viam module reload' and 'reload-local' skip the build and run the module from source on the machine, installing dependencies with uv."
         }
       }
     }

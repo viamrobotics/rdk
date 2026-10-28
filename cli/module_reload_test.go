@@ -1343,14 +1343,25 @@ func TestIsModuleReloadComplete(t *testing.T) {
 			Modules: []modulestatus.Status{{
 				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: moduleUpdated,
 			}},
-		}, moduleName, reloadTime)
+		}, moduleName, reloadTime, true)
 		test.That(t, complete, test.ShouldBeFalse)
+	})
+
+	t.Run("completeWithoutConfigWhenNotRequired", func(t *testing.T) {
+		complete, modStatus := isModuleReloadComplete(robot.MachineStatus{
+			Config: rdkConfig.Revision{LastUpdated: reloadTime.Add(-time.Second)},
+			Modules: []modulestatus.Status{{
+				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: moduleUpdated,
+			}},
+		}, moduleName, reloadTime, false)
+		test.That(t, complete, test.ShouldBeTrue)
+		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateReady)
 	})
 
 	t.Run("incompleteWhenModuleMissing", func(t *testing.T) {
 		complete, _ := isModuleReloadComplete(robot.MachineStatus{
 			Config: rdkConfig.Revision{LastUpdated: configUpdated},
-		}, moduleName, reloadTime)
+		}, moduleName, reloadTime, true)
 		test.That(t, complete, test.ShouldBeFalse)
 	})
 
@@ -1360,7 +1371,7 @@ func TestIsModuleReloadComplete(t *testing.T) {
 			Modules: []modulestatus.Status{{
 				Name: moduleName, State: modulestatus.ModuleStatePending, LastUpdated: moduleUpdated,
 			}},
-		}, moduleName, reloadTime)
+		}, moduleName, reloadTime, true)
 		test.That(t, complete, test.ShouldBeFalse)
 	})
 
@@ -1370,7 +1381,7 @@ func TestIsModuleReloadComplete(t *testing.T) {
 			Modules: []modulestatus.Status{{
 				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: reloadTime.Add(-time.Second),
 			}},
-		}, moduleName, reloadTime)
+		}, moduleName, reloadTime, true)
 		test.That(t, complete, test.ShouldBeFalse)
 	})
 
@@ -1380,7 +1391,7 @@ func TestIsModuleReloadComplete(t *testing.T) {
 			Modules: []modulestatus.Status{{
 				Name: moduleName, State: modulestatus.ModuleStateReady, LastUpdated: moduleUpdated,
 			}},
-		}, moduleName, reloadTime)
+		}, moduleName, reloadTime, true)
 		test.That(t, complete, test.ShouldBeTrue)
 		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateReady)
 	})
@@ -1391,7 +1402,7 @@ func TestIsModuleReloadComplete(t *testing.T) {
 			Modules: []modulestatus.Status{{
 				Name: moduleName, State: modulestatus.ModuleStateUnhealthy, LastUpdated: moduleUpdated,
 			}},
-		}, moduleName, reloadTime)
+		}, moduleName, reloadTime, true)
 		test.That(t, complete, test.ShouldBeTrue)
 		test.That(t, modStatus.State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 	})
