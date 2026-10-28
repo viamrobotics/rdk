@@ -206,10 +206,9 @@ var (
 	multiAPIByModel               = map[Model][]API{}
 	apiRegistry                   = map[API]APIRegistration[Resource]{}
 	associatedConfigRegistrations = []AssociatedConfigRegistration[AssociatedConfig]{}
-	// apiByInterfaceType maps each registered API's Go interface type to its API, so AsType can resolve a
-	// composite's sub by the interface's own API rather than the first sub that happens to satisfy it. Each
-	// API must declare a distinct Go interface type, or this map would be last-writer-wins and AsType could
-	// return the wrong sub. Guarded by registryMu.
+	// apiByInterfaceType maps each API's Go interface type to its API, so type resolution picks a composite's
+	// sub by the requested interface's own API, not the first sub that happens to satisfy it. Each API needs
+	// a distinct interface type or the map is last-writer-wins. Guarded by registryMu.
 	apiByInterfaceType = map[reflect.Type]API{}
 )
 
@@ -333,7 +332,7 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 // recorded for models serving more than one. It panics on an empty API list.
 //
 // For a model serving more than one API the constructor is wrapped so its result is always a
-// MultiAPIResource: an author may return one struct implementing every API, and the wrapper composes it
+// MultiAPIResource. An author may return one struct implementing every API, and the wrapper composes it
 // under each so consumers resolve it uniformly. A result that is already a MultiAPIResource (authored via
 // Compose) is left untouched.
 func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
@@ -409,7 +408,7 @@ func RegisterMultiAPISet(model Model, apis []API) {
 }
 
 // APIsForModel returns the set of co-equal APIs a composite model serves, sorted by API string, or
-// nil for an ordinary single-API model. The returned slice is shared and must not be mutated.
+// nil for an ordinary single-API model.
 func APIsForModel(model Model) []API {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -536,12 +535,16 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 	}
 	apiRegistry[api] = makeGenericAPIRegistration(api, creator)
 	if t := reflect.TypeFor[ResourceT](); t != reflect.TypeFor[Resource]() {
+		if existing, ok := apiByInterfaceType[t]; ok && existing != api {
+			initLogger.Errorw("An interface type is being registered under a second api. AsType could resolve the wrong sub.",
+				"interface", t, "existing", existing, "api", api)
+		}
 		apiByInterfaceType[t] = api
 	}
 }
 
 // apiForResourceInterface returns the API registered for an exact resource interface type, if one is
-// recorded. AsType uses it to resolve a composite's sub by the API the requested interface belongs to.
+// recorded. Type resolution uses it to pick a composite's sub by the requested interface's own API.
 func apiForResourceInterface(t reflect.Type) (API, bool) {
 	registryMu.RLock()
 	defer registryMu.RUnlock()

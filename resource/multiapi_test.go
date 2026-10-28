@@ -112,10 +112,11 @@ func TestAsTypeResolvesExactAPISub(t *testing.T) {
 	defer DeregisterAPI(camAPI)
 	_, err = AsType[testCam](composite)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of")
 }
 
 func TestCompositeRoutingToCanonical(t *testing.T) {
-	// distinct sub-resources per API: DoCommand and Status must route to the canonical (apis[0])
+	// Distinct sub-resources per API: DoCommand and Status must route to the canonical (apis[0])
 	// sub-resource only, running exactly once and never touching the non-canonical sub.
 	cam := &combo{Named: NewName(testCamAPI, "dev").AsNamed()}
 	sens := &combo{Named: NewName(testSensAPI, "dev").AsNamed()}
@@ -165,20 +166,20 @@ func TestNewMultiAPIResourceDefensiveCopy(t *testing.T) {
 	byAPI := map[API]Resource{testCamAPI: c, testSensAPI: c}
 	composite := NewMultiAPIResource(NewName(testCamAPI, "dev"), byAPI)
 
-	// mutating the caller's map must not rewire the composite's routing
+	// Mutating the caller's map must not rewire the composite's routing
 	byAPI[testCamAPI] = &combo{Named: NewName(testMotorAPI, "other").AsNamed()}
 	got, ok := composite.ResourceForAPI(testCamAPI)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, got, test.ShouldEqual, c)
 
-	// mutating the slice returned by APIs() must not corrupt the composite either.
+	// Mutating the slice returned by APIs() must not corrupt the composite either.
 	returned := composite.APIs()
 	returned[0] = testMotorAPI
 	test.That(t, composite.APIs(), test.ShouldResemble, []API{testCamAPI, testSensAPI})
 }
 
 func TestNewMultiAPIResourceValidates(t *testing.T) {
-	// an empty byAPI is a programmer error and panics.
+	// An empty byAPI is a programmer error and panics.
 	test.That(t, func() {
 		NewMultiAPIResource(NewName(testCamAPI, "dev"), map[API]Resource{})
 	}, test.ShouldPanic)
@@ -277,7 +278,7 @@ func TestComposeFacadesCollidingMethods(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	// each co-equal API resolves to its own facade
+	// Each co-equal API resolves to its own facade
 	camSub, ok := composite.ResourceForAPI(propCamAPI)
 	test.That(t, ok, test.ShouldBeTrue)
 	_, isCam := camSub.(camFacade)
@@ -308,18 +309,20 @@ func TestComposeFacadesCollidingMethods(t *testing.T) {
 func TestComposeErrors(t *testing.T) {
 	c := &comboProps{Named: NewName(propCamAPI, "dev").AsNamed()}
 
-	// no subs is an error
+	// No subs is an error
 	_, err := Compose()
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "at least one sub-resource")
 
-	// two subs sharing an API is an error
+	// Two subs sharing an API is an error
 	_, err = Compose(
 		AsSub(propCamAPI, camFacade{c}),
 		AsSub(propCamAPI, camFacade{c}),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate sub-resources")
 
-	// subs that disagree on their name are an error: a composite is one identity, so every sub must
+	// Subs that disagree on their name are an error: a composite is one identity, so every sub must
 	// report the same Name.
 	other := &comboProps{Named: NewName(propIMUAPI, "other").AsNamed()}
 	_, err = Compose(
@@ -327,6 +330,7 @@ func TestComposeErrors(t *testing.T) {
 		AsSub(propIMUAPI, imuFacade{other}),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "mismatched names")
 }
 
 func TestRegisterMultiAPIRecordsSet(t *testing.T) {
@@ -335,13 +339,13 @@ func TestRegisterMultiAPIRecordsSet(t *testing.T) {
 	defer Deregister(testCamAPI, model)
 	defer Deregister(testSensAPI, model)
 
-	// the one constructor is registered under each api
+	// The one constructor is registered under each api
 	_, ok := LookupRegistration(testCamAPI, model)
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = LookupRegistration(testSensAPI, model)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	// the full API set is recorded, sorted, with the canonical api first
+	// The full API set is recorded, sorted, with the canonical api first
 	apis := APIsForModel(model)
 	test.That(t, apis, test.ShouldResemble, []API{testCamAPI, testSensAPI})
 
@@ -357,7 +361,7 @@ func TestSingleAPIRegisterMultiAPIBehavesLikeRegister(t *testing.T) {
 	RegisterMultiAPI([]API{testCamAPI}, model, newComboConstructor())
 	defer Deregister(testCamAPI, model)
 
-	// a single-API model records no composite set but is still registered like a plain Register
+	// A single-API model records no composite set but is still registered like a plain Register
 	test.That(t, APIsForModel(model), test.ShouldBeNil)
 	_, ok := LookupRegistration(testCamAPI, model)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -373,7 +377,7 @@ func TestRegisterMultiAPIEmptyPanics(t *testing.T) {
 }
 
 func TestCanonicalAPISortingDeterministic(t *testing.T) {
-	// register with APIs in reverse-sorted order; the recorded set must still be sorted so apis[0]
+	// Register with APIs in reverse-sorted order; the recorded set must still be sorted so apis[0]
 	// is a deterministic canonical api.
 	model := NewModel("acme", "test", "sortme")
 	RegisterMultiAPI([]API{testSensAPI, testMotorAPI, testCamAPI}, model, newComboConstructor())
@@ -404,11 +408,11 @@ func TestDeregisterDropsCompositeSet(t *testing.T) {
 	model := NewModel("acme", "test", "dropme")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
 
-	// dropping one api of the set leaves the composite set intact (a constructor still remains)
+	// Dropping one api of the set leaves the composite set intact (a constructor still remains)
 	Deregister(testCamAPI, model)
 	test.That(t, APIsForModel(model), test.ShouldResemble, []API{testCamAPI, testSensAPI})
 
-	// dropping the last api removes the recorded composite set entirely
+	// Dropping the last api removes the recorded composite set entirely
 	Deregister(testSensAPI, model)
 	test.That(t, APIsForModel(model), test.ShouldBeNil)
 }
@@ -444,6 +448,7 @@ func TestCompositeExtractionAndAPIsOf(t *testing.T) {
 	// AsType errors for an API the composite genuinely does not serve
 	_, err = AsType[testMotor](composite)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of")
 
 	// SubresourceForAPI unwraps to the sub-resource for a served API and passes through otherwise
 	test.That(t, SubresourceForAPI(composite, testSensAPI), test.ShouldEqual, c)
@@ -466,7 +471,7 @@ func TestNamedFromProvider(t *testing.T) {
 	test.That(t, res, test.ShouldEqual, composite)
 
 	_, err = NamedFromProvider(provider, "nope")
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, IsNotFoundError(err), test.ShouldBeTrue)
 }
 
 func TestProviderUnwrapsComposite(t *testing.T) {
@@ -532,4 +537,68 @@ func TestSubsByNameAndDistinctSubs(t *testing.T) {
 	}
 	test.That(t, subsByNameCount, test.ShouldEqual, 2)
 	test.That(t, distinctCount, test.ShouldEqual, 2)
+}
+
+// TestComposeSingleStructComposite covers RegisterMultiAPI's single-struct wrapping: a model whose
+// constructor returns one struct implementing every co-equal API is wrapped so the stored constructor
+// yields a MultiAPIResource. An already-composed result is left untouched, and a nil result passes through.
+func TestComposeSingleStructComposite(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	callStored := func(model Model) (Resource, error) {
+		reg, ok := LookupRegistration(testCamAPI, model)
+		test.That(t, ok, test.ShouldBeTrue)
+		return reg.Constructor(ctx, nil, Config{Name: "dev", API: testCamAPI, Model: model}, logger)
+	}
+
+	// A single struct implementing both APIs is wrapped into a MultiAPIResource aliased under each.
+	single := NewModel("acme", "test", "singlestruct")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, single, newComboConstructor())
+	defer Deregister(testCamAPI, single)
+	defer Deregister(testSensAPI, single)
+	res, err := callStored(single)
+	test.That(t, err, test.ShouldBeNil)
+	mar, ok := res.(MultiAPIResource)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, mar.APIs(), test.ShouldContain, testCamAPI)
+	test.That(t, mar.APIs(), test.ShouldContain, testSensAPI)
+	for _, api := range []API{testCamAPI, testSensAPI} {
+		sub, found := mar.ResourceForAPI(api)
+		test.That(t, found, test.ShouldBeTrue)
+		_, nested := sub.(MultiAPIResource)
+		test.That(t, nested, test.ShouldBeFalse) // the struct itself, not a nested wrapper
+	}
+
+	// A constructor that already returns a composed result is left untouched, not double-wrapped.
+	composed := NewModel("acme", "test", "precomposed")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, composed, Registration[Resource, NoNativeConfig]{
+		Constructor: func(_ context.Context, _ Dependencies, conf Config, _ logging.Logger) (Resource, error) {
+			c := &combo{Named: conf.ResourceName().AsNamed()}
+			return Compose(AsSub(testCamAPI, c), AsSub(testSensAPI, c))
+		},
+	})
+	defer Deregister(testCamAPI, composed)
+	defer Deregister(testSensAPI, composed)
+	res, err = callStored(composed)
+	test.That(t, err, test.ShouldBeNil)
+	mar, ok = res.(MultiAPIResource)
+	test.That(t, ok, test.ShouldBeTrue)
+	sub, found := mar.ResourceForAPI(testCamAPI)
+	test.That(t, found, test.ShouldBeTrue)
+	_, nested := sub.(MultiAPIResource)
+	test.That(t, nested, test.ShouldBeFalse) // not double-wrapped
+
+	// A nil result passes through without panicking.
+	nilModel := NewModel("acme", "test", "nilres")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, nilModel, Registration[Resource, NoNativeConfig]{
+		Constructor: func(_ context.Context, _ Dependencies, _ Config, _ logging.Logger) (Resource, error) {
+			return nil, nil
+		},
+	})
+	defer Deregister(testCamAPI, nilModel)
+	defer Deregister(testSensAPI, nilModel)
+	res, err = callStored(nilModel)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, res, test.ShouldBeNil)
 }

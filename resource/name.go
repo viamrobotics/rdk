@@ -33,8 +33,7 @@ func SimpleName(name string) Name {
 	return NewName(API{}, name)
 }
 
-// AsAPI returns a copy of n keyed under api, keeping the same simple name and remote. It builds the
-// per-API name of a composite, which serves one name under several co-equal APIs.
+// AsAPI returns a copy of n keyed under api, keeping the same simple name and remote.
 func (n Name) AsAPI(api API) Name {
 	return Name{API: api, Remote: n.Remote, Name: n.Name}
 }

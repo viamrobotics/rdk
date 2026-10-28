@@ -74,7 +74,7 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-func TestCompositeRegistrationGuards(t *testing.T) {
+func TestCompositeRegistrationSkipsOutOfSetAPI(t *testing.T) {
 	ctor := func(context.Context, resource.Dependencies, resource.Config, logging.Logger) (resource.Resource, error) {
 		return nil, nil
 	}

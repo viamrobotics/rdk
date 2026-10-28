@@ -1592,12 +1592,12 @@ func TestCompositeCoequalIndexMaintenance(t *testing.T) {
 	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: canonical.AsNamed()}, model)
 	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
 
-	// the non-configured co-equal API resolves to the one node via the index.
+	// The non-configured co-equal API resolves to the one node via the index.
 	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
-	// deleting the composite drops both its canonical byName entry and its co-equal index
+	// Deleting the composite drops both its canonical byName entry and its co-equal index
 	// entry, so neither api resolves afterward.
 	g.nodes.Delete(canonical)
 	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
@@ -1674,7 +1674,7 @@ func TestCompositeIndexViaPlaceholderReplace(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
+func TestFindBySimpleNameCompositeNotACollision(t *testing.T) {
 	model := NewModel("acme", "test", "graphcombo2")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
 	defer Deregister(testCamAPI, model)
@@ -1682,19 +1682,18 @@ func TestFindBySimpleNameCompositeVsCollision(t *testing.T) {
 
 	g := NewGraph(logging.NewTestLogger(t))
 
-	// a composite is a single node; a bare-name lookup finds exactly one match (not a collision).
+	// A composite is a single node, so a bare-name lookup finds exactly one match, not a collision.
 	comboName := NewName(testCamAPI, "combo")
 	comboNode := NewConfiguredGraphNode(
 		Config{Name: "combo", API: testCamAPI, Model: model},
 		&combo{Named: comboName.AsNamed()}, model,
 	)
 	test.That(t, g.AddNode(comboName, comboNode), test.ShouldBeNil)
-	// The resolver returns the one owner with no error, and the all-matches scan returns a single match.
 	_, err := g.FindBySimpleName("combo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, g.FindAllBySimpleName("combo"), test.ShouldHaveLength, 1)
 
-	// two genuinely distinct nodes sharing a simple name still collide. name-uniqueness
+	// Two genuinely distinct nodes sharing a simple name still collide. Name uniqueness
 	// detection must not regress, so the resolver returns a MultipleMatchingNamesError and the
 	// all-matches scan returns two matches.
 	camDup := NewName(testCamAPI, "dup")
@@ -1782,7 +1781,7 @@ func TestCompositeIndexWhenConfigAPINotCanonical(t *testing.T) {
 	test.That(t, got, test.ShouldEqual, node)
 }
 
-func TestSimpleNamesWhereRemoteComposite(t *testing.T) {
+func TestRemoteCompositeSimpleNamesAndExpand(t *testing.T) {
 	// A remote composite is stored as one node under its canonical API, and SimpleNamesWhere surfaces it
 	// once (ExpandCompositeNames re-expands it per-API downstream), while a genuine machine-wide
 	// collision is still hidden.
@@ -1888,4 +1887,86 @@ func TestRemoteCompositeAmbiguityCountsAllRemotes(t *testing.T) {
 	got, err := g.FindBySimpleNameAndAPI("foo", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, compNode)
+}
+
+// TestFindBySimpleNameAndAPISkipsMarkedForRemovalComposite asserts that once a composite is marked for
+// removal it stops resolving under every one of its co-equal APIs.
+func TestFindBySimpleNameAndAPISkipsMarkedForRemovalComposite(t *testing.T) {
+	model := NewModel("acme", "test", "markremovalcombo")
+	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
+	defer Deregister(testCamAPI, model)
+	defer Deregister(testSensAPI, model)
+
+	g := NewGraph(logging.NewTestLogger(t))
+	name := NewName(testCamAPI, "dev")
+	node := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: name.AsNamed()}, model)
+	test.That(t, g.AddNode(name, node), test.ShouldBeNil)
+
+	// Resolves under each co-equal API before removal.
+	for _, api := range []API{testCamAPI, testSensAPI} {
+		_, err := g.FindBySimpleNameAndAPI("dev", api)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	node.MarkForRemoval()
+
+	// Once marked for removal it is found under none of its co-equal APIs.
+	for _, api := range []API{testCamAPI, testSensAPI} {
+		_, err := g.FindBySimpleNameAndAPI("dev", api)
+		test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
+	}
+}
+
+// TestFindBySimpleNameAndAPISkipsRemovingRemote covers two remotes advertising the same name where one
+// is being removed. Resolution returns the live one rather than reporting a spurious collision.
+func TestFindBySimpleNameAndAPISkipsRemovingRemote(t *testing.T) {
+	g := NewGraph(logging.NewTestLogger(t))
+	removing := NewUnconfiguredGraphNode(Config{}, nil)
+	live := NewUnconfiguredGraphNode(Config{}, nil)
+	test.That(t, g.AddNode(Name{API: testCamAPI, Name: "combo", Remote: "r1"}, removing), test.ShouldBeNil)
+	test.That(t, g.AddNode(Name{API: testCamAPI, Name: "combo", Remote: "r2"}, live), test.ShouldBeNil)
+	removing.MarkForRemoval()
+
+	got, err := g.FindBySimpleNameAndAPI("combo", testCamAPI)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got, test.ShouldEqual, live)
+}
+
+// TestPrefixedRemoteCompositeSimpleNamesAndExpand covers a remote composite whose remote carries a
+// prefix. It must still collapse to one canonical node, resolve under both co-equal APIs at its
+// prefixed simple name, and re-expand to both APIs.
+func TestPrefixedRemoteCompositeSimpleNamesAndExpand(t *testing.T) {
+	g := NewGraph(logging.NewTestLogger(t))
+
+	comboName := Name{API: testCamAPI, Name: "combo", Remote: "r1"}
+	comboSub := &combo{Named: comboName.AsNamed()}
+	comboRes, err := Compose(AsSub(testCamAPI, comboSub), AsSub(testSensAPI, comboSub))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, g.AddNode(comboName,
+		NewConfiguredGraphNode(Config{Name: "combo", API: testCamAPI}, comboRes, Model{})), test.ShouldBeNil)
+	g.UpdateNodePrefix(comboName, "p1.")
+
+	prefixedCam := Name{API: testCamAPI, Name: "p1.combo", Remote: "r1"}
+	prefixedSens := Name{API: testSensAPI, Name: "p1.combo", Remote: "r1"}
+
+	// SimpleNamesWhere lists the composite once, under its prefixed name, not once per co-equal API.
+	got := g.SimpleNamesWhere(func(Name, *GraphNode) bool { return true })
+	test.That(t, got, test.ShouldContain, prefixedCam)
+	byName := map[string]int{}
+	for _, n := range got {
+		byName[n.Name]++
+	}
+	test.That(t, byName["p1.combo"], test.ShouldEqual, 1)
+
+	// Both co-equal APIs resolve under the prefixed simple name.
+	for _, api := range []API{testCamAPI, testSensAPI} {
+		_, err := g.FindBySimpleNameAndAPI("p1.combo", api)
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	// On the ResourceNames path, expanding what SimpleNamesWhere advertises (prefixed names) must
+	// re-expand the one node into both co-equal APIs, still under the prefixed name.
+	expanded := g.ExpandCompositeNames(got)
+	test.That(t, expanded, test.ShouldContain, prefixedCam)
+	test.That(t, expanded, test.ShouldContain, prefixedSens)
 }
