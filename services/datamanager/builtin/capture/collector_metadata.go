@@ -45,38 +45,34 @@ func newCollectorMetadata(res resource.Resource, c datamanager.DataCaptureConfig
 // that several APIs share or collide on by name (e.g. DoCommand), or that no API implements, stays under
 // the configured API.
 func captureAPIForMethod(res resource.Resource, method string, configuredAPI resource.API) resource.API {
-	apis := resource.APIsOf(res)
-	if len(apis) == 1 {
+	if apis := resource.APIsOf(res); len(apis) == 1 {
 		return apis[0]
 	}
-
-	var owner resource.API
-	owners := 0
-	for _, api := range apis {
-		if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: method}) != nil {
-			owner = api
-			owners++
-		}
-	}
-	if owners == 1 {
-		return owner
+	if owners := captureMethodOwners(res, method); len(owners) == 1 {
+		return owners[0]
 	}
 	return configuredAPI
+}
+
+// captureMethodOwners returns every API res serves that registers a collector for method, in
+// canonical-first order. Exactly one owner means the method unambiguously belongs to that API.
+func captureMethodOwners(res resource.Resource, method string) []resource.API {
+	var owners []resource.API
+	for _, api := range resource.APIsOf(res) {
+		if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: method}) != nil {
+			owners = append(owners, api)
+		}
+	}
+	return owners
 }
 
 // unresolvedCaptureMethodError returns an actionable error when a composite capture method cannot be
 // resolved to a single owning API, or nil when it can (a single-API resource, or exactly one owner).
 func unresolvedCaptureMethodError(res resource.Resource, cfg datamanager.DataCaptureConfig) error {
-	apis := resource.APIsOf(res)
-	if len(apis) < 2 {
+	if len(resource.APIsOf(res)) < 2 {
 		return nil
 	}
-	owners := make([]string, 0, len(apis))
-	for _, api := range apis {
-		if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: cfg.Method}) != nil {
-			owners = append(owners, api.String())
-		}
-	}
+	owners := captureMethodOwners(res, cfg.Method)
 	switch len(owners) {
 	case 0:
 		return errors.Errorf("composite %q serves no API that implements capture method %q",
@@ -84,9 +80,13 @@ func unresolvedCaptureMethodError(res resource.Resource, cfg datamanager.DataCap
 	case 1:
 		return nil
 	default:
-		example := fmt.Sprintf("%s/%s", owners[0], cfg.Name.ShortName())
+		names := make([]string, len(owners))
+		for i, api := range owners {
+			names[i] = api.String()
+		}
+		example := fmt.Sprintf("%s/%s", names[0], cfg.Name.ShortName())
 		return errors.Errorf(
 			"capture method %q on composite %q is served by multiple APIs (%s); set the capture config name to the full name of the API to capture, e.g. %q",
-			cfg.Method, cfg.Name.ShortName(), strings.Join(owners, ", "), example)
+			cfg.Method, cfg.Name.ShortName(), strings.Join(names, ", "), example)
 	}
 }
