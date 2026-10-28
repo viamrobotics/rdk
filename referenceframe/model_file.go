@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -14,17 +15,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
-
-// ParseKinematicModelFile reads a kinematic model file, the proto JSON encoding of the
-// KinematicModel message, and builds the model it describes. The model takes the name written in
-// the file. See ReadKinematicModelFile for what the read checks and how meshes are found.
-func ParseKinematicModelFile(modelPath string) (Model, error) {
-	pb, err := ReadKinematicModelFile(modelPath)
-	if err != nil {
-		return nil, err
-	}
-	return ModelFromProto(pb, "")
-}
 
 // ReadKinematicModelFile reads a kinematic model file into the message it encodes. The parse is
 // strict, so an unknown field, a non finite number, a parent that is not in the model, a cycle or
@@ -67,8 +57,9 @@ func unmarshalKinematicModel(data []byte, dir string) (*commonpb.KinematicModel,
 
 // isKinematicModelDocument tells the proto JSON of a KinematicModel apart from an SVA or DH
 // document. The two share id, parent, axis and mimic, so the fields only one of them has decide
-// it, and a document with none of either reads the same both ways. Malformed JSON counts as the
-// message so the strict parser, which reports a line and column, is the one to complain.
+// it, and a document with none of either reads the same both ways. Keys are matched without
+// regard to case, since the SVA reader never cared. Malformed JSON counts as the message so the
+// strict parser, which reports a line and column, is the one to complain.
 func isKinematicModelDocument(data []byte) bool {
 	var doc struct {
 		KinParamType json.RawMessage              `json:"kinematic_param_type"`
@@ -82,8 +73,8 @@ func isKinematicModelDocument(data []byte) bool {
 		return true
 	}
 	hasAny := func(obj map[string]json.RawMessage, keys ...string) bool {
-		for _, k := range keys {
-			if _, ok := obj[k]; ok {
+		for k := range obj {
+			if slices.Contains(keys, strings.ToLower(k)) {
 				return true
 			}
 		}
@@ -99,7 +90,7 @@ func isKinematicModelDocument(data []byte) bool {
 		legacy = legacy || hasAny(joint, "min", "max", "max_velocity", "max_acceleration")
 		message = message || hasAny(joint, "limits")
 		var jointType string
-		if raw, ok := joint["type"]; ok && json.Unmarshal(raw, &jointType) == nil && jointType != "" {
+		if raw, ok := lookup(joint, "type"); ok && json.Unmarshal(raw, &jointType) == nil && jointType != "" {
 			if strings.HasPrefix(jointType, "JOINT_TYPE_") {
 				message = true
 			} else {
@@ -108,6 +99,15 @@ func isKinematicModelDocument(data []byte) bool {
 		}
 	}
 	return message || !legacy
+}
+
+func lookup(obj map[string]json.RawMessage, key string) (json.RawMessage, bool) {
+	for k, v := range obj {
+		if strings.EqualFold(k, key) {
+			return v, true
+		}
+	}
+	return nil, false
 }
 
 // rejectNonFinite walks every number in the message, since proto JSON reads the strings
@@ -174,6 +174,9 @@ func validateKinematicModel(pb *commonpb.KinematicModel) error {
 			return NewReservedWordError(n.kind, World)
 		}
 		if other, dup := kinds[n.id]; dup {
+			if other == n.kind {
+				return fmt.Errorf("%s %q is defined twice", n.kind, n.id)
+			}
 			return fmt.Errorf("%q names both a %s and a %s", n.id, other, n.kind)
 		}
 		kinds[n.id] = n.kind
@@ -207,13 +210,20 @@ func validateKinematicModel(pb *commonpb.KinematicModel) error {
 		if kinds[mimic.GetJoint()] != "joint" {
 			return fmt.Errorf("joint %q mimics %q, which is not a joint in the model", joint.GetId(), mimic.GetJoint())
 		}
+		// the reader drops the limits of a mimic joint, so a file that writes them is told, as an
+		// SVA file is
+		if l := joint.GetLimits(); l != nil && (l.Min != nil || l.Max != nil || l.MaxVelocity != nil || l.MaxAcceleration != nil) {
+			return fmt.Errorf("%w: joint %q", ErrMimicWithLimits, joint.GetId())
+		}
 	}
 	return nil
 }
 
 // loadMeshes fills in every mesh that names a file. A path is read once, so the same file on two
 // links is one read. A collision mesh has to be in a format the frame system can parse, while a
-// visual mesh is never parsed here, so any format with an extension goes.
+// visual mesh is never parsed here, so any format with an extension goes. Content types are
+// matched without regard to case and written back in the extension style the message documents,
+// so stl, ply and glb, with the MIME spelling of glb accepted.
 func loadMeshes(pb *commonpb.KinematicModel, dir string) error {
 	cache := map[string][]byte{}
 	for _, link := range pb.GetLinks() {
@@ -245,22 +255,29 @@ func loadMesh(mesh *commonpb.Mesh, collision bool, dir string, cache map[string]
 	if !hasBytes && source == "" {
 		return errors.New("mesh has neither bytes nor a source path")
 	}
-	contentType := mesh.GetContentType()
+	contentType := strings.ToLower(mesh.GetContentType())
 	if contentType == "model/gltf-binary" {
 		// the MIME spelling the viewer sends today, until it moves to the extension style
 		contentType = "glb"
 	}
-	if source != "" {
+	ext := strings.TrimPrefix(strings.ToLower(path.Ext(source)), ".")
+	switch {
+	case !hasBytes:
+		// a mesh read from a file takes its content type from the extension, and the path has to
+		// survive a module install and a trip over the wire
 		if err := checkMeshPath(source); err != nil {
 			return err
 		}
-		ext := strings.TrimPrefix(strings.ToLower(path.Ext(source)), ".")
 		if ext == "" {
 			return fmt.Errorf("mesh path %q has no extension to take the content type from", source)
 		}
 		if contentType != "" && contentType != ext {
-			return fmt.Errorf("mesh content type %q disagrees with the extension of %q", contentType, source)
+			return fmt.Errorf("mesh content type %q disagrees with the extension of %q", mesh.GetContentType(), source)
 		}
+		contentType = ext
+	case contentType == "":
+		// a mesh that carries its bytes is not read again and its path is whatever it was when
+		// it was written out, which can still name the content type
 		contentType = ext
 	}
 	if contentType == "" {

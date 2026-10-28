@@ -26,9 +26,8 @@ func TestKinematicModelFileMatchesSVA(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	readers := map[string]func() (Model, error){
-		"KinematicModelFromFile":  func() (Model, error) { return KinematicModelFromFile(fixture, "") },
-		"ParseModelJSONFile":      func() (Model, error) { return ParseModelJSONFile(fixture, "") },
-		"ParseKinematicModelFile": func() (Model, error) { return ParseKinematicModelFile(fixture) },
+		"KinematicModelFromFile": func() (Model, error) { return KinematicModelFromFile(fixture, "") },
+		"ParseModelJSONFile":     func() (Model, error) { return ParseModelJSONFile(fixture, "") },
 		// bytes alone are enough for a model with no mesh files, so nothing is read beside the file
 		"UnmarshalModelJSON": func() (Model, error) { return UnmarshalModelJSON(data, "") },
 	}
@@ -137,15 +136,22 @@ func TestKinematicModelFileLoadsMeshes(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "without the directory of the model file")
 }
 
-// A mesh that already carries bytes, the way a model dumped from the wire does, is not read again.
+// A mesh that already carries bytes, the way a model dumped from the wire does, is not read
+// again, whatever its path looks like, and its content type is matched without regard to case
+// or taken from the path when it was left out.
 func TestKinematicModelFileKeepsInlineMesh(t *testing.T) {
 	doc := `{"name": "inline", "links": [{"id": "base", "parent": "world",
-		"collision": [{"mesh": {"content_type": "ply", "mesh": "cGx5", "original_file_source_path_diagnostic": "nowhere/part.ply"}}]}]}`
+		"collision": [{"mesh": {"content_type": "PLY", "mesh": "cGx5", "original_file_source_path_diagnostic": "/opt/meshes/part.ply"}}],
+		"visual": [{"mesh": {"mesh": "Z2xi", "original_file_source_path_diagnostic": "nowhere/part.glb"}}]}]}`
 	pb, err := unmarshalKinematicModel([]byte(doc), "")
 	test.That(t, err, test.ShouldBeNil)
 	mesh := pb.GetLinks()[0].GetCollision()[0].GetMesh()
 	test.That(t, string(mesh.GetMesh()), test.ShouldEqual, "ply")
-	test.That(t, mesh.GetOriginalFileSourcePathDiagnostic(), test.ShouldEqual, "nowhere/part.ply")
+	test.That(t, mesh.GetContentType(), test.ShouldEqual, "ply")
+	test.That(t, mesh.GetOriginalFileSourcePathDiagnostic(), test.ShouldEqual, "/opt/meshes/part.ply")
+	visual := pb.GetLinks()[0].GetVisual()[0].GetMesh()
+	test.That(t, string(visual.GetMesh()), test.ShouldEqual, "glb")
+	test.That(t, visual.GetContentType(), test.ShouldEqual, "glb")
 }
 
 func TestKinematicModelFileRefuses(t *testing.T) {
@@ -168,6 +174,13 @@ func TestKinematicModelFileRefuses(t *testing.T) {
 		{
 			"duplicate id", `{"links": [{"id": "a"}], "joints": [{"id": "a", "type": "JOINT_TYPE_REVOLUTE"}]}`,
 			`"a" names both a link and a joint`,
+		},
+		{"duplicate link", `{"links": [{"id": "a"}, {"id": "a"}]}`, `link "a" is defined twice`},
+		{
+			"mimic with limits", `{"links": [{"id": "base", "parent": "world"}], "joints": [
+				{"id": "j", "parent": "base", "type": "JOINT_TYPE_REVOLUTE", "axis": {"z": 1}},
+				{"id": "j2", "parent": "base", "type": "JOINT_TYPE_REVOLUTE", "axis": {"z": 1}, "mimic": {"joint": "j"}, "limits": {"max": 10}}]}`,
+			ErrMimicWithLimits.Error(),
 		},
 		{"missing parent", link(`}, {"id": "tool", "parent": "bsae"`), `parent "bsae" is not a link or joint`},
 		{"cycle", `{"links": [{"id": "a", "parent": "b"}, {"id": "b", "parent": "a"}]}`, "its own ancestor"},
@@ -208,6 +221,7 @@ func TestKinematicModelFileRefuses(t *testing.T) {
 			_, err := KinematicModelFromFile(modelPath, "")
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, tc.want)
+			test.That(t, err.Error(), test.ShouldContainSubstring, modelPath)
 			if tc.name == "missing mesh" {
 				test.That(t, err.Error(), test.ShouldContainSubstring, filepath.Join("meshes", "gone.ply"))
 			}
@@ -228,6 +242,8 @@ func TestKinematicModelDocumentDetection(t *testing.T) {
 	test.That(t, isKinematicModelDocument([]byte(`{"kinematic_param_type": "SVA"}`)), test.ShouldBeFalse)
 	test.That(t, isKinematicModelDocument([]byte(`{"dhParams": []}`)), test.ShouldBeFalse)
 	test.That(t, isKinematicModelDocument([]byte(`{"links": [{"id": "a", "translation": {}}]}`)), test.ShouldBeFalse)
+	test.That(t, isKinematicModelDocument([]byte(`{"links": [{"id": "a", "Translation": {}}]}`)), test.ShouldBeFalse)
+	test.That(t, isKinematicModelDocument([]byte(`{"joints": [{"id": "j", "Type": "revolute"}]}`)), test.ShouldBeFalse)
 	test.That(t, isKinematicModelDocument([]byte(`{"joints": [{"id": "j", "type": "revolute"}]}`)), test.ShouldBeFalse)
 	test.That(t, isKinematicModelDocument([]byte(`{"joints": [{"id": "j", "min": -90, "max": 90}]}`)), test.ShouldBeFalse)
 	for _, fixture := range protoRoundTripFixtures {

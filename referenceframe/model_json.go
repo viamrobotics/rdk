@@ -267,7 +267,11 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	return unmarshalModelJSON(jsonData, modelName, filepath.Dir(filename))
+	model, err := unmarshalModelJSON(jsonData, modelName, filepath.Dir(filename))
+	if err != nil {
+		return nil, errors.Wrapf(err, "model file %s", filename)
+	}
+	return model, nil
 }
 
 // buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
