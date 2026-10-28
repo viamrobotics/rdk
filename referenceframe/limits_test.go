@@ -3,6 +3,8 @@ package referenceframe
 import (
 	"encoding/json"
 	"math"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -338,7 +340,7 @@ func TestNarrowJointLimitsReachesEveryEncoding(t *testing.T) {
 	test.That(t, cfg.Joints[idx].Max, test.ShouldEqual, 45.0)
 	test.That(t, *cfg.Joints[idx].MaxVelocity, test.ShouldEqual, 45.0)
 	test.That(t, *cfg.Joints[idx].MaxAcceleration, test.ShouldEqual, 100.0)
-	test.That(t, cfg.OriginalFile, test.ShouldBeNil)
+	test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "json")
 
 	resp := KinematicModelToProtobuf(sm)
 	format := resp.GetFormat() //nolint:staticcheck // deprecated fields are still served
@@ -544,4 +546,111 @@ func TestJointLimitsAttributeShape(t *testing.T) {
 	sm := simpleModelFromJSON(t, twoJointModelJSON)
 	test.That(t, sm.NarrowJointLimits(attrs.JointLimits), test.ShouldBeNil)
 	test.That(t, jointLimit(t, sm, "j1").Max, test.ShouldAlmostEqual, utils.DegToRad(-29))
+}
+
+func TestNarrowJointLimitsLeavesTheFileAloneWhenNothingChanges(t *testing.T) {
+	sm := simpleModelFromJSON(t, twoJointModelJSON)
+	before := sm.ModelConfig().OriginalFile
+	test.That(t, sm.NarrowJointLimits(nil), test.ShouldBeNil)
+	test.That(t, sm.NarrowJointLimits(map[string]JointLimits{"j1": {}}), test.ShouldBeNil)
+	test.That(t, sm.ModelConfig().OriginalFile == before, test.ShouldBeTrue)
+
+	// an entry that sets nothing still has to name a joint
+	err := sm.NarrowJointLimits(map[string]JointLimits{"j9": {}})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no joint "j9"`)
+}
+
+// A joint with no position bound has no JSON form, so the file stays as it was read and the typed
+// model alone carries the narrowed limit.
+func TestNarrowJointLimitsKeepsAFileItCannotRewrite(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "spinner.urdf")
+	test.That(t, os.WriteFile(path, []byte(`<robot name="spinner">
+  <link name="base"/>
+  <link name="tip"/>
+  <joint name="spin" type="continuous">
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <parent link="base"/>
+    <child link="tip"/>
+    <axis xyz="0 0 1"/>
+    <limit velocity="3.14"/>
+  </joint>
+</robot>`), 0o600), test.ShouldBeNil)
+	m, err := ParseModelXMLFile(path, "", nil)
+	test.That(t, err, test.ShouldBeNil)
+	sm, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	before := sm.ModelConfig().OriginalFile
+	test.That(t, before, test.ShouldNotBeNil)
+
+	err = sm.NarrowJointLimits(map[string]JointLimits{"spin": {MaxVelocity: ptr(90.0)}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *jointLimit(t, sm, "spin").MaxVelocity, test.ShouldAlmostEqual, utils.DegToRad(90))
+	test.That(t, sm.ModelConfig().OriginalFile == before, test.ShouldBeTrue)
+
+	resp := KinematicModelToProtobuf(sm)
+	format := resp.GetFormat() //nolint:staticcheck // deprecated fields are still served
+	test.That(t, format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+	test.That(t, protoJoint(t, resp.GetModel(), "spin").GetLimits().GetMaxVelocity(), test.ShouldAlmostEqual, 90)
+}
+
+// A cylinder has no shape in the message, so this model never had a typed form and the file is
+// all a client gets. It still has to carry the narrowed limit.
+func TestNarrowJointLimitsRewritesAFileTheMessageCannotCarry(t *testing.T) {
+	sm := simpleModelFromJSON(t, `{
+  "name": "arm",
+  "kinematic_param_type": "SVA",
+  "links": [
+    {"id": "base", "parent": "world", "geometry": {"type": "cylinder", "r": 10, "l": 20}},
+    {"id": "tip", "parent": "j1"}
+  ],
+  "joints": [
+    {"id": "j1", "type": "revolute", "parent": "base", "axis": {"x": 0, "y": 0, "z": 1}, "min": -90, "max": 90}
+  ]
+}`)
+	test.That(t, sm.NarrowJointLimits(map[string]JointLimits{"j1": {Max: ptr(45.0)}}), test.ShouldBeNil)
+	resp := KinematicModelToProtobuf(sm)
+	test.That(t, resp.GetModel(), test.ShouldBeNil)
+	legacy, err := UnmarshalModelJSON(resp.GetKinematicsData(), "") //nolint:staticcheck // deprecated fields are still served
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jointLimit(t, legacy, "j1").Max, test.ShouldAlmostEqual, utils.DegToRad(45))
+}
+
+func TestNarrowJointLimitsRefusesDHModel(t *testing.T) {
+	m, err := ParseModelJSONFile("testfiles/ur5eDH.json", "")
+	test.That(t, err, test.ShouldBeNil)
+	sm, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	err = sm.NarrowJointLimits(map[string]JointLimits{"q_0_j": {MaxVelocity: ptr(90.0)}})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "DH kinematics")
+}
+
+func TestNarrowJointLimitsNamesTheFirstBadJointInOrder(t *testing.T) {
+	sm := simpleModelFromJSON(t, twoJointModelJSON)
+	for range 5 {
+		err := sm.NarrowJointLimits(map[string]JointLimits{"j2": {Min: ptr(-200.0)}, "j1": {Max: ptr(math.NaN())}})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `joint "j1"`)
+	}
+}
+
+func TestNarrowJointLimitsSeesThroughANamedFrameAndRefusesANestedModel(t *testing.T) {
+	fs := NewEmptyFrameSystem("internal")
+	rot, err := NewRotationalFrame("inner", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(NewNamedFrame(rot, "j1"), fs.World()), test.ShouldBeNil)
+	arm := simpleModelFromJSON(t, twoJointModelJSON)
+	test.That(t, fs.AddFrame(arm, fs.Frame("j1")), test.ShouldBeNil)
+	sm, err := NewModel("built", fs, "arm")
+	test.That(t, err, test.ShouldBeNil)
+
+	// the renamed revolute joint is still read in degrees
+	test.That(t, sm.NarrowJointLimits(map[string]JointLimits{"j1": {Max: ptr(90.0)}}), test.ShouldBeNil)
+	test.That(t, jointLimit(t, sm, "j1").Max, test.ShouldAlmostEqual, utils.DegToRad(90))
+
+	// the nested model answers DoF from a copy, so a write through it would reach nothing it plans with
+	err = sm.NarrowJointLimits(map[string]JointLimits{"arm": {Max: ptr(1.0)}})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `joint "arm" in model "built" is not a single joint`)
 }

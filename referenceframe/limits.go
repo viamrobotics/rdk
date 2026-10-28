@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 
@@ -132,18 +133,7 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 			return nil, fmt.Errorf("%w: joint %q", ErrMimicWithLimits, id)
 		}
 
-		if limit.Min != nil {
-			joint.Min = *limit.Min
-		}
-		if limit.Max != nil {
-			joint.Max = *limit.Max
-		}
-		if limit.MaxVelocity != nil {
-			joint.MaxVelocity = limitPtr(limit.MaxVelocity, nil)
-		}
-		if limit.MaxAcceleration != nil {
-			joint.MaxAcceleration = limitPtr(limit.MaxAcceleration, nil)
-		}
+		limit.applyTo(joint)
 
 		// Min and Max move independently so that a caller can pin a joint without restating the
 		// other side, which means the pair can be left crossed. A joint with an empty range is
@@ -171,6 +161,22 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 	return &out, nil
 }
 
+// applyTo writes the fields that are set onto a joint configuration, which takes the same units.
+func (jl JointLimits) applyTo(joint *JointConfig) {
+	if jl.Min != nil {
+		joint.Min = *jl.Min
+	}
+	if jl.Max != nil {
+		joint.Max = *jl.Max
+	}
+	if jl.MaxVelocity != nil {
+		joint.MaxVelocity = limitPtr(jl.MaxVelocity, nil)
+	}
+	if jl.MaxAcceleration != nil {
+		joint.MaxAcceleration = limitPtr(jl.MaxAcceleration, nil)
+	}
+}
+
 // NarrowJointLimits narrows the limits the model serves to what a resource's configuration asks
 // of each joint, keyed by joint id, in document units: degrees, degrees per second and degrees per
 // second squared for a revolute joint, millimeters for a prismatic one. The attribute shape a
@@ -185,15 +191,28 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 // what the model already holds. A value that would widen a limit is an error naming the joint,
 // since a widened limit is the one that reaches hardware. A joint the model has no velocity or
 // acceleration bound for accepts any. A min equal to max locks a joint where it stands. A mimic
-// joint follows the joint it mimics and cannot be narrowed. Nothing changes on an error, so a
-// module can fail its constructor with the error as it is.
+// joint follows the joint it mimics and cannot be narrowed, and a DH model keeps its limits as
+// parameters and is refused. Nothing changes on an error, so a module can fail its constructor
+// with the error as it is, and a request that sets nothing changes nothing.
 //
-// Calling it again narrows what the first call left. The narrowed limits reach the typed model and
-// the deprecated file bytes alike, since the file the model was read from no longer describes it
-// and is dropped.
+// Call it while building the resource, before the model is shared, since it writes the frames in
+// place with no lock. The narrowed limits reach the typed model through the frames. The deprecated
+// file bytes carry them too when the configuration can be written back as a file, and otherwise
+// the file stays as it was read, which is what happens for a joint with no position bound, since
+// JSON has no way to write one.
 func (m *SimpleModel) NarrowJointLimits(limits map[string]JointLimits) error {
-	narrowed := make(map[string]Limit, len(limits))
-	for id, jl := range limits {
+	if m.modelConfig != nil && m.modelConfig.KinParamType == "DH" {
+		return fmt.Errorf("cannot narrow joint limits on model %q: DH kinematics describe joints as parameters "+
+			"rather than as joints with limits", m.name)
+	}
+	type narrowedJoint struct {
+		frame Frame
+		limit Limit
+	}
+	narrowed := make(map[string]narrowedJoint, len(limits))
+	// ids in order, so the joint an error names does not change from one run to the next
+	for _, id := range slices.Sorted(maps.Keys(limits)) {
+		jl := limits[id]
 		if err := jl.validate(id); err != nil {
 			return err
 		}
@@ -204,51 +223,58 @@ func (m *SimpleModel) NarrowJointLimits(limits map[string]JointLimits) error {
 		if frame == nil || len(frame.DoF()) == 0 {
 			return fmt.Errorf("no joint %q in model %q", id, m.name)
 		}
-		if len(frame.DoF()) != 1 {
-			return fmt.Errorf("joint %q in model %q has %d degrees of freedom and cannot be narrowed by one set of limits",
-				id, m.name, len(frame.DoF()))
+		// only a joint frame holds the one limit this writes back through DoF, a nested model
+		// answers DoF from a copy
+		var rotational bool
+		switch unwrapNamed(frame).(type) {
+		case *rotationalFrame:
+			rotational = true
+		case *translationalFrame:
+		default:
+			return fmt.Errorf("joint %q in model %q is not a single joint", id, m.name)
 		}
-		_, rotational := frame.(*rotationalFrame)
+		if jl == (JointLimits{}) {
+			continue
+		}
 		limit, err := narrowLimit(id, frame.DoF()[0], jl, rotational)
 		if err != nil {
 			return err
 		}
-		narrowed[id] = limit
+		narrowed[id] = narrowedJoint{frame: frame, limit: limit}
+	}
+	if len(narrowed) == 0 {
+		return nil
 	}
 
-	for id, limit := range narrowed {
-		m.internalFS.Frame(id).DoF()[0] = limit
+	for _, joint := range narrowed {
+		joint.frame.DoF()[0] = joint.limit
 	}
 	// DoF answers from a copy of the frames' limits taken when the model was built
 	if m.inputSchema != nil {
 		m.limits = m.inputSchema.GetLimits()
 	}
-
 	if m.modelConfig == nil {
 		return nil
 	}
 	for i := range m.modelConfig.Joints {
-		joint := &m.modelConfig.Joints[i]
-		jl, ok := limits[joint.ID]
-		if !ok {
-			continue
-		}
-		if jl.Min != nil {
-			joint.Min = *jl.Min
-		}
-		if jl.Max != nil {
-			joint.Max = *jl.Max
-		}
-		if jl.MaxVelocity != nil {
-			joint.MaxVelocity = limitPtr(jl.MaxVelocity, nil)
-		}
-		if jl.MaxAcceleration != nil {
-			joint.MaxAcceleration = limitPtr(jl.MaxAcceleration, nil)
+		if jl, ok := limits[m.modelConfig.Joints[i].ID]; ok {
+			jl.applyTo(&m.modelConfig.Joints[i])
 		}
 	}
-	// the file no longer says what the model does, so the deprecated bytes are written from the
-	// model from here on instead of replayed
+
+	// the file the model was read from no longer says what the model does, so the configuration
+	// is written out in its place. Marshaling with the old file still set would nest it inside
+	// the new one. Bytes that fail to marshal, which a joint with no position bound does, or that
+	// fail to read back leave the file as it was.
+	original := m.modelConfig.OriginalFile
 	m.modelConfig.OriginalFile = nil
+	if raw, err := json.Marshal(m.modelConfig); err == nil {
+		if _, err := UnmarshalModelJSON(raw, m.modelConfig.Name); err == nil {
+			m.modelConfig.OriginalFile = &ModelFile{Bytes: raw, Extension: "json"}
+			return nil
+		}
+	}
+	m.modelConfig.OriginalFile = original
 	return nil
 }
 
