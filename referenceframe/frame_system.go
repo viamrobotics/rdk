@@ -1255,7 +1255,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	var model *commonpb.KinematicModel
 	if part.ModelFrame != nil {
 		modelConfig = part.ModelFrame.ModelConfig()
-		// a model that cannot be written as a message, one holding a pose frame, sends the Struct alone
+		// a model the message cannot describe sends the Struct alone, as it always did
 		if converted, err := ModelToProto(part.ModelFrame); err == nil {
 			model = converted
 		}
@@ -1297,19 +1297,20 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 	}
 
-	// the typed model wins whenever a server sent one with something in it. The Struct also
-	// carries the file the model was read from, which the model does not, but nothing reads that
-	// file out of a frame system config, and reading the model here is what exercises it between
-	// machines before the Struct goes away.
+	// the typed model wins over the Struct whenever a server sent one with something in it. A
+	// model this reader cannot parse, from a server newer than it, is passed over for the Struct
+	// the server kept beside it for that case
 	if model := fsc.GetModel(); len(model.GetLinks())+len(model.GetJoints()) > 0 {
 		modelFrame, err := ModelFromProto(model, frameConfig.Name())
-		if err != nil {
+		if err == nil {
+			part.ModelFrame = modelFrame
+			return part, nil
+		}
+		if len(fsc.GetKinematics().GetFields()) == 0 {
 			return nil, err
 		}
-		part.ModelFrame = modelFrame
-		return part, nil
 	}
-	if len(fsc.GetKinematics().AsMap()) == 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	if len(fsc.GetKinematics().GetFields()) == 0 {
 		return part, nil
 	}
 
@@ -1328,7 +1329,6 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	// targeting a []byte struct field: a JSON string is base64-decoded; a JSON
 	// array is decoded element-by-element as uint8 values. No custom unmarshaler
 	// is needed and old/new viam-server versions interoperate in both directions.
-	//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 	modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 	if err != nil {
 		return nil, err

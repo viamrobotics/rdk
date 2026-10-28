@@ -948,6 +948,36 @@ func TestFrameSystemPartCarriesTypedModel(t *testing.T) {
 	test.That(t, spatial.PoseAlmostEqualEps(wantPose.(*PoseInFrame).Pose(), gotPose.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
 }
 
+// A reader passes over a typed model it cannot parse, which a server newer than it may send, for
+// the Struct kept beside it, and reads the Struct when the model is present with nothing in it.
+func TestFrameSystemPartFallsBackToStruct(t *testing.T) {
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	lc := &LinkConfig{ID: "arm", Parent: "world"}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err := (&FrameSystemPart{FrameConfig: lif, ModelFrame: model}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+
+	pbMsg.Model.Joints[0].Type = commonpb.JointType_JOINT_TYPE_UNSPECIFIED
+	restored, err := ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, model, restored.ModelFrame)
+
+	// with nothing else describing the part, the model's own error comes back
+	withoutStruct, ok := proto2.Clone(pbMsg).(*robotpb.FrameSystemConfig)
+	test.That(t, ok, test.ShouldBeTrue)
+	withoutStruct.Kinematics = nil //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	_, err = ProtobufToFrameSystemPart(withoutStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported joint type")
+
+	pbMsg.Model = &commonpb.KinematicModel{Name: "arm"}
+	restored, err = ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, model, restored.ModelFrame)
+}
+
 // A model built in code reaches the wire as a message too, and a model with no file form, one
 // holding a pose frame, still sends the Struct alone.
 func TestFrameSystemPartModelFromFramesAndPoseFrame(t *testing.T) {
