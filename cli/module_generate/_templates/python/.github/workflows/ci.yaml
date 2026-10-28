@@ -1,0 +1,51 @@
+# Lints and byte-compiles the module on every pull request and push to main.
+# Publishing a release is handled separately by deploy.yml.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: ruff check
+        uses: astral-sh/ruff-action@v4
+        with:
+          version: "0.17.0"
+          args: check
+      - name: ruff format
+        uses: astral-sh/ruff-action@v4
+        with:
+          version: "0.17.0"
+          args: format --check
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # 3.11 is the Python that Raspberry Pi OS Bookworm ships.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      # Catches syntax errors in every file, including ones nothing imports yet.
+      # Add a pytest step once the module has tests.
+      - name: Compile
+        run: python -m compileall -q src

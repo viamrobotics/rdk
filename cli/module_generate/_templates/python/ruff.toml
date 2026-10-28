@@ -1,0 +1,4 @@
+# Pyflakes and pycodestyle errors plus import sorting: checks that catch real
+# mistakes, without the broader style rules in ruff's own defaults.
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]
