@@ -1,10 +1,14 @@
-// Package models3d contains embedded 3D model files and related mappings for fake arm models.
+// Package models3d holds the embedded visual meshes of the arm models the fake and simulated arms
+// can stand in for, and attaches them to a model as visual geometries keyed by link.
 package models3d
 
 import (
 	_ "embed"
+	"fmt"
+	"maps"
 
-	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 //go:embed ur5e/base_link.glb
@@ -91,201 +95,83 @@ var lite6WristLinkGLB []byte
 //go:embed lite6/gripper_mount.glb
 var lite6GripperMountGLB []byte
 
-// ArmTo3DModelParts maps arm model names to their list of 3D model part names.
-var ArmTo3DModelParts = map[string][]string{
+// ContentType is the spelling the viewer reads a GLB by today. The file loader takes the extension
+// spelling, glb, as well, and the viewer moves to it with RSDK-14759.
+const ContentType = "model/gltf-binary"
+
+// visuals maps an arm model to the GLB of each link that has one, keyed by the link id in the
+// embedded kinematics file of the same name.
+var visuals = map[string]map[string][]byte{
 	"ur5e": {
-		"ee_link",
-		"forearm_link",
-		"upper_arm_link",
-		"wrist_1_link",
-		"wrist_2_link",
-		"base_link",
-		"shoulder_link",
+		"base_link":      ur5eBaseLinkGLB,
+		"shoulder_link":  ur5eShoulderLinkGLB,
+		"upper_arm_link": ur5eUpperArmLinkGLB,
+		"forearm_link":   ur5eForearmLinkGLB,
+		"wrist_1_link":   ur5eWrist1LinkGLB,
+		"wrist_2_link":   ur5eWrist2LinkGLB,
+		"ee_link":        ur5eEELinkGLB,
 	},
 	"ur20": {
-		"base_link",
-		"shoulder_link",
-		"upper_arm_link",
-		"forearm_link",
-		"wrist_1_link",
-		"wrist_2_link",
-		"wrist_3_link",
+		"base_link":      ur20BaseLinkGLB,
+		"shoulder_link":  ur20ShoulderLinkGLB,
+		"upper_arm_link": ur20UpperArmLinkGLB,
+		"forearm_link":   ur20ForearmLinkGLB,
+		"wrist_1_link":   ur20Wrist1LinkGLB,
+		"wrist_2_link":   ur20Wrist2LinkGLB,
+		"wrist_3_link":   ur20Wrist3LinkGLB,
 	},
 	"xarm6": {
-		"base",
-		"base_top",
-		"upper_arm",
-		"upper_forearm",
-		"lower_forearm",
-		"wrist_link",
-		"gripper_mount",
+		"base":          xarm6BaseGLB,
+		"base_top":      xarm6BaseTopGLB,
+		"upper_arm":     xarm6UpperArmGLB,
+		"upper_forearm": xarm6UpperForearmGLB,
+		"lower_forearm": xarm6LowerForearmGLB,
+		"wrist_link":    xarm6WristLinkGLB,
+		"gripper_mount": xarm6GripperMountGLB,
 	},
 	"lite6": {
-		"base",
-		"base_top",
-		"upper_arm",
-		"upper_forearm",
-		"lower_forearm",
-		"wrist_link",
-		"gripper_mount",
+		"base":          lite6BaseGLB,
+		"base_top":      lite6BaseTopGLB,
+		"upper_arm":     lite6UpperArmGLB,
+		"upper_forearm": lite6UpperForearmGLB,
+		"lower_forearm": lite6LowerForearmGLB,
+		"wrist_link":    lite6WristLinkGLB,
+		"gripper_mount": lite6GripperMountGLB,
 	},
 }
 
-// ThreeDMeshFromName returns the 3D mesh for a given arm model and part name.
-func ThreeDMeshFromName(model, name string) commonpb.Mesh {
-	switch model {
-	case "ur5e":
-		switch name {
-		case "base_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eBaseLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "ee_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eEELinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "shoulder_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eShoulderLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "forearm_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eForearmLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "upper_arm_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eUpperArmLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_1_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eWrist1LinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_2_link":
-			return commonpb.Mesh{
-				Mesh:        ur5eWrist2LinkGLB,
-				ContentType: "model/gltf-binary",
-			}
+// Visuals returns the GLB of each link of an arm model that has one, keyed by link id, or nil for
+// a model that ships none. The bytes are the embedded files and are not to be written to.
+func Visuals(armModel string) map[string][]byte {
+	if len(visuals[armModel]) == 0 {
+		return nil
+	}
+	return maps.Clone(visuals[armModel])
+}
+
+// AttachVisuals sets each embedded GLB of an arm model on the matching link of model as a visual
+// geometry, so the typed model carries them and Get3DModels can be served from it. An arm model
+// that ships none leaves model as it is. A GLB named for a link the model does not have is an
+// error, since the kinematics file and the meshes have drifted apart.
+func AttachVisuals(model referenceframe.Model, armModel string) error {
+	if len(visuals[armModel]) == 0 {
+		return nil
+	}
+	sm, ok := model.(*referenceframe.SimpleModel)
+	if !ok {
+		return fmt.Errorf("cannot attach visuals to a %T", model)
+	}
+	for link, glb := range visuals[armModel] {
+		gc := spatialmath.GeometryConfig{
+			Type:            spatialmath.MeshType,
+			Label:           link,
+			MeshData:        glb,
+			MeshContentType: ContentType,
+			MeshFilePath:    armModel + "/" + link + ".glb",
 		}
-	case "ur20":
-		switch name {
-		case "base_link":
-			return commonpb.Mesh{
-				Mesh:        ur20BaseLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "shoulder_link":
-			return commonpb.Mesh{
-				Mesh:        ur20ShoulderLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "upper_arm_link":
-			return commonpb.Mesh{
-				Mesh:        ur20UpperArmLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "forearm_link":
-			return commonpb.Mesh{
-				Mesh:        ur20ForearmLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_1_link":
-			return commonpb.Mesh{
-				Mesh:        ur20Wrist1LinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_2_link":
-			return commonpb.Mesh{
-				Mesh:        ur20Wrist2LinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_3_link":
-			return commonpb.Mesh{
-				Mesh:        ur20Wrist3LinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		}
-	case "xarm6":
-		switch name {
-		case "base":
-			return commonpb.Mesh{
-				Mesh:        xarm6BaseGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "base_top":
-			return commonpb.Mesh{
-				Mesh:        xarm6BaseTopGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "upper_arm":
-			return commonpb.Mesh{
-				Mesh:        xarm6UpperArmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "upper_forearm":
-			return commonpb.Mesh{
-				Mesh:        xarm6UpperForearmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "lower_forearm":
-			return commonpb.Mesh{
-				Mesh:        xarm6LowerForearmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_link":
-			return commonpb.Mesh{
-				Mesh:        xarm6WristLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "gripper_mount":
-			return commonpb.Mesh{
-				Mesh:        xarm6GripperMountGLB,
-				ContentType: "model/gltf-binary",
-			}
-		}
-	case "lite6":
-		switch name {
-		case "base":
-			return commonpb.Mesh{
-				Mesh:        lite6BaseGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "base_top":
-			return commonpb.Mesh{
-				Mesh:        lite6BaseTopGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "upper_arm":
-			return commonpb.Mesh{
-				Mesh:        lite6UpperArmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "upper_forearm":
-			return commonpb.Mesh{
-				Mesh:        lite6UpperForearmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "lower_forearm":
-			return commonpb.Mesh{
-				Mesh:        lite6LowerForearmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "wrist_link":
-			return commonpb.Mesh{
-				Mesh:        lite6WristLinkGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case "gripper_mount":
-			return commonpb.Mesh{
-				Mesh:        lite6GripperMountGLB,
-				ContentType: "model/gltf-binary",
-			}
+		if err := sm.SetVisualGeometries(link, []spatialmath.GeometryConfig{gc}); err != nil {
+			return fmt.Errorf("arm model %q: %w", armModel, err)
 		}
 	}
-	return commonpb.Mesh{}
+	return nil
 }

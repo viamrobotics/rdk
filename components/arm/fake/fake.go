@@ -76,7 +76,9 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case armModel != "" && modelPath != "":
 		err = errAttrCfgPopulation
 	case armModel != "":
-		model, err = kinematics.ModelFromName(armModel, cfg.Name)
+		if model, err = kinematics.ModelFromName(armModel, cfg.Name); err == nil {
+			err = models3d.AttachVisuals(model, armModel)
+		}
 	case modelPath != "":
 		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
 	default:
@@ -95,10 +97,9 @@ type Arm struct {
 
 	// Writes to `joints` or `model` must hold the write-lock. And reads to `joints` or `model` must
 	// hold the read-lock.
-	mu       sync.RWMutex
-	joints   []referenceframe.Input
-	model    referenceframe.Model
-	armModel string
+	mu     sync.RWMutex
+	joints []referenceframe.Input
+	model  referenceframe.Model
 }
 
 // reconfigure atomically reconfigures this arm in place based on the new config.
@@ -124,7 +125,6 @@ func (a *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf 
 	defer a.mu.Unlock()
 	a.joints = make([]referenceframe.Input, dof)
 	a.model = model
-	a.armModel = newConf.ArmModel
 	return nil
 }
 
@@ -278,27 +278,16 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	return gif.Geometries(), nil
 }
 
-// Get3DModels returns the 3D models of the fake arm. Unknown arm models should return an empty map.
+// Get3DModels returns the visual meshes the fake arm's model carries, keyed by link, which is
+// empty for an arm model that ships none and for a model read from a file that has none.
 func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 
-	models := make(map[string]*commonpb.Mesh)
-	armModelParts := models3d.ArmTo3DModelParts[a.armModel]
-	if armModelParts == nil {
-		return models, nil
+	models := referenceframe.VisualMeshes(a.model)
+	if models == nil {
+		models = map[string]*commonpb.Mesh{}
 	}
-
-	for _, modelPart := range armModelParts {
-		modelPartMesh := models3d.ThreeDMeshFromName(a.armModel, modelPart)
-		if len(modelPartMesh.Mesh) > 0 {
-			// len > 0 indicates we actually have a 3D model for thus armModel and part Name
-			models[modelPart] = &modelPartMesh
-		} else {
-			a.logger.CWarnw(ctx, "No 3D model found for arm model and part", "armModel", a.armModel, "modelPart", modelPart)
-		}
-	}
-
 	return models, nil
 }
 
