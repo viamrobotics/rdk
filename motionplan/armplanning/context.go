@@ -200,17 +200,6 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 		return nil, err
 	}
 
-	if pc.planOpts.CableConstraint {
-		err = psc.Checker.AddCableConstraint(pc.fs, start, motionplan.CableConstraint{
-			MaxTwistDegs:  pc.planOpts.MaxCableTwistDegs,
-			ReferenceDegs: pc.planOpts.CableTwistReferenceDegs,
-			Frames:        pc.planOpts.CableConstraintFrames,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return psc, nil
 }
 

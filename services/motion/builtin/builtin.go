@@ -7,7 +7,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,7 +23,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -108,85 +106,6 @@ type Config struct {
 	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
 	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
-
-	// CableConstraint, MaxCableTwistDegs, CableTwistReferenceDegs and CableConstraintFrames are
-	// the defaults for the planner options of the same names; a Move request's extra overrides
-	// each one it sets. Setting CableConstraint true constrains every arm unless
-	// CableConstraintFrames names some. Leaving it unset guesses: any arm with a camera mounted
-	// downstream of it in the frame system, and no input_range_override of its own, is assumed
-	// to carry that camera's cable. Set it false to turn the guess off.
-	CableConstraint         *bool                `json:"cable_constraint,omitempty"`
-	MaxCableTwistDegs       float64              `json:"max_cable_twist_degs"`
-	CableTwistReferenceDegs map[string][]float64 `json:"cable_twist_reference_degs"`
-	CableConstraintFrames   []string             `json:"cable_constraint_frames"`
-}
-
-// applyCableConstraintDefaults copies the configured cable-constraint settings into opts for
-// every one the request's extra leaves unset. cameraArms are the arms guessed to carry a
-// camera cable, used only when neither the request nor the config sets cable_constraint, and
-// neither names the frames to constrain.
-func (c *Config) applyCableConstraintDefaults(
-	opts *armplanning.PlannerOptions, extra map[string]interface{}, cameraArms []string,
-) error {
-	_, extraFrames := extra["cable_constraint_frames"]
-	if !extraFrames && c.CableConstraintFrames != nil {
-		opts.CableConstraintFrames = c.CableConstraintFrames
-	}
-	if _, ok := extra["cable_constraint"]; !ok {
-		switch {
-		case c.CableConstraint != nil:
-			opts.CableConstraint = *c.CableConstraint
-		case len(cameraArms) > 0:
-			opts.CableConstraint = true
-			if !extraFrames && c.CableConstraintFrames == nil {
-				opts.CableConstraintFrames = cameraArms
-			}
-		}
-	}
-	if _, ok := extra["max_cable_twist_degs"]; !ok && c.MaxCableTwistDegs > 0 {
-		opts.MaxCableTwistDegs = c.MaxCableTwistDegs
-	}
-	if _, ok := extra["cable_twist_reference_degs"]; !ok && c.CableTwistReferenceDegs != nil {
-		opts.CableTwistReferenceDegs = c.CableTwistReferenceDegs
-	}
-	if opts.CableConstraint && opts.MaxCableTwistDegs <= 0 {
-		return errors.New("max_cable_twist_degs has to be positive")
-	}
-	return nil
-}
-
-// armsCarryingCameras returns, sorted, the arms that have a camera mounted somewhere
-// downstream of them in the frame system.
-func armsCarryingCameras(fs *referenceframe.FrameSystem, components map[string]resource.Resource) []string {
-	cameraAPI := resource.APINamespaceRDK.WithComponentType("camera")
-	found := map[string]bool{}
-	for name, r := range components {
-		if r.Name().API != cameraAPI {
-			continue
-		}
-		f := fs.Frame(name)
-		if f == nil {
-			continue
-		}
-		chain, err := fs.TracebackFrame(f)
-		if err != nil {
-			continue
-		}
-		for _, ancestor := range chain[1:] {
-			if _, isModel := ancestor.(referenceframe.Model); !isModel {
-				continue
-			}
-			if a, ok := components[ancestor.Name()]; ok && a.Name().API == arm.API {
-				found[ancestor.Name()] = true
-			}
-		}
-	}
-	arms := make([]string, 0, len(found))
-	for name := range found {
-		arms = append(arms, name)
-	}
-	slices.Sort(arms)
-	return arms
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -215,10 +134,6 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
 	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
-	}
-
-	if c.MaxCableTwistDegs < 0 {
-		return nil, nil, fmt.Errorf("max_cable_twist_degs must be positive (0 selects the default), got %v", c.MaxCableTwistDegs)
 	}
 
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
@@ -612,22 +527,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
 	if err != nil {
-		return nil, err
-	}
-	var cameraArms []string
-	if ms.conf.CableConstraint == nil {
-		cameraArms = slices.DeleteFunc(armsCarryingCameras(frameSys, ms.components), func(name string) bool {
-			_, limited := ms.conf.InputRangeOverride[name]
-			if limited {
-				logger.CDebugf(ctx, "arm %s carries a camera but has an input_range_override; not assuming a camera cable", name)
-			}
-			return limited
-		})
-		if len(cameraArms) > 0 {
-			logger.CDebugf(ctx, "assuming camera cables run through arms %v; set cable_constraint false to disable", cameraArms)
-		}
-	}
-	if err := ms.conf.applyCableConstraintDefaults(planOpts, req.Extra, cameraArms); err != nil {
 		return nil, err
 	}
 
