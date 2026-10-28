@@ -6,6 +6,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/proto"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -53,24 +54,22 @@ func TestKinematicsResponseFlags(t *testing.T) {
 	model := meshModel(t)
 	ply := model.ModelConfig().Links[0].Geometry.MeshData
 
-	t.Run("no flags keeps both encodings and sends mesh paths only", func(t *testing.T) {
+	t.Run("no flags sends both encodings whole", func(t *testing.T) {
 		resp := KinematicsResponse(model, &commonpb.GetKinematicsRequest{Name: "arm1"})
 		test.That(t, resp.GetModel().GetName(), test.ShouldEqual, "arm1")
 		test.That(t, resp.GetFormat(), test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
 		test.That(t, len(resp.GetKinematicsData()), test.ShouldBeGreaterThan, 0)
 		collision, joint, visual := meshOf(resp)
-		for _, mesh := range []*commonpb.Mesh{collision, joint, visual} {
-			test.That(t, mesh.GetMesh(), test.ShouldBeEmpty)
-		}
+		test.That(t, collision.GetMesh(), test.ShouldResemble, ply)
+		test.That(t, joint.GetMesh(), test.ShouldResemble, ply)
+		test.That(t, string(visual.GetMesh()), test.ShouldEqual, "glb bytes")
 		test.That(t, collision.GetOriginalFileSourcePathDiagnostic(), test.ShouldEqual, "meshes/base.ply")
-		test.That(t, collision.GetContentType(), test.ShouldEqual, "ply")
-		test.That(t, visual.GetOriginalFileSourcePathDiagnostic(), test.ShouldEqual, "meshes/base.glb")
 
-		// the model is not usable without its collision meshes, and the reader says why
-		_, err := ModelFromProto(resp.GetModel(), "")
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, `collision mesh "meshes/base.ply" has no bytes`)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "include_collision_meshes")
+		// a client that reads the model without setting the flags, as the first one did, gets it whole
+		got, err := KinematicModelFromProtobuf("", resp)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got.Name(), test.ShouldEqual, "arm1")
+		assertSameKinematics(t, model, got)
 
 		// an old client reads the file as it always has
 		legacy, err := KinematicModelFromProtobuf("arm1", &commonpb.GetKinematicsResponse{
@@ -78,6 +77,25 @@ func TestKinematicsResponseFlags(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		assertSameKinematics(t, model, legacy)
+	})
+
+	t.Run("visual flag alone leaves the collision meshes unreadable, and the reader says why", func(t *testing.T) {
+		resp := KinematicsResponse(model, &commonpb.GetKinematicsRequest{Name: "arm1", IncludeVisualMeshes: true})
+		test.That(t, resp.GetKinematicsData(), test.ShouldBeEmpty)
+		collision, joint, visual := meshOf(resp)
+		test.That(t, collision.GetMesh(), test.ShouldBeEmpty)
+		test.That(t, joint.GetMesh(), test.ShouldBeEmpty)
+		test.That(t, string(visual.GetMesh()), test.ShouldEqual, "glb bytes")
+		test.That(t, collision.GetOriginalFileSourcePathDiagnostic(), test.ShouldEqual, "meshes/base.ply")
+		test.That(t, collision.GetContentType(), test.ShouldEqual, "ply")
+
+		_, err := ModelFromProto(resp.GetModel(), "")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `collision mesh has no bytes: "meshes/base.ply"`)
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "include_collision_meshes")
+		_, err = KinematicModelFromProtobuf("arm1", resp)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "include_collision_meshes")
 
 		// the model itself still holds its bytes
 		test.That(t, model.ModelConfig().Links[0].Geometry.MeshData, test.ShouldResemble, ply)
@@ -199,12 +217,34 @@ func TestKinematicModelFromProtobufHollowModel(t *testing.T) {
 	test.That(t, got.Name(), test.ShouldEqual, "arm1")
 	assertSameKinematics(t, model, got)
 
-	// with no bytes either, an empty model is all the server has
+	// with no bytes either, an empty model is all the server has, and it keeps what the server put on it
 	resp.KinematicsData = nil //nolint:staticcheck // deprecated fields are still served
 	//nolint:staticcheck // deprecated fields are still served
 	resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	resp.Model.Properties = &commonpb.KinematicProperties{OperatingFreqHz: proto.Float64(30)}
 	got, err = KinematicModelFromProtobuf("arm1", resp)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got.Name(), test.ShouldEqual, "arm1")
 	test.That(t, got.DoF(), test.ShouldBeEmpty)
+	sm, ok := got.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, proto.Equal(propertiesToProto(sm.KinematicProperties()), resp.Model.Properties), test.ShouldBeTrue)
+}
+
+// A visual whose label repeats a key taken by another mesh gets a number instead of hiding it,
+// and the bytes handed out are copies.
+func TestVisualMeshesKeysAndCopies(t *testing.T) {
+	model := meshModel(t)
+	test.That(t, model.SetVisualGeometries("tool", []spatial.GeometryConfig{
+		{Type: spatial.MeshType, MeshData: []byte("tool"), MeshContentType: "glb"},
+		{Type: spatial.MeshType, MeshData: []byte("clash"), MeshContentType: "glb", Label: "base"},
+	}), test.ShouldBeNil)
+	meshes := VisualMeshes(model)
+	test.That(t, meshes, test.ShouldHaveLength, 3)
+	test.That(t, string(meshes["base"].GetMesh()), test.ShouldEqual, "glb bytes")
+	test.That(t, string(meshes["tool"].GetMesh()), test.ShouldEqual, "tool")
+	test.That(t, string(meshes["base_2"].GetMesh()), test.ShouldEqual, "clash")
+
+	meshes["tool"].Mesh[0] = 'X'
+	test.That(t, string(VisualMeshes(model)["tool"].GetMesh()), test.ShouldEqual, "tool")
 }

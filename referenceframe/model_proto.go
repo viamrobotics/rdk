@@ -496,15 +496,19 @@ func geometryConfigToProto(gc *spatial.GeometryConfig) (*commonpb.Geometry, erro
 	return pb, nil
 }
 
+// errMeshWithoutBytes marks a collision mesh that arrived with its path and no bytes, which a
+// server sends when the request did not ask for them.
+var errMeshWithoutBytes = errors.New("collision mesh has no bytes")
+
 // collisionGeometryConfigFromProto reads a geometry the frame system will parse, so a mesh has
-// to carry its bytes, which a server sends only when the request asks for them.
+// to carry its bytes.
 func collisionGeometryConfigFromProto(pb *commonpb.Geometry) (*spatial.GeometryConfig, error) {
 	if mesh := pb.GetMesh(); mesh != nil && len(mesh.GetMesh()) == 0 {
 		name := mesh.GetOriginalFileSourcePathDiagnostic()
 		if name == "" {
 			name = pb.GetLabel()
 		}
-		return nil, fmt.Errorf("collision mesh %q has no bytes, the request has to set include_collision_meshes", name)
+		return nil, fmt.Errorf("%w: %q", errMeshWithoutBytes, name)
 	}
 	return geometryConfigFromProto(pb)
 }

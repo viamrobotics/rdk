@@ -1,7 +1,10 @@
 package referenceframe
 
 import (
+	"bytes"
 	"fmt"
+	"maps"
+	"slices"
 
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/proto"
@@ -17,40 +20,39 @@ func KinematicsRequest(name string) *commonpb.GetKinematicsRequest {
 }
 
 // KinematicsResponse builds the GetKinematics reply for a resource. The typed model is named for
-// the resource, since that is what every client addresses it by, and carries mesh bytes only for
-// the roles the request asked for. Every other mesh goes out with its path and content type and
-// no bytes, so a client can see what it did not ask for. A request that asks for either role can
-// only have come from a client that reads the typed model, so the deprecated fields are left out
-// of its reply. A request with no flags cannot be told apart from an old client and keeps both
-// encodings, with the deprecated fields carrying the file as they always have.
-//
-//nolint:staticcheck // the deprecated fields are cleared for clients that read the typed model
+// the resource, since that is what every client addresses it by. A request that asks for either
+// mesh role comes from a client that reads the typed model, so its reply carries the model alone,
+// with bytes only for the roles asked for and every other mesh reduced to its path and content
+// type. A request with no flags may come from a client that predates them, one that reads the
+// file or one that reads the model and expects its meshes whole, so it gets both encodings as a
+// server sent them before the flags existed.
 func KinematicsResponse(model Model, req *commonpb.GetKinematicsRequest) *commonpb.GetKinematicsResponse {
-	resp := KinematicModelToProtobuf(model)
-	if resp.GetModel() == nil {
-		return resp
-	}
-	if name := req.GetName(); name != "" {
-		resp.Model.Name = name
-	}
 	collision, visual := req.GetIncludeCollisionMeshes(), req.GetIncludeVisualMeshes()
-	for _, link := range resp.Model.GetLinks() {
-		if !collision {
-			dropMeshBytes(link.GetCollision())
-		}
-		if !visual {
-			dropMeshBytes(link.GetVisual())
-		}
-	}
-	if !collision {
-		for _, joint := range resp.Model.GetJoints() {
-			dropMeshBytes([]*commonpb.Geometry{joint.GetGeometry()})
-		}
-	}
 	if collision || visual {
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
-		resp.KinematicsData = nil
-		resp.MeshesByUrdfFilepath = nil
+		if pb, err := ModelToProto(model); err == nil {
+			for _, link := range pb.GetLinks() {
+				if !collision {
+					dropMeshBytes(link.GetCollision())
+				}
+				if !visual {
+					dropMeshBytes(link.GetVisual())
+				}
+			}
+			if !collision {
+				for _, joint := range pb.GetJoints() {
+					dropMeshBytes([]*commonpb.Geometry{joint.GetGeometry()})
+				}
+			}
+			return stampName(&commonpb.GetKinematicsResponse{Model: pb}, req.GetName())
+		}
+	}
+	// a model that cannot be written as a message is served as the file alone, as it always was
+	return stampName(KinematicModelToProtobuf(model), req.GetName())
+}
+
+func stampName(resp *commonpb.GetKinematicsResponse, name string) *commonpb.GetKinematicsResponse {
+	if name != "" && resp.GetModel() != nil {
+		resp.Model.Name = name
 	}
 	return resp
 }
@@ -65,17 +67,18 @@ func dropMeshBytes(geometries []*commonpb.Geometry) {
 
 // VisualMeshes returns the visual meshes of a model keyed by link id, which is the shape
 // Get3DModels serves and the name a viewer attaches each mesh to. A link with several visual
-// meshes keeps the link id for the first and uses the geometry label for the rest. A visual that
-// is not a mesh, or a mesh with no bytes, is left out since a viewer can do nothing with it.
+// meshes keeps the link id for the first and uses the geometry label for the rest, with a number
+// added when a label repeats a key already taken. A visual that is not a mesh, or a mesh with no
+// bytes, is left out since a viewer can do nothing with it. The bytes are copies.
 func VisualMeshes(model Model) map[string]*commonpb.Mesh {
 	sm, ok := model.(*SimpleModel)
 	if !ok {
 		return nil
 	}
 	meshes := map[string]*commonpb.Mesh{}
-	for link, geometries := range sm.visual {
+	for _, link := range slices.Sorted(maps.Keys(sm.visual)) {
 		first := true
-		for i, gc := range geometries {
+		for i, gc := range sm.visual[link] {
 			if gc.Type != spatialmath.MeshType || len(gc.MeshData) == 0 {
 				continue
 			}
@@ -88,7 +91,13 @@ func VisualMeshes(model Model) map[string]*commonpb.Mesh {
 			default:
 				key = fmt.Sprintf("%s_visual_%d", link, i)
 			}
-			mesh := &commonpb.Mesh{ContentType: gc.MeshContentType, Mesh: gc.MeshData}
+			for base, n := key, 2; ; n++ {
+				if _, taken := meshes[key]; !taken {
+					break
+				}
+				key = fmt.Sprintf("%s_%d", base, n)
+			}
+			mesh := &commonpb.Mesh{ContentType: gc.MeshContentType, Mesh: bytes.Clone(gc.MeshData)}
 			if gc.MeshFilePath != "" {
 				mesh.OriginalFileSourcePathDiagnostic = proto.String(gc.MeshFilePath)
 			}

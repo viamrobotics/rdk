@@ -3,7 +3,6 @@ package gripper
 
 import (
 	"context"
-	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
@@ -16,9 +15,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 )
-
-// unimplemented is what a resource says when it lacks a method, which a server falls back from.
-const unimplemented = "unimplemented"
 
 // serviceServer implements the GripperService from gripper.proto.
 type serviceServer struct {
@@ -143,16 +139,9 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	geometries, err := framesystem.GeometriesWithFallback(ctx, res, req.Extra.AsMap())
 	if err != nil {
-		// a gripper that does not implement Geometries still has a model and inputs, which
-		// together say where its geometry is
-		if !strings.Contains(err.Error(), unimplemented) {
-			return nil, err
-		}
-		if geometries, err = framesystem.GeometriesFromKinematics(ctx, res); err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
