@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // A model built in code with no file behind it converts like one read from a file, and a client
@@ -130,4 +131,63 @@ func TestKinematicsResponseWithPoseFrame(t *testing.T) {
 	resp := KinematicModelToProtobuf(model)
 	test.That(t, resp.GetModel(), test.ShouldBeNil)
 	test.That(t, len(resp.GetKinematicsData()), test.ShouldEqual, 0) //nolint:staticcheck // deprecated fields are still served
+}
+
+// A frame-built model with a geometry labelled after another frame is refused on the way out,
+// since a reader refuses the same clash on the way in, and the response falls back to nothing
+// as it did before the model was described from its frames.
+func TestFrameBuiltModelRefusesLabelClash(t *testing.T) {
+	fs := NewEmptyFrameSystem("fs")
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -1, Max: 1})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(j1, fs.World()), test.ShouldBeNil)
+	box, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "j1")
+	test.That(t, err, test.ShouldBeNil)
+	link, err := NewStaticFrameWithGeometry("link", spatial.NewPoseFromPoint(r3.Vector{Z: 10}), box)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(link, j1), test.ShouldBeNil)
+	model, err := NewModel("built", fs, "link")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = ModelToProto(model)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `labelled "j1"`)
+	test.That(t, KinematicModelToProtobuf(model).GetModel(), test.ShouldBeNil)
+}
+
+// A model built from a frame system subset that holds another model, which a subset rooted at a
+// component gives, has no file form. Nothing in tree serves such a model over the wire, so it is
+// refused like a pose frame rather than described.
+func TestFrameBuiltModelRefusesNestedModel(t *testing.T) {
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
+	fs := NewEmptyFrameSystem("fs")
+	test.That(t, fs.AddFrame(arm, fs.World()), test.ShouldBeNil)
+	tip, err := NewStaticFrame("tip", spatial.NewPoseFromPoint(r3.Vector{Z: 10}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(tip, arm), test.ShouldBeNil)
+	sub, err := fs.FrameSystemSubset(arm)
+	test.That(t, err, test.ShouldBeNil)
+	composed, err := NewModel("composed", sub, "tip")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(composed.DoF()), test.ShouldEqual, 6)
+
+	_, err = ModelToProto(composed)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no kinematics file form")
+	test.That(t, KinematicModelToProtobuf(composed).GetModel(), test.ShouldBeNil)
+}
+
+// A mobile base with two degrees of freedom and no geometry is a joint chain with no link to
+// hang anything on, and it still reaches a client as a model.
+func TestFrameBuiltMobileBaseWithoutGeometry(t *testing.T) {
+	limit := Limit{Min: -1000, Max: 1000}
+	base, err := New2DMobileModelFrame("base", []Limit{limit, limit}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	resp := KinematicModelToProtobuf(base)
+	test.That(t, resp.GetModel(), test.ShouldNotBeNil)
+	restored, err := KinematicModelFromProtobuf("base", resp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(restored.DoF()), test.ShouldEqual, 2)
+	assertSameKinematics(t, base, restored)
 }

@@ -16,8 +16,8 @@ import (
 // ModelToProto converts a model into the KinematicModel message. The message carries the limits
 // the model enforces, which an override may have narrowed since its file was read, along with any
 // visual geometries and properties set on it. A model built from frames in code, with no file
-// behind it, is described from its frames. A model holding a pose frame, or one with no frames
-// at all, cannot be converted.
+// behind it, is described from its frames. A model holding a pose frame or another model, a
+// geometry the message has no shape for, or no frames at all, cannot be converted.
 func ModelToProto(m Model) (*commonpb.KinematicModel, error) {
 	if m == nil {
 		return nil, errors.New("cannot convert a nil model")

@@ -12,17 +12,21 @@ import (
 // configFromFrames describes a model that was built from frames in code the way a kinematics
 // file would, so the converters and the deprecated bytes serve it like a model read from a file.
 // Each static frame becomes a link, each rotational or translational frame a joint, and a mimic
-// mapping a mimic joint. A pose frame has no file form and is refused.
+// mapping a mimic joint. A pose frame or a frame holding another model has no file form and is
+// refused, and geometry labels are checked the way a reader checks a file's, since a reader
+// refuses a clash the frames allowed.
 func (m *SimpleModel) configFromFrames() (*ModelConfigJSON, error) {
 	cfg := &ModelConfigJSON{Name: m.name, KinParamType: "SVA"}
 	if m.primaryOutputFrame != "" {
 		cfg.OutputFrames = []string{m.primaryOutputFrame}
 	}
+	transforms := map[string]Frame{}
 	for _, name := range bfsFrameNames(m.internalFS) {
 		frame := m.internalFS.Frame(name)
 		if frame == nil {
 			continue
 		}
+		transforms[name] = frame
 		parent := m.internalFS.parents[name]
 		switch f := unwrapNamed(frame).(type) {
 		case *staticFrame, *tailGeometryStaticFrame:
@@ -69,6 +73,9 @@ func (m *SimpleModel) configFromFrames() (*ModelConfigJSON, error) {
 	// it does not parse, so a reader is better off with the empty response it always got
 	if len(cfg.Links) == 0 && len(cfg.Joints) == 0 {
 		return nil, errors.New("model has no frames")
+	}
+	if err := validateGeometryLabels(transforms); err != nil {
+		return nil, err
 	}
 	return cfg, nil
 }
