@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -395,9 +396,11 @@ func (m *Module) addResource(
 	m.localResources[conf.ResourceName().Name] = localResource{res: res, logger: resLogger}
 	// Register each distinct sub's stream source under its served-API name. The composite wrapper
 	// implements no sub-interface, so checking only the wrapper would miss the camera sub.
-	for subName, sub := range resource.DistinctSubs(conf.ResourceName(), res) {
+	for _, sub := range resource.DistinctSubs(conf.ResourceName(), res) {
 		if p, ok := sub.(rtppassthrough.Source); ok {
-			m.streamSourceByName[subName] = p
+			// Streams are a camera capability, so key the source under the camera API, not the
+			// composite's canonical API.
+			m.streamSourceByName[conf.ResourceName().AsAPI(camera.API)] = p
 		}
 	}
 
@@ -648,10 +651,10 @@ func (m *Module) rebuildResource(
 	// back module state mutations.
 	m.localResources[conf.ResourceName().Name] = localResource{res: newRes, logger: lr.logger}
 
-	// Re-register each distinct sub's stream source under its served-API name.
-	for subName, sub := range resource.DistinctSubs(conf.ResourceName(), newRes) {
+	// Re-register the stream source under the camera API, not the composite's canonical API.
+	for _, sub := range resource.DistinctSubs(conf.ResourceName(), newRes) {
 		if p, ok := sub.(rtppassthrough.Source); ok {
-			m.streamSourceByName[subName] = p
+			m.streamSourceByName[conf.ResourceName().AsAPI(camera.API)] = p
 		}
 	}
 
