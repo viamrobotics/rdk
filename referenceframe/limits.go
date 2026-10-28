@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"slices"
+
+	"go.viam.com/rdk/utils"
 )
 
 // ErrURDFLimitsUnsupported is returned when limits are set on a URDF-backed kinematics document.
@@ -12,9 +14,9 @@ var ErrURDFLimitsUnsupported = fmt.Errorf(
 	"cannot set joint limits on a URDF document; see RSDK-14232",
 )
 
-// JointLimits is a partial update to one joint's limits. A nil field leaves that limit as it is,
-// so a caller who knows only how fast a joint may move can say that without restating where it
-// may go.
+// JointLimits is a partial update to one joint's limits, and the attribute shape a module accepts
+// for them in its resource config. A nil field leaves that limit as it is, so a caller who knows
+// only how fast a joint may move can say that without restating where it may go.
 //
 // Values are in the units the kinematics document uses, not the internal ones: degrees and
 // degrees per second for revolute joints, millimeters and millimeters per second for prismatic.
@@ -24,10 +26,10 @@ var ErrURDFLimitsUnsupported = fmt.Errorf(
 // Every value must be finite, the speeds must not be negative, and a joint's min must not end up
 // above its max. Leaving a field out is how you say a joint is unbounded on that axis.
 type JointLimits struct {
-	Min             *float64
-	Max             *float64
-	MaxVelocity     *float64
-	MaxAcceleration *float64
+	Min             *float64 `json:"min,omitempty"`
+	Max             *float64 `json:"max,omitempty"`
+	MaxVelocity     *float64 `json:"max_velocity,omitempty"`
+	MaxAcceleration *float64 `json:"max_acceleration,omitempty"`
 }
 
 // validate rejects values that would produce a document nobody can act on. The caller is usually
@@ -87,6 +89,9 @@ func (jl JointLimits) validate(id string) error {
 // Python SDKs hold kinematics as opaque bytes and cannot, and a helper that quietly does more in
 // one language than the others is worse than one that refuses everywhere. Declaring limits in a
 // URDF is RSDK-14232.
+//
+// Deprecated: narrow the model itself with SimpleModel.NarrowJointLimits. It works on a model
+// read from a URDF too, and what it narrows reaches the typed model and the file bytes alike.
 func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*ModelConfigJSON, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("cannot set joint limits on a nil model config")
@@ -164,4 +169,137 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 	out.OriginalFile = &ModelFile{Bytes: raw, Extension: "json"}
 
 	return &out, nil
+}
+
+// NarrowJointLimits narrows the limits the model serves to what a resource's configuration asks
+// of each joint, keyed by joint id, in document units: degrees, degrees per second and degrees per
+// second squared for a revolute joint, millimeters for a prismatic one. The attribute shape a
+// module is expected to accept decodes straight into the argument:
+//
+//	"joint_limits": {
+//	  "joint_2": {"min": -31, "max": -29},
+//	  "joint_3": {"max_velocity": 30, "max_acceleration": 380}
+//	}
+//
+// Position, velocity and acceleration are checked on their own, and each value has to sit inside
+// what the model already holds. A value that would widen a limit is an error naming the joint,
+// since a widened limit is the one that reaches hardware. A joint the model has no velocity or
+// acceleration bound for accepts any. A min equal to max locks a joint where it stands. A mimic
+// joint follows the joint it mimics and cannot be narrowed. Nothing changes on an error, so a
+// module can fail its constructor with the error as it is.
+//
+// Calling it again narrows what the first call left. The narrowed limits reach the typed model and
+// the deprecated file bytes alike, since the file the model was read from no longer describes it
+// and is dropped.
+func (m *SimpleModel) NarrowJointLimits(limits map[string]JointLimits) error {
+	narrowed := make(map[string]Limit, len(limits))
+	for id, jl := range limits {
+		if err := jl.validate(id); err != nil {
+			return err
+		}
+		if _, mimic := m.mimicMappings[id]; mimic {
+			return fmt.Errorf("%w: joint %q", ErrMimicWithLimits, id)
+		}
+		frame := m.internalFS.Frame(id)
+		if frame == nil || len(frame.DoF()) == 0 {
+			return fmt.Errorf("no joint %q in model %q", id, m.name)
+		}
+		if len(frame.DoF()) != 1 {
+			return fmt.Errorf("joint %q in model %q has %d degrees of freedom and cannot be narrowed by one set of limits",
+				id, m.name, len(frame.DoF()))
+		}
+		_, rotational := frame.(*rotationalFrame)
+		limit, err := narrowLimit(id, frame.DoF()[0], jl, rotational)
+		if err != nil {
+			return err
+		}
+		narrowed[id] = limit
+	}
+
+	for id, limit := range narrowed {
+		m.internalFS.Frame(id).DoF()[0] = limit
+	}
+	// DoF answers from a copy of the frames' limits taken when the model was built
+	if m.inputSchema != nil {
+		m.limits = m.inputSchema.GetLimits()
+	}
+
+	if m.modelConfig == nil {
+		return nil
+	}
+	for i := range m.modelConfig.Joints {
+		joint := &m.modelConfig.Joints[i]
+		jl, ok := limits[joint.ID]
+		if !ok {
+			continue
+		}
+		if jl.Min != nil {
+			joint.Min = *jl.Min
+		}
+		if jl.Max != nil {
+			joint.Max = *jl.Max
+		}
+		if jl.MaxVelocity != nil {
+			joint.MaxVelocity = limitPtr(jl.MaxVelocity, nil)
+		}
+		if jl.MaxAcceleration != nil {
+			joint.MaxAcceleration = limitPtr(jl.MaxAcceleration, nil)
+		}
+	}
+	// the file no longer says what the model does, so the deprecated bytes are written from the
+	// model from here on instead of replayed
+	m.modelConfig.OriginalFile = nil
+	return nil
+}
+
+// narrowLimit applies a request in document units to the limit a frame enforces, in the frame's
+// own units, refusing anything that would widen it.
+func narrowLimit(id string, current Limit, jl JointLimits, rotational bool) (Limit, error) {
+	convert := func(v float64) float64 { return v }
+	report := convert
+	if rotational {
+		convert = utils.DegToRad
+		// the model's bound goes back to degrees for the message, rounded so a value that went
+		// through radians does not read as 10.999999999999998
+		report = func(v float64) float64 { return math.Round(utils.RadToDeg(v)*1e6) / 1e6 }
+	}
+	// a bound equal to the model's own passes, with a hair of slack for the degree to radian
+	// round trip
+	const slack = 1e-9
+
+	merged := current
+	if jl.Min != nil {
+		v := convert(*jl.Min)
+		if v < current.Min-slack {
+			return Limit{}, fmt.Errorf("joint %q: min %v is below the model's min %v", id, *jl.Min, report(current.Min))
+		}
+		merged.Min = v
+	}
+	if jl.Max != nil {
+		v := convert(*jl.Max)
+		if v > current.Max+slack {
+			return Limit{}, fmt.Errorf("joint %q: max %v is above the model's max %v", id, *jl.Max, report(current.Max))
+		}
+		merged.Max = v
+	}
+	if merged.Min > merged.Max {
+		return Limit{}, fmt.Errorf("joint %q: min %v is above max %v", id, report(merged.Min), report(merged.Max))
+	}
+	if jl.MaxVelocity != nil {
+		v := convert(*jl.MaxVelocity)
+		if current.MaxVelocity != nil && v > *current.MaxVelocity+slack {
+			return Limit{}, fmt.Errorf("joint %q: max_velocity %v is above the model's %v",
+				id, *jl.MaxVelocity, report(*current.MaxVelocity))
+		}
+		merged.MaxVelocity = &v
+	}
+	if jl.MaxAcceleration != nil {
+		v := convert(*jl.MaxAcceleration)
+		if current.MaxAcceleration != nil && v > *current.MaxAcceleration+slack {
+			return Limit{}, fmt.Errorf("joint %q: max_acceleration %v is above the model's %v",
+				id, *jl.MaxAcceleration, report(*current.MaxAcceleration))
+		}
+		merged.MaxAcceleration = &v
+	}
+	return merged, nil
 }
