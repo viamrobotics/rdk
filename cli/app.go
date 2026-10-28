@@ -196,6 +196,11 @@ const (
 	xacroFlagInstallPackages   = "install-packages"
 	xacroFlagROSDistro         = "ros-distro"
 
+	kinematicsFlagInputFile   = "input-file"
+	kinematicsFlagOutputFile  = "output-file"
+	kinematicsFlagPackageRoot = "package-root"
+	kinematicsFlagDecimate    = "decimate"
+
 	// Printing every revision of a frequently-edited part takes minutes and scrolls past anything
 	// useful, so cap the listing by default. --count=0 still walks the whole range.
 	defaultHistoryCount = 100
@@ -3749,6 +3754,42 @@ Examples:
 						},
 					},
 					Action: createActionCommandWithT[xacroConvertArgs](XacroConvertAction),
+				},
+			},
+		},
+		{
+			Name:            "kinematics",
+			Usage:           "tools for working with kinematic model files",
+			UsageText:       createUsageText("kinematics", nil, false, true),
+			HideHelpCommand: true,
+			Commands: []*cli.Command{
+				{
+					Name:  "convert",
+					Usage: "convert a URDF, SVA or DH file to a kinematic model file with its meshes beside it",
+					UsageText: createUsageText("kinematics convert",
+						[]string{kinematicsFlagInputFile, kinematicsFlagOutputFile}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     kinematicsFlagInputFile,
+							Required: true,
+							Usage:    "URDF, SVA or DH file to convert",
+						},
+						&cli.StringFlag{
+							Name:     kinematicsFlagOutputFile,
+							Required: true,
+							Usage:    "kinematic model file to write, with its meshes written beside it under meshes/",
+						},
+						&cli.StringFlag{
+							Name:  kinematicsFlagPackageRoot,
+							Usage: "directory that package:// mesh paths resolve under, for a URDF that is not at its package root",
+						},
+						&cli.FloatFlag{
+							Name:        kinematicsFlagDecimate,
+							Usage:       "fraction of triangles to keep in each collision mesh, in (0, 1]",
+							DefaultText: "1, no decimation",
+						},
+					},
+					Action: createActionCommandWithT[kinematicsConvertArgs](KinematicsConvertAction),
 				},
 			},
 		},

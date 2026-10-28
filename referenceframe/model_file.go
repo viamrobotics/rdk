@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -13,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -319,5 +321,110 @@ func checkMeshPath(source string) error {
 	case path.IsAbs(source) || filepath.IsAbs(source):
 		return fmt.Errorf("mesh path %q is absolute, paths are relative to the model file", source)
 	}
+	return nil
+}
+
+// WriteKinematicModelFile writes the message as a kinematic model file at modelPath, with every
+// mesh that carries bytes written beside it and named by a path relative to the file, under
+// meshes/<file name>/collision or meshes/<file name>/visual, so the file reads back through
+// ReadKinematicModelFile with nothing inline. A mesh keeps the base name of the source path it
+// came with, or is named for its link when it has none, with its content type as the extension,
+// and a name already taken by different bytes gets a number. The same bytes under the same name
+// are written once. The JSON carries the proto field names and is indented the same way every
+// time, so a converted file diffs cleanly. The message passed in is left as it was.
+func WriteKinematicModelFile(modelPath string, pb *commonpb.KinematicModel) error {
+	if pb == nil {
+		return errors.New("cannot write a nil kinematic model")
+	}
+	out, ok := proto.Clone(pb).(*commonpb.KinematicModel)
+	if !ok {
+		return errors.New("cannot write a nil kinematic model")
+	}
+	base := strings.TrimSuffix(filepath.Base(modelPath), filepath.Ext(modelPath))
+	w := &meshWriter{dir: filepath.Dir(modelPath), meshDir: path.Join("meshes", base), written: map[string][]byte{}}
+	for _, link := range out.GetLinks() {
+		for i, g := range link.GetCollision() {
+			if err := w.write(g.GetMesh(), "collision", fmt.Sprintf("%s_collision_%d", link.GetId(), i)); err != nil {
+				return errors.Wrapf(err, "link %q collision geometry %d", link.GetId(), i)
+			}
+		}
+		for i, g := range link.GetVisual() {
+			if err := w.write(g.GetMesh(), "visual", fmt.Sprintf("%s_visual_%d", link.GetId(), i)); err != nil {
+				return errors.Wrapf(err, "link %q visual geometry %d", link.GetId(), i)
+			}
+		}
+	}
+	for _, joint := range out.GetJoints() {
+		if err := w.write(joint.GetGeometry().GetMesh(), "collision", joint.GetId()+"_geometry"); err != nil {
+			return errors.Wrapf(err, "joint %q geometry", joint.GetId())
+		}
+	}
+	raw, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(out)
+	if err != nil {
+		return err
+	}
+	// protojson varies its whitespace on purpose, so the indentation is applied afterwards
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, raw, "", "  "); err != nil {
+		return err
+	}
+	buf.WriteByte('\n')
+	//nolint:gosec
+	if err := os.MkdirAll(w.dir, 0o755); err != nil {
+		return err
+	}
+	//nolint:gosec
+	return os.WriteFile(modelPath, buf.Bytes(), 0o644)
+}
+
+type meshWriter struct {
+	dir     string
+	meshDir string
+	written map[string][]byte
+}
+
+// write puts the mesh's bytes in a file beside the model and leaves the mesh pointing at it.
+func (w *meshWriter) write(mesh *commonpb.Mesh, role, fallback string) error {
+	if len(mesh.GetMesh()) == 0 {
+		return nil
+	}
+	source := filepath.ToSlash(mesh.GetOriginalFileSourcePathDiagnostic())
+	ext := strings.ToLower(mesh.GetContentType())
+	if ext == "model/gltf-binary" {
+		ext = "glb"
+	}
+	if ext == "" {
+		ext = strings.TrimPrefix(strings.ToLower(path.Ext(source)), ".")
+	}
+	if ext == "" {
+		return errors.New("mesh has no content type to name its file by")
+	}
+	name := fallback
+	if source != "" {
+		name = strings.TrimSuffix(path.Base(source), path.Ext(source))
+	}
+	rel := path.Join(w.meshDir, role, name+"."+ext)
+	for n := 2; ; n++ {
+		have, taken := w.written[rel]
+		if !taken || bytes.Equal(have, mesh.GetMesh()) {
+			break
+		}
+		rel = path.Join(w.meshDir, role, fmt.Sprintf("%s_%d.%s", name, n, ext))
+	}
+	if _, done := w.written[rel]; !done {
+		full := filepath.Join(w.dir, filepath.FromSlash(rel))
+		//nolint:gosec
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			return err
+		}
+		//nolint:gosec
+		if err := os.WriteFile(full, mesh.GetMesh(), 0o644); err != nil {
+			return err
+		}
+		w.written[rel] = mesh.GetMesh()
+	}
+	mesh.OriginalFileSourcePathDiagnostic = proto.String(rel)
+	mesh.ContentType = ext
+	mesh.Mesh = nil
 	return nil
 }
