@@ -4475,7 +4475,7 @@ func RobotsPartTunnelAction(ctx context.Context, cmd *cli.Command, args robotsPa
 		warningf(cmd.Root().ErrWriter,
 			"--%s, --%s and --%s must all be provided to tunnel directly to a machine; "+
 				"falling back to resolving the machine through app.viam.com",
-			generalFlagAddress, loginFlagKeyID, loginFlagKey,
+			generalFlagAddress, generalFlagKeyID, loginFlagKey,
 		)
 	}
 
