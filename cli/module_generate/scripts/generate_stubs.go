@@ -12,6 +12,8 @@ import (
 	"go/token"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"unicode"
@@ -24,6 +26,12 @@ import (
 
 //go:embed tmpl-module
 var goTmpl string
+
+// LocalSDKRoot, when set, is an RDK checkout. Go stubs are read from that tree's
+// components/ and services/ directories instead of downloading a GitHub tag.
+// The inline-bundle tag job sets this to the checkout it was triggered with.
+// An empty value keeps the laptop CLI's tag lookup.
+var LocalSDKRoot string
 
 // typePrefixes lists possible prefixes before function parameter and return types.
 var typePrefixes = []string{"*", "[]*", "[]", "chan "}
@@ -94,6 +102,9 @@ func getCppTypeHeaderTemplate(base string, module modulegen.ModuleInputs) (strin
 
 // getClientCode grabs client.go code of component type.
 func getClientCode(module modulegen.ModuleInputs) (string, error) {
+	if LocalSDKRoot != "" {
+		return readLocalGoSource(module, true)
+	}
 	req, err := CreateGetClientCodeRequest(module)
 	if err != nil {
 		return "", err
@@ -132,8 +143,31 @@ var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, usesnake 
 	return req, nil
 }
 
+// readLocalGoSource reads client.go or the resource interface file from LocalSDKRoot.
+func readLocalGoSource(module modulegen.ModuleInputs, client bool) (string, error) {
+	dir := filepath.Join(LocalSDKRoot, module.ResourceType+"s", module.ResourceSubtype)
+	names := []string{module.ResourceSubtypeSnake + ".go", module.ResourceSubtype + ".go"}
+	if client {
+		names = []string{"client.go"}
+	}
+	var lastErr error
+	for _, name := range names {
+		path := filepath.Join(dir, name)
+		//nolint:gosec
+		body, err := os.ReadFile(path)
+		if err == nil {
+			return string(body), nil
+		}
+		lastErr = err
+	}
+	return "", errors.Wrapf(lastErr, "cannot read %s source in %s", module.ResourceSubtype, dir)
+}
+
 // getResourceCode fetches the resource.go source code.
 func getResourceCode(module modulegen.ModuleInputs) (string, error) {
+	if LocalSDKRoot != "" {
+		return readLocalGoSource(module, false)
+	}
 	// It tries twice: first with the snake cased resource sub type, then without.
 	// Different components are named with and without snake case, this tries both before returning an error
 	attempts := []bool{true, false}
@@ -295,8 +329,21 @@ func setGoModuleTemplate(
 	goTmplInputs.ModelType = module.ModuleCamel + module.ModelPascal
 	goTmplInputs.Functions = strings.Join(functions, " ")
 	goTmplInputs.Module = module
+	goTmplInputs.ReturnType = goReturnType(module)
 
 	return &goTmplInputs, nil
+}
+
+// goReturnType is the constructor result type the Go template used to inline.
+// input's exported interface is Controller, so the pascal form has to be resolved first.
+func goReturnType(module modulegen.ModuleInputs) string {
+	if module.ResourceSubtype == "generic" {
+		return "resource.Resource"
+	}
+	if module.ResourceType == "component" {
+		return module.ResourceSubtypeAlias + "." + module.ResourceSubtypePascal
+	}
+	return module.ResourceSubtype + ".Service"
 }
 
 // formatType formats typeExpr as readable string with correct attribution if applicable.
@@ -616,6 +663,16 @@ func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFil
 // additionalModel must be true when generating a second (or later) model in the same package,
 // which changes Config → <ModelPascal>Config and omits the package-level errUnimplemented.
 func RenderGoTemplates(module modulegen.ModuleInputs, additionalModel bool) ([]byte, error) {
+	return renderGoTemplates(module, additionalModel, false)
+}
+
+// RenderGoTemplatesWithSlots is RenderGoTemplates with the API-specific regions wrapped in
+// markers. The inline bundle splits those regions into a stub section. Module generate does not.
+func RenderGoTemplatesWithSlots(module modulegen.ModuleInputs, additionalModel bool) ([]byte, error) {
+	return renderGoTemplates(module, additionalModel, true)
+}
+
+func renderGoTemplates(module modulegen.ModuleInputs, additionalModel, slots bool) ([]byte, error) {
 	clientCode, err := getClientCode(module)
 	var empty []byte
 	if err != nil {
@@ -633,6 +690,7 @@ func RenderGoTemplates(module modulegen.ModuleInputs, additionalModel bool) ([]b
 	if err != nil {
 		return empty, err
 	}
+	goModule.CaptureSlots = slots
 
 	var output bytes.Buffer
 	tmpl, err := template.New("module").Parse(goTmpl)

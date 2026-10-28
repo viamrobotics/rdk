@@ -1,0 +1,42 @@
+name: Inline module templates
+
+# On each RDK version tag, generate Go from that checkout and Python from the
+# current Python SDK, then upsert both into the private bucket. Uploading the
+# same key replaces it. .synced is written last so the app does not read a
+# half-published tree. go get and go mod tidy run only in this job.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    if: github.repository_owner == 'viamrobotics'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate shells and stub sections
+        run: go run ./cli/viam module inline-bundle --out inline-bundle-out
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Upload catalogs
+        env:
+          # Bucket name only. Do not include a gs:// prefix.
+          BUCKET: ${{ secrets.INLINE_MODULE_TEMPLATES_BUCKET }}
+        run: |
+          if [ -z "$BUCKET" ]; then
+            echo "INLINE_MODULE_TEMPLATES_BUCKET is not set"
+            exit 1
+          fi
+          gcloud storage cp -r inline-bundle-out/go "gs://${BUCKET}/"
+          gcloud storage cp -r inline-bundle-out/python "gs://${BUCKET}/"
+          printf 'synced\n' | gcloud storage cp - "gs://${BUCKET}/.synced"
