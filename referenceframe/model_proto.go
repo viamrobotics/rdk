@@ -15,15 +15,23 @@ import (
 
 // ModelToProto converts a model into the KinematicModel message. The message carries the limits
 // the model enforces, which an override may have narrowed since its file was read, along with any
-// visual geometries and properties set on it. A model built from frames with no configuration
-// cannot be converted yet and returns an error.
+// visual geometries and properties set on it. A model built from frames in code, with no file
+// behind it, is described from its frames. A model holding a pose frame or another model, a
+// geometry the message has no shape for, or no frames at all, cannot be converted.
 func ModelToProto(m Model) (*commonpb.KinematicModel, error) {
 	if m == nil {
 		return nil, errors.New("cannot convert a nil model")
 	}
 	cfg := m.ModelConfig()
 	if cfg == nil {
-		return nil, fmt.Errorf("model %q has no configuration to convert", m.Name())
+		sm, ok := m.(*SimpleModel)
+		if !ok {
+			return nil, fmt.Errorf("model %q has no configuration to convert", m.Name())
+		}
+		var err error
+		if cfg, err = sm.configFromFrames(); err != nil {
+			return nil, errors.Wrapf(err, "model %q", m.Name())
+		}
 	}
 	sva, err := svaConfig(cfg)
 	if err != nil {
