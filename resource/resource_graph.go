@@ -90,16 +90,22 @@ func compositeAPIsForNode(node *GraphNode) []API {
 	if node == nil {
 		return nil
 	}
-	// The built MultiAPIResource's own API set is authoritative for any composite once built. Fall back
-	// to the configured model for a configured-but-unbuilt local composite: its instance doesn't exist
-	// yet, but its model is known. A remote composite never needs the fallback — its client exists as
-	// soon as the node does, and its model is "unknown" anyway, so it always uses the instance path.
-	if res, err := node.UnsafeResource(); err == nil {
-		if mar, ok := res.(MultiAPIResource); ok {
-			return mar.APIs()
-		}
+	// A remote composite is always built and its model is "unknown", so it reads its APIs from the
+	// instance. A local composite may not be built yet, so a nil resource falls back to the model.
+	var res Resource
+	if r, err := node.UnsafeResource(); err == nil {
+		res = r
 	}
-	return APIsForModel(node.Config().Model)
+	return compositeAPIsForResource(res, node.Config().Model)
+}
+
+// compositeAPIsForResource returns a resource's co-equal API set, a MultiAPIResource's own APIs or the
+// configured model's. Takes the resource and model directly so a caller holding GraphNode.mu can use it.
+func compositeAPIsForResource(res Resource, model Model) []API {
+	if mar, ok := res.(MultiAPIResource); ok {
+		return mar.APIs()
+	}
+	return APIsForModel(model)
 }
 
 // simpleNameIndex resolves (simpleName, api) to a node. byName keys a node under the one api it is
@@ -236,7 +242,8 @@ func (ix simpleNameIndex) find(name string, api API) (*GraphNode, error) {
 // localNode returns the first non-nil local node among the given simpleNameVals.
 func localNode(vals ...*simpleNameVal) *GraphNode {
 	for _, v := range vals {
-		if v != nil && v.local != nil {
+		// skip a node on its way out; see [simpleNameVal]
+		if v != nil && v.local != nil && !v.local.MarkedForRemoval() {
 			return v.local
 		}
 	}
@@ -251,6 +258,10 @@ func mergeRemoteNodes(vals ...*simpleNameVal) map[string]*GraphNode {
 			continue
 		}
 		for remote, node := range v.remote {
+			// skip a node on its way out; see [simpleNameVal]
+			if node.MarkedForRemoval() {
+				continue
+			}
 			out[remote] = node
 		}
 	}
@@ -334,6 +345,11 @@ type simpleNameKey struct {
 	api  API
 }
 
+// simpleNameVal holds the nodes that share one (name, api), the local node and the remote nodes keyed
+// by remote. A value can include a node marked for removal, which keeps its slot under its old (name,
+// api, remote) until a later sweep. Name resolution and collision scans skip such a node so the live
+// node stays the sole match and a departing resource is not counted as colliding with the one taking
+// its name.
 type simpleNameVal struct {
 	local  *GraphNode
 	remote map[string]*GraphNode
@@ -538,7 +554,7 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 	return g.nodes.FindBySimpleNameAndAPI(name, api)
 }
 
-// ReindexComposite refreshes name's node's compositeByAPI entries after an in-place model change. That
+// ReindexComposite refreshes name's node's composite index entries after an in-place model change. That
 // goes through SwapResource and bypasses Set/UpdateSimpleName, so the index would otherwise keep stale
 // entries. It reads the node's current model, so call it after the swap. No-op for a missing node or a
 // single-API resource.
@@ -659,9 +675,7 @@ func (g *Graph) CollidingNames() []Name {
 		if v.local == nil {
 			continue
 		}
-		// Nodes already marked for removal (e.g. a resource dropped by the incoming config) are on
-		// their way out and must not be counted — otherwise a departing resource would spuriously
-		// collide with the incoming resource that replaces its name.
+		// skip a node on its way out; see [simpleNameVal]
 		if v.local.MarkedForRemoval() {
 			continue
 		}
@@ -689,8 +703,9 @@ func (g *Graph) ExpandCompositeNames(names []Name) []Name {
 	defer g.mu.RUnlock()
 	var out []Name
 	for _, n := range names {
-		node, ok := g.nodes.Get(n)
-		if !ok {
+		// FindBySimpleNameAndAPI resolves a remote's prefixed name as well as a plain local name.
+		node, err := g.nodes.FindBySimpleNameAndAPI(n.Name, n.API)
+		if err != nil {
 			out = append(out, n)
 			continue
 		}
@@ -823,11 +838,7 @@ func (g *Graph) namesMatchingSimpleName(name string) []Name {
 			continue
 		}
 		for remote, node := range val.remote {
-			// Skip nodes marked for removal. When a remote resource's advertised API under a name changes
-			// (a composite's canonical API flips, a composite <-> single-API transition, or a resource
-			// swapping its API), the old node is marked for removal but lingers under the same remote+name
-			// as the new node until a later sweep. Excluding it leaves the live node the sole match, not a
-			// same-remote collision; a name shared across different remotes stays a collision.
+			// skip a node on its way out; see [simpleNameVal]
 			if node.MarkedForRemoval() {
 				continue
 			}
