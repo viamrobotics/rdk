@@ -1,6 +1,9 @@
 import ast
+import atexit
 import json
 import os
+import shutil
+import site
 import subprocess
 import sys
 import tempfile
@@ -329,7 +332,20 @@ class {3}({4}, EasyResource):
     return resource_file
 
 
-def install_requirements(packages: List[str], attempts: int = 3) -> None:
+def pip_install_command(packages: List[str], target: str = "") -> List[str]:
+    """Pip command for packages. A target dir keeps the bundle install off the active env."""
+    command = [sys.executable, "-m", "pip", "install"]
+    if target:
+        # --isolated ignores a pip.conf `user = true`, which cannot combine with --target.
+        command.extend(
+            ["--isolated", "--disable-pip-version-check", "--target", target]
+        )
+    return command + packages
+
+
+def install_requirements(
+    packages: List[str], attempts: int = 3, target: str = ""
+) -> None:
     """Install the packages this script imports.
 
     PyPI drops requests often enough that a single failed install regularly
@@ -338,7 +354,7 @@ def install_requirements(packages: List[str], attempts: int = 3) -> None:
     """
     for attempt in range(1, attempts + 1):
         res = subprocess.run(
-            [sys.executable, "-m", "pip", "install"] + packages,
+            pip_install_command(packages, target),
             capture_output=True,
             text=True,
         )
@@ -359,6 +375,11 @@ def run_bundle(version: str) -> None:
     """
     os.environ["VIAM_PYTHON_SDK_VERSION"] = version
     items = json.load(sys.stdin)
+    # Install into a temp dir. The active interpreter may be a conda env whose
+    # site-packages is not writable, and an older viam already installed there
+    # must not shadow the pinned SDK.
+    target = tempfile.mkdtemp(prefix="inline-python-deps-")
+    atexit.register(shutil.rmtree, target, True)
     install_requirements(
         [
             sdk_requirement("mlmodel"),
@@ -366,15 +387,11 @@ def run_bundle(version: str) -> None:
             "ruff",
             "python-slugify",
             "numpy",
-        ]
+        ],
+        target=target,
     )
-    # pip may have just created the user site. This interpreter will not see it
-    # until that directory is on sys.path.
-    import site
-
-    user_site = site.getusersitepackages()
-    if user_site and user_site not in sys.path:
-        site.addsitedir(user_site)
+    sys.path.insert(0, target)
+    site.addsitedir(target)
     rendered = []
     for item in items:
         try:

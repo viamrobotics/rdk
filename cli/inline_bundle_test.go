@@ -192,6 +192,11 @@ assert mod.sdk_requirement() == "viam-sdk==0.80.0", mod.sdk_requirement()
 assert mod.sdk_requirement("mlmodel") == "viam-sdk[mlmodel]==0.80.0"
 os.environ["VIAM_PYTHON_SDK_VERSION"] = ""
 assert mod.sdk_requirement() == "viam-sdk"
+targeted = mod.pip_install_command(["viam-sdk==0.80.0"], "/tmp/inline-deps")
+assert "--target" in targeted and "/tmp/inline-deps" in targeted, targeted
+assert "--isolated" in targeted
+plain = mod.pip_install_command(["viam-sdk"])
+assert "--target" not in plain, plain
 `, script)
 	out, err := cmd.CombinedOutput()
 	test.That(t, err, test.ShouldBeNil)
