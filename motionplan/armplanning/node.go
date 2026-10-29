@@ -138,7 +138,10 @@ type SolutionSolvingState struct {
 	SeedDescriptions []string
 
 	moving, nonmoving []string
-	revolute []bool
+	revolute          []bool
+	// wrappable flags, per linearized input, the revolute joints IK may change for this segment:
+	// the ones a goal can be shifted by whole turns on.
+	wrappable []bool
 
 	goodCost        float64
 	doingSmartSeeds bool
@@ -151,8 +154,11 @@ type SolutionSolvingState struct {
 	startTime         time.Time
 	firstSolutionTime time.Duration
 
+	// bestScore* track distance from the start and pace the IK search; bestRankNoProblem tracks
+	// node cost, which also folds in goal neutrality when NeutralGoal is set.
 	bestScoreWithProblem float64
 	bestScoreNoProblem   float64
+	bestRankNoProblem    float64
 
 	fatal  error
 	logger logging.Logger
@@ -172,6 +178,7 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		firstSolutionTime:    time.Hour,
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
+		bestRankNoProblem:    10000000,
 		maxSolutions:         psc.pc.planOpts.MaxSolutions,
 		revolute:             psc.pc.lis.GetRevolute(),
 		logger:               logger,
@@ -190,6 +197,10 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
+	}
+	sss.wrappable = make([]bool, len(rawRatios))
+	for i, r := range rawRatios {
+		sss.wrappable[i] = r >= 0 && sss.revolute[i]
 	}
 
 	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:1
@@ -313,6 +324,21 @@ func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 // return bool is if we should stop because we're done.
 func (sss *SolutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
+	// Offered independently of the original: under NeutralGoal the original may rank too poorly to
+	// be kept while its neutral twin is the best goal found so far.
+	if sss.psc.pc.planOpts.NeutralGoal {
+		if neutral, changed := wrapTowardNeutral(
+			stepSolution.Configuration, sss.psc.pc.lis.GetLimits(), sss.wrappable,
+		); changed {
+			sss.processInternal(ctx, &ik.Solution{
+				Configuration: neutral,
+				Score:         stepSolution.Score,
+				Exact:         stepSolution.Exact,
+				Meta:          stepSolution.Meta + "+neutral",
+			})
+		}
+	}
+
 	if !sss.processInternal(ctx, stepSolution) {
 		return
 	}
@@ -372,6 +398,36 @@ func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit,
 	return adjusted, changed
 }
 
+// wrapTowardNeutral returns a copy of cfg with each wrappable joint shifted by whole turns to the
+// equivalent angle nearest the midpoint of its limits. Limits are symmetric about their midpoint,
+// so when that nearest equivalent is out of range every other one is too and the joint is left as
+// is.
+//
+// The second return value is true if any joint was changed.
+func wrapTowardNeutral(cfg []float64, limits []referenceframe.Limit, wrappable []bool) ([]float64, bool) {
+	const twoPi = 2 * math.Pi
+	adjusted := make([]float64, len(cfg))
+	copy(adjusted, cfg)
+	changed := false
+	for i := range cfg {
+		if !wrappable[i] {
+			continue
+		}
+		lo, hi, _ := limits[i].GoodLimits()
+		wraps := math.Round((cfg[i] - (lo+hi)/2) / twoPi)
+		if wraps == 0 {
+			continue
+		}
+		candidate := cfg[i] - wraps*twoPi
+		if candidate < lo || candidate > hi {
+			continue
+		}
+		adjusted[i] = candidate
+		changed = true
+	}
+	return adjusted, changed
+}
+
 // Returns true if a node was appended.
 func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
@@ -393,8 +449,13 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 
 	myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), sss.revolute, stepSolution.Configuration)
 
-	if myCost > sss.bestScoreNoProblem {
-		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
+	rank := myCost
+	if sss.psc.pc.planOpts.NeutralGoal {
+		rank += neutralGoalWeight * neutralDeviation(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
+	}
+
+	if rank > sss.bestRankNoProblem {
+		sss.logger.Debugf("got rank %0.4f worse than bestRankNoProblem", rank)
 		return false
 	}
 
@@ -429,11 +490,11 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 		sss.firstSolutionTime = now
 	}
 
-	myNode := &node{inputs: step, cost: myCost}
+	myNode := &node{inputs: step, cost: rank}
 	sss.solutions = append(sss.solutions, myNode)
 
-	if myNode.cost < sss.bestScoreWithProblem {
-		sss.bestScoreWithProblem = max(1, myNode.cost)
+	if myCost < sss.bestScoreWithProblem {
+		sss.bestScoreWithProblem = max(1, myCost)
 	}
 
 	if sss.psc.pc.planMeta.CollectSolutionDiagnostics {
@@ -445,8 +506,9 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 		myNode.cost, now, stepSolution.Meta, myNode.checkPathError)
 
 	myNode.checkPath = myNode.checkPathError == nil
-	if myNode.checkPath && myNode.cost < sss.bestScoreNoProblem {
-		sss.bestScoreNoProblem = myNode.cost
+	if myNode.checkPath {
+		sss.bestScoreNoProblem = min(sss.bestScoreNoProblem, myCost)
+		sss.bestRankNoProblem = min(sss.bestRankNoProblem, rank)
 	}
 	return true
 }
@@ -769,6 +831,24 @@ func NeutralBias(limits []referenceframe.Limit, revolute []bool, configuration [
 		}
 	}
 	return bias
+}
+
+// neutralGoalWeight scales neutralDeviation in a NeutralGoal node's cost. A whole-turn wrap on a
+// ±360° joint moves neutralDeviation by up to 0.5 while moving the distance from the start by at
+// most 2π, so this lets neutrality outrank distance except between near-equally neutral goals.
+const neutralGoalWeight = 100.0
+
+// neutralDeviation sums, over all joints, each joint's distance from the midpoint of its limits as
+// a fraction of its full range.
+func neutralDeviation(limits []referenceframe.Limit, configuration []float64) float64 {
+	dev := 0.0
+	for i := range limits {
+		lo, hi, r := limits[i].GoodLimits()
+		if r > 0 {
+			dev += math.Abs(configuration[i]-(lo+hi)/2) / r
+		}
+	}
+	return dev
 }
 
 func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {

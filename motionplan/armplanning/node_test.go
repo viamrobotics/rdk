@@ -211,3 +211,84 @@ func TestUnwrapRotationalJoints(t *testing.T) {
 		test.That(t, out[0], test.ShouldNotEqual, cfg[0])
 	})
 }
+
+func TestWrapTowardNeutral(t *testing.T) {
+	const twoPi = 2 * math.Pi
+	rot := referenceframe.Limit{Min: -twoPi, Max: twoPi}
+	lin := referenceframe.Limit{Min: 0, Max: 10}
+
+	t.Run("joint past half a turn from mid wraps to the nearer equivalent", func(t *testing.T) {
+		// The wrist value from a captured plan: 3.947 rad has the in-range twin 3.947-2π ≈ -2.336.
+		out, changed := wrapTowardNeutral([]float64{3.947}, []referenceframe.Limit{rot}, []bool{true})
+		test.That(t, changed, test.ShouldBeTrue)
+		test.That(t, out[0], test.ShouldAlmostEqual, 3.947-twoPi)
+	})
+
+	t.Run("joint within half a turn of mid is left alone", func(t *testing.T) {
+		cfg := []float64{3.0, -3.0}
+		out, changed := wrapTowardNeutral(cfg, []referenceframe.Limit{rot, rot}, []bool{true, true})
+		test.That(t, changed, test.ShouldBeFalse)
+		test.That(t, out, test.ShouldResemble, cfg)
+	})
+
+	t.Run("wraps toward an off-center midpoint", func(t *testing.T) {
+		// Midpoint 2π; 0.1 is 6.2 rad below it, 0.1+2π just 0.1 rad above.
+		offCenter := referenceframe.Limit{Min: -math.Pi, Max: 5 * math.Pi}
+		out, changed := wrapTowardNeutral([]float64{0.1}, []referenceframe.Limit{offCenter}, []bool{true})
+		test.That(t, changed, test.ShouldBeTrue)
+		test.That(t, out[0], test.ShouldAlmostEqual, 0.1+twoPi)
+	})
+
+	t.Run("limits need not be multiples of pi", func(t *testing.T) {
+		// ±352°, as on a real arm whose joints Limit.IsRotational does not recognize.
+		limit := referenceframe.Limit{Min: -6.1435589670200397, Max: 6.1435589670200397}
+		out, changed := wrapTowardNeutral([]float64{3.947}, []referenceframe.Limit{limit}, []bool{true})
+		test.That(t, changed, test.ShouldBeTrue)
+		test.That(t, out[0], test.ShouldAlmostEqual, 3.947-twoPi)
+	})
+
+	t.Run("twin outside the limits is rejected", func(t *testing.T) {
+		// Range under a full turn: no whole-turn equivalent fits.
+		narrow := referenceframe.Limit{Min: -2, Max: 2}
+		out, changed := wrapTowardNeutral([]float64{1.9}, []referenceframe.Limit{narrow}, []bool{true})
+		test.That(t, changed, test.ShouldBeFalse)
+		test.That(t, out[0], test.ShouldEqual, 1.9)
+	})
+
+	t.Run("joints not flagged wrappable are left alone", func(t *testing.T) {
+		cfg := []float64{5.0, 9.0, 5.0}
+		out, changed := wrapTowardNeutral(cfg, []referenceframe.Limit{rot, lin, rot}, []bool{false, false, true})
+		test.That(t, changed, test.ShouldBeTrue)
+		test.That(t, out[0], test.ShouldEqual, 5.0)
+		test.That(t, out[1], test.ShouldEqual, 9.0)
+		test.That(t, out[2], test.ShouldAlmostEqual, 5.0-twoPi)
+	})
+
+	t.Run("input cfg is not mutated", func(t *testing.T) {
+		cfg := []float64{5.0}
+		out, changed := wrapTowardNeutral(cfg, []referenceframe.Limit{rot}, []bool{true})
+		test.That(t, changed, test.ShouldBeTrue)
+		test.That(t, cfg[0], test.ShouldEqual, 5.0)
+		test.That(t, out[0], test.ShouldNotEqual, cfg[0])
+	})
+}
+
+func TestMostNeutralGoals(t *testing.T) {
+	rot := referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}
+	limits := []referenceframe.Limit{rot, rot}
+	goal := func(cost float64, cfg ...float64) *node {
+		return &node{inputs: referenceframe.FrameSystemInputs{"a": cfg}.ToLinearInputs(), cost: cost}
+	}
+
+	// Cost-sorted, as getSolutions returns them: the nearest-to-start goal is the least neutral.
+	near := goal(1, 3.9, 0)
+	wrapped := goal(2, 3.9-2*math.Pi, 0)
+	alsoNeutral := goal(3, 3.9-2*math.Pi, 0.3)
+	far := goal(4, 3.9, 0.3)
+
+	tier := mostNeutralGoals(limits, []*node{near, wrapped, alsoNeutral, far})
+	test.That(t, tier, test.ShouldResemble, []*node{wrapped, alsoNeutral})
+
+	tier = mostNeutralGoals(limits, []*node{wrapped})
+	test.That(t, tier, test.ShouldResemble, []*node{wrapped})
+}
