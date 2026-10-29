@@ -1,0 +1,72 @@
+{
+  "name": "orientations",
+  "links": [
+    {
+      "id": "identity",
+      "parent": "world",
+      "pose": {
+        "translation": {
+          "x": 1,
+          "y": 2,
+          "z": 3
+        }
+      }
+    },
+    {
+      "id": "quaternion",
+      "parent": "identity",
+      "pose": {
+        "translation": {
+          "z": 10
+        },
+        "quaternion": {
+          "w": 0.7071067811865476,
+          "x": 0,
+          "y": 0,
+          "z": 0.7071067811865476
+        }
+      }
+    },
+    {
+      "id": "orientation_vector",
+      "parent": "quaternion",
+      "pose": {
+        "translation": {
+          "x": 5
+        },
+        "orientation_vector": {
+          "o_x": 0,
+          "o_y": 1,
+          "o_z": 0,
+          "theta": 45
+        }
+      }
+    },
+    {
+      "id": "euler_angles",
+      "parent": "orientation_vector",
+      "pose": {
+        "euler_angles": {
+          "roll": 90,
+          "pitch": 0,
+          "yaw": -30
+        }
+      }
+    },
+    {
+      "id": "axis_angles",
+      "parent": "euler_angles",
+      "pose": {
+        "translation": {
+          "y": -4
+        },
+        "axis_angles": {
+          "rx": 1,
+          "ry": 0,
+          "rz": 0,
+          "theta": 180
+        }
+      }
+    }
+  ]
+}

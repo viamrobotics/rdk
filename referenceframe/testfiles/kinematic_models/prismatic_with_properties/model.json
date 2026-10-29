@@ -1,0 +1,46 @@
+{
+  "name": "slider",
+  "links": [
+    {
+      "id": "base",
+      "parent": "world"
+    },
+    {
+      "id": "tip",
+      "parent": "slide"
+    }
+  ],
+  "joints": [
+    {
+      "id": "slide",
+      "parent": "base",
+      "type": "JOINT_TYPE_PRISMATIC",
+      "axis": {
+        "x": 1
+      },
+      "limits": {
+        "min": 0,
+        "max": 500,
+        "max_velocity": 100,
+        "max_acceleration": 1000
+      },
+      "geometry": {
+        "center": {
+          "o_z": 1
+        },
+        "label": "carriage",
+        "box": {
+          "dims_mm": {
+            "x": 10,
+            "y": 10,
+            "z": 10
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "operating_freq_hz": 100,
+    "max_linear_tcp_speed_mm_per_sec": 250
+  }
+}
