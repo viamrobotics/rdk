@@ -117,12 +117,15 @@ func TestWriteKinematicModelFileRoundTrip(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	var doc struct {
 		Links []struct {
+			ID        string `json:"id"`
 			Collision []struct {
 				Mesh map[string]json.RawMessage `json:"mesh"`
 			} `json:"collision"`
 		} `json:"links"`
 	}
 	test.That(t, json.Unmarshal(raw, &doc), test.ShouldBeNil)
+	// a walk from world meets the base first
+	test.That(t, doc.Links[0].ID, test.ShouldEqual, "base")
 	_, inline := doc.Links[0].Collision[0].Mesh["mesh"]
 	test.That(t, inline, test.ShouldBeFalse)
 	test.That(t, string(doc.Links[0].Collision[0].Mesh["original_file_source_path_diagnostic"]),
@@ -209,4 +212,57 @@ func TestWriteKinematicModelFileNamesMeshes(t *testing.T) {
 	test.That(t, string(back.GetLinks()[1].GetCollision()[1].GetMesh().GetMesh()), test.ShouldEqual, "ply a")
 	test.That(t, back.GetLinks()[1].GetCollision()[1].GetMesh().GetOriginalFileSourcePathDiagnostic(),
 		test.ShouldEqual, "meshes/arm/collision/part.ply")
+}
+
+func TestWriteKinematicModelFileOrdersTheTree(t *testing.T) {
+	joint := func(id, parent string) *commonpb.KinematicJoint {
+		return &commonpb.KinematicJoint{
+			Id: id, Parent: parent, Type: commonpb.JointType_JOINT_TYPE_REVOLUTE, Axis: &commonpb.Vector3{Z: 1},
+			Limits: &commonpb.JointLimits{Min: proto.Float64(-90), Max: proto.Float64(90)},
+		}
+	}
+	pb := &commonpb.KinematicModel{
+		Name: "arm",
+		Links: []*commonpb.KinematicLink{
+			{Id: "tip_b", Parent: "j_b"}, {Id: "tip_a", Parent: "j_a"}, {Id: "base", Parent: "world"},
+		},
+		Joints: []*commonpb.KinematicJoint{joint("j_b", "base"), joint("j_a", "base")},
+	}
+	out := filepath.Join(t.TempDir(), "arm.json")
+	test.That(t, WriteKinematicModelFile(out, pb), test.ShouldBeNil)
+	// the caller's order is left alone
+	test.That(t, pb.GetLinks()[0].GetId(), test.ShouldEqual, "tip_b")
+
+	back, err := ReadKinematicModelFile(out)
+	test.That(t, err, test.ShouldBeNil)
+	var links, joints []string
+	for _, link := range back.GetLinks() {
+		links = append(links, link.GetId())
+	}
+	for _, joint := range back.GetJoints() {
+		joints = append(joints, joint.GetId())
+	}
+	test.That(t, links, test.ShouldResemble, []string{"base", "tip_a", "tip_b"})
+	test.That(t, joints, test.ShouldResemble, []string{"j_a", "j_b"})
+}
+
+// The URDF reader used to hand links out in map order, so the same file converted to a different
+// file each time. Now the file's order is kept, and the writer's tree order makes the output the
+// same whatever the reader does.
+func TestReadURDFModelKeepsLinkOrder(t *testing.T) {
+	urdfPath := writeConversionFixture(t, t.TempDir(), false)
+	var first []string
+	for range 5 {
+		m, _, err := ReadURDFModel(urdfPath, "")
+		test.That(t, err, test.ShouldBeNil)
+		var ids []string
+		for _, link := range m.ModelConfig().Links {
+			ids = append(ids, link.ID)
+		}
+		if first == nil {
+			first = ids
+			test.That(t, ids, test.ShouldResemble, []string{"base", "tip"})
+		}
+		test.That(t, ids, test.ShouldResemble, first)
+	}
 }

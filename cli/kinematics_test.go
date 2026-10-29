@@ -73,6 +73,20 @@ func TestKinematicsConvert(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("converts the same way twice", func(t *testing.T) {
+		root := writeConvertFixture(t)
+		var files [][]byte
+		for range 2 {
+			outputFile := filepath.Join(t.TempDir(), "tester.json")
+			_, err := runConvert(t, kinematicsConvertArgs{InputFile: filepath.Join(root, "robot.urdf"), OutputFile: outputFile})
+			test.That(t, err, test.ShouldBeNil)
+			raw, err := os.ReadFile(outputFile)
+			test.That(t, err, test.ShouldBeNil)
+			files = append(files, raw)
+		}
+		test.That(t, string(files[0]), test.ShouldEqual, string(files[1]))
+	})
+
 	t.Run("decimated collision meshes are ply", func(t *testing.T) {
 		root := writeConvertFixture(t)
 		outputFile := filepath.Join(t.TempDir(), "tester.json")
