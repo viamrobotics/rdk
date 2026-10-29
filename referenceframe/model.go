@@ -172,7 +172,10 @@ type mimicMapping struct {
 	valueOffset     float64
 }
 
-// KinematicModelFromFile returns a model frame from a file that defines the kinematics.
+// KinematicModelFromFile returns a model frame from a file that defines the kinematics. A .json
+// file holds either the proto JSON of a KinematicModel, read as ReadKinematicModelFile describes,
+// or an SVA or DH document, and a .urdf file holds a URDF. Mesh files are read relative to the
+// model file in every case.
 func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	switch {
 	case strings.HasSuffix(modelPath, ".urdf"):
