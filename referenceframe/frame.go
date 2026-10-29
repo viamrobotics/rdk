@@ -142,6 +142,29 @@ func (l *Limit) IsRotational() bool {
 	return isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) && l.Min <= 0 && l.Max >= 0
 }
 
+// RevoluteDoF reports, for each of f's degrees of freedom in DoF order, whether it is a revolute
+// joint angle, for which positions a whole turn apart are physically the same. Unlike
+// Limit.IsRotational, this reads the joint type, so it holds for any limits. Frame types whose
+// joints it cannot see into fall back to Limit.IsRotational.
+func RevoluteDoF(f Frame) []bool {
+	switch f := f.(type) {
+	case *rotationalFrame:
+		return []bool{true}
+	case *translationalFrame:
+		return []bool{false}
+	case *SimpleModel:
+		return f.inputSchema.GetRevolute()
+	case *namedFrame:
+		return RevoluteDoF(f.Frame)
+	}
+	limits := f.DoF()
+	ret := make([]bool, len(limits))
+	for i := range limits {
+		ret[i] = limits[i].IsRotational()
+	}
+	return ret
+}
+
 // AreInputsValid checks if all values are within limit ranges
 func AreInputsValid(ls []Limit, values []float64) bool {
 	if len(ls) != len(values) {

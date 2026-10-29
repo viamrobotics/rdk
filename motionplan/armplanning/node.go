@@ -138,6 +138,7 @@ type SolutionSolvingState struct {
 	SeedDescriptions []string
 
 	moving, nonmoving []string
+	revolute []bool
 
 	goodCost        float64
 	doingSmartSeeds bool
@@ -172,6 +173,7 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
 		maxSolutions:         psc.pc.planOpts.MaxSolutions,
+		revolute:             psc.pc.lis.GetRevolute(),
 		logger:               logger,
 	}
 
@@ -323,6 +325,7 @@ func (sss *SolutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		stepSolution.Configuration,
 		sss.psc.start.GetLinearizedInputs(),
 		sss.psc.pc.lis.GetLimits(),
+		sss.revolute,
 	)
 	if !changed {
 		return
@@ -336,21 +339,22 @@ func (sss *SolutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	})
 }
 
-// unwrapRotationalJoints returns a copy of cfg with any rotational joint that
+// unwrapRotationalJoints returns a copy of cfg with any revolute joint that
 // moved more than a full rotation from start replaced by its nearest-wrap
 // equivalent (still describing the same physical end pose, but reached by a
-// smaller joint move). For each rotational joint i where |cfg[i] - start[i]| >
-// 2π, the result lands within (-π, π] of start[i]; any joint whose unwrapped
-// value would fall outside the joint's own [Min, Max] is left untouched.
+// smaller joint move). For each joint i with revolute[i] set where
+// |cfg[i] - start[i]| > 2π, the result lands within (-π, π] of start[i]; any
+// joint whose unwrapped value would fall outside the joint's own [Min, Max] is
+// left untouched.
 //
 // The second return value is true if any joint was changed.
-func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit) ([]float64, bool) {
+func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit, revolute []bool) ([]float64, bool) {
 	const twoPi = 2 * math.Pi
 	adjusted := make([]float64, len(cfg))
 	copy(adjusted, cfg)
 	changed := false
 	for i := range cfg {
-		if !limits[i].IsRotational() {
+		if !revolute[i] {
 			continue
 		}
 		diff := cfg[i] - start[i]
@@ -387,7 +391,7 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 	}
 	myCost := sss.psc.pc.ConfigurationDistanceFunc(stepArc)
 
-	myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
+	myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), sss.revolute, stepSolution.Configuration)
 
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
@@ -750,12 +754,13 @@ func (sss *SolutionSolvingState) flushFailuresToMeta() {
 	}
 }
 
-// NeutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
-// This favors solutions where rotational joints are near the midpoint rather than at the extremes.
-func NeutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
+// NeutralBias computes a small cost penalty for revolute joints that are far from the center of their range.
+// This favors solutions where revolute joints are near the midpoint rather than at the extremes. revolute
+// flags which of limits belong to revolute joints, as returned by LinearInputsSchema.GetRevolute.
+func NeutralBias(limits []referenceframe.Limit, revolute []bool, configuration []float64) float64 {
 	bias := 0.0
 	for i, limit := range limits {
-		if limit.IsRotational() {
+		if revolute[i] {
 			mid := (limit.Min + limit.Max) / 2
 			_, _, r := limit.GoodLimits()
 			if r > 0 {
