@@ -123,7 +123,11 @@ def main(
 ) -> str:
     from slugify import slugify
 
-    module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
+    # Python SDK package names mostly match the subtype, but not always.
+    package = {"world_state_store": "worldstatestore"}.get(
+        resource_subtype, resource_subtype
+    )
+    module_name = f"viam.{resource_type}s.{package}.{package}"
     module = import_module(module_name)
     resource_name = {"input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"}.get(
         resource_subtype,
@@ -229,7 +233,7 @@ def main(
 
     # Import the subtype package's public names explicitly rather than with a star import,
     # so linters can check the generated file. The ruff F401 fix below drops the unused ones.
-    subtype_package = import_module(f"viam.{resource_type}s.{resource_subtype}")
+    subtype_package = import_module(f"viam.{resource_type}s.{package}")
     subtype_names = getattr(subtype_package, "__all__", None) or [
         name for name in dir(subtype_package) if not name.startswith("_")
     ]
@@ -291,7 +295,7 @@ class {3}({4}, EasyResource):
 '''.format(
         "\n".join(list(set(imports))),
         resource_type,
-        resource_subtype,
+        package,
         model_name_pascal,
         resource_name,
         namespace,
@@ -359,9 +363,8 @@ def install_requirements(packages: List[str], attempts: int = 3) -> None:
 
 
 if __name__ == "__main__":
-    packages = ["viam-sdk", "typing-extensions", "ruff", "python-slugify"]
-    if sys.argv[2] == "mlmodel":
-        packages.append("numpy")
+    sdk = "viam-sdk[mlmodel]" if sys.argv[2] == "mlmodel" else "viam-sdk"
+    packages = [sdk, "typing-extensions", "ruff", "python-slugify"]
     install_requirements(packages)
     result = main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     print(result, end="")

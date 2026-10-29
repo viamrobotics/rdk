@@ -2288,6 +2288,11 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 				fatalError = errors.Wrap(err, "failed to update cmd/module/main.go")
 				return
 			}
+			// A model of another subtype can import packages the module did not depend on yet.
+			if out, err := runGoWithRetry(".", "mod", "tidy"); err != nil {
+				fatalError = fmt.Errorf("failed to run go mod tidy: %w\n%s", err, out)
+				return
+			}
 		case python:
 			if err := addPythonModelFiles(*newModel); err != nil {
 				fatalError = errors.Wrap(err, "failed to generate Python model files")
