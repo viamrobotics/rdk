@@ -109,6 +109,8 @@ func UnmarshalModelXML(
 
 	// Read all links first
 	links := make(map[string]*LinkConfig, 0)
+	// the order the file declared them, so the same file reads the same way every time
+	var order []string
 	meshIndex := 0
 	for _, linkElem := range urdf.Links {
 		// Skip any world links
@@ -150,6 +152,9 @@ func UnmarshalModelXML(
 				return nil, err
 			}
 			link.Geometry = geoCfg
+		}
+		if _, dup := links[linkElem.Name]; !dup {
+			order = append(order, linkElem.Name)
 		}
 		links[linkElem.Name] = link
 	}
@@ -237,6 +242,9 @@ func UnmarshalModelXML(
 				Orientation: linkOrient,
 				Parent:      jointElem.Parent.Link,
 			}
+			if _, dup := links[jointElem.Name]; !dup {
+				order = append(order, jointElem.Name)
+			}
 			links[jointElem.Name] = link
 		default:
 			return nil, NewUnsupportedJointTypeError(jointElem.Type)
@@ -252,8 +260,8 @@ func UnmarshalModelXML(
 
 	// Return as a ModelConfig
 	linkSlice := make([]LinkConfig, 0, len(links))
-	for _, link := range links {
-		linkSlice = append(linkSlice, *link)
+	for _, id := range order {
+		linkSlice = append(linkSlice, *links[id])
 	}
 	return &ModelConfigJSON{
 		Name:         modelName,

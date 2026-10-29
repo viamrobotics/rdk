@@ -330,8 +330,10 @@ func checkMeshPath(source string) error {
 // ReadKinematicModelFile with nothing inline. A mesh keeps the base name of the source path it
 // came with, or is named for its link when it has none, with its content type as the extension,
 // and a name already taken by different bytes gets a number. The same bytes under the same name
-// are written once. The JSON carries the proto field names and is indented the same way every
-// time, so a converted file diffs cleanly. The message passed in is left as it was.
+// are written once. Links and joints go out in the order a walk from world meets them, siblings
+// by id, and the JSON carries the proto field names indented the same way every time, so a model
+// writes the same file however it was built and a converted file diffs cleanly. The message
+// passed in is left as it was.
 func WriteKinematicModelFile(modelPath string, pb *commonpb.KinematicModel) error {
 	if pb == nil {
 		return errors.New("cannot write a nil kinematic model")
@@ -340,6 +342,7 @@ func WriteKinematicModelFile(modelPath string, pb *commonpb.KinematicModel) erro
 	if !ok {
 		return errors.New("cannot write a nil kinematic model")
 	}
+	orderByTree(out)
 	base := strings.TrimSuffix(filepath.Base(modelPath), filepath.Ext(modelPath))
 	w := &meshWriter{dir: filepath.Dir(modelPath), meshDir: path.Join("meshes", base), written: map[string][]byte{}}
 	for _, link := range out.GetLinks() {
@@ -427,4 +430,57 @@ func (w *meshWriter) write(mesh *commonpb.Mesh, role, fallback string) error {
 	mesh.ContentType = ext
 	mesh.Mesh = nil
 	return nil
+}
+
+// orderByTree puts links and joints in the order a walk from world meets them, siblings by id.
+// Anything the walk cannot reach, which the loader will refuse, keeps its place at the end in
+// the order it came.
+func orderByTree(pb *commonpb.KinematicModel) {
+	type node struct {
+		id    string
+		link  *commonpb.KinematicLink
+		joint *commonpb.KinematicJoint
+	}
+	children := map[string][]node{}
+	for _, link := range pb.GetLinks() {
+		children[link.GetParent()] = append(children[link.GetParent()], node{id: link.GetId(), link: link})
+	}
+	for _, joint := range pb.GetJoints() {
+		children[joint.GetParent()] = append(children[joint.GetParent()], node{id: joint.GetId(), joint: joint})
+	}
+	for _, siblings := range children {
+		slices.SortFunc(siblings, func(a, b node) int { return strings.Compare(a.id, b.id) })
+	}
+
+	seenLink := map[*commonpb.KinematicLink]bool{}
+	seenJoint := map[*commonpb.KinematicJoint]bool{}
+	var links []*commonpb.KinematicLink
+	var joints []*commonpb.KinematicJoint
+	queue := append(slices.Clone(children[World]), children[""]...)
+	for len(queue) > 0 {
+		n := queue[0]
+		queue = queue[1:]
+		switch {
+		case n.link != nil && !seenLink[n.link]:
+			seenLink[n.link] = true
+			links = append(links, n.link)
+		case n.joint != nil && !seenJoint[n.joint]:
+			seenJoint[n.joint] = true
+			joints = append(joints, n.joint)
+		default:
+			continue
+		}
+		queue = append(queue, children[n.id]...)
+	}
+	for _, link := range pb.GetLinks() {
+		if !seenLink[link] {
+			links = append(links, link)
+		}
+	}
+	for _, joint := range pb.GetJoints() {
+		if !seenJoint[joint] {
+			joints = append(joints, joint)
+		}
+	}
+	pb.Links, pb.Joints = links, joints
 }
