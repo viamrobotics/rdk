@@ -37,7 +37,7 @@ func TestPythonSDKModuleFallsBackWhenUnderscoresAreDropped(t *testing.T) {
 	writePy("viam/services/broken_service/broken_service.py", "import does_not_exist_dep\nMARKER = 'broken'\n")
 
 	script := filepath.Join("module_generate", "scripts", "generate_stubs.py")
-	cmd := exec.Command("python3", "-c", `
+	cmd := exec.CommandContext(t.Context(), "python3", "-c", `
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("generate_stubs", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
