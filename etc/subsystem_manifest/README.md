@@ -4,7 +4,7 @@ It accepts the following cli arguments:
 
 --subsystem -> defaults to viam-server
 
---binary-path -> used to calculate the sha256 and get resource registrations
+--binary-path -> used to calculate the sha256
 
 --upload-path -> path in gcs where the binary will end up
 
@@ -21,26 +21,7 @@ Sample manifest:
     "subsystem": "viam-server",
     "version": "0.14.0",
     "platform": "linux/amd64",
-    "upload-path": "packages.viam.com/app/viam-server/viam-server-v0.14.0-x86_64"
+    "upload-path": "packages.viam.com/app/viam-server/viam-server-v0.14.0-x86_64",
     "sha256": "1d4a2e31d79b6231b32eec2046f3da59a1c151139af413a34f0c950421c10552"
-    "metadata": {
-        "resource_registrations": [
-            {
-                "api": "rdk:component:camera",
-                "model": "rdk:builtin:camera",
-                "attribute_schema": {
-                     // ...
-                 }
-            },
-            {
-                "api": "rdk:service:ml_model",
-                "model": "rdk:builtin:fake"
-                "attribute_schema": {
-                     "..."
-                 },
-            },
-            // ...
-        ]
-    }
 }
 ```
