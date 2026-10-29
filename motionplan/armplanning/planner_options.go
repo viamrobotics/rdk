@@ -150,6 +150,12 @@ type PlannerOptions struct {
 
 	// CableConstraintFrames limits CableConstraint to the named arms. Empty means every arm.
 	CableConstraintFrames []string `json:"cable_constraint_frames"`
+
+	// NeutralGoal prefers goal configurations whose rotational joints sit closest to the midpoint
+	// of their limits over those closest to the start, and considers each joint's whole-turn
+	// equivalents when picking one. It shapes only where the motion ends, not the path taken. A
+	// less neutral goal is still used when no more neutral one can be reached.
+	NeutralGoal bool `json:"neutral_goal"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters
