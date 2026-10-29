@@ -217,10 +217,40 @@ func (pm *planManager) planSingleGoal(
 		pm.logger.Debugf("start (%s) from %v", x, psc.startPoses[x])
 	}
 
-	planSeed, err := initRRTSolutions(ctx, psc, pm.logger.Sublogger("solve"))
+	goalNodes, err := solveGoalNodes(ctx, psc, pm.logger.Sublogger("solve"))
 	if err != nil {
 		return nil, err
 	}
+
+	if pm.pc.planOpts.NeutralGoal {
+		if neutral := mostNeutralGoals(pm.pc.lis.GetLimits(), goalNodes); len(neutral) < len(goalNodes) {
+			// Half the remaining budget, so a neutral goal that cannot be reached still leaves time
+			// to plan to the others.
+			neutralCtx, cancel := ctx, context.CancelFunc(func() {})
+			if deadline, ok := ctx.Deadline(); ok {
+				neutralCtx, cancel = context.WithTimeout(ctx, time.Until(deadline)/2)
+			}
+			steps, err := pm.planToGoalNodes(neutralCtx, psc, neutral, cbirrtAllowed)
+			cancel()
+			if err == nil || ctx.Err() != nil {
+				return steps, err
+			}
+			pm.logger.Debugf("no plan to the %d most neutral of %d goals, trying all: %v", len(neutral), len(goalNodes), err)
+		}
+	}
+
+	return pm.planToGoalNodes(ctx, psc, goalNodes, cbirrtAllowed)
+}
+
+// planToGoalNodes plans from psc.start to any of goalNodes, which must be sorted from lowest cost
+// to highest.
+func (pm *planManager) planToGoalNodes(
+	ctx context.Context,
+	psc *PlanSegmentContext,
+	goalNodes []*node,
+	cbirrtAllowed bool,
+) ([]*referenceframe.LinearInputs, error) {
+	planSeed := seedRRTSolution(psc, goalNodes)
 
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
@@ -434,36 +464,33 @@ type rrtMaps struct {
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
 func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*rrtSolution, error) {
+	goalNodes, err := solveGoalNodes(ctx, psc, logger)
+	if err != nil {
+		return &rrtSolution{maps: &rrtMaps{startMap: rrtMap{}, goalMap: rrtMap{}}}, err
+	}
+	return seedRRTSolution(psc, goalNodes), nil
+}
+
+// solveGoalNodes returns the IK solutions for psc's goal, sorted from lowest cost to highest.
+func solveGoalNodes(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) ([]*node, error) {
 	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
 	defer span.End()
-	rrt := &rrtSolution{
-		maps: &rrtMaps{
-			startMap: rrtMap{},
-			goalMap:  rrtMap{},
-		},
-	}
 
 	if psc.pc.planMeta.CollectSolutionDiagnostics {
 		psc.pc.planMeta.PerGoal = append(psc.pc.planMeta.PerGoal, PerGoalMeta{})
 	}
 
-	seed := newConfigurationNode(psc.start)
-	// goalNodes are sorted from lowest cost to highest.
 	goalNodes, err := getSolutions(ctx, psc, logger)
 	if err != nil {
-		return rrt, err
+		return nil, err
 	}
-
-	rrt.maps.optNode = goalNodes[0]
-	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
-	// `defaultOptimalityMultiple` is > 1.0
-	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
+	logger.Debugf("optNode cost: %v", goalNodes[0].cost)
 
 	if psc.pc.planMeta.CollectSolutionDiagnostics {
 		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
 		perGoal.StartConfiguration = psc.start
 		perGoal.GoalPoses = psc.goal
-		perGoal.ReasonableCost = reasonableCost
+		perGoal.ReasonableCost = reasonableGoalCost(goalNodes)
 
 		for _, goalNode := range goalNodes {
 			perGoal.SolutionNodes = append(perGoal.SolutionNodes, SolutionNodeInfo{
@@ -474,6 +501,51 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 			})
 		}
 	}
+	return goalNodes, nil
+}
+
+// reasonableGoalCost is the cost above which a goal is not worth planning to, given goalNodes
+// sorted from lowest cost to highest.
+func reasonableGoalCost(goalNodes []*node) float64 {
+	// `defaultOptimalityMultiple` is > 1.0
+	return max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
+}
+
+// neutralGoalTierSlack is how much more neutralDeviation than the most neutral goal a goal may
+// have and still be planned to first under NeutralGoal. Whole-turn wraps differ by far more, so
+// this separates them while keeping goals that are about equally neutral together.
+const neutralGoalTierSlack = 0.1
+
+// mostNeutralGoals returns, in order, the goalNodes whose neutralDeviation is within
+// neutralGoalTierSlack of the most neutral one.
+func mostNeutralGoals(limits []referenceframe.Limit, goalNodes []*node) []*node {
+	devs := make([]float64, len(goalNodes))
+	best := math.Inf(1)
+	for i, n := range goalNodes {
+		devs[i] = neutralDeviation(limits, n.inputs.GetLinearizedInputs())
+		best = min(best, devs[i])
+	}
+	tier := make([]*node, 0, len(goalNodes))
+	for i, n := range goalNodes {
+		if devs[i] <= best+neutralGoalTierSlack {
+			tier = append(tier, n)
+		}
+	}
+	return tier
+}
+
+// seedRRTSolution turns goalNodes, sorted from lowest cost to highest, into either a direct path
+// to the first goal reachable in a straight line or the start and goal trees to search between.
+func seedRRTSolution(psc *PlanSegmentContext, goalNodes []*node) *rrtSolution {
+	rrt := &rrtSolution{
+		maps: &rrtMaps{
+			startMap: rrtMap{},
+			goalMap:  rrtMap{},
+		},
+	}
+	seed := newConfigurationNode(psc.start)
+	rrt.maps.optNode = goalNodes[0]
+	reasonableCost := reasonableGoalCost(goalNodes)
 
 	// Near-duplicate goal solutions (IK polishing the same joint family from
 	// several seeds) add no reachability but multiply the work of everything
@@ -493,7 +565,7 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 			// If we've already checked the path of a solution that is "reasonable", we can just
 			// return now. Otherwise, continue to initialize goal map with keys.
 			rrt.steps = []*referenceframe.LinearInputs{solution.inputs}
-			return rrt, nil
+			return rrt
 		}
 		if len(kept) >= maxGoalRoots {
 			break
@@ -514,7 +586,7 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 	}
 	rrt.maps.startMap[&node{inputs: seed.inputs}] = nil
 
-	return rrt, nil
+	return rrt
 }
 
 // cbirrtRaceAttempts is how many independently-seeded cBiRRT searches run
