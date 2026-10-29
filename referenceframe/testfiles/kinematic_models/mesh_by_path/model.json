@@ -1,0 +1,57 @@
+{
+  "name": "mesh_by_path",
+  "links": [
+    {
+      "id": "base",
+      "parent": "world",
+      "collision": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "label": "part",
+          "mesh": {
+            "original_file_source_path_diagnostic": "meshes/part.ply"
+          }
+        }
+      ],
+      "visual": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "label": "shell",
+          "mesh": {
+            "content_type": "model/gltf-binary",
+            "original_file_source_path_diagnostic": "meshes/shell.glb"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tip",
+      "parent": "base",
+      "collision": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "label": "part_again",
+          "mesh": {
+            "content_type": "PLY",
+            "original_file_source_path_diagnostic": "meshes/part.ply"
+          }
+        },
+        {
+          "center": {
+            "o_z": 1
+          },
+          "label": "up_and_down",
+          "mesh": {
+            "original_file_source_path_diagnostic": "meshes/../meshes/part.ply"
+          }
+        }
+      ]
+    }
+  ]
+}
