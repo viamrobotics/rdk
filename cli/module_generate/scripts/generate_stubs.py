@@ -114,6 +114,39 @@ def return_subclass(
     return "\n".join(["    " + line for line in ast.unparse(stmt).splitlines()])
 
 
+def sdk_module_candidates(resource_subtype: str) -> List[str]:
+    """Python package names to try for a resource subtype.
+
+    movement_sensor stays movement_sensor. world_state_store is published as
+    worldstatestore, so the underscored name is tried first and the name with
+    underscores removed is the fallback.
+    """
+    names = [resource_subtype]
+    stripped = resource_subtype.replace("_", "")
+    if stripped != resource_subtype:
+        names.append(stripped)
+    return names
+
+
+def load_sdk_module(resource_type: str, resource_subtype: str):
+    """Import the SDK module that defines this resource's class."""
+    last_error = None
+    for name in sdk_module_candidates(resource_subtype):
+        module_name = f"viam.{resource_type}s.{name}.{name}"
+        try:
+            return import_module(module_name)
+        except ModuleNotFoundError as exc:
+            missing = exc.name or ""
+            # A missing parent of this candidate is the name mismatch. A missing
+            # dependency of a module that was found is a real failure.
+            if missing != module_name and not module_name.startswith(missing + "."):
+                raise
+            last_error = exc
+    if last_error is None:
+        raise ModuleNotFoundError(resource_subtype)
+    raise last_error
+
+
 def main(
     resource_type: str,
     resource_subtype: str,
@@ -123,8 +156,8 @@ def main(
 ) -> str:
     from slugify import slugify
 
-    module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
-    module = import_module(module_name)
+    module = load_sdk_module(resource_type, resource_subtype)
+    module_name = module.__name__
     resource_name = {"input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"}.get(
         resource_subtype,
         "".join(word.capitalize() for word in resource_subtype.split("_")),
