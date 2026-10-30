@@ -433,37 +433,24 @@ func (m *module) registerResourceModels(mgr *Manager) {
 			)
 		}
 
-		switch {
-		case api.API.IsComponent():
-			for _, model := range models {
-				m.logger.Infow("Registering component API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
-				resource.RegisterComponent(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-					Constructor: func(
-						ctx context.Context,
-						deps resource.Dependencies,
-						conf resource.Config,
-						logger logging.Logger,
-					) (resource.Resource, error) {
-						return mgr.AddResource(ctx, conf, DepsToNames(deps))
-					},
-				})
-			}
-		case api.API.IsService():
-			for _, model := range models {
-				m.logger.Infow("Registering service API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
-				resource.RegisterService(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-					Constructor: func(
-						ctx context.Context,
-						deps resource.Dependencies,
-						conf resource.Config,
-						logger logging.Logger,
-					) (resource.Resource, error) {
-						return mgr.AddResource(ctx, conf, DepsToNames(deps))
-					},
-				})
-			}
-		default:
+		// Components and services register the same way; the module proxy constructor is identical. Reject
+		// anything that is neither.
+		if !api.API.IsComponent() && !api.API.IsService() {
 			m.logger.Errorw("Invalid module type", "API type", api.API.Type)
+			continue
+		}
+		for _, model := range models {
+			m.logger.Infow("Registering API and model from module", "module", m.cfg.Name, "API", api.API, "model", model)
+			resource.Register(api.API, model, resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(
+					ctx context.Context,
+					deps resource.Dependencies,
+					conf resource.Config,
+					logger logging.Logger,
+				) (resource.Resource, error) {
+					return mgr.AddResource(ctx, conf, DepsToNames(deps))
+				},
+			})
 		}
 	}
 

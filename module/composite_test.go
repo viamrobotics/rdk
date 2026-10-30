@@ -120,10 +120,12 @@ func TestCompositeAddResourceRollback(t *testing.T) {
 		Config: &appv1.ComponentConfig{Name: "combo", Api: generic.API.String(), Model: model.String()},
 	})
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "does not implement declared api")
+	test.That(t, err.Error(), test.ShouldContainSubstring, sensor.API.String())
 
 	// On rollback, the generic collection (populated before the failure) must not retain the resource.
 	_, err = m.collections[generic.API].Resource("combo")
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 }
 
 // rtpCamComposite serves camera and sensor from one object; its camera side is an rtppassthrough.Source.
@@ -171,19 +173,22 @@ func TestCompositeCameraStreamSourceRegistered(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	// The camera sub's stream source is registered under its served-API name.
+	// The stream source is registered under the camera API only, not under the composite's other co-equal
+	// API (sensor is not a stream source).
 	m.registerMu.Lock()
-	_, ok := m.streamSourceByName[camera.Named("cam")]
+	_, underCamera := m.streamSourceByName[camera.Named("cam")]
+	_, underSensor := m.streamSourceByName[sensor.Named("cam")]
 	m.registerMu.Unlock()
-	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, underCamera, test.ShouldBeTrue)
+	test.That(t, underSensor, test.ShouldBeFalse)
 
 	// Removing the composite clears the stream source.
 	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: camera.Named("cam").String()})
 	test.That(t, err, test.ShouldBeNil)
 	m.registerMu.Lock()
-	_, ok = m.streamSourceByName[camera.Named("cam")]
+	_, stillRegistered := m.streamSourceByName[camera.Named("cam")]
 	m.registerMu.Unlock()
-	test.That(t, ok, test.ShouldBeFalse)
+	test.That(t, stillRegistered, test.ShouldBeFalse)
 }
 
 // localConsumer depends on a composite in the same module and remembers the exact instance it resolved.
