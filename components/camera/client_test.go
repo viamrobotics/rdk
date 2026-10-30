@@ -1108,6 +1108,12 @@ func TestGrandRemoteRebooting(t *testing.T) {
 				Name:     "remote-2",
 				Address:  addr2,
 				Insecure: true,
+				// These dictate how quickly remote-1 observes remote-2 rebooting. RTP passthrough
+				// makes no requests of its own, so nothing but this health check notices that
+				// remote-2 went away. At the 10s default, detection alone eats most of the budget
+				// this test allows for packets to resume, leaving no room for a slow CI machine.
+				ConnectionCheckInterval: time.Second,
+				ReconnectInterval:       time.Second,
 			},
 		},
 	}
