@@ -24,6 +24,7 @@ type Gantry struct {
 	CloseFunc          func(ctx context.Context) error
 	KinematicsFunc     func(ctx context.Context) (referenceframe.Model, error)
 	GeometriesFunc     func(ctx context.Context) ([]spatialmath.Geometry, error)
+	CurrentInputsFunc  func(ctx context.Context) ([]referenceframe.Input, error)
 }
 
 // NewGantry returns a new injected gantry.
@@ -98,6 +99,14 @@ func (g *Gantry) Geometries(ctx context.Context, extra map[string]interface{}) (
 		return g.Gantry.Geometries(ctx, extra)
 	}
 	return g.GeometriesFunc(ctx)
+}
+
+// CurrentInputs calls the injected CurrentInputs or the real version.
+func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if g.CurrentInputsFunc == nil {
+		return g.Gantry.CurrentInputs(ctx)
+	}
+	return g.CurrentInputsFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

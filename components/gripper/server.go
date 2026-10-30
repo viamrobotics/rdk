@@ -13,6 +13,7 @@ import (
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 )
 
 // serviceServer implements the GripperService from gripper.proto.
@@ -138,7 +139,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	geometries, err := framesystem.GeometriesWithFallback(ctx, res, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +155,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.KinematicModelToProtobuf(model), nil
+	return referenceframe.KinematicsResponse(model, req), nil
 }
 
 // GetStatus returns the status of the gripper.
