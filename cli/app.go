@@ -3925,6 +3925,19 @@ Run this command from within the module directory.`,
 					Action: createActionCommandWithT[generateModuleArgs](GenerateModuleAction),
 				},
 				{
+					Name:      "inline-bundle",
+					Usage:     "write inline-module shells and per-API stub sections for this RDK tag",
+					UsageText: createUsageText("module inline-bundle", nil, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  "out",
+							Usage: "directory to write go/<tag>/catalog.json and python/<version>/catalog.json",
+							Value: "inline-bundle",
+						},
+					},
+					Action: createActionCommandWithT[inlineBundleArgs](InlineBundleAction),
+				},
+				{
 					Name:      "update",
 					Usage:     "update a module's metadata on app.viam.com",
 					UsageText: createUsageText("module update", nil, false, false),

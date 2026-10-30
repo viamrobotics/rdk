@@ -1,11 +1,28 @@
 import ast
+import atexit
+import json
 import os
+import shutil
+import site
 import subprocess
 import sys
 import tempfile
 import time
 from importlib import import_module
 from typing import List, Set, Union
+
+
+def sdk_requirement(extra: str = "") -> str:
+    """Pip requirement for viam-sdk.
+
+    VIAM_PYTHON_SDK_VERSION pins the install to the same version written into
+    requirements.txt. Unset, the laptop CLI keeps installing the unpinned SDK.
+    """
+    version = os.environ.get("VIAM_PYTHON_SDK_VERSION", "").strip()
+    name = "viam-sdk" if extra == "" else f"viam-sdk[{extra}]"
+    if version:
+        return f"{name}=={version}"
+    return name
 
 
 def return_attribute(value: str, attr: str) -> ast.Attribute:
@@ -120,6 +137,7 @@ def main(
     namespace: str,
     mod_name: str,
     model_name: str,
+    slots: bool = False,
 ) -> str:
     from slugify import slugify
 
@@ -208,6 +226,13 @@ def main(
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
+    imports_text = "\n".join(list(set(imports)))
+    subclasses_text = "\n\n".join([subclass for subclass in subclasses])
+    methods_text = "\n\n".join([f"{method}" for method in abstract_methods])
+    if slots:
+        imports_text = f"/*inline-slot:imports*/\n{imports_text}\n/*inline-slot:imports-end*/"
+        subclasses_text = f"/*inline-slot:methods*/\n{subclasses_text}"
+        methods_text = f"{methods_text}\n/*inline-slot:methods-end*/"
     resource_file = '''
 from typing import ClassVar, Mapping, Sequence, Tuple
 from typing_extensions import Self
@@ -257,7 +282,7 @@ class {3}({4}, EasyResource):
 {8}
 {9}
 '''.format(
-        "\n".join(list(set(imports))),
+        imports_text,
         resource_type,
         resource_subtype,
         model_name_pascal,
@@ -265,9 +290,17 @@ class {3}({4}, EasyResource):
         namespace,
         mod_name,
         model_name,
-        "\n\n".join([subclass for subclass in subclasses]),
-        "\n\n".join([f"{method}" for method in abstract_methods]),
+        subclasses_text,
+        methods_text,
     )
+    if slots:
+        old_class = f"class {model_name_pascal}({resource_name}, EasyResource):"
+        new_class = (
+            f"class {model_name_pascal}(/*inline-slot:bases*/{resource_name}, "
+            "EasyResource/*inline-slot:bases-end*/):"
+        )
+        resource_file = resource_file.replace(old_class, new_class, 1)
+        return resource_file
     with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as f:
         f_name = f.name
         f.write(resource_file)
@@ -299,7 +332,20 @@ class {3}({4}, EasyResource):
     return resource_file
 
 
-def install_requirements(packages: List[str], attempts: int = 3) -> None:
+def pip_install_command(packages: List[str], target: str = "") -> List[str]:
+    """Pip command for packages. A target dir keeps the bundle install off the active env."""
+    command = [sys.executable, "-m", "pip", "install"]
+    if target:
+        # --isolated ignores a pip.conf `user = true`, which cannot combine with --target.
+        command.extend(
+            ["--isolated", "--disable-pip-version-check", "--target", target]
+        )
+    return command + packages
+
+
+def install_requirements(
+    packages: List[str], attempts: int = 3, target: str = ""
+) -> None:
     """Install the packages this script imports.
 
     PyPI drops requests often enough that a single failed install regularly
@@ -308,7 +354,7 @@ def install_requirements(packages: List[str], attempts: int = 3) -> None:
     """
     for attempt in range(1, attempts + 1):
         res = subprocess.run(
-            [sys.executable, "-m", "pip", "install"] + packages,
+            pip_install_command(packages, target),
             capture_output=True,
             text=True,
         )
@@ -322,8 +368,64 @@ def install_requirements(packages: List[str], attempts: int = 3) -> None:
         time.sleep(attempt * 2)
 
 
+def run_bundle(version: str) -> None:
+    """Install one SDK version, then print a JSON list of slotted model files.
+
+    stdin is a list of {resource_type, resource_subtype, namespace, module_name, model_name}.
+    """
+    os.environ["VIAM_PYTHON_SDK_VERSION"] = version
+    items = json.load(sys.stdin)
+    # Install into a temp dir. The active interpreter may be a conda env whose
+    # site-packages is not writable, and an older viam already installed there
+    # must not shadow the pinned SDK.
+    target = tempfile.mkdtemp(prefix="inline-python-deps-")
+    atexit.register(shutil.rmtree, target, True)
+    install_requirements(
+        [
+            sdk_requirement("mlmodel"),
+            "typing-extensions",
+            "ruff",
+            "python-slugify",
+            "numpy",
+        ],
+        target=target,
+    )
+    sys.path.insert(0, target)
+    site.addsitedir(target)
+    rendered = []
+    for item in items:
+        try:
+            generated = main(
+                item["resource_type"],
+                item["resource_subtype"],
+                item["namespace"],
+                item["module_name"],
+                item["model_name"],
+                slots=True,
+            )
+        except ModuleNotFoundError as exc:
+            # The installed SDK can lag a resource the CLI already lists. Skip
+            # that API instead of failing the rest of the catalog.
+            print(
+                f"skipping {item['resource_subtype']} {item['resource_type']}: {exc}",
+                file=sys.stderr,
+            )
+            continue
+        rendered.append(
+            {
+                "resource_type": item["resource_type"],
+                "resource_subtype": item["resource_subtype"],
+                "file": generated,
+            }
+        )
+    json.dump(rendered, sys.stdout)
+
+
 if __name__ == "__main__":
-    packages = ["viam-sdk", "typing-extensions", "ruff", "python-slugify"]
+    if len(sys.argv) > 1 and sys.argv[1] == "--bundle":
+        run_bundle(sys.argv[2])
+        sys.exit(0)
+    packages = [sdk_requirement(), "typing-extensions", "ruff", "python-slugify"]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
     install_requirements(packages)

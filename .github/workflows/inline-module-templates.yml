@@ -1,0 +1,52 @@
+name: Inline module templates
+
+# On each RDK version tag, generate Go from that checkout and Python from the
+# current Python SDK, then upsert both languages into the staging and production
+# buckets the app reads. A laptop can still upload a one-off catalog straight
+# to sdk_module_templates_staging. This job overwrites both buckets so a tag
+# leaves them on the same catalogs.
+#
+# .synced is removed before the copy and written after it. While it is absent
+# the app keeps its previous cache, so a refresh does not read a half-published
+# tree. Uploading the same key replaces it. go get and go mod tidy run only here.
+#
+# Names match the app constants inlinetemplates.StagingBucket and ProdBucket.
+# GCP_CREDENTIALS needs object create and delete on both buckets.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    if: github.repository_owner == 'viamrobotics'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Generate shells and stub sections
+        run: go run ./cli/viam module inline-bundle --out inline-bundle-out
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS }}"
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Upload catalogs
+        run: |
+          buckets=(
+            sdk_module_templates_staging
+            sdk_module_templates_prod
+          )
+          for bucket in "${buckets[@]}"; do
+            if gcloud storage ls "gs://${bucket}/.synced" >/dev/null 2>&1; then
+              gcloud storage rm "gs://${bucket}/.synced"
+            fi
+            gcloud storage cp -r inline-bundle-out/go "gs://${bucket}/"
+            gcloud storage cp -r inline-bundle-out/python "gs://${bucket}/"
+            printf 'synced\n' | gcloud storage cp - "gs://${bucket}/.synced"
+          done
