@@ -1,0 +1,13 @@
+[settings]
+# Minimum set of dependencies needed to run tests on 32-bit arm
+enable_tools = [
+  'go',
+  'go:github.com/bufbuild/buf/cmd/buf',
+  'go:gotest.tools/gotestsum',
+  'go:google.golang.org/grpc/cmd/protoc-gen-go-grpc',
+]
+
+[tools]
+"go:github.com/bufbuild/buf/cmd/buf" = "v1.71.0"
+"go:gotest.tools/gotestsum" = "v1.13.0"
+"go:google.golang.org/grpc/cmd/protoc-gen-go-grpc" = "v1.5.1"
