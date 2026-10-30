@@ -29,6 +29,32 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
+// connectToSeparateServer dials a robot client to a viam-server running in a separate process,
+// retrying until the server is dialable. It mirrors the module integration tests' connect helper
+// (force direct gRPC, sessions disabled — modules do not yet support sessions).
+func connectToSeparateServer(t *testing.T, ctx context.Context, port int, logger logging.Logger) robot.Robot {
+	t.Helper()
+	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	for {
+		dialCtx, dialCancel := context.WithTimeout(ctx, 2*time.Second)
+		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
+			client.WithDialOptions(rpc.WithForceDirectGRPC()),
+			client.WithDisableSessions(),
+		)
+		dialCancel()
+		if err == nil {
+			return rc
+		}
+		select {
+		case <-connectCtx.Done():
+			t.Fatalf("could not connect to separate-process server: %v", err)
+			return nil
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
 func TestCompositeResourceOverClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -78,46 +104,11 @@ func TestCompositeResourceOverClient(t *testing.T) {
 	test.That(t, r2["reading"], test.ShouldEqual, 7)
 }
 
-// connectToSeparateServer dials a robot client to a viam-server running in a separate process,
-// retrying until the server is dialable. It mirrors the module integration tests' connect helper
-// (force direct gRPC, sessions disabled — modules do not yet support sessions).
-func connectToSeparateServer(t *testing.T, ctx context.Context, port int, logger logging.Logger) robot.Robot {
-	t.Helper()
-	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	for {
-		dialCtx, dialCancel := context.WithTimeout(ctx, 2*time.Second)
-		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
-			client.WithDialOptions(rpc.WithForceDirectGRPC()),
-			client.WithDisableSessions(),
-		)
-		dialCancel()
-		if err == nil {
-			return rc
-		}
-		select {
-		case <-connectCtx.Done():
-			t.Fatalf("could not connect to separate-process server: %v", err)
-			return nil
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
-}
-
-// TestModularCompositeCustomAPI exercises the custom gizmo API of a composite over a client whose
-// separate process server binary does not import the example gizmoapi package. gizmo is therefore not
-// a registered API there, so a gizmo method call cannot reach a typed subtype server and instead falls
-// to web.go's foreignServiceHandler, which unwraps the composite (a resource.MultiAPIResource) to its
-// gizmo foreign sub resource before proxying to the module. That composite unwrap branch is the code
-// under test, and a correct DoOne proves it fired.
-//
-// The subtests declare the same composite under two different APIs, its custom gizmo API and the
-// builtin camera API. A locally configured composite has a single graph node, keyed under the API it
-// is declared with, and ResourceRPCAPIs expands that one node to every API the model serves so each
-// advertises its own RPC descriptor. The camera subtest is the one that matters for gizmo, since gizmo
-// is then an API the composite serves but not the one it was declared under, so it confirms gizmo
-// still advertises its descriptor and the call reaches foreignServiceHandler instead of returning
-// Unimplemented.
+// TestModularCompositeCustomAPI exercises a composite's custom gizmo API over a client whose separate
+// server process does not import gizmoapi, so gizmo is unregistered and the call falls to web.go's
+// foreignServiceHandler, which unwraps the composite to its gizmo foreign sub before proxying to the module.
+// Two subtests configure the composite under gizmo and under camera, so one covers a composite that
+// serves gizmo without being configured as a gizmo.
 func TestModularCompositeCustomAPI(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -169,9 +160,8 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 			rc := connectToSeparateServer(t, ctx, port, logger)
 			defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
 
-			// Custom gizmo API: no typed gizmo server exists on the parent, so this routes through
-			// foreignServiceHandler's composite-unwrap path. DoOne("combo") is true (the implementation's wantArg)
-			// and DoOne("nope") is false, proving the call reached the gizmo implementation of the composite.
+			// No typed gizmo server exists on the parent, so this routes through foreignServiceHandler's
+			// composite-unwrap path; the DoOne results below prove the call reached the composite's gizmo impl.
 			res, err := rc.ResourceByName(gizmoapi.Named("combo"))
 			test.That(t, err, test.ShouldBeNil)
 			giz, err := resource.AsType[gizmoapi.Gizmo](res)
@@ -204,12 +194,9 @@ func TestModularCompositeCustomAPI(t *testing.T) {
 	}
 }
 
-// collideDevice is a builtin composite whose two APIs collide on a method name. One shared device
-// serves camera.Camera and movementsensor.MovementSensor, whose Properties methods share a name but
-// return different types. Every other method and all lifecycle state (the close counter) live here.
-// The two Properties methods are carried by the implementations below, which each embed one *collideDevice.
-// This mirrors the complexcombomodule but keeps the shared impl in the test process so closing exactly once
-// is directly observable.
+// collideDevice is a builtin composite serving camera.Camera and movementsensor.MovementSensor, whose
+// Properties methods share a name but return different types. Per-API facades below embed one
+// *collideDevice so closing exactly once is observable.
 type collideDevice struct {
 	resource.Named
 	closeCount *atomic.Int32
@@ -280,9 +267,6 @@ func (f imuFacadeBuiltin) Properties(context.Context, map[string]interface{}) (*
 	return &movementsensor.Properties{PositionSupported: true, AngularVelocitySupported: true}, nil
 }
 
-// registerCollideModel registers a builtin camera+movementsensor colliding composite whose constructor
-// assembles the two implementations over one shared *collideDevice via resource.Compose. Deregistered on
-// cleanup. Each Close on the shared device increments closeCount.
 func registerCollideModel(t *testing.T, name string, closeCount *atomic.Int32) resource.Model {
 	t.Helper()
 	model := resource.NewModel("acme", "test", name)
@@ -417,7 +401,7 @@ func TestCompositeOverClientResourceSetChange(t *testing.T) {
 	_, err = rc.ResourceByName(sensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = rc.ResourceByName(generic.Named("combo"))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 
 	var apis []resource.API
 	for _, n := range rc.ResourceNames() {
