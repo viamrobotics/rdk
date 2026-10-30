@@ -200,9 +200,9 @@ type LocalRobot interface {
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
 
-	// FindBySimpleNameAndAPI returns a resource from the resource graph. See
-	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
-	// returned in the case of name collisions.
+	// FindBySimpleNameAndAPI returns a resource from the resource graph, unwrapping a composite to the
+	// sub-resource serving the given API. See [resource.Graph.FindBySimpleNameAndAPI] for behavior on
+	// name collisions.
 	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 
 	// WriteTraceMessages writes trace spans to any configured exporters.
@@ -227,16 +227,10 @@ type RestartModuleRequest struct {
 	ModuleName string
 }
 
-// ResourceByName looks up via short name, and will error if none or more than 1 exist.
+// ResourceByName looks a resource up by its simple name. A composite's several APIs collapse to one
+// handle; it errors if nothing matches or distinct resources collide on the name.
 func ResourceByName(r Robot, name string) (resource.Resource, error) {
-	all := AllResourcesByName(r, name)
-	if len(all) == 0 {
-		return nil, fmt.Errorf("no resource named [%s]", name)
-	}
-	if len(all) > 1 {
-		return nil, fmt.Errorf("too many resources named [%s] %d", name, len(all))
-	}
-	return all[0], nil
+	return r.ResourceByName(resource.SimpleName(name))
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.
@@ -330,13 +324,7 @@ func ResourceFromRobot[T resource.Resource](robot Robot, name resource.Name) (T,
 	if err != nil {
 		return zero, err
 	}
-
-	part, ok := res.(T)
-
-	if !ok {
-		return zero, resource.TypeError[T](res)
-	}
-	return part, nil
+	return resource.AsType[T](res)
 }
 
 // MatchesModule returns true if the passed-in module matches its name / ID.

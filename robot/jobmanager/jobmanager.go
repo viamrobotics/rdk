@@ -15,6 +15,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -180,25 +181,55 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	// refClient.AllowMissingFileDescriptors()
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
-	resourceType := res.Name().API.SubtypeName
-	// some subtypes have an underscore in their name, like audio_in, audio_out, input_controller,
-	// or pose_tracker, while their APIs do not - so we have to remove the underscore.
-	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()
 	if err != nil {
 		return nil, refClient, "", "", err
 	}
+	// A composite serves several co-equal APIs, so the job's method may belong to any of them. Try each
+	// served API and route to the one whose service exposes the method; an ordinary resource has one API
+	// and routes to its service directly.
+	// Known limitation: if two co-equal APIs expose a same-named method, the canonical API (sorted first
+	// by API string) wins. A job addresses a composite by simple name and can't target a specific API.
+	apis := resource.APIsOf(res)
 	var grpcService string
-	for _, srv := range services {
-		if strings.Split(srv, ".")[componentServiceIndex] == resourceType {
+	for _, api := range apis {
+		srv := serviceForAPI(services, api)
+		if srv == "" {
+			continue
+		}
+		if len(apis) == 1 || serviceHasMethod(descSource, srv, method) {
 			grpcService = srv
 			break
 		}
 	}
 	if grpcService == "" {
-		return nil, refClient, "", "", errors.Errorf("could not find a service for type: %s", resourceType)
+		return nil, refClient, "", "", errors.Errorf("could not find a service exposing method %q for resource %s", method, res.Name())
 	}
 	return descSource, refClient, grpcService, method, nil
+}
+
+// serviceForAPI returns the gRPC service whose name matches api's subtype, or "" if none does. Some
+// subtypes carry an underscore (audio_in, audio_out, input_controller, pose_tracker) that the gRPC
+// service name omits, so strip it before matching.
+func serviceForAPI(services []string, api resource.API) string {
+	resourceType := strings.ReplaceAll(api.SubtypeName, "_", "")
+	for _, srv := range services {
+		if strings.Split(srv, ".")[componentServiceIndex] == resourceType {
+			return srv
+		}
+	}
+	return ""
+}
+
+// serviceHasMethod reports whether the named gRPC service exposes the given method. It picks the right
+// co-equal API when dispatching a job to a composite resource that serves several.
+func serviceHasMethod(descSource grpcurl.DescriptorSource, service, method string) bool {
+	sym, err := descSource.FindSymbol(service)
+	if err != nil {
+		return false
+	}
+	sd, ok := sym.(*desc.ServiceDescriptor)
+	return ok && sd.FindMethodByName(method) != nil
 }
 
 // createJobFunction returns a function that the job scheduler puts on its queue.
