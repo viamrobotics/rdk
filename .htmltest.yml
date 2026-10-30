@@ -13,6 +13,10 @@ IgnoreURLs:
   - "download.datasheets.com"
   - "https://pkg.go.dev"
   - "https://bzotto.medium.com/introducing-the-rgba-bitmap-file-format-4a8a94329e2c"
+  # Live pages that answer 403 to non-browser clients.
+  - "docs.opencv.org"
+  - "stackoverflow.com"
+  - "stackexchange.com"
 IgnoreDirs:
   - "lib"
 CacheExpires: "6h"
