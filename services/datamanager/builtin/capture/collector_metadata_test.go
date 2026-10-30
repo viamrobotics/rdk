@@ -81,7 +81,7 @@ func TestCaptureAPIForMethod(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// A method owned by exactly one served API resolves to that API, even when it is not the
-		// resource's configured API — this is the composite mis-tagging fix.
+		// resource's configured API.
 		test.That(t, captureAPIForMethod(composite, "AlphaOnly", capAlphaAPI), test.ShouldResemble, capAlphaAPI)
 		test.That(t, captureAPIForMethod(composite, "BetaOnly", capAlphaAPI), test.ShouldResemble, capBetaAPI)
 
@@ -180,7 +180,7 @@ func TestUnresolvedCaptureMethodError(t *testing.T) {
 		Name: resource.NewName(capAlphaAPI, "combo"), Method: "Nonexistent",
 	})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no API")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "serves no API that implements")
 }
 
 // TestNewCollectorsPinnedAPIDisambiguatesCollidingMethod drives newCollectors with a composite whose two
