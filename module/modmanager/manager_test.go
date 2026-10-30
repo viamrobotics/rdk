@@ -1989,7 +1989,7 @@ func TestHangModuleSIGQUIT(t *testing.T) {
 }
 
 // TestModularCompositeRemoveClearsAllState verifies that removing a modular composite by its wrapper's
-// Name() (as the resource manager does) fully clears the module manager's state for it. Every per-API
+// Name() fully clears the module manager's state for it. Every per-API
 // sub-client is closed, every co-equal route is dropped from rMap, and no addedResource entry lingers,
 // so the module can be torn down. The combodevice composite serves camera, movement_sensor, and the
 // custom gizmo API.
@@ -2021,7 +2021,7 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
 	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
 
-	// Remove exactly as the resource manager does, by the wrapper's Name().
+	// Removing by the composite's one wrapper name must clear all its co-equal APIs.
 	test.That(t, mgr.RemoveResource(ctx, res.Name()), test.ShouldBeNil)
 
 	// No ghost addedResource remains (so the module can be torn down), and no co-equal route lingers.
