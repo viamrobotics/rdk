@@ -14,8 +14,11 @@ jobs:
       contains(fromJson('["opened", "synchronize", "reopened"]'), github.event.action)
     steps:
       - name: "Check Membership and Label PR"
-        uses: actions/github-script@v7
+        # actions/github-script@v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         id: check-membership
+        env:
+          TRUSTED_BOTS: ${{ vars.TRUSTED_BOTS }}  # comma-separated logins, shared with cla-gate.yml
         with:
           github-token: ${{ secrets.PR_TOKEN }}
           script: |
@@ -29,7 +32,7 @@ jobs:
             // membership API returns 404 for them. Only honored for same-repo
             // branch PRs (never forks), so an external fork can never use a bot
             // sender to bypass the membership check.
-            const trustedBots = ["viam-ci-org-reader[bot]", "dependabot[bot]", "viam-overwatch[bot]"];
+            const trustedBots = (process.env.TRUSTED_BOTS || "").split(",").map(s => s.trim()).filter(Boolean);
             const pr = context.payload.pull_request;
             // Optional chaining keeps this fail-closed: if the head fork repo
             // was deleted, pr.head.repo is null and isFork becomes true, which
