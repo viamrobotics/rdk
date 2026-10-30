@@ -313,10 +313,7 @@ jobs:
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           apt-get update && apt-get install -y python3-venv
-          env
-          go env
-          GOPATH="$HOME/go" go install -x golang.org/x/tools/cmd/goimports@latest
-          GOPATH="$HOME/go" TEST_TARGET="./cli" make test-go
+          make test-go
 
       - name: Upload test.json
         if: always()
