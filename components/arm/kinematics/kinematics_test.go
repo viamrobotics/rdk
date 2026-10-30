@@ -14,11 +14,13 @@ import (
 const testArmName = "arm"
 
 // The 3D scene draws one node per geometry an arm reports and swaps in the 3D model whose name
-// matches that geometry's label. A part with a 3D model but no geometry to hang it on is never
-// drawn, so every part in ArmTo3DModelParts needs a geometry on the matching link.
+// matches that geometry's label. A link with a visual but no geometry to hang it on is never
+// drawn, so every link that ships a visual needs a geometry on it.
 func TestEveryModelPartHasAGeometry(t *testing.T) {
-	for armModel, modelParts := range models3d.ArmTo3DModelParts {
+	for _, armModel := range []string{"ur5e", "ur20", "xarm6", "lite6"} {
 		t.Run(armModel, func(t *testing.T) {
+			visuals := models3d.Visuals(armModel)
+			test.That(t, visuals, test.ShouldNotBeEmpty)
 			model, err := kinematics.ModelFromName(armModel, testArmName)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -30,8 +32,8 @@ func TestEveryModelPartHasAGeometry(t *testing.T) {
 				labels[strings.TrimPrefix(geometry.Label(), testArmName+":")] = true
 			}
 
-			for _, modelPart := range modelParts {
-				test.That(t, labels[modelPart], test.ShouldBeTrue)
+			for link := range visuals {
+				test.That(t, labels[link], test.ShouldBeTrue)
 			}
 		})
 	}
