@@ -62,7 +62,7 @@ func (c *Capture) buildEffectiveCollectors(
 			if result == nil {
 				continue
 			}
-			effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
+			effectiveCollectors[newCollectorMetadata(res, *result)] = effectiveCollectorConfig{res, *result, key}
 		}
 	}
 
@@ -88,7 +88,7 @@ func (c *Capture) buildEffectiveCollectors(
 		if result == nil {
 			continue
 		}
-		effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
+		effectiveCollectors[newCollectorMetadata(res, *result)] = effectiveCollectorConfig{res, *result, key}
 	}
 
 	return effectiveCollectors
@@ -200,7 +200,9 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 }
 
 // shouldAutoEnable validates that the sensor's override can produce a running collector when
-// data capture is not configured on the machine config for that resource/method pair
+// data capture is not configured on the machine config for that resource/method pair. It returns the
+// resource and the API that owns the method, which for a composite may differ from the resource's
+// configured API.
 func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, bool) {
 	res, ok := c.resourcesByShortName[override.ResourceName]
 	if !ok {
@@ -209,13 +211,15 @@ func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (r
 		return nil, false
 	}
 
-	if data.CollectorLookup(data.MethodMetadata{API: res.Name().API, MethodName: override.MethodName}) == nil {
+	api := captureAPIForMethod(res, override.MethodName, res.Name().API)
+
+	if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: override.MethodName}) == nil {
 		c.logger.Warnw("capture control sensor referenced unknown method for resource",
-			"resource", override.ResourceName, "method", override.MethodName, "api", res.Name().API)
+			"resource", override.ResourceName, "method", override.MethodName, "api", api)
 		return nil, false
 	}
 
-	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(res.Name().API.String(), override.MethodName)]; needsParams {
+	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(api.String(), override.MethodName)]; needsParams {
 		c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
 			"resource", override.ResourceName, "method", override.MethodName)
 		return nil, false
