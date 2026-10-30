@@ -601,6 +601,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
 	}
+	checksumStart := time.Now()
 
 	hash := crc32Hash()
 	destFile, err := os.Open(downloadPath) //nolint:gosec
@@ -633,6 +634,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 			trimmedChecksumBytes, trimmedOutHashBytes,
 		)
 	}
+	m.logger.Debugf("Package %s checksum verification complete after %v", name, time.Since(checksumStart))
 
 	return checksum, contentType, nil
 }
