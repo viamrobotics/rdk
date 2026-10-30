@@ -45,8 +45,6 @@ func (c *comboSensor) Close(context.Context) error {
 	return nil
 }
 
-// registerComboModel registers a fresh sensor+generic composite model and returns it, deregistering
-// on test cleanup. Each Close on the built instance increments closeCount.
 func registerComboModel(t *testing.T, name string, closeCount *atomic.Int32) resource.Model {
 	t.Helper()
 	model := resource.NewModel("acme", "test", name)
@@ -80,9 +78,12 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// 1) An api-less SimpleName resolves to the one handle; AsType extracts the sensor interface.
+	// 1) An api-less SimpleName resolves to the one composite handle, which reports its full co-equal API
+	// set (not just the config API). AsType extracts a served API's interface and it works.
 	res, err := r.ResourceByName(resource.SimpleName("combo"))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resource.APIsOf(res), test.ShouldContain, sensor.API)
+	test.That(t, resource.APIsOf(res), test.ShouldContain, generic.API)
 	s, err := resource.AsType[sensor.Sensor](res)
 	test.That(t, err, test.ShouldBeNil)
 	readings, err := s.Readings(ctx, nil)
@@ -105,16 +106,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
 
-	// 3) The api-less handle is the composite wrapper, uniform with a modular composite. APIsOf reports
-	// the full co-equal set (not just the config API) and AsType extracts each served API.
-	test.That(t, resource.APIsOf(res), test.ShouldContain, sensor.API)
-	test.That(t, resource.APIsOf(res), test.ShouldContain, generic.API)
-	_, err = resource.AsType[sensor.Sensor](res)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = resource.AsType[resource.Resource](res)
-	test.That(t, err, test.ShouldBeNil)
-
-	// 4) It is advertised as N same-named ResourceNames (one per co-equal API).
+	// 3) It is advertised as N same-named ResourceNames (one per co-equal API).
 	var advertised []resource.API
 	for _, n := range r.ResourceNames() {
 		if n.Name == "combo" {
@@ -124,7 +116,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, advertised, test.ShouldContain, sensor.API)
 	test.That(t, advertised, test.ShouldContain, generic.API)
 
-	// 5) Teardown closes the single underlying instance exactly once, even though it is reachable
+	// 4) Teardown closes the single underlying instance exactly once, even though it is reachable
 	// under several APIs. Reconfigure to an empty config to remove it, then assert the count.
 	r.Reconfigure(ctx, &config.Config{})
 	test.That(t, closeCount.Load(), test.ShouldEqual, 1)
@@ -156,7 +148,7 @@ func TestCompositeModelReconfigureReindexes(t *testing.T) {
 		Components: []resource.Config{{Name: "combo", API: sensor.API, Model: singleModel}},
 	}, logger)
 	_, err := r.ResourceByName(generic.Named("combo"))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNodeNotFoundError(err), test.ShouldBeTrue)
 
 	// Reconfigure to the composite model (in-place rebuild on the same node). The generic API must now
 	// resolve, and the configured sensor API must still resolve.
@@ -198,7 +190,6 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 	cfg := &config.Config{
 		Components: []resource.Config{
 			{Name: "combo", API: sensor.API, Model: comboModel},
-			// Depend on the composite via an implicit dependency (DependsOn is deprecated).
 			{Name: "consumer", API: generic.API, Model: consumerModel, ImplicitDependsOn: []string{"combo"}},
 		},
 	}
@@ -293,11 +284,11 @@ func TestCompositeRemovalTearsDownDependent(t *testing.T) {
 
 	// The composite is gone under every API, and the dependent is no longer available.
 	_, err = r.ResourceByName(sensor.Named("combo"))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNodeNotFoundError(err), test.ShouldBeTrue)
 	_, err = r.ResourceByName(generic.Named("combo"))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNodeNotFoundError(err), test.ShouldBeTrue)
 	_, err = r.ResourceByName(generic.Named("consumer"))
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.IsNodeNotFoundError(err), test.ShouldBeTrue)
 }
 
 // TestCompositeRemoteResourceCollisions asserts that genuine collisions involving remote resources are
@@ -383,6 +374,7 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	// different API claim it), so it is an error, preserving name uniqueness.
 	_, err = main.ResourceByName(resource.SimpleName("gizmo"))
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple resources share the simple name")
 }
 
 // gripperServoDevice is the shared impl behind an in-process composite serving gripper.Gripper and
