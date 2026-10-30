@@ -458,3 +458,30 @@ func TestLimitMethods(t *testing.T) {
 	d = l.Jog(0, .25)
 	test.That(t, d, test.ShouldAlmostEqual, rangeLimit/2, 1)
 }
+
+func TestRevoluteDoF(t *testing.T) {
+	// ±352°: a revolute joint whose limits Limit.IsRotational does not recognize.
+	limit := Limit{Min: -6.1435589670200397, Max: 6.1435589670200397}
+	test.That(t, limit.IsRotational(), test.ShouldBeFalse)
+
+	rot, err := NewRotationalFrame("rot", spatial.R4AA{RZ: 1}, limit)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, RevoluteDoF(rot), test.ShouldResemble, []bool{true})
+	test.That(t, RevoluteDoF(NewNamedFrame(rot, "renamed")), test.ShouldResemble, []bool{true})
+
+	trans, err := NewTranslationalFrame("trans", r3.Vector{X: 1}, Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, RevoluteDoF(trans), test.ShouldResemble, []bool{false})
+
+	ur5e, err := ParseModelJSONFile(rdkutils.ResolveFile("referenceframe/testfiles/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, RevoluteDoF(ur5e), test.ShouldResemble, []bool{true, true, true, true, true, true})
+
+	gantry, err := ParseModelJSONFile(rdkutils.ResolveFile("referenceframe/testfiles/example_gantry.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	revolute := RevoluteDoF(gantry)
+	test.That(t, len(revolute), test.ShouldEqual, len(gantry.DoF()))
+	for _, r := range revolute {
+		test.That(t, r, test.ShouldBeFalse)
+	}
+}
