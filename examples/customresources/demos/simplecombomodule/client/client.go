@@ -1,0 +1,66 @@
+// Package main consumes the simplecombo composite over the SDK. One machine resource ("simplecombo")
+// reachable under both the sensor and button APIs at once. It is the client half of the
+// simplecombomodule demo. Start the server with `make run-module` in the parent directory (it serves
+// the module via module.json on :8080), then run this with `make` here.
+package main
+
+import (
+	"context"
+
+	"go.viam.com/rdk/components/button"
+	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
+)
+
+func main() {
+	logger := logging.NewLogger("simplecombo-client")
+
+	ctx := context.Background()
+	// Connect to the default localhost port for viam-server, as configured by module.json.
+	machine, err := client.New(ctx, "localhost:8080", logger)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	//nolint:errcheck
+	defer machine.Close(ctx)
+
+	// ── 1) ResourceNames, one short name, advertised under two APIs ─────────────────
+	logger.Info("── ResourceNames (simplecombo should appear under 2 APIs) ──")
+	for _, n := range machine.ResourceNames() {
+		if n.Name == "simplecombo" {
+			logger.Infof("  simplecombo advertised under: %s", n.API)
+		}
+	}
+
+	// ── 2) api-less handle, one object that reports its full co-equal API set ───────
+	logger.Info("── api-less composite handle ──")
+	if combo, err := resource.NamedFromProvider(machine, "simplecombo"); err != nil {
+		logger.Errorf("  NamedFromProvider: %v", err)
+	} else {
+		logger.Infof("  APIsOf(simplecombo): %v", resource.APIsOf(combo)) // [button sensor]
+	}
+
+	// ── 3) as a sensor ──────────────────────────────────────────────────────────────
+	logger.Info("── simplecombo as sensor ──")
+	if s, err := sensor.FromProvider(machine, "simplecombo"); err != nil {
+		logger.Errorf("  sensor.FromProvider: %v", err)
+	} else if rd, err := s.Readings(ctx, nil); err != nil {
+		logger.Errorf("  sensor Readings: %v", err)
+	} else {
+		logger.Infof("  sensor Readings: %v", rd) // map[reading:7]
+	}
+
+	// ── 4) as a button, the other co-equal API on the same identity ──────────────────
+	logger.Info("── simplecombo as button ──")
+	if b, err := button.FromProvider(machine, "simplecombo"); err != nil {
+		logger.Errorf("  button.FromProvider: %v", err)
+	} else if err := b.Push(ctx, nil); err != nil {
+		logger.Errorf("  button Push: %v", err)
+	} else {
+		logger.Info("  button Push: ok")
+	}
+
+	logger.Info("── done ──")
+}

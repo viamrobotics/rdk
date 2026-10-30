@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -52,7 +53,7 @@ func (m *Module) AddResource(ctx context.Context, req *pb.AddResourceRequest) (*
 		return nil, fmt.Errorf("invariant: no constructor for %q", conf.Model)
 	}
 
-	resLogger := m.logger.Sublogger(conf.ResourceName().String())
+	resLogger := m.logger.Sublogger(resource.LogName(conf.ResourceName(), resource.APIsForModel(conf.Model)))
 	levelStr := req.Config.GetLogConfiguration().GetLevel()
 	// An unset LogConfiguration will materialize as an empty string.
 	if levelStr != "" {
@@ -180,12 +181,9 @@ func (m *Module) GetParentResource(ctx context.Context, name resource.Name) (res
 // getLocalResource returns a resource from within the module by name. `getLocalResource` must be
 // called while holding the `registerMu`.
 func (m *Module) getLocalResource(_ context.Context, name resource.Name) (resource.Resource, error) {
-	for res := range m.resLoggers {
-		if res.Name() == name {
-			return res, nil
-		}
+	if lr, ok := m.localResources[name.Name]; ok {
+		return lr.res, nil
 	}
-
 	return nil, resource.NewNotFoundError(name)
 }
 
@@ -315,9 +313,25 @@ func (m *Module) getDependenciesForConstruction(ctx context.Context, depStrings 
 	return deps, nil
 }
 
+// validateCompositeDeclaration rejects a model registered under multiple APIs that was not declared a
+// composite via resource.RegisterMultiAPI, so its extra APIs would wire to nothing.
+func validateCompositeDeclaration(model resource.Model) error {
+	if len(resource.ExpandModel(model)) > 1 && len(resource.APIsForModel(model)) < 2 {
+		return fmt.Errorf(
+			"model %q is registered under multiple APIs but was not declared as a composite; "+
+				"serve one model under several co-equal APIs with resource.RegisterMultiAPI", model,
+		)
+	}
+	return nil
+}
+
 func (m *Module) addResource(
 	ctx context.Context, depStrings []string, conf *resource.Config, resLogger logging.Logger,
 ) error {
+	if err := validateCompositeDeclaration(conf.Model); err != nil {
+		return err
+	}
+
 	m.registerMu.Lock()
 	deps, err := m.getDependenciesForConstruction(ctx, depStrings)
 	m.registerMu.Unlock()
@@ -352,31 +366,46 @@ func (m *Module) addResource(
 	m.registerMu.Lock()
 	defer m.registerMu.Unlock()
 
-	coll, ok := m.collections[conf.API]
-	if !ok {
-		return fmt.Errorf("module cannot service api: %s", conf.API)
+	// Add the resource under every API it serves (just conf.API for an ordinary resource, the full
+	// co-equal set for a composite), each as that API's unwrapped sub. Each collection's Add type-checks
+	// the sub against its API, so a misdeclared model fails fast. Track the adds so any failure undoes them
+	// all before closing res, leaving no collection pointing at a resource we are about to close.
+	var added []resource.Name
+	abort := func(cause error) error {
+		for _, n := range added {
+			if c, ok := m.collections[n.API]; ok {
+				cause = multierr.Combine(cause, c.Remove(n))
+			}
+		}
+		return multierr.Combine(cause, res.Close(ctx))
+	}
+	for _, api := range resource.APIsForConfig(*conf) {
+		subName := conf.ResourceName().AsAPI(api)
+		coll, ok := m.collections[api]
+		if !ok {
+			return abort(fmt.Errorf("module cannot service api %q for model %q", api, conf.Model))
+		}
+		if err := coll.Add(subName, resource.SubresourceForAPI(res, api)); err != nil {
+			return abort(fmt.Errorf("model %q does not implement declared api %q: %w", conf.Model, api, err))
+		}
+		added = append(added, subName)
 	}
 
-	// If adding the resource name to the collection fails, close the resource and return an error.
-	if err := coll.Add(conf.ResourceName(), res); err != nil {
-		return multierr.Combine(err, res.Close(ctx))
+	m.localResources[conf.ResourceName().Name] = localResource{res: res, logger: resLogger}
+	// The stream source is a camera capability, so if this resource is a composite, unwrap it to the camera
+	// sub and key the source under the camera API.
+	for _, sub := range resource.DistinctSubs(conf.ResourceName(), res) {
+		if p, ok := sub.(rtppassthrough.Source); ok {
+			m.streamSourceByName[conf.ResourceName().AsAPI(camera.API)] = p
+		}
 	}
 
-	m.resLoggers[res] = resLogger
-	// add the video stream resources upon creation
-	if p, ok := res.(rtppassthrough.Source); ok {
-		m.streamSourceByName[res.Name()] = p
-	}
-
-	// Iterate over resource foo's dependencies and update their internalDeps entry to include newly rebuilt foo as a dependent,
-	// so when we know how to reconstruct foo when it's dependencies reconstructs.
+	// Record the newly rebuilt foo as a dependent in each of its dependencies' internalDeps entry, so a
+	// later rebuild of a dependency knows to reconstruct foo.
 	for _, dep := range deps {
-		// If the dependency is in the `resLogger` it is a "local resource". And we must track
-		// rebuilds on our dependencies as that invalidates resource handles.
-		//
-		// Dan: We could call `m.getLocalResource(dep.Name())` but that's just a linear scan over
-		// resLoggers.
-		if _, exists := m.resLoggers[dep]; exists {
+		// If the dependency is one of this module's own resources it is a "local resource", and we must
+		// track rebuilds on it since those invalidate resource handles. Match by simple name.
+		if _, exists := m.localResources[dep.Name().Name]; exists {
 			depName := dep.Name()
 			m.internalDeps[depName] = append(m.internalDeps[depName], resConfigureArgs{
 				conf:       conf,
@@ -479,31 +508,42 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	}()
 
 	m.registerMu.Lock()
-	coll, ok := m.collections[resName.API]
+	_, ok := m.collections[resName.API]
 	if !ok {
 		m.registerMu.Unlock()
 		return fmt.Errorf("no grpc service for %+v", resName)
 	}
-
-	res, err := coll.Resource(resName.Name)
-	if err != nil {
+	lr, ok := m.localResources[resName.Name]
+	if !ok {
 		m.registerMu.Unlock()
-		return err
+		return fmt.Errorf("no resource named %q in module", resName.Name)
 	}
 	m.registerMu.Unlock()
 
-	if err := res.Close(ctx); err != nil {
+	// Close the stored handle. For a composite that closes every distinct sub once, not just the sub
+	// registered under the configured API.
+	if err := lr.res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
 
 	m.registerMu.Lock()
 	defer m.registerMu.Unlock()
-	delete(m.streamSourceByName, res.Name())
-	delete(m.activeResourceStreams, res.Name())
-	delete(m.resLoggers, res)
+	delete(m.localResources, resName.Name)
+	// A composite may register a stream per served API, all under the same simple name, so clear every
+	// entry for this resource's name.
+	for n := range m.streamSourceByName {
+		if n.Name == resName.Name {
+			delete(m.streamSourceByName, n)
+		}
+	}
+	for n := range m.activeResourceStreams {
+		if n.Name == resName.Name {
+			delete(m.activeResourceStreams, n)
+		}
+	}
 
 	// Clear the removed resource from any dependency chain it appears in as a dependent. We do NOT
-	// deliberately delete the name-keyed entry for `res` itself — if `res` is re-added later, the
+	// deliberately delete the name-keyed entry for the resource itself — if it is re-added later, the
 	// cascade step in addResource needs that entry to find stale dependents and rebuild them. (An
 	// entry that ends up empty after filtering is dropped here as routine cleanup.)
 	for depName, chainReconfigures := range m.internalDeps {
@@ -520,7 +560,17 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		}
 	}
 
-	return coll.Remove(resName)
+	// A composite instance lives in one collection per co-equal API; an ordinary resource only in its
+	// own. Remove it from every collection that serves it.
+	var errs error
+	for api, c := range m.collections {
+		name := resName.AsAPI(api)
+		if _, err := c.Resource(name.Name); err != nil {
+			continue // not served under this api
+		}
+		errs = multierr.Combine(errs, c.Remove(name))
+	}
+	return errs
 }
 
 // rebuildResource will rebuild resource and, if successful, return the new resource
@@ -540,30 +590,31 @@ func (m *Module) rebuildResource(
 	defer delete(visited, conf.ResourceName())
 
 	m.registerMu.Lock()
-	coll, ok := m.collections[conf.API]
-	if !ok {
+	if _, ok := m.collections[conf.API]; !ok {
 		m.registerMu.Unlock()
 		return nil, fmt.Errorf("no rpc service for %+v", conf)
 	}
-
-	res, err := coll.Resource(conf.ResourceName().Name)
-	if err != nil {
+	lr, ok := m.localResources[conf.ResourceName().Name]
+	if !ok {
 		m.registerMu.Unlock()
-		return nil, err
+		return nil, resource.NewNotFoundError(conf.ResourceName())
 	}
-
-	resLogger, hasLogger := m.resLoggers[res]
 	m.registerMu.Unlock()
-	if hasLogger && logLevel != nil {
-		resLogger.SetLevel(*logLevel)
+	if logLevel != nil {
+		lr.logger.SetLevel(*logLevel)
 	}
 
-	if err := res.Close(ctx); err != nil {
+	// Close the stored handle, which for a composite closes every distinct sub once, before rebuilding.
+	if err := lr.res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
 
 	m.registerMu.Lock()
-	delete(m.activeResourceStreams, res.Name())
+	for n := range m.activeResourceStreams {
+		if n.Name == conf.ResourceName().Name {
+			delete(m.activeResourceStreams, n)
+		}
+	}
 	m.registerMu.Unlock()
 
 	resInfo, ok := resource.LookupRegistration(conf.API, conf.Model)
@@ -579,21 +630,29 @@ func (m *Module) rebuildResource(
 		return nil, err
 	}
 
-	if err := coll.ReplaceOne(conf.ResourceName(), newRes); err != nil {
-		return nil, multierr.Combine(err, newRes.Close(ctx))
+	// Replace the instance in each served collection, holding registerMu through the map mutations below.
+	m.registerMu.Lock()
+	for _, api := range resource.APIsForConfig(*conf) {
+		// ReplaceOne should not fail for a same-model rebuild, so log it if it ever does. The old instance
+		// is already closed, so there is nothing to roll back to.
+		if err := m.collections[api].ReplaceOne(conf.ResourceName().AsAPI(api), resource.SubresourceForAPI(newRes, api)); err != nil {
+			m.logger.CErrorw(ctx, "unexpected error replacing rebuilt resource in its API collection",
+				"api", api, "resource", conf.ResourceName().Name, "err", err)
+		}
 	}
 
-	m.registerMu.Lock()
 	// We're modifying internal module maps now. We must not error out at this point without rolling
 	// back module state mutations.
-	delete(m.resLoggers, res)
-	m.resLoggers[newRes] = resLogger
+	m.localResources[conf.ResourceName().Name] = localResource{res: newRes, logger: lr.logger}
 
-	if p, ok := newRes.(rtppassthrough.Source); ok {
-		m.streamSourceByName[res.Name()] = p
+	// Re-register the stream source under the camera API, not the composite's canonical API.
+	for _, sub := range resource.DistinctSubs(conf.ResourceName(), newRes) {
+		if p, ok := sub.(rtppassthrough.Source); ok {
+			m.streamSourceByName[conf.ResourceName().AsAPI(camera.API)] = p
+		}
 	}
 
-	m.cascadeRebuildDependentsOf(ctx, res.Name(), visited)
+	m.cascadeRebuildDependentsOf(ctx, conf.ResourceName(), visited)
 	m.registerMu.Unlock()
 
 	return newRes, nil
