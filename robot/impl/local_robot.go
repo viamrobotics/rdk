@@ -365,8 +365,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	stopCtx := context.WithoutCancel(ctx)
 
 	// Stop all stoppable resources. A composite surfaces as N names (one per API); unwrap each to its sub
-	// and dedup on the sub, not the wrapper, so a shared impl stops once but separate per-API controllers
-	// each stop.
+	// and dedup on the sub, so a shared impl stops once but separate per-API controllers each stop.
 	resourceErrs := make(map[string]error)
 	stopped := make(map[resource.Resource]bool)
 	for _, name := range r.ResourceNames() {
