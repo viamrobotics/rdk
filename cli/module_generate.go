@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"go/format"
 	"io"
 	"io/fs"
 	"net/http"
@@ -1918,13 +1919,24 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 	if closingIdx == -1 {
 		return errors.New("cannot find closing ) of module.ModularMain in main.go")
 	}
-	newAPIModel := fmt.Sprintf(", resource.APIModel{%s.API, %s.%s}",
+	newAPIModel := fmt.Sprintf(", resource.APIModel{API: %s.API, Model: %s.%s}",
 		module.ResourceSubtypeAlias, module.ModuleLowercase, module.ModelPascal)
 	insertAt := mmIdx + len(mmFunc) + closingIdx
 	content = content[:insertAt] + newAPIModel + content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainGoPath, []byte(content), 0o644)
+	return os.WriteFile(mainGoPath, gofmtOrOriginal(content), 0o644)
+}
+
+// gofmtOrOriginal formats Go source so imports inserted at the end of the import block
+// land in sorted order and the generated module passes gofmt. Source that does not parse,
+// such as a hand-edited main.go, is returned unchanged rather than failing the command.
+func gofmtOrOriginal(src string) []byte {
+	formatted, err := format.Source([]byte(src))
+	if err != nil {
+		return []byte(src)
+	}
+	return formatted
 }
 
 // addPythonModelFiles generates a Python stub file for the new model in src/models/ and
@@ -1984,16 +1996,36 @@ func addPythonModelImport(mainPyPath, modelSnake, modelPascal string) error {
 		return err
 	}
 	content := string(data)
-	importLine := fmt.Sprintf("from models.%s import %s as %sModel\n", modelSnake, modelPascal, modelPascal)
+	// The import only registers the model, so it carries a noqa for ruff's unused-import rule.
+	importLine := fmt.Sprintf("from models.%s import %s as %sModel  # noqa: F401\n", modelSnake, modelPascal, modelPascal)
 
 	const mainGuard = "if __name__"
 	if idx := strings.Index(content, mainGuard); idx != -1 {
-		content = content[:idx] + importLine + "\n" + content[idx:]
+		// Keep the new import in the same block as the existing ones, followed by the
+		// single blank line ruff's import sorting expects before the main guard.
+		content = strings.TrimRight(content[:idx], "\n") + "\n" + importLine + "\n" + content[idx:]
 	} else {
 		content = strings.TrimRight(content, "\n") + "\n" + importLine + "\n"
 	}
 	//nolint:gosec
-	return os.WriteFile(mainPyPath, []byte(content), 0o644)
+	return os.WriteFile(mainPyPath, []byte(sortModelImports(content)), 0o644)
+}
+
+// sortModelImports sorts the first contiguous run of `from models.` imports in main.py, so a
+// newly added model lands where ruff's import sorting expects it.
+func sortModelImports(content string) string {
+	const modelImportPrefix = "from models."
+	lines := strings.Split(content, "\n")
+	start := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, modelImportPrefix) })
+	if start == -1 {
+		return content
+	}
+	end := start
+	for end < len(lines) && strings.HasPrefix(lines[end], modelImportPrefix) {
+		end++
+	}
+	slices.Sort(lines[start:end])
+	return strings.Join(lines, "\n")
 }
 
 // addCppModelFiles generates the per-model C++ source and header files in src/ and
@@ -2256,6 +2288,11 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 				fatalError = errors.Wrap(err, "failed to update cmd/module/main.go")
 				return
 			}
+			// A model of another subtype can import packages the module did not depend on yet.
+			if out, err := runGoWithRetry(".", "mod", "tidy"); err != nil {
+				fatalError = fmt.Errorf("failed to run go mod tidy: %w\n%s", err, out)
+				return
+			}
 		case python:
 			if err := addPythonModelFiles(*newModel); err != nil {
 				fatalError = errors.Wrap(err, "failed to generate Python model files")
@@ -2374,7 +2411,7 @@ func addGoWebappToMain(mainGoPath string, data appTemplateData) error {
 	content = content[:insertAt] + newAPIModel + content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainGoPath, []byte(content), 0o644)
+	return os.WriteFile(mainGoPath, gofmtOrOriginal(content), 0o644)
 }
 
 // addAppStaticFiles copies the static app files (auth.js, dist/index.html) into dir.

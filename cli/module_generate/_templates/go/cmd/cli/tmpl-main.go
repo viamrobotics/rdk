@@ -2,10 +2,20 @@ package main
 
 import (
 	"context"
-	"{{.ModuleLowercase}}"
+
+{{- if eq .ResourceType "component"}}
+
+	{{.ResourceSubtypeAlias}} "go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+{{- else}}
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	{{.ResourceSubtypeAlias}} "go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
+{{- end}}
+
+	"{{.ModuleLowercase}}"
 )
 
 func main() {
@@ -28,7 +38,11 @@ func realMain() error {
 	if err != nil {
 		return err
 	}
-	defer thing.Close(ctx)
+	defer func() {
+		if err := thing.Close(ctx); err != nil {
+			logger.Error(err)
+		}
+	}()
 
 	return nil
 }
