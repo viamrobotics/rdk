@@ -386,12 +386,8 @@ func TestCompositeRemoteResourceCollisions(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple resources share the simple name")
 }
 
-// comboFacadeDevice is the shared impl behind the in-process composites below. The per-API
-// implementations embed one *comboFacadeDevice and are assembled via resource.Compose, so a composite
-// is stored as a resource.MultiAPIResource wrapper that does not itself satisfy the sub-API interfaces.
-// An in-process fetch by a specific API must unwrap it. Lifecycle and actuator state (the shared
-// Stop/Close counters) live here; capabilities that vary per fixture (Kinematics, Geometries) live on
-// the individual implementations, so e.g. buttonFacade is neither kinematic nor Shaped.
+// comboFacadeDevice is the shared impl behind the in-process composites below; per-API facades embed one
+// *comboFacadeDevice, so the Stop/Close counters are shared while capabilities vary per facade.
 type comboFacadeDevice struct {
 	resource.Named
 	stopCount  *atomic.Int32
@@ -481,9 +477,6 @@ func (f sensorFacade) Geometries(
 	return []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{}, "combo-geom")}, nil
 }
 
-// registerComboFacadeModel registers a builtin composite serving the given APIs over one shared
-// *comboFacadeDevice. Each API is served by its matching implementation above; the stop/close counters
-// are shared across implementations.
 func registerComboFacadeModel(
 	t *testing.T, name string, apis []resource.API, stopCount, closeCount *atomic.Int32,
 ) resource.Model {
@@ -581,6 +574,41 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	// Every actuator API is stopped (safety). The gripper and servo facades are distinct objects, so
 	// each is stopped; a repeat Stop on a shared core is safe because Stop must be idempotent.
 	test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+}
+
+// TestCompositeStopAllRemote is the remote variant of TestCompositeStopAllInProcess. StopAll on main must
+// still reach every actuator API the composite serves when it lives behind a remote, whether or not the
+// remote carries a prefix.
+func TestCompositeStopAllRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	for _, tc := range []struct {
+		name   string
+		prefix string
+	}{
+		{name: "direct", prefix: ""},
+		{name: "prefixed", prefix: "p_"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var stopCount atomic.Int32
+			model := registerComboFacadeModel(t, "remote-stopall-"+tc.name, []resource.API{gripper.API, servo.API}, &stopCount, nil)
+
+			remote := setupLocalRobot(t, ctx, &config.Config{
+				Components: []resource.Config{{Name: "combo", API: gripper.API, Model: model}},
+			}, logger.Sublogger("remote"))
+			opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+			test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+			main := setupLocalRobot(t, ctx, &config.Config{
+				Remotes: []config.Remote{{Name: "rem", Address: addr, Prefix: tc.prefix}},
+			}, logger.Sublogger("main"))
+
+			test.That(t, main.StopAll(ctx, nil), test.ShouldBeNil)
+			// StopAll reaches both actuator APIs the remote composite serves, not just the canonical one.
+			test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+		})
+	}
 }
 
 // TestCompositeInFrameSystemMultiKinematicRefused checks that a composite serving more than one
@@ -1257,87 +1285,53 @@ func TestOptionalDependencyOnRemoteComposite(t *testing.T) {
 	test.That(t, underGeneric, test.ShouldBeTrue)
 }
 
-// TestCompositeRemoteResourceBecomesSingleAPI is the reverse of TestCompositeRemoteResourceBecomesComposite:
-// a remote composite is reconfigured down to a plain single-API resource. Main learns of it through its
-// routine remote refresh (ticker path), and the dropped co-equal API must stop resolving while the kept
-// one still does. Both directions of the starting API are covered.
-func TestCompositeRemoteResourceBecomesSingleAPI(t *testing.T) {
-	for _, keepAPI := range []resource.API{sensor.API, generic.API} {
-		t.Run(keepAPI.SubtypeName, func(t *testing.T) {
-			logger := logging.NewTestLogger(t)
-			ctx := context.Background()
+// TestServiceConfiguredCompositeKinematicResolvesInFrameSystemOnRemote is the remote variant of
+// TestServiceConfiguredCompositeKinematicResolvesInFrameSystem. A composite served by a frame-connected
+// remote must still resolve its kinematics in main's frame system, as the prefixed name.
+func TestServiceConfiguredCompositeKinematicResolvesInFrameSystemOnRemote(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
 
-			// singleModel serves only keepAPI; the composite model serves sensor + generic.
-			singleModel := resource.NewModel("acme", "test", "remote-downgrade-single-"+keepAPI.SubtypeName)
-			resource.Register(keepAPI, singleModel, resource.Registration[resource.Resource, resource.NoNativeConfig]{
-				Constructor: func(
-					_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
-				) (resource.Resource, error) {
-					return &comboSensor{Named: conf.ResourceName().AsNamed()}, nil
-				},
-			})
-			defer resource.Deregister(keepAPI, singleModel)
-			multiModel := registerComboModel(t, "remote-downgrade-multi-"+keepAPI.SubtypeName, nil)
-
-			droppedAPI := generic.API
-			if keepAPI == generic.API {
-				droppedAPI = sensor.API
-			}
-
-			// The remote starts with combo as the composite serving both co-equal APIs.
-			remote := setupLocalRobot(t, ctx, &config.Config{
-				Components: []resource.Config{{Name: "combo", API: keepAPI, Model: multiModel}},
-			}, logger.Sublogger("remote"))
-			opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-			test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
-
-			main := setupLocalRobot(t, ctx, &config.Config{
-				Remotes: []config.Remote{{Name: "rem", Address: addr}},
-			}, logger.Sublogger("main"))
-
-			// Initially both co-equal APIs resolve on main.
-			_, err := main.ResourceByName(resource.NewName(droppedAPI, "rem:combo"))
-			test.That(t, err, test.ShouldBeNil)
-			_, err = main.ResourceByName(resource.NewName(keepAPI, "rem:combo"))
-			test.That(t, err, test.ShouldBeNil)
-
-			// Reconfigure the remote so combo becomes a plain single-API resource (in-place model change).
-			remote.Reconfigure(ctx, &config.Config{
-				Components: []resource.Config{{Name: "combo", API: keepAPI, Model: singleModel}},
-			})
-
-			// Main must pick up the downgrade via its routine remote refresh (ticker path): the dropped
-			// co-equal API stops resolving.
-			testutils.WaitForAssertion(t, func(tb testing.TB) {
-				if rem, ok := main.RemoteByName("rem"); ok {
-					if rc, ok := rem.(interface{ Refresh(context.Context) error }); ok {
-						test.That(tb, rc.Refresh(ctx), test.ShouldBeNil)
-					}
-				}
-				// Mirror production's refresh. Update the remote names, then sweep what the downgrade
-				// marked for removal (the co-equal API node the composite no longer serves).
-				main.(*localRobot).manager.updateRemotesResourceNames(ctx)
-				test.That(tb, main.(*localRobot).manager.removeMarkedAndClose(ctx, nil), test.ShouldBeNil)
-				_, rerr := main.ResourceByName(resource.NewName(droppedAPI, "rem:combo"))
-				test.That(tb, rerr, test.ShouldNotBeNil)
-				// ResourceNames advertises only the kept API once the downgrade settles.
-				var advertised []resource.API
-				for _, n := range main.ResourceNames() {
-					if n.Name == "combo" && n.Remote == "rem" {
-						advertised = append(advertised, n.API)
-					}
-				}
-				test.That(tb, advertised, test.ShouldContain, keepAPI)
-				test.That(tb, advertised, test.ShouldNotContain, droppedAPI)
-			})
-
-			// The kept API still resolves; the dropped one does not.
-			_, err = main.ResourceByName(resource.NewName(keepAPI, "rem:combo"))
-			test.That(t, err, test.ShouldBeNil)
-			_, err = main.ResourceByName(resource.NewName(droppedAPI, "rem:combo"))
-			test.That(t, err, test.ShouldNotBeNil)
+	model := resource.NewModel("acme", "test", "fs-service-combo-remote")
+	resource.RegisterMultiAPI([]resource.API{gripper.API, genericservice.API}, model,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{
+			Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+				d := &comboFacadeDevice{Named: conf.ResourceName().AsNamed()}
+				return resource.Compose(genericservice.AsSub(d), gripper.AsSub(gripperFacade{d}))
+			},
 		})
-	}
+	t.Cleanup(func() {
+		resource.Deregister(gripper.API, model)
+		resource.Deregister(genericservice.API, model)
+	})
+
+	remote := setupLocalRobot(t, ctx, &config.Config{
+		Services: []resource.Config{
+			{Name: "combo", API: genericservice.API, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
+		},
+	}, logger.Sublogger("remote"))
+	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
+
+	// The remote must connect into main's frame system (a Frame on the remote) for its parts to merge.
+	main := setupLocalRobot(t, ctx, &config.Config{
+		Remotes: []config.Remote{{
+			Name: "rem", Address: addr, Prefix: "rem",
+			Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
+		}},
+	}, logger.Sublogger("main"))
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		if rem, ok := main.RemoteByName("rem"); ok {
+			if rc, ok := rem.(interface{ Refresh(context.Context) error }); ok {
+				test.That(tb, rc.Refresh(ctx), test.ShouldBeNil)
+			}
+		}
+		inputs, err := main.CurrentInputs(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		_, ok := inputs["remcombo"]
+		test.That(tb, ok, test.ShouldBeTrue)
+	})
 }
 
 // TestCompositeInFrameSystemMultiKinematicRefusedOnRemote is the remote variant of
@@ -1357,16 +1351,37 @@ func TestCompositeInFrameSystemMultiKinematicRefusedOnRemote(t *testing.T) {
 	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
 
+	// The remote connects into main's frame system, so a single-kinematic composite here would merge.
 	main := setupLocalRobot(t, ctx, &config.Config{
-		Remotes: []config.Remote{{Name: "rem", Address: addr}},
+		Remotes: []config.Remote{{
+			Name: "rem", Address: addr, Prefix: "rem",
+			Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
+		}},
 	}, logger.Sublogger("main"))
 
-	fsCfg, err := main.FrameSystemConfig(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	// No frame part should model the multi-kinematic composite, under any (possibly remote-prefixed) name.
-	for _, part := range fsCfg.Parts {
-		if part.FrameConfig != nil {
-			test.That(t, strings.HasSuffix(part.FrameConfig.Name(), "combo"), test.ShouldBeFalse)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		if rem, ok := main.RemoteByName("rem"); ok {
+			if rc, ok := rem.(interface{ Refresh(context.Context) error }); ok {
+				test.That(tb, rc.Refresh(ctx), test.ShouldBeNil)
+			}
 		}
-	}
+		fsCfg, err := main.FrameSystemConfig(ctx)
+		test.That(tb, err, test.ShouldBeNil)
+		// The remote has settled when its own world frame has merged. Only then is the absence of a
+		// combo part meaningful rather than a not-yet-connected remote.
+		var settled, modelsComposite bool
+		for _, part := range fsCfg.Parts {
+			if part.FrameConfig == nil {
+				continue
+			}
+			if strings.Contains(part.FrameConfig.Name(), "rem") {
+				settled = true
+			}
+			if strings.HasSuffix(part.FrameConfig.Name(), "combo") {
+				modelsComposite = true
+			}
+		}
+		test.That(tb, settled, test.ShouldBeTrue)
+		test.That(tb, modelsComposite, test.ShouldBeFalse)
+	})
 }

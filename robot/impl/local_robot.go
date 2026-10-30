@@ -1432,8 +1432,8 @@ func isKinematicSubtype(subtype string) bool {
 	return subtype == arm.SubtypeName || subtype == gantry.SubtypeName || subtype == gripper.SubtypeName
 }
 
-// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
-// excluding remote robots and services, etc from the robot's config.Config.
+// getLocalFrameSystemParts collects and returns the robot's physical parts that may carry frame info, from
+// components and services in config.Config, excluding remote robots.
 func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
