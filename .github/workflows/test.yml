@@ -249,10 +249,12 @@ jobs:
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 30
     env:
+      MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
       MISE_GO_SET_GOROOT: false
+      MISE_GO_SET_GOBIN: false
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.event.ref }}
           allow-unsafe-pr-checkout: true
@@ -274,7 +276,7 @@ jobs:
           echo "GITHUB_X_PR_BASE_REF=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
 
       - name: Chown
-        run: chown -R testbot:testbot .
+        run: chown -R `id -nu`:`id -ng` .
 
       - name: Set SKIP_ROBOT_IMPL if robot/impl deps are unchanged
         if: needs.check-changes.outputs.skip_robot_impl == 'true'
@@ -290,6 +292,8 @@ jobs:
 
       - name: Install toolchain
         uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+        with:
+          cache_key_prefix: "mise-v1-go-tests"
 
       - uses: actions/setup-go@v7
         with:
@@ -302,10 +306,14 @@ jobs:
           # tests, matching the viam-server shipped on linux amd64/arm64. See
           # GO_BUILD_TAGS_EXTRA in the Makefile and etc/test.sh.
           GO_BUILD_TAGS_EXTRA: viam_rdk_cgo_have_cxx20_rt
+          # setup-go sets this to `local`, which disables automatic downloading
+          # of newer go versions and causes cli tests that want to install
+          # goimports with `go install` to fail.
+          GOTOOLCHAIN: auto
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
-          sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE,GO_BUILD_TAGS_EXTRA -Hu testbot bash -lc 'make test-go'
+          apt-get update && apt-get install -y python3-venv
+          make test-go
 
       - name: Upload test.json
         if: always()
@@ -380,12 +388,20 @@ jobs:
     name: windows
     needs: [check-changes]
     runs-on: windows-2025
+    env:
+      MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
+      MISE_GO_SET_GOROOT: false
+      MISE_GO_SET_GOBIN: false
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
         allow-unsafe-pr-checkout: true
-    - uses: actions/setup-go@v5
+    - name: Install toolchain
+      uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+      with:
+          cache_key_prefix: "mise-v1-go-tests"
+    - uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
 
@@ -410,6 +426,10 @@ jobs:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+        # setup-go sets this to `local`, which disables automatic downloading
+        # of newer go versions and causes cli tests that want to install
+        # goimports with `go install` to fail.
+        GOTOOLCHAIN: auto
       run: |
         # Start from the full package list and apply the same SKIP_* filters as
         # every other platform, so skip logic stays consistent as coverage grows.
@@ -456,9 +476,14 @@ jobs:
         GOTEST_EXIT=$?
         echo "go test -json exit=$GOTEST_EXIT, raw.json size=$(wc -c < raw.json) bytes"
 
+        # Only needed as part of the transition from go managed tools to mise managed tools
+        # TODO: remove once all tool management is moved to mise and CI has been passing
+        make tool-install
+        export PATH="$PATH:$(pwd)/bin/gotools/$(uname -s)-$(uname -m)"
+
         # gotestsum aborts on any JSON line over 64 KiB, and a zig libc++ build can emit a
         # multi-MB build-output event, so cap Output first. raw.json keeps the full text.
-        go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- \
+        gotestsum --raw-command --format standard-verbose --jsonfile json.log -- \
           jq -c 'if (.Output // "" | length) > 8192
             then .Output |= .[:8192] + "\n[output truncated; full text in raw.json]\n" else . end' raw.json
         GOTESTSUM_EXIT=$?
@@ -492,12 +517,20 @@ jobs:
     needs: [check-changes]
     runs-on: macos-latest-xlarge # latest silicon MacOS runner
     timeout-minutes: 30
+    env:
+      MISE_ENABLE_TOOLS: 'go,gotestsum,ffmpeg,buf,protoc-gen-go-grpc,go:github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway,go:golang.org/x/tools/cmd/stringer'
+      MISE_GO_SET_GOROOT: false
+      MISE_GO_SET_GOBIN: false
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
       with:
         ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
         allow-unsafe-pr-checkout: true
-    - uses: actions/setup-go@v5
+    - name: Install toolchain
+      uses: jdx/mise-action@3c2e0cf82a5b2e5249f0d3635a4d83d0ae861518
+      with:
+          cache_key_prefix: "mise-v1-go-tests"
+    - uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
     - name: Install dependencies
@@ -509,13 +542,14 @@ jobs:
         brew tap viamrobotics/brews
         brew install nlopt-static
         brew install x264
-        # While it's not a requirement to actually run the viam-server binary, ffmpeg is
-        # required for a couple unit tests in CI.
-        brew install ffmpeg
     - name: test
       env:
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+        # setup-go sets this to `local`, which disables automatic downloading
+        # of newer go versions and causes cli tests that want to install
+        # goimports with `go install` to fail.
+        GOTOOLCHAIN: auto
       run: |
         # Run all tests besides motionplan — already slow/costly on macOS runners.
         # armplanning is a subpackage of motionplan so it is excluded by the grep below.
@@ -529,9 +563,13 @@ jobs:
           echo "SKIP_MODULE set; excluding module, module/modmanager, and example module tests"
           TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
         fi
+        # Only needed as part of the transition from go managed tools to mise managed tools
+        # TODO: remove once all tool management is moved to mise and CI has been passing
+        make tool-install
+        export PATH="$PATH:$(pwd)/bin/gotools/$(uname -s)-$(uname -m)"
         # viam_rdk_cgo_have_cxx20_rt includes the trajex-backed arm-streaming
         # code and its tagged tests (prebuilt darwin_arm64 trajex archives).
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log -- -tags=viam_rdk_cgo_have_cxx20_rt $TEST_TARGET
+        gotestsum --format github-actions --jsonfile json.log -- -tags=viam_rdk_cgo_have_cxx20_rt $TEST_TARGET
 
     - name: Upload test.json
       if: always()
@@ -548,7 +586,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
           allow-unsafe-pr-checkout: true
@@ -561,21 +599,82 @@ jobs:
       - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
       - uses: docker/setup-buildx-action@v3
 
+      - name: Prepare cache dirs
+        run: |
+          mkdir -p "$HOME/arm32-cache/gomod"
+          mkdir -p "$HOME/arm32-cache/gobuild"
+          mkdir -p "$HOME/arm32-cache/mise-data"
+
+      - name: Restore go cache
+        id: gocache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/arm32-cache/gomod
+            ~/arm32-cache/gobuild
+          key: go-arm32-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            go-arm32-
+
+      - name: Restore mise cache
+        id: misecache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/arm32-cache/mise-data
+          key: mise-arm32-${{ hashFiles('**/mise.toml', '**/mise.*.toml') }}
+          restore-keys: |
+            mise-arm32-
+
       - name: Run go unit tests
         env:
           SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
           SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
           SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+          MISE_INSTALL_ARCH: 'armv7'
+          MISE_GO_SET_GOBIN: false
+          MISE_ENV: 'arm32'
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           docker run \
             --platform linux/arm/v7 \
             -v `pwd`:/rdk \
+            -v "$HOME/arm32-cache/gomod:/caches/gomod" \
+            -v "$HOME/arm32-cache/gobuild:/caches/gobuild" \
+            -v "$HOME/arm32-cache/mise-data:/caches/mise-data" \
+            -e GOMODCACHE=/caches/gomod \
+            -e GOCACHE=/caches/gobuild \
+            -e MISE_DATA_DIR=/caches/mise-data \
             -e SKIP_ROBOT_IMPL \
             -e SKIP_ARMPLANNING \
             -e SKIP_MODULE \
-            ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo --preserve-env=SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && make test-go-no-race'
+            -e MISE_ENABLE_TOOLS \
+            -e MISE_INSTALL_ARCH \
+            -e MISE_GO_SET_GOBIN \
+            -e MISE_ENV \
+            -e CI=1 \
+            -e MISE_YES=1 \
+            ghcr.io/viamrobotics/rdk-devenv:armhf \
+            bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && eval "$($HOME/.local/bin/mise activate bash)" && env && make tool-install test-go-no-race'
+
+      - name: Fix cache ownership
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" ~/arm32-cache
+      - name: Save go cache
+        if: always() && steps.gocache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/arm32-cache/gomod
+            ~/arm32-cache/gobuild
+          key: ${{ steps.gocache.outputs.cache-primary-key }}
+      - name: Save mise cache
+        if: always() && steps.misecache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/arm32-cache/mise-data
+          key: ${{ steps.misecache.outputs.cache-primary-key }}
 
   motion_tests:
     needs: [check-changes]
