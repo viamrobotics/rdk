@@ -27,11 +27,38 @@ const (
 	datasetFlagPollInterval   = "poll-interval"
 	datasetFlagMaxWait        = "max-wait"
 	datasetFlagOnlyParquet    = "only-parquet"
+
+	datasetTypeBinary   = "binary"
+	datasetTypeSequence = "sequence"
 )
+
+// parseDatasetType maps a --type flag value to its proto enum.
+func parseDatasetType(datasetType string) (datasetpb.DatasetType, error) {
+	switch datasetType {
+	case datasetTypeBinary:
+		return datasetpb.DatasetType_DATASET_TYPE_BINARY_DATA, nil
+	case datasetTypeSequence:
+		return datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA, nil
+	default:
+		return 0, errors.Errorf("invalid dataset type %q (expected %q or %q)", datasetType, datasetTypeBinary, datasetTypeSequence)
+	}
+}
+
+func formatDatasetType(datasetType datasetpb.DatasetType) string {
+	switch datasetType {
+	case datasetpb.DatasetType_DATASET_TYPE_BINARY_DATA:
+		return datasetTypeBinary
+	case datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA:
+		return datasetTypeSequence
+	default:
+		return datasetType.String()
+	}
+}
 
 type datasetCreateArgs struct {
 	OrgID string
 	Name  string
+	Type  string
 }
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
@@ -39,24 +66,32 @@ func DatasetCreateAction(ctx context.Context, cmd *cli.Command, args datasetCrea
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a dataset")
 	}
+	datasetType := datasetTypeBinary
+	if args.Type != "" {
+		datasetType = args.Type
+	}
+	dsType, err := parseDatasetType(datasetType)
+	if err != nil {
+		return err
+	}
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	if err := client.createDataset(args.OrgID, args.Name); err != nil {
+	if err := client.createDataset(args.OrgID, args.Name, dsType); err != nil {
 		return err
 	}
 	return nil
 }
 
 // createDataset creates a dataset with the a dataset ID.
-func (c *viamClient) createDataset(orgID, datasetName string) error {
+func (c *viamClient) createDataset(orgID, datasetName string, datasetType datasetpb.DatasetType) error {
 	resp, err := c.datasetClient.CreateDataset(context.Background(),
-		&datasetpb.CreateDatasetRequest{OrganizationId: orgID, Name: datasetName})
+		&datasetpb.CreateDatasetRequest{OrganizationId: orgID, Name: datasetName, Type: &datasetType})
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.Root().Writer, "Created dataset %s with dataset ID: %s", datasetName, resp.GetId())
+	printf(c.c.Root().Writer, "Created %s dataset %s with dataset ID: %s", formatDatasetType(datasetType), datasetName, resp.GetId())
 	return nil
 }
 
@@ -158,7 +193,7 @@ func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
 		return errors.Wrapf(err, "received error from server")
 	}
 	for _, dataset := range resp.GetDatasets() {
-		printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
+		c.printDataset(dataset)
 	}
 	return nil
 }
@@ -171,9 +206,14 @@ func (c *viamClient) listDatasetByOrg(orgID string) error {
 		return errors.Wrapf(err, "received error from server")
 	}
 	for _, dataset := range resp.GetDatasets() {
-		printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
+		c.printDataset(dataset)
 	}
 	return nil
+}
+
+func (c *viamClient) printDataset(dataset *datasetpb.Dataset) {
+	printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s, Type: %s)",
+		dataset.GetName(), dataset.GetId(), dataset.GetOrganizationId(), formatDatasetType(dataset.GetType()))
 }
 
 type datasetDeleteArgs struct {
