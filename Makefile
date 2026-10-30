@@ -9,7 +9,7 @@ TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
 BUILD_CHANNEL ?= local
 # Include mise and its shims in path.
-export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:`pwd`/$(TOOL_BIN):$(PATH)
 
 PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):${PATH}"
 
