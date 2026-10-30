@@ -2963,3 +2963,39 @@ func TestSignalReconnectCheckCoalesces(t *testing.T) {
 	rc.signalReconnectCheck()
 	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 0)
 }
+
+// TestClientResourceBySimpleNameComposite checks that the client's api-less getter resolves a composite,
+// advertised once per co-equal API, to the one multi-API handle serving every API.
+func TestClientResourceBySimpleNameComposite(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	// A composite "combo" surfaces once per co-equal API, exactly as ResourceNames advertises it.
+	injectRobot.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{gripper.Named("combo"), servo.Named("combo")}
+	}
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning}, nil
+	}
+	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
+		return &framesystem.Config{}, nil
+	}
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	rc, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, rc.Close(context.Background()), test.ShouldBeNil) }()
+
+	one, err := rc.ResourceBySimpleName("combo")
+	test.That(t, err, test.ShouldBeNil)
+	apis := resource.APIsOf(one)
+	test.That(t, apis, test.ShouldContain, gripper.API)
+	test.That(t, apis, test.ShouldContain, servo.API)
+}
