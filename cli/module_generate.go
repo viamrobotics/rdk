@@ -78,7 +78,6 @@ type generateModuleArgs struct {
 	DryRun          bool
 	AppName         string
 	AppType         string
-	Format          string
 }
 
 type addModelArgs struct {
@@ -482,15 +481,6 @@ func promptAddAppInputs(app *appInputs) error {
 }
 
 func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
-	if args.Format != "" && args.Format != "json" {
-		return errors.Errorf("unsupported --format %q (want json)", args.Format)
-	}
-	if args.Format == "json" && cmd != nil && cmd.Root() != nil {
-		root := cmd.Root()
-		previous := root.Writer
-		root.Writer = root.ErrWriter
-		defer func() { root.Writer = previous }()
-	}
 	var newModule *modulegen.ModuleInputs
 	var err error
 
@@ -619,16 +609,6 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 
 	if nonFatalError {
 		return fmt.Errorf("some steps of module generation failed, incomplete module located at %s", newModule.ModuleName)
-	}
-	if args.Format == "json" {
-		payload, jsonErr := moduleDirectoryJSON(newModule.ModuleName)
-		if jsonErr != nil {
-			return jsonErr
-		}
-		if _, jsonErr = os.Stdout.Write(append(payload, '\n')); jsonErr != nil {
-			return jsonErr
-		}
-		return nil
 	}
 	cwd, err := os.Getwd()
 	if err != nil {

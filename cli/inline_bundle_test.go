@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,20 +160,6 @@ func TestPlainGoRenderHasNoSlotMarkers(t *testing.T) {
 	test.That(t, source, test.ShouldContainSubstring, "resource.Resource")
 	test.That(t, source, test.ShouldContainSubstring, "func init()")
 	test.That(t, source, test.ShouldContainSubstring, "errUnimplemented")
-}
-
-func TestModuleDirectoryJSON(t *testing.T) {
-	dir := t.TempDir()
-	test.That(t, os.MkdirAll(filepath.Join(dir, "cmd"), 0o750), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example\n"), 0o644), test.ShouldBeNil)
-	test.That(t, os.WriteFile(filepath.Join(dir, "cmd", "main.go"), []byte("package main\n"), 0o644), test.ShouldBeNil)
-
-	payload, err := moduleDirectoryJSON(dir)
-	test.That(t, err, test.ShouldBeNil)
-	var files map[string]string
-	test.That(t, json.Unmarshal(payload, &files), test.ShouldBeNil)
-	test.That(t, files["go.mod"], test.ShouldContainSubstring, "module example")
-	test.That(t, files["cmd/main.go"], test.ShouldContainSubstring, "package main")
 }
 
 func TestPythonSDKRequirementPinsTheVersion(t *testing.T) {

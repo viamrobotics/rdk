@@ -769,28 +769,3 @@ func truncate(value string, limit int) string {
 	}
 	return value[:limit]
 }
-
-// moduleDirectoryJSON is the --format json payload: every file in the generated module.
-func moduleDirectoryJSON(dir string) ([]byte, error) {
-	files := map[string]string{}
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil || d.IsDir() {
-			return walkErr
-		}
-		rel, relErr := filepath.Rel(dir, path)
-		if relErr != nil {
-			return relErr
-		}
-		//nolint:gosec
-		body, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
-		}
-		files[filepath.ToSlash(rel)] = string(body)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return json.MarshalIndent(files, "", "  ")
-}
