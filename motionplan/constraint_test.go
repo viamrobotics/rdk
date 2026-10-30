@@ -976,3 +976,22 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 		_, _ = handler.CheckStateFSConstraints(context.Background(), stateFS)
 	}
 }
+
+func TestLinearConstraintsAcceptInPlaceReorientation(t *testing.T) {
+	// An in-place 10° twist about the tool axis; the midpoint is 5° from both endpoints.
+	twist := func(deg float64) spatial.Pose {
+		return spatial.NewPoseFromOrientation(&spatial.R4AA{Theta: utils.DegToRad(deg), RZ: 1})
+	}
+	from, to := twist(0), twist(10)
+	onArc := twist(5)
+	offArc := spatial.Compose(onArc, spatial.NewPoseFromOrientation(&spatial.R4AA{Theta: utils.DegToRad(3), RX: 1}))
+
+	lin := LinearConstraint{LineToleranceMm: 1, OrientationToleranceDegs: 1}
+	test.That(t, checkLinearConstraint("f", lin, from, to, onArc), test.ShouldBeNil)
+	test.That(t, checkLinearConstraint("f", lin, from, to, offArc), test.ShouldNotBeNil)
+
+	// Factor 0.2 of a 10° reorientation is a 2° tolerance.
+	plin := PseudolinearConstraint{LineToleranceFactor: 1, OrientationToleranceFactor: 0.2}
+	test.That(t, checkPseudoLinearConstraint("f", plin, from, to, onArc), test.ShouldBeNil)
+	test.That(t, checkPseudoLinearConstraint("f", plin, from, to, offArc), test.ShouldNotBeNil)
+}
