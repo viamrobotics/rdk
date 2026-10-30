@@ -1,0 +1,2 @@
+{"name": "m", "links": [{"id": "base", "parent": "world"}],
+ "joints": [{"id": "j", "parent": "base", "type": "JOINT_TYPE_REVOLUTE", "axis": {"z": 1}, "limits": {"max": "Infinity"}}]}

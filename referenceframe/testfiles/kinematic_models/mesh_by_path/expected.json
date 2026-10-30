@@ -1,0 +1,63 @@
+{
+  "name": "mesh_by_path",
+  "links": [
+    {
+      "id": "base",
+      "parent": "world",
+      "collision": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "ply",
+            "mesh": "cGx5CmZvcm1hdCBhc2NpaSAxLjAKZWxlbWVudCB2ZXJ0ZXggMwpwcm9wZXJ0eSBmbG9hdCB4CnByb3BlcnR5IGZsb2F0IHkKcHJvcGVydHkgZmxvYXQgegplbGVtZW50IGZhY2UgMQpwcm9wZXJ0eSBsaXN0IHVjaGFyIGludCB2ZXJ0ZXhfaW5kaWNlcwplbmRfaGVhZGVyCjAgMCAwCjEgMCAwCjAgMSAwCjMgMCAxIDIK",
+            "original_file_source_path_diagnostic": "meshes/part.ply"
+          },
+          "label": "part"
+        }
+      ],
+      "visual": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "glb",
+            "mesh": "Z2xURiB2aXN1YWwgYnl0ZXM=",
+            "original_file_source_path_diagnostic": "meshes/shell.glb"
+          },
+          "label": "shell"
+        }
+      ]
+    },
+    {
+      "id": "tip",
+      "parent": "base",
+      "collision": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "ply",
+            "mesh": "cGx5CmZvcm1hdCBhc2NpaSAxLjAKZWxlbWVudCB2ZXJ0ZXggMwpwcm9wZXJ0eSBmbG9hdCB4CnByb3BlcnR5IGZsb2F0IHkKcHJvcGVydHkgZmxvYXQgegplbGVtZW50IGZhY2UgMQpwcm9wZXJ0eSBsaXN0IHVjaGFyIGludCB2ZXJ0ZXhfaW5kaWNlcwplbmRfaGVhZGVyCjAgMCAwCjEgMCAwCjAgMSAwCjMgMCAxIDIK",
+            "original_file_source_path_diagnostic": "meshes/part.ply"
+          },
+          "label": "part_again"
+        },
+        {
+          "center": {
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "ply",
+            "mesh": "cGx5CmZvcm1hdCBhc2NpaSAxLjAKZWxlbWVudCB2ZXJ0ZXggMwpwcm9wZXJ0eSBmbG9hdCB4CnByb3BlcnR5IGZsb2F0IHkKcHJvcGVydHkgZmxvYXQgegplbGVtZW50IGZhY2UgMQpwcm9wZXJ0eSBsaXN0IHVjaGFyIGludCB2ZXJ0ZXhfaW5kaWNlcwplbmRfaGVhZGVyCjAgMCAwCjEgMCAwCjAgMSAwCjMgMCAxIDIK",
+            "original_file_source_path_diagnostic": "meshes/../meshes/part.ply"
+          },
+          "label": "up_and_down"
+        }
+      ]
+    }
+  ]
+}
