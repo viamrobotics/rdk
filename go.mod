@@ -386,4 +386,3 @@ require (
 )
 
 replace go.viam.com/api => github.com/viamrobotics/api v0.1.604-0.20261031050404-ae67830a00c9 // gmulitz-sim-model-mapping
-
