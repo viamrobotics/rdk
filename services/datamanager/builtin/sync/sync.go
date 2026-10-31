@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -61,14 +60,18 @@ type uploadStats struct {
 	binary    dataTypeUploadStats
 	tabular   dataTypeUploadStats
 	arbitrary dataTypeUploadStats
+	frompath  dataTypeUploadStats
+	sequence  dataTypeUploadStats
 }
 
 // dataTypeUploadStats tracks cumulative upload statistics for a given data type.
 type dataTypeUploadStats struct {
 	completedUploadBytes  atomic.Uint64 // bytes successfully uploaded (after entire file completes)
 	uploadedFileCount     atomic.Uint64
-	uploadingBytes        atomic.Uint64 // bytes currently being uploaded (incremental during upload)
-	uploadFailedFileCount atomic.Uint64
+	uploadingBytes        atomic.Uint64 // bytes sent over the wire, incremental during upload (counts retried re-sends)
+	uploadFailedFileCount atomic.Uint64 // files that terminally failed after retries were exhausted
+	uploadAttempts        atomic.Uint64 // individual upload attempts, including retries
+	uploadAttemptFailures atomic.Uint64 // upload attempts that returned an error (transient or terminal)
 }
 
 // FTDCStats represents upload and sync metric values for a given moment. Returned by Sync.GetStats().
@@ -92,19 +95,39 @@ type FTDCUploadStats struct {
 	// Upload metrics - arbitrary files.
 	ArbitraryUploadedFileCount     uint64
 	ArbitraryCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
-	ArbitraryUploadingBytes        uint64 // bytes currently being uploaded (in progress)
+	ArbitraryUploadingBytes        uint64 // cumulative bytes sent over the wire, incl. retried re-sends; never decremented
 	ArbitraryUploadFailedFileCount uint64
+	ArbitraryUploadAttempts        uint64 // upload attempts, including retries
+	ArbitraryUploadAttemptFailures uint64 // upload attempts that returned an error
 
 	// Upload metrics - binary sensor data.
 	BinarySensorUploadedFileCount     uint64
 	BinarySensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
-	BinarySensorUploadingBytes        uint64 // bytes currently being uploaded (in progress)
+	BinarySensorUploadingBytes        uint64 // cumulative bytes sent over the wire, incl. retried re-sends; never decremented
 	BinarySensorUploadFailedFileCount uint64
+	BinarySensorUploadAttempts        uint64 // upload attempts, including retries
+	BinarySensorUploadAttemptFailures uint64 // upload attempts that returned an error
 
 	// Upload metrics - tabular sensor data.
 	TabularSensorUploadedFileCount     uint64
 	TabularSensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
 	TabularSensorUploadFailedFileCount uint64
+	TabularSensorUploadAttempts        uint64 // upload attempts, including retries
+	TabularSensorUploadAttemptFailures uint64 // upload attempts that returned an error
+
+	// Upload metrics - on demand with UploadDataFromPath
+	FromPathUploadedFileCount     uint64
+	FromPathCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	FromPathUploadingBytes        uint64 // cumulative bytes sent over the wire, incl. retried re-sends; never decremented
+	FromPathUploadFailedFileCount uint64
+	FromPathUploadAttempts        uint64 // upload attempts, including retries
+	FromPathUploadAttemptFailures uint64 // upload attempts that returned an error
+
+	// Upload metrics - sequence files (uploaded via unary CreateSequence, so no byte counters).
+	SequenceUploadedFileCount     uint64
+	SequenceUploadFailedFileCount uint64
+	SequenceUploadAttempts        uint64 // upload attempts, including retries
+	SequenceUploadAttemptFailures uint64 // upload attempts that returned an error
 }
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
@@ -174,7 +197,7 @@ func New(
 // it assumes that it is only called by one goroutine at a time.
 // Reconfigure:
 // 1. stops all workers which use the config
-// 2. sets the cloud.ConnectionService if it hans't been set yet (only needs to be set once)
+// 2. sets the cloud.ConnectionService if it hasn't been set yet (only needs to be set once)
 // and starts the cloud connection manager if it hasn't been started yet so it can make a cloud connection
 // 3. starts up the appropriate workers which use the new config.
 func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.ConnectionService) {
@@ -268,17 +291,37 @@ func (s *Sync) GetStats() FTDCStats {
 			ArbitraryUploadedFileCount:     s.uploadStats.arbitrary.uploadedFileCount.Load(),
 			ArbitraryUploadingBytes:        s.uploadStats.arbitrary.uploadingBytes.Load(),
 			ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
+			ArbitraryUploadAttempts:        s.uploadStats.arbitrary.uploadAttempts.Load(),
+			ArbitraryUploadAttemptFailures: s.uploadStats.arbitrary.uploadAttemptFailures.Load(),
 
 			// Upload metrics - binary sensor data.
 			BinarySensorCompletedUploadBytes:  s.uploadStats.binary.completedUploadBytes.Load(),
 			BinarySensorUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
 			BinarySensorUploadingBytes:        s.uploadStats.binary.uploadingBytes.Load(),
 			BinarySensorUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
+			BinarySensorUploadAttempts:        s.uploadStats.binary.uploadAttempts.Load(),
+			BinarySensorUploadAttemptFailures: s.uploadStats.binary.uploadAttemptFailures.Load(),
 
 			// Upload metrics - tabular sensor data.
 			TabularSensorCompletedUploadBytes:  s.uploadStats.tabular.completedUploadBytes.Load(),
 			TabularSensorUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
 			TabularSensorUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
+			TabularSensorUploadAttempts:        s.uploadStats.tabular.uploadAttempts.Load(),
+			TabularSensorUploadAttemptFailures: s.uploadStats.tabular.uploadAttemptFailures.Load(),
+
+			// Upload metrics - on demand from UploadDataFromPath
+			FromPathCompletedUploadBytes:  s.uploadStats.frompath.completedUploadBytes.Load(),
+			FromPathUploadedFileCount:     s.uploadStats.frompath.uploadedFileCount.Load(),
+			FromPathUploadingBytes:        s.uploadStats.frompath.uploadingBytes.Load(),
+			FromPathUploadFailedFileCount: s.uploadStats.frompath.uploadFailedFileCount.Load(),
+			FromPathUploadAttempts:        s.uploadStats.frompath.uploadAttempts.Load(),
+			FromPathUploadAttemptFailures: s.uploadStats.frompath.uploadAttemptFailures.Load(),
+
+			// Upload metrics - sequence files.
+			SequenceUploadedFileCount:     s.uploadStats.sequence.uploadedFileCount.Load(),
+			SequenceUploadFailedFileCount: s.uploadStats.sequence.uploadFailedFileCount.Load(),
+			SequenceUploadAttempts:        s.uploadStats.sequence.uploadAttempts.Load(),
+			SequenceUploadAttemptFailures: s.uploadStats.sequence.uploadAttemptFailures.Load(),
 		},
 	}
 }
@@ -371,7 +414,7 @@ func (s *Sync) runCloudConnManager(
 		}
 
 		// we have a working cloudConn,
-		// set the values & connunicate that it is ready
+		// set the values & communicate that it is ready
 		s.cloudConn.partID = partID
 		checker, ok := conn.(rgrpc.ConnectivityState)
 		if !ok {
@@ -393,7 +436,7 @@ func (s *Sync) runCloudConnManager(
 		// now that we have a connection ...
 		break
 	}
-	// we wait until the connecivity manager is cancelled
+	// we wait until the connectivity manager is cancelled
 	<-ctx.Done()
 }
 
@@ -439,6 +482,19 @@ func (s *Sync) runWorker(config Config) {
 	}
 }
 
+// logUploadOutcome logs the result of a single file upload at a level that is consistent
+// across every upload path: nothing on success, Info on cancellation (the file is left in
+// place for a later retry), and Error for any terminal failure.
+func logUploadOutcome(logger logging.Logger, path string, err error) {
+	switch {
+	case err == nil:
+	case errors.Is(err, context.Canceled):
+		logger.Infow("context cancelled while uploading file", "path", path)
+	default:
+		logger.Errorw("failed to upload file", "path", path, "error", err)
+	}
+}
+
 func (s *Sync) syncFile(config Config, filePath string) {
 	// don't sync in progress files
 	if filepath.Ext(filePath) == data.InProgressCaptureFileExt {
@@ -475,50 +531,52 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		return
 	}
 
+	var syncErr error
 	if data.IsDataCaptureFile(f) {
-		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
+		syncErr = s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		if err = s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger); err != nil {
-			if errors.Is(err, context.Canceled) {
-				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filePath)
-			} else {
-				s.logger.Errorw("failed to sync arbitrary file", "filename", filePath, "err", err)
-			}
-		}
+		syncErr = s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
+	logUploadOutcome(s.logger, filePath, syncErr)
 }
 
-func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) {
+func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) error {
 	captureFile, err := data.ReadCaptureFile(f)
 	// if you can't read the capture file's metadata field, close & move it to the failed directory
 	if err != nil {
 		cause := errors.Wrap(err, "ReadCaptureFile failed")
 
-		if err := f.Close(); err != nil {
-			logger.Error(errors.Wrapf(err, "failed to close file %s", f.Name()).Error())
+		if closeErr := f.Close(); closeErr != nil {
+			logger.Error(errors.Wrapf(closeErr, "failed to close data capture file %s", f.Name()).Error())
 		}
 
-		if err := moveFailedData(f.Name(), captureDir, cause, logger); err != nil {
-			s.logger.Error(err)
+		if moveErr := moveFailedData(f.Name(), captureDir, logger); moveErr != nil {
+			logger.Error(moveErr)
 		}
+		// The metadata could not be read, so the binary/tabular type is unknown; attribute
+		// the failure to tabular rather than adding an unknown-type bucket.
 		s.uploadStats.tabular.uploadFailedFileCount.Add(1)
-		return
+		return cause
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
 
-	// Include counter for binary sensor data because larger binary data files are uploaded via our streaming API, so updating
-	// a counter during the upload provides a more granular rate metric.
-	var uploadingBytesCounter *atomic.Uint64
+	stats := &s.uploadStats.tabular
 	if isBinary {
-		uploadingBytesCounter = &s.uploadStats.binary.uploadingBytes
+		stats = &s.uploadStats.binary
 	}
+
+	progress := newUploadProgressLogger(logger, s.clock, f.Name(), captureFile.Size(), stats)
+	defer progress.close()
+	s.fileTracker.setProgress(f.Name(), progress)
 
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
+		progress.startAttempt()
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), utils.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
-		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
+		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, progress)
 		if err != nil {
+			progress.attemptFailed()
 			return 0, errors.Wrap(err, errMetadata)
 		}
 		logger.Debugf("Background sync uploaded data capture file with %d bytes", bytesUploaded)
@@ -526,65 +584,62 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	})
 
 	bytesUploaded, err := retry.run()
+	progress.onResult(bytesUploaded, err)
 	if err != nil {
 		// if unable to upload the capture file
 		if closeErr := captureFile.Close(); closeErr != nil {
-			logger.Error(errors.Wrap(closeErr, "error closing data capture file").Error())
+			logger.Error(errors.Wrapf(closeErr, "failed to close data capture file %s", f.Name()).Error())
 		}
 
-		// if we stopped due to a cancelled context,
-		// return without deleting the file or moving it to the failed directory
-		if errors.Is(err, context.Canceled) {
-			return
+		// A cancellation leaves the file in place for a later retry; only a terminal error
+		// moves it to the failed directory. The caller logs the returned error.
+		if !errors.Is(err, context.Canceled) {
+			if moveErr := moveFailedData(captureFile.GetPath(), captureDir, logger); moveErr != nil {
+				logger.Error(moveErr)
+			}
 		}
-
-		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if err := moveFailedData(captureFile.GetPath(), captureDir, err, logger); err != nil {
-			logger.Error(err)
-		}
-		if isBinary {
-			s.uploadStats.binary.uploadFailedFileCount.Add(1)
-		} else {
-			s.uploadStats.tabular.uploadFailedFileCount.Add(1)
-		}
-		return
+		return err
 	}
 
 	// file was successfully uploaded, delete it and log an error if unable to delete
-	if err := captureFile.Delete(); err != nil {
+	if err = captureFile.Delete(); err != nil {
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
-	}
-
-	logger.Debugf("Background sync deleted capture file after successful upload %s", f.Name())
-	if isBinary {
-		s.uploadStats.binary.uploadedFileCount.Add(1)
-		s.uploadStats.binary.completedUploadBytes.Add(bytesUploaded)
 	} else {
-		s.uploadStats.tabular.uploadedFileCount.Add(1)
-		s.uploadStats.tabular.completedUploadBytes.Add(bytesUploaded)
+		logger.Debugf("Background sync deleted capture file after successful upload %s", f.Name())
 	}
+	return nil
 }
 
 func (s *Sync) syncArbitraryFile(
 	ctx context.Context, f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int,
 	logger logging.Logger,
 ) error {
+	var size int64
+	if info, err := f.Stat(); err == nil {
+		size = info.Size()
+	}
+	progress := newUploadProgressLogger(logger, s.clock, f.Name(), size, &s.uploadStats.arbitrary)
+	defer progress.close()
+	s.fileTracker.setProgress(f.Name(), progress)
+
 	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
+		progress.startAttempt()
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
 		bytesUploaded, _, err := uploadArbitraryFile(
-			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
+			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, progress,
 		)
 		if err != nil {
+			progress.attemptFailed()
 			return 0, errors.Wrap(err, errMetadata)
 		}
-		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
 
 	bytesUploaded, err := retry.run()
+	progress.onResult(bytesUploaded, err)
 	if err != nil {
 		if closeErr := f.Close(); closeErr != nil {
-			logger.Error(errors.Wrap(closeErr, "error closing arbitrary file").Error())
+			logger.Error(errors.Wrapf(closeErr, "failed to close arbitrary file %s", f.Name()).Error())
 		}
 
 		// if we stopped due to a cancelled context,
@@ -594,73 +649,56 @@ func (s *Sync) syncArbitraryFile(
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
-		if err := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); err != nil {
-			logger.Error(err.Error())
+		if moveErr := moveFailedData(f.Name(), filepath.Dir(f.Name()), logger); moveErr != nil {
+			logger.Error(moveErr.Error())
 		}
-		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
 		return err
 	}
 
-	if err := f.Close(); err != nil {
+	if err = f.Close(); err != nil {
 		logger.Error(errors.Wrap(err, "error closing arbitrary file").Error())
 	}
 
-	if err := os.Remove(f.Name()); err != nil {
+	if err = os.Remove(f.Name()); err != nil {
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
+	} else {
+		logger.Debugf("Deleted arbitrary file after successful upload %s", f.Name())
 	}
-
-	logger.Debugf("Deleted arbitrary file after successful upload %s", f.Name())
-	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
-	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
 	return nil
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
 func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
-	errChan := make(chan error, 1)
-	go func() {
-		defer close(errChan)
-		// Create a new directory CaptureDir/DatasetDir
-		newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
-		if err := os.MkdirAll(newDir, 0o700); err != nil {
-			errChan <- errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
-			return
-		}
-		filename := uuid.NewString()
-		fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
-		if fileExtensionFromMimeType != "" {
-			filename += fileExtensionFromMimeType
-		}
-		filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
-		err := os.WriteFile(filename, binaryData, 0o600)
-		if err != nil {
-			s.logger.Errorw("error writing file", "err", err)
-			errChan <- err
-			return
-		}
-		f, err := os.Open(filename)
-		if err != nil {
-			s.logger.Errorw("error reading file", "err", err)
-			errChan <- err
-			return
-		}
-		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
-		// before deciding this file is ready for upload and is not still being written to.
-		if err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); err != nil {
-			if errors.Is(err, context.Canceled) {
-				s.logger.Infow("context cancelled while syncing arbitrary file", "filename", filename)
-			} else {
-				s.logger.Errorw("failed to sync arbitrary file", "filename", filename, "err", err)
-			}
-		}
-	}()
-
-	return <-errChan
+	// Create a new directory CaptureDir/DatasetDir
+	newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
+	if err := os.MkdirAll(newDir, 0o700); err != nil {
+		return errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
+	}
+	filename := uuid.NewString()
+	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+	if fileExtensionFromMimeType != "" {
+		filename += fileExtensionFromMimeType
+	}
+	filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
+	if err := os.WriteFile(filename, binaryData, 0o600); err != nil {
+		s.logger.Errorw("error writing file", "err", err)
+		return err
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		s.logger.Errorw("error reading file", "err", err)
+		return err
+	}
+	// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
+	// before deciding this file is ready for upload and is not still being written to.
+	err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger)
+	logUploadOutcome(s.logger, filename, err)
+	return err
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
 // moves it to a new subdirectory "failed" that will not be synced.
-func moveFailedData(path, parentDir string, cause error, logger logging.Logger) error {
+func moveFailedData(path, parentDir string, logger logging.Logger) error {
 	// Remove the parentDir part of the path to the corrupted data
 	relativePath, err := filepath.Rel(parentDir, path)
 	if err != nil {
@@ -668,12 +706,12 @@ func moveFailedData(path, parentDir string, cause error, logger logging.Logger) 
 	}
 	// Create a new directory parentDir/corrupted/pathToFile
 	newDir := filepath.Join(parentDir, FailedDir, filepath.Dir(relativePath))
-	if err := os.MkdirAll(newDir, 0o700); err != nil {
+	if err = os.MkdirAll(newDir, 0o700); err != nil {
 		return errors.Wrapf(err, "failed to move file to failed directory: error making new failed directory: %s", newDir)
 	}
 	// Move the file from parentDir/pathToFile/file.ext to parentDir/corrupted/pathToFile/file.ext
 	newPath := filepath.Join(newDir, filepath.Base(path))
-	logger.Warnf("moving file that data manager failed to sync due to err: %v, from %s to %s", cause, path, newPath)
+	logger.Warnf("moving file that data manager failed to sync from %s to %s", path, newPath)
 	if err := os.Rename(path, newPath); err != nil {
 		return errors.Wrapf(err, "failed to move file to failed directory: error moving: %s to %s", path, newPath)
 	}
@@ -682,7 +720,7 @@ func moveFailedData(path, parentDir string, cause error, logger logging.Logger) 
 
 // END sync workers
 
-// BEGIN sync scheudler.
+// BEGIN sync scheduler.
 func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Config) {
 	defer tkr.Stop()
 	var readyLogged bool
@@ -901,4 +939,4 @@ func ReadyToSyncDirectories(ctx context.Context, config Config, logger logging.L
 	return readyToSyncBool
 }
 
-// END sync scheudler
+// END sync scheduler

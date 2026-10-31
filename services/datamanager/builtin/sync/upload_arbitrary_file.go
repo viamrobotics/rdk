@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -31,7 +30,7 @@ var (
 // They are frequently files written by 3rd party programs such as images, videos, logs, written to
 // the capture directory or a subdirectory or to additional sync paths (or their sub directories).
 // Note: the bytes size returned is the size of the input file. It only returns a non 0 value in the success case.
-// If bytesUploadingCounter is provided, it will be updated as each chunk is successfully uploaded.
+// progress is updated as each chunk is successfully uploaded.
 func uploadArbitraryFile(
 	ctx context.Context,
 	f *os.File,
@@ -40,7 +39,7 @@ func uploadArbitraryFile(
 	fileLastModifiedMillis int,
 	clock clock.Clock,
 	logger logging.Logger,
-	bytesUploadingCounter *atomic.Uint64,
+	progress *uploadProgressLogger,
 ) (uint64, string, error) {
 	logger.Debugf("attempting to sync arbitrary file: %s", f.Name())
 	path, err := filepath.Abs(f.Name())
@@ -126,10 +125,7 @@ func uploadArbitraryFile(
 		return 0, "", errors.Wrap(err, "FileUpload failed sending metadata")
 	}
 
-	// Log throttled progress of the upload at Info level.
-	progress := newUploadProgressLogger(logger, clock, path, info.Size())
-
-	if err := sendFileUploadRequests(ctx, stream, f, path, logger, bytesUploadingCounter, progress); err != nil {
+	if err := sendFileUploadRequests(ctx, stream, f, path, logger, progress); err != nil {
 		return 0, "", errors.Wrap(err, "FileUpload failed to sync")
 	}
 
@@ -138,7 +134,6 @@ func uploadArbitraryFile(
 	if err != nil {
 		return 0, "", errors.Wrap(err, "FileUpload  CloseAndRecv failed")
 	}
-	progress.complete()
 	return uint64(info.Size()), resp.GetBinaryDataId(), nil
 }
 
@@ -148,7 +143,6 @@ func sendFileUploadRequests(
 	f *os.File,
 	path string,
 	logger logging.Logger,
-	bytesUploadingCounter *atomic.Uint64,
 	progress *uploadProgressLogger,
 ) error {
 	// Loop until there is no more content to be read from file.
@@ -176,11 +170,7 @@ func sendFileUploadRequests(
 
 		// Update byte counter and progress logging after successful chunk upload.
 		if fileContents := uploadReq.GetFileContents(); fileContents != nil {
-			chunkSize := len(fileContents.Data)
-			if bytesUploadingCounter != nil {
-				bytesUploadingCounter.Add(uint64(chunkSize))
-			}
-			progress.addBytes(chunkSize)
+			progress.addBytes(len(fileContents.Data))
 		}
 
 		i++

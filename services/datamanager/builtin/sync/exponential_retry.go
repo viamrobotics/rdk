@@ -118,12 +118,6 @@ func (e exponentialRetry) run() (uint64, error) {
 				return 0, err
 			}
 
-			// If the context was cancelled
-			// return the error without logging to not spam
-			if errors.Is(err, context.Canceled) {
-				return 0, err
-			}
-
 			if e.ctx.Err() != nil {
 				return 0, e.ctx.Err()
 			}
