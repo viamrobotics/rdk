@@ -609,3 +609,22 @@ func TestParseMetaJSONWithBrandingFields(t *testing.T) {
 		})
 	}
 }
+
+func TestModuleComponentToProtoSimulation(t *testing.T) {
+	t.Parallel()
+	model := moduleComponentToProto(ModuleComponent{API: "rdk:component:arm", Model: "acme:demo:arm"})
+	test.That(t, model.GetSimulation(), test.ShouldBeNil)
+
+	model = moduleComponentToProto(ModuleComponent{
+		API:   "rdk:component:arm",
+		Model: "acme:demo:arm",
+		Simulation: &SimulationTarget{
+			Model:    "acme:sim:arm",
+			ModuleID: "acme:sim",
+			Version:  "^1.2",
+		},
+	})
+	test.That(t, model.GetSimulation().GetModel(), test.ShouldEqual, "acme:sim:arm")
+	test.That(t, model.GetSimulation().GetModuleId(), test.ShouldEqual, "acme:sim")
+	test.That(t, model.GetSimulation().GetVersion(), test.ShouldEqual, "^1.2")
+}

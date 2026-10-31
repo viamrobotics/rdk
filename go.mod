@@ -384,3 +384,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 )
+
+replace go.viam.com/api => github.com/viamrobotics/api v0.1.604-0.20261031050404-ae67830a00c9 // gmulitz-sim-model-mapping

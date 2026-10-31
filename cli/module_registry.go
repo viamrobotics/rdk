@@ -51,10 +51,19 @@ func (err unknownRdkAPITypeError) Error() string {
 
 // ModuleComponent represents an api - model pair.
 type ModuleComponent struct {
-	API          string  `json:"api"`
-	Model        string  `json:"model"`
-	Description  *string `json:"short_description,omitempty"`
-	MarkdownLink *string `json:"markdown_link,omitempty"`
+	API          string            `json:"api"`
+	Model        string            `json:"model"`
+	Description  *string           `json:"short_description,omitempty"`
+	MarkdownLink *string           `json:"markdown_link,omitempty"`
+	Simulation   *SimulationTarget `json:"simulation,omitempty"`
+}
+
+// SimulationTarget names the model, and the module and version providing it, used in place of a model
+// when a machine is simulated.
+type SimulationTarget struct {
+	Model    string `json:"model"`
+	ModuleID string `json:"module_id"`
+	Version  string `json:"version,omitempty"`
 }
 
 // moduleID represents a prefix:name pair where prefix can be either an org id or a namespace.
@@ -520,6 +529,14 @@ func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModels
 			// File exists, set the markdown link
 			newModels[i].MarkdownLink = &markdownFilename
 		}
+
+		// the binary cannot report simulation targets, so keep the manifest's
+		for _, existing := range manifest.Models {
+			if existing.API == newModels[i].API && existing.Model == newModels[i].Model {
+				newModels[i].Simulation = existing.Simulation
+				break
+			}
+		}
 	}
 
 	if sameModels(newModels, manifest.Models) {
@@ -782,6 +799,13 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 		Api:         moduleComponent.API,
 		Model:       moduleComponent.Model,
 		Description: moduleComponent.Description,
+	}
+	if sim := moduleComponent.Simulation; sim != nil {
+		model.Simulation = &apppb.SimulationTarget{
+			Model:    sim.Model,
+			ModuleId: sim.ModuleID,
+			Version:  sim.Version,
+		}
 	}
 
 	// If a markdown link is provided, read the content
@@ -1074,7 +1098,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	h := mgr.Handles()
 	for k, v := range h[cfg.Name] {
 		for _, m := range v {
-			res = append(res, ModuleComponent{k.API.String(), m.String(), nil, nil})
+			res = append(res, ModuleComponent{API: k.API.String(), Model: m.String()})
 		}
 	}
 
