@@ -132,6 +132,28 @@
         "markdown_link": {
           "type": "string",
           "description": "Link to the markdown section for this model."
+        },
+        "simulation": {
+          "type": "object",
+          "description": "The model to use in place of this one when the machine is simulated.",
+          "properties": {
+            "model": {
+              "type": "string",
+              "pattern": "^[^:]+:[^:]+:[^:]+$",
+              "description": "Colon-delimited triple of the simulated model."
+            },
+            "module_id": {
+              "type": "string",
+              "description": "The id of the module providing the simulated model, formatted as prefix:name.",
+              "examples": ["viam-labs:isaac-sim"]
+            },
+            "version": {
+              "type": "string",
+              "description": "The version of that module to use, in the same format as a module version in a machine config. Defaults to latest.",
+              "examples": ["1.2.3", "^1.2", "latest"]
+            }
+          },
+          "required": ["model", "module_id"]
         }
       },
       "required": ["api", "model"]
