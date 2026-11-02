@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"strings"
 	"time"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -14,15 +13,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
-
-const unimplemented = "unimplemented"
 
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
@@ -316,40 +315,8 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if err != nil {
 		return nil, err
 	}
-	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	geometries, err := framesystem.GeometriesWithFallback(ctx, res, req.Extra.AsMap())
 	if err != nil {
-		// if the error tells us the method is unimplemented, then we
-		// can use the kinematics and joint positions endpoints to
-		// construct the geometries of the arm
-		if strings.Contains(err.Error(), unimplemented) {
-			kinematicsPbResp, err := s.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: req.GetName()})
-			if err != nil {
-				return nil, err
-			}
-			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
-			if err != nil {
-				return nil, err
-			}
-
-			jointPbResp, err := s.GetJointPositions(ctx, &pb.GetJointPositionsRequest{Name: req.GetName()})
-			if err != nil {
-				return nil, err
-			}
-			jointPositionsPb := jointPbResp.GetPositions()
-
-			// Joint positions are in degrees but model.Geometries expects radians, so we convert them here.
-			jointPositionsRads, err := referenceframe.InputsFromJointPositions(model, jointPositionsPb)
-			if err != nil {
-				return nil, err
-			}
-			gifs, err := model.Geometries(jointPositionsRads)
-			if err != nil {
-				return nil, err
-			}
-			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
-				gifs.Geometries(),
-			)}, nil
-		}
 		return nil, err
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
@@ -362,8 +329,19 @@ func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DMode
 		return nil, err
 	}
 	models, err := arm.Get3DModels(ctx, req.Extra.AsMap())
-	if err != nil {
+	if err != nil && !rdkgrpc.IsUnimplementedError(err) {
 		return nil, err
+	}
+	if len(models) == 0 {
+		// an arm with no table of its own serves the visual meshes its model carries
+		if model, kerr := arm.Kinematics(ctx); kerr == nil {
+			if fromModel := referenceframe.VisualMeshes(model); len(fromModel) > 0 {
+				return &commonpb.Get3DModelsResponse{Models: fromModel}, nil
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &commonpb.Get3DModelsResponse{Models: models}, nil
 }
@@ -414,7 +392,7 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.KinematicModelToProtobuf(model), nil
+	return referenceframe.KinematicsResponse(model, req), nil
 }
 
 // DoCommand receives arbitrary commands.

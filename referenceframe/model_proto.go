@@ -259,7 +259,7 @@ func linkConfigFromProto(link *commonpb.KinematicLink) (*LinkConfig, error) {
 	}
 	configs := make([]spatial.GeometryConfig, 0, len(link.GetCollision()))
 	for i, g := range link.GetCollision() {
-		gc, err := geometryConfigFromProto(g)
+		gc, err := collisionGeometryConfigFromProto(g)
 		if err != nil {
 			return nil, errors.Wrapf(err, "collision geometry %d", i)
 		}
@@ -342,7 +342,7 @@ func jointConfigFromProto(joint *commonpb.KinematicJoint) (*JointConfig, error) 
 		}
 	}
 	if joint.GetGeometry() != nil {
-		gc, err := geometryConfigFromProto(joint.GetGeometry())
+		gc, err := collisionGeometryConfigFromProto(joint.GetGeometry())
 		if err != nil {
 			return nil, err
 		}
@@ -494,6 +494,23 @@ func geometryConfigToProto(gc *spatial.GeometryConfig) (*commonpb.Geometry, erro
 		return nil, fmt.Errorf("geometry type %q has no representation in common.v1.Geometry", gType)
 	}
 	return pb, nil
+}
+
+// errMeshWithoutBytes marks a collision mesh that arrived with its path and no bytes, which a
+// server sends when the request did not ask for them.
+var errMeshWithoutBytes = errors.New("collision mesh has no bytes")
+
+// collisionGeometryConfigFromProto reads a geometry the frame system will parse, so a mesh has
+// to carry its bytes.
+func collisionGeometryConfigFromProto(pb *commonpb.Geometry) (*spatial.GeometryConfig, error) {
+	if mesh := pb.GetMesh(); mesh != nil && len(mesh.GetMesh()) == 0 {
+		name := mesh.GetOriginalFileSourcePathDiagnostic()
+		if name == "" {
+			name = pb.GetLabel()
+		}
+		return nil, fmt.Errorf("%w: %q", errMeshWithoutBytes, name)
+	}
+	return geometryConfigFromProto(pb)
 }
 
 func geometryConfigFromProto(pb *commonpb.Geometry) (*spatial.GeometryConfig, error) {

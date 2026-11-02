@@ -25,17 +25,32 @@ type Model interface {
 	ModelConfig() *ModelConfigJSON
 }
 
-// KinematicModelFromProtobuf returns a model from a protobuf message representing it.
+// KinematicModelFromProtobuf returns a model from a protobuf message representing it. The typed
+// model is read when it has links or joints. A server that still fills the deprecated bytes but
+// sends a model with neither has not migrated yet, so the bytes are read instead, while an empty
+// model with no bytes beside it is what it says, a model with nothing in it.
 func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
 	if resp == nil {
 		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
 	}
-	// the typed model wins over the deprecated bytes whenever a server sent one
-	if resp.GetModel() != nil {
-		return ModelFromProto(resp.GetModel(), name)
-	}
 	format := resp.GetFormat()       //nolint:staticcheck // read from servers that predate the typed model
 	data := resp.GetKinematicsData() //nolint:staticcheck // read from servers that predate the typed model
+	model := resp.GetModel()
+	if len(model.GetLinks()) > 0 || len(model.GetJoints()) > 0 {
+		m, err := ModelFromProto(model, name)
+		if errors.Is(err, errMeshWithoutBytes) {
+			return nil, fmt.Errorf("%w, the request has to set include_collision_meshes", err)
+		}
+		return m, err
+	}
+	if model != nil && len(data) == 0 {
+		if name == "" {
+			name = model.GetName()
+		}
+		sm := NewSimpleModel(name)
+		sm.SetKinematicProperties(propertiesFromProto(model.GetProperties()))
+		return sm, nil
+	}
 
 	switch format {
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
@@ -68,7 +83,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 // the message, gets them written as an SVA file instead so a client that predates the model still
 // has something to parse. A model the message cannot describe, one holding a pose frame or
 // another model, or a geometry the message has no shape for, sends the file alone as before,
-// which for a model built in code is nothing.
+// which for a model built in code is nothing. Every mesh carries its bytes here. A server
+// answering GetKinematics goes through KinematicsResponse, which applies the request's mesh flags.
 //
 //nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
 func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {

@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -49,6 +50,50 @@ type InputEnabled interface {
 	ModelFramer
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
+}
+
+// ShapedInputEnabled is a resource that reports its geometries and has a model, which every arm,
+// gantry and gripper does.
+type ShapedInputEnabled interface {
+	InputEnabled
+	resource.Shaped
+}
+
+// GeometriesWithFallback asks a resource for its geometries and, when it says the method is not
+// implemented, poses the geometry of its model instead. The labels are the model's either way,
+// since a resource that implements Geometries labels them from its model too.
+func GeometriesWithFallback(ctx context.Context, res ShapedInputEnabled, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	geometries, err := res.Geometries(ctx, extra)
+	if err == nil {
+		return geometries, nil
+	}
+	if !rdkgrpc.IsUnimplementedError(err) {
+		return nil, err
+	}
+	return GeometriesFromKinematics(ctx, res)
+}
+
+// GeometriesFromKinematics poses a resource's collision geometry at its current inputs. A
+// component server uses it when the resource does not implement Geometries itself, since the
+// model and the inputs together say where everything is. A resource with no model has nothing
+// to pose.
+func GeometriesFromKinematics(ctx context.Context, res InputEnabled) ([]spatialmath.Geometry, error) {
+	model, err := res.Kinematics(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if model == nil {
+		return nil, nil
+	}
+	inputs, err := res.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gifs, err := model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gifs.Geometries(), nil
 }
 
 // Service is an interface that wraps a RobotFrameSystem in a Resource.

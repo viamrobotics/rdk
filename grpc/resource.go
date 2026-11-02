@@ -1,6 +1,8 @@
 package grpc
 
 import (
+	"strings"
+
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -11,6 +13,18 @@ import (
 
 // UnimplementedError is returned any time a gRPC method is unimplemented.
 var UnimplementedError = status.Error(codes.Unimplemented, codes.Unimplemented.String()) //nolint: errname
+
+// IsUnimplementedError reports whether err says a method is not implemented, whether as the
+// Unimplemented status an rpc returns or as the plain error a resource builds by hand.
+func IsUnimplementedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if status.Code(err) == codes.Unimplemented {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unimplemented")
+}
 
 // An ForeignResource is used to dynamically invoke RPC calls to resources that have their
 // RPC information dervied on demand.
