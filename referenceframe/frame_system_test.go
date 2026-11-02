@@ -180,13 +180,18 @@ func meshDataByLink(cfg *ModelConfigJSON) map[string][]byte {
 	return meshes
 }
 
+// checkKinematicsPreserved checks that what the wire carried came through whole, the mesh bytes
+// on every link and the typed model, which is what a reader on the other side builds from.
 func checkKinematicsPreserved(t *testing.T, want Model, got *FrameSystemPart) {
 	t.Helper()
 	test.That(t, got.ModelFrame, test.ShouldNotBeNil)
 	test.That(t, len(got.ModelFrame.DoF()), test.ShouldEqual, len(want.DoF()))
-	test.That(t, got.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, want.ModelConfig().OriginalFile)
 	test.That(t, meshDataByLink(got.ModelFrame.ModelConfig()), test.ShouldResemble, meshDataByLink(want.ModelConfig()))
-	test.That(t, proto2.Equal(KinematicModelToProtobuf(got.ModelFrame), KinematicModelToProtobuf(want)), test.ShouldBeTrue)
+	wantModel, err := ModelToProto(want)
+	test.That(t, err, test.ShouldBeNil)
+	gotModel, err := ModelToProto(got.ModelFrame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto2.Equal(gotModel, wantModel), test.ShouldBeTrue)
 }
 
 func TestFrameSystemPartKinematicsBytes(t *testing.T) {
@@ -234,6 +239,8 @@ func TestProtobufToFrameSystemPartAcceptsByteLists(t *testing.T) {
 			restored, err := ProtobufToFrameSystemPart(&robotpb.FrameSystemConfig{Frame: frame, Kinematics: legacy})
 			test.That(t, err, test.ShouldBeNil)
 			checkKinematicsPreserved(t, model, restored)
+			// the Struct carries the file the model was read from, and a reader of the Struct keeps it
+			test.That(t, restored.ModelFrame.ModelConfig().OriginalFile, test.ShouldResemble, model.ModelConfig().OriginalFile)
 		})
 	}
 }
@@ -884,4 +891,115 @@ func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
 	b, err := spatial.NewBox(spatial.NewZeroPose(), dims, label)
 	test.That(t, err, test.ShouldBeNil)
 	return b
+}
+
+// A part carries the typed model beside the Struct, a reader builds the part from the model whenever
+// it is there, and a message with the Struct left out, which is what a server past the deprecation
+// window sends, builds the same part.
+func TestFrameSystemPartCarriesTypedModel(t *testing.T) {
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	lc := &LinkConfig{ID: "arm", Parent: "world", Translation: r3.Vector{X: 1, Y: 2, Z: 3}}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	part := &FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+
+	pbMsg, err := part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(pbMsg.GetModel().GetJoints()), test.ShouldEqual, 6)
+	//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	test.That(t, len(pbMsg.GetKinematics().GetFields()), test.ShouldBeGreaterThan, 0)
+
+	// with both present the model is read, so a Struct describing another model is never seen
+	other, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	otherStruct, err := modelConfigToStructPb(other.ModelConfig())
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg.Kinematics = otherStruct //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	restored, err := ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored.ModelFrame.Name(), test.ShouldEqual, "arm")
+	assertSameKinematics(t, model, restored.ModelFrame)
+
+	// with the Struct gone the model alone carries the part
+	pbMsg.Kinematics = nil //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	wireBytes, err := proto2.Marshal(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	received := &robotpb.FrameSystemConfig{}
+	test.That(t, proto2.Unmarshal(wireBytes, received), test.ShouldBeNil)
+	restored, err = ProtobufToFrameSystemPart(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored.FrameConfig.Name(), test.ShouldEqual, "arm")
+	test.That(t, restored.FrameConfig.Pose().Point(), test.ShouldResemble, r3.Vector{X: 1, Y: 2, Z: 3})
+	assertSameKinematics(t, model, restored.ModelFrame)
+
+	// a frame system built from the typed config matches one built from the parts themselves
+	local, err := NewFrameSystem("local", []*FrameSystemPart{part}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	remote, err := NewFrameSystem("remote", []*FrameSystemPart{restored}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, remote.FrameNames(), test.ShouldResemble, local.FrameNames())
+	inputs := NewLinearInputs()
+	inputs.Put("arm", []Input{0.1, -0.2, 0.3, -0.4, 0.5, -0.6})
+	wantPose, err := local.Transform(inputs, NewPoseInFrame("arm", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	gotPose, err := remote.Transform(inputs, NewPoseInFrame("arm", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqualEps(wantPose.(*PoseInFrame).Pose(), gotPose.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
+}
+
+// A reader passes over a typed model it cannot parse, which a server newer than it may send, for
+// the Struct kept beside it, and reads the Struct when the model is present with nothing in it.
+func TestFrameSystemPartFallsBackToStruct(t *testing.T) {
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	lc := &LinkConfig{ID: "arm", Parent: "world"}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err := (&FrameSystemPart{FrameConfig: lif, ModelFrame: model}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+
+	pbMsg.Model.Joints[0].Type = commonpb.JointType_JOINT_TYPE_UNSPECIFIED
+	restored, err := ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, model, restored.ModelFrame)
+
+	// with nothing else describing the part, the model's own error comes back
+	withoutStruct, ok := proto2.Clone(pbMsg).(*robotpb.FrameSystemConfig)
+	test.That(t, ok, test.ShouldBeTrue)
+	withoutStruct.Kinematics = nil //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+	_, err = ProtobufToFrameSystemPart(withoutStruct)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported joint type")
+
+	pbMsg.Model = &commonpb.KinematicModel{Name: "arm"}
+	restored, err = ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	assertSameKinematics(t, model, restored.ModelFrame)
+}
+
+// A model built in code reaches the wire as a message too, and a model with no file form, one
+// holding a pose frame, still sends the Struct alone.
+func TestFrameSystemPartModelFromFramesAndPoseFrame(t *testing.T) {
+	lc := &LinkConfig{ID: "base", Parent: "world"}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	limit := Limit{Min: -1000, Max: 1000}
+	mobile, err := New2DMobileModelFrame("base", []Limit{limit, limit}, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err := (&FrameSystemPart{FrameConfig: lif, ModelFrame: mobile}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(pbMsg.GetModel().GetJoints()), test.ShouldEqual, 2)
+	restored, err := ProtobufToFrameSystemPart(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(restored.ModelFrame.DoF()), test.ShouldEqual, 2)
+
+	free, err := NewPoseFrame("free", nil)
+	test.That(t, err, test.ShouldBeNil)
+	floating, err := NewSerialModel("base", []Frame{free})
+	test.That(t, err, test.ShouldBeNil)
+	pbMsg, err = (&FrameSystemPart{FrameConfig: lif, ModelFrame: floating}).ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pbMsg.GetModel(), test.ShouldBeNil)
 }
