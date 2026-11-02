@@ -15,6 +15,9 @@ var ErrURDFLimitsUnsupported = fmt.Errorf(
 	"cannot set joint limits on a URDF document; see RSDK-14232",
 )
 
+// ErrDHJointLimits is returned when limits are set on a model whose joints are DH parameters.
+var ErrDHJointLimits = fmt.Errorf("DH kinematics describe joints as parameters rather than as joints with limits")
+
 // JointLimits is a partial update to one joint's limits, and the attribute shape a module accepts
 // for them in its resource config. A nil field leaves that limit as it is, so a caller who knows
 // only how fast a joint may move can say that without restating where it may go.
@@ -101,18 +104,12 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 		return nil, ErrURDFLimitsUnsupported
 	}
 	if cfg.KinParamType == "DH" {
-		return nil, fmt.Errorf(
-			"cannot set joint limits on model %q: DH kinematics describe joints as parameters rather "+
-				"than as joints with limits", cfg.Name,
-		)
+		return nil, fmt.Errorf("cannot set joint limits on model %q: %w", cfg.Name, ErrDHJointLimits)
 	}
 
-	// Joints is the only field we write, so it is the only one that needs its own copy. Clearing
-	// OriginalFile matters more than it looks: marshaling with it still set would nest the old
-	// document inside the new one, and parsing that back would restore the pre-patch bytes.
+	// Joints is the only field we write, so it is the only one that needs its own copy.
 	out := *cfg
 	out.Joints = slices.Clone(cfg.Joints)
-	out.OriginalFile = nil
 
 	for id, limit := range limits {
 		if err := limit.validate(id); err != nil {
@@ -145,20 +142,29 @@ func SetJointLimits(cfg *ModelConfigJSON, limits map[string]JointLimits) (*Model
 		}
 	}
 
+	file, err := out.svaFile()
+	if err != nil {
+		return nil, err
+	}
+	out.OriginalFile = file
+	return &out, nil
+}
+
+// svaFile writes cfg out as the file a client that reads the deprecated bytes gets, and reads it
+// back, so any way of emitting a document nothing can parse is an error the module author sees
+// rather than one the far end of the connection discovers. It marshals a copy with OriginalFile
+// cleared, since marshaling with it still set would nest the old document inside the new one.
+func (cfg *ModelConfigJSON) svaFile() (*ModelFile, error) {
+	out := *cfg
+	out.OriginalFile = nil
 	raw, err := json.Marshal(&out)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling patched kinematics for model %q: %w", cfg.Name, err)
 	}
-
-	// These bytes are the whole product: they are what GetKinematics sends and what every
-	// consumer reads. Parsing them here turns any way of emitting a broken document into an
-	// error the module author sees, rather than one the far end of the connection discovers.
 	if _, err := UnmarshalModelJSON(raw, cfg.Name); err != nil {
 		return nil, fmt.Errorf("patched kinematics for model %q no longer parses: %w", cfg.Name, err)
 	}
-	out.OriginalFile = &ModelFile{Bytes: raw, Extension: "json"}
-
-	return &out, nil
+	return &ModelFile{Bytes: raw, Extension: "json"}, nil
 }
 
 // applyTo writes the fields that are set onto a joint configuration, which takes the same units.
@@ -196,20 +202,17 @@ func (jl JointLimits) applyTo(joint *JointConfig) {
 // with the error as it is, and a request that sets nothing changes nothing.
 //
 // Call it while building the resource, before the model is shared, since it writes the frames in
-// place with no lock. The narrowed limits reach the typed model through the frames. The deprecated
-// file bytes carry them too when the configuration can be written back as a file, and otherwise
-// the file stays as it was read, which is what happens for a joint with no position bound, since
-// JSON has no way to write one.
+// place with no lock. The narrowed limits reach the typed model through the frames. The model's
+// configuration is replaced by a copy carrying them, so a configuration handed out earlier, or
+// shared with a model derived from this one, keeps describing the frames it came with. The
+// deprecated file bytes carry the narrowed limits when the configuration can be written back as
+// a file, and otherwise the file stays as it was read, which is what happens for a joint with no
+// position bound, since JSON has no way to write one.
 func (m *SimpleModel) NarrowJointLimits(limits map[string]JointLimits) error {
 	if m.modelConfig != nil && m.modelConfig.KinParamType == "DH" {
-		return fmt.Errorf("cannot narrow joint limits on model %q: DH kinematics describe joints as parameters "+
-			"rather than as joints with limits", m.name)
+		return fmt.Errorf("cannot narrow joint limits on model %q: %w", m.name, ErrDHJointLimits)
 	}
-	type narrowedJoint struct {
-		frame Frame
-		limit Limit
-	}
-	narrowed := make(map[string]narrowedJoint, len(limits))
+	narrowed := make(map[Frame]Limit, len(limits))
 	// ids in order, so the joint an error names does not change from one run to the next
 	for _, id := range slices.Sorted(maps.Keys(limits)) {
 		jl := limits[id]
@@ -225,29 +228,30 @@ func (m *SimpleModel) NarrowJointLimits(limits map[string]JointLimits) error {
 		}
 		// only a joint frame holds the one limit this writes back through DoF, a nested model
 		// answers DoF from a copy
-		var rotational bool
+		var jointType string
 		switch unwrapNamed(frame).(type) {
 		case *rotationalFrame:
-			rotational = true
+			jointType = RevoluteJoint
 		case *translationalFrame:
+			jointType = PrismaticJoint
 		default:
 			return fmt.Errorf("joint %q in model %q is not a single joint", id, m.name)
 		}
 		if jl == (JointLimits{}) {
 			continue
 		}
-		limit, err := narrowLimit(id, frame.DoF()[0], jl, rotational)
+		limit, err := narrowLimit(id, frame, jointType, jl)
 		if err != nil {
 			return err
 		}
-		narrowed[id] = narrowedJoint{frame: frame, limit: limit}
+		narrowed[frame] = limit
 	}
 	if len(narrowed) == 0 {
 		return nil
 	}
 
-	for _, joint := range narrowed {
-		joint.frame.DoF()[0] = joint.limit
+	for frame, limit := range narrowed {
+		frame.DoF()[0] = limit
 	}
 	// DoF answers from a copy of the frames' limits taken when the model was built
 	if m.inputSchema != nil {
@@ -256,76 +260,74 @@ func (m *SimpleModel) NarrowJointLimits(limits map[string]JointLimits) error {
 	if m.modelConfig == nil {
 		return nil
 	}
-	for i := range m.modelConfig.Joints {
-		if jl, ok := limits[m.modelConfig.Joints[i].ID]; ok {
-			jl.applyTo(&m.modelConfig.Joints[i])
+	cfg := *m.modelConfig
+	cfg.Joints = slices.Clone(m.modelConfig.Joints)
+	for i := range cfg.Joints {
+		if jl, ok := limits[cfg.Joints[i].ID]; ok {
+			jl.applyTo(&cfg.Joints[i])
 		}
 	}
-
 	// the file the model was read from no longer says what the model does, so the configuration
-	// is written out in its place. Marshaling with the old file still set would nest it inside
-	// the new one. Bytes that fail to marshal, which a joint with no position bound does, or that
-	// fail to read back leave the file as it was.
-	original := m.modelConfig.OriginalFile
-	m.modelConfig.OriginalFile = nil
-	if raw, err := json.Marshal(m.modelConfig); err == nil {
-		if _, err := UnmarshalModelJSON(raw, m.modelConfig.Name); err == nil {
-			m.modelConfig.OriginalFile = &ModelFile{Bytes: raw, Extension: "json"}
-			return nil
-		}
+	// is written out in its place. A joint with no position bound cannot be written, since JSON
+	// has no infinity, and the file then stays as it was read.
+	if file, err := cfg.svaFile(); err == nil {
+		cfg.OriginalFile = file
 	}
-	m.modelConfig.OriginalFile = original
+	m.modelConfig = &cfg
 	return nil
 }
 
-// narrowLimit applies a request in document units to the limit a frame enforces, in the frame's
-// own units, refusing anything that would widen it.
-func narrowLimit(id string, current Limit, jl JointLimits, rotational bool) (Limit, error) {
-	convert := func(v float64) float64 { return v }
-	report := convert
-	if rotational {
-		convert = utils.DegToRad
-		// the model's bound goes back to degrees for the message, rounded so a value that went
-		// through radians does not read as 10.999999999999998
-		report = func(v float64) float64 { return math.Round(utils.RadToDeg(v)*1e6) / 1e6 }
+// narrowLimit applies a request to the limit a frame enforces, refusing anything that would widen
+// it. The request and the frame's bound are compared in the file's units, the bound rounded the
+// way the error prints it, so a value copied out of a message is never refused against a bound
+// that reads the same. That matters for a limit read from a URDF, which has been through radians
+// and back and no longer lands on the degrees it started from.
+func narrowLimit(id string, frame Frame, jointType string, jl JointLimits) (Limit, error) {
+	var toFile func(float64) float64
+	if jointType == RevoluteJoint {
+		toFile = utils.RadToDeg
 	}
-	// a bound equal to the model's own passes, with a hair of slack for the degree to radian
-	// round trip
-	const slack = 1e-9
-
-	merged := current
+	bound, err := frameJointConfig(id, "", jointType, 0, 0, 0, frame.DoF(), toFile)
+	if err != nil {
+		return Limit{}, err
+	}
+	round := func(v float64) float64 { return math.Round(v*1e6) / 1e6 }
+	if jl.Min != nil && *jl.Min < round(bound.Min) {
+		return Limit{}, fmt.Errorf("joint %q: min %v is below the model's min %v", id, *jl.Min, round(bound.Min))
+	}
+	if jl.Max != nil && *jl.Max > round(bound.Max) {
+		return Limit{}, fmt.Errorf("joint %q: max %v is above the model's max %v", id, *jl.Max, round(bound.Max))
+	}
+	if jl.MaxVelocity != nil && bound.MaxVelocity != nil && *jl.MaxVelocity > round(*bound.MaxVelocity) {
+		return Limit{}, fmt.Errorf("joint %q: max_velocity %v is above the model's %v",
+			id, *jl.MaxVelocity, round(*bound.MaxVelocity))
+	}
+	if jl.MaxAcceleration != nil && bound.MaxAcceleration != nil && *jl.MaxAcceleration > round(*bound.MaxAcceleration) {
+		return Limit{}, fmt.Errorf("joint %q: max_acceleration %v is above the model's %v",
+			id, *jl.MaxAcceleration, round(*bound.MaxAcceleration))
+	}
+	jl.applyTo(bound)
+	if bound.Min > bound.Max {
+		return Limit{}, fmt.Errorf("joint %q: min %v is above max %v", id, round(bound.Min), round(bound.Max))
+	}
+	requested, err := bound.limit()
+	if err != nil {
+		return Limit{}, err
+	}
+	// only what the request set moves, so a bound it left alone keeps the frame's exact value
+	// rather than one that has been through the file's units and back
+	merged := frame.DoF()[0]
 	if jl.Min != nil {
-		v := convert(*jl.Min)
-		if v < current.Min-slack {
-			return Limit{}, fmt.Errorf("joint %q: min %v is below the model's min %v", id, *jl.Min, report(current.Min))
-		}
-		merged.Min = v
+		merged.Min = requested.Min
 	}
 	if jl.Max != nil {
-		v := convert(*jl.Max)
-		if v > current.Max+slack {
-			return Limit{}, fmt.Errorf("joint %q: max %v is above the model's max %v", id, *jl.Max, report(current.Max))
-		}
-		merged.Max = v
-	}
-	if merged.Min > merged.Max {
-		return Limit{}, fmt.Errorf("joint %q: min %v is above max %v", id, report(merged.Min), report(merged.Max))
+		merged.Max = requested.Max
 	}
 	if jl.MaxVelocity != nil {
-		v := convert(*jl.MaxVelocity)
-		if current.MaxVelocity != nil && v > *current.MaxVelocity+slack {
-			return Limit{}, fmt.Errorf("joint %q: max_velocity %v is above the model's %v",
-				id, *jl.MaxVelocity, report(*current.MaxVelocity))
-		}
-		merged.MaxVelocity = &v
+		merged.MaxVelocity = requested.MaxVelocity
 	}
 	if jl.MaxAcceleration != nil {
-		v := convert(*jl.MaxAcceleration)
-		if current.MaxAcceleration != nil && v > *current.MaxAcceleration+slack {
-			return Limit{}, fmt.Errorf("joint %q: max_acceleration %v is above the model's %v",
-				id, *jl.MaxAcceleration, report(*current.MaxAcceleration))
-		}
-		merged.MaxAcceleration = &v
+		merged.MaxAcceleration = requested.MaxAcceleration
 	}
 	return merged, nil
 }

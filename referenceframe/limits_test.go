@@ -301,13 +301,6 @@ func jointLimit(t *testing.T, m Model, id string) Limit {
 	return frame.DoF()[0]
 }
 
-func protoJoint(t *testing.T, pb *commonpb.KinematicModel, id string) *commonpb.KinematicJoint {
-	t.Helper()
-	idx := slices.IndexFunc(pb.GetJoints(), func(j *commonpb.KinematicJoint) bool { return j.GetId() == id })
-	test.That(t, idx, test.ShouldBeGreaterThanOrEqualTo, 0)
-	return pb.GetJoints()[idx]
-}
-
 // A narrowed limit has to show up everywhere a consumer can look: the frame a planner runs
 // against, DoF, the typed model, the configuration, and the deprecated bytes a client that
 // predates the typed model still reads.
@@ -328,7 +321,7 @@ func TestNarrowJointLimitsReachesEveryEncoding(t *testing.T) {
 
 	pb, err := ModelToProto(sm)
 	test.That(t, err, test.ShouldBeNil)
-	limits := protoJoint(t, pb, "j2").GetLimits()
+	limits := jointByID(t, pb, "j2").GetLimits()
 	test.That(t, limits.GetMin(), test.ShouldAlmostEqual, -90)
 	test.That(t, limits.GetMax(), test.ShouldAlmostEqual, 45)
 	test.That(t, limits.GetMaxVelocity(), test.ShouldAlmostEqual, 45)
@@ -491,7 +484,7 @@ func TestNarrowJointLimitsOnURDFModel(t *testing.T) {
 	old := jointLimit(t, legacy, "elbow_joint")
 	test.That(t, old.Max, test.ShouldAlmostEqual, utils.DegToRad(90))
 	test.That(t, *old.MaxVelocity, test.ShouldAlmostEqual, utils.DegToRad(60))
-	limits := protoJoint(t, resp.GetModel(), "elbow_joint").GetLimits()
+	limits := jointByID(t, resp.GetModel(), "elbow_joint").GetLimits()
 	test.That(t, limits.GetMax(), test.ShouldAlmostEqual, 90)
 	test.That(t, limits.GetMaxVelocity(), test.ShouldAlmostEqual, 60)
 
@@ -502,6 +495,46 @@ func TestNarrowJointLimitsOnURDFModel(t *testing.T) {
 
 // A model built from frames in code has no configuration, and narrowing it works on the frames
 // alone.
+// A limit read from a URDF is radians turned into degrees, so 6.2831853 rad is a hair under
+// 360 degrees. The error prints the bound rounded, and a user who copies the 360 it shows has to
+// be accepted rather than refused against a number that reads the same.
+func TestNarrowJointLimitsAcceptsTheBoundTheMessageShows(t *testing.T) {
+	for _, upper := range []float64{6.2831853, 3.1415927} {
+		fs := NewEmptyFrameSystem("internal")
+		j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -upper, Max: upper})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, fs.AddFrame(j1, fs.World()), test.ShouldBeNil)
+		sm, err := NewModel("urdf", fs, "j1")
+		test.That(t, err, test.ShouldBeNil)
+
+		shown := math.Round(utils.RadToDeg(upper)*1e6) / 1e6
+		err = sm.NarrowJointLimits(map[string]JointLimits{"j1": {Min: ptr(-shown), Max: ptr(shown)}})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, jointLimit(t, sm, "j1").Max, test.ShouldAlmostEqual, upper, 1e-7)
+
+		err = sm.NarrowJointLimits(map[string]JointLimits{"j1": {Max: ptr(shown + 0.000001)}})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "is above the model's max")
+	}
+}
+
+// The configuration a model hands out before it is narrowed, or shares with a model derived from
+// it, keeps describing the frames it came with.
+func TestNarrowJointLimitsLeavesASharedConfigAlone(t *testing.T) {
+	sm := simpleModelFromJSON(t, twoJointModelJSON)
+	before := sm.ModelConfig()
+	derived, err := NewModelWithLimitOverrides(sm, map[string]Limit{"j1": {Min: -1, Max: 1}})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, sm.NarrowJointLimits(map[string]JointLimits{"j2": {Max: ptr(10.0)}}), test.ShouldBeNil)
+	j2 := func(cfg *ModelConfigJSON) JointConfig {
+		return cfg.Joints[slices.IndexFunc(cfg.Joints, func(j JointConfig) bool { return j.ID == "j2" })]
+	}
+	test.That(t, j2(sm.ModelConfig()).Max, test.ShouldEqual, 10)
+	test.That(t, j2(before).Max, test.ShouldNotEqual, 10)
+	test.That(t, derived.ModelConfig() == before, test.ShouldBeTrue)
+}
+
 func TestNarrowJointLimitsOnFrameBuiltModel(t *testing.T) {
 	fs := NewEmptyFrameSystem("internal")
 	vel := 1.0
@@ -520,7 +553,7 @@ func TestNarrowJointLimitsOnFrameBuiltModel(t *testing.T) {
 
 	pb, err := ModelToProto(sm)
 	test.That(t, err, test.ShouldBeNil)
-	limits := protoJoint(t, pb, "j1").GetLimits()
+	limits := jointByID(t, pb, "j1").GetLimits()
 	test.That(t, limits.GetMax(), test.ShouldAlmostEqual, 90)
 	test.That(t, limits.GetMaxVelocity(), test.ShouldAlmostEqual, 30)
 
@@ -591,7 +624,7 @@ func TestNarrowJointLimitsKeepsAFileItCannotRewrite(t *testing.T) {
 	resp := KinematicModelToProtobuf(sm)
 	format := resp.GetFormat() //nolint:staticcheck // deprecated fields are still served
 	test.That(t, format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
-	test.That(t, protoJoint(t, resp.GetModel(), "spin").GetLimits().GetMaxVelocity(), test.ShouldAlmostEqual, 90)
+	test.That(t, jointByID(t, resp.GetModel(), "spin").GetLimits().GetMaxVelocity(), test.ShouldAlmostEqual, 90)
 }
 
 // A cylinder has no shape in the message, so this model never had a typed form and the file is
