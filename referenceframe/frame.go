@@ -136,16 +136,17 @@ func (l *Limit) IsValid(v float64) bool {
 	return v >= l.Min && v <= l.Max
 }
 
-// IsRotational returns true if this limit appears to be for a rotational joint,
-// i.e. both min and max are multiples of pi and 0 is within range.
-func (l *Limit) IsRotational() bool {
+// limitLooksRevolute guesses from l alone whether it bounds a revolute joint: both ends are
+// multiples of pi and 0 is within range. Real arms often have limits that fail this, such as
+// ±352°, so it is only a last resort when the joint type is unknown.
+func limitLooksRevolute(l Limit) bool {
 	return isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) && l.Min <= 0 && l.Max >= 0
 }
 
 // RevoluteDoF reports, for each of f's degrees of freedom in DoF order, whether it is a revolute
-// joint angle, for which positions a whole turn apart are physically the same. Unlike
-// Limit.IsRotational, this reads the joint type, so it holds for any limits. Frame types whose
-// joints it cannot see into fall back to Limit.IsRotational.
+// joint angle, for which positions a whole turn apart are physically the same. It reads the joint
+// type, so it holds for any limits. For frame types whose joints it cannot see into, it guesses
+// from the limits: both ends must be multiples of pi with 0 in range.
 func RevoluteDoF(f Frame) []bool {
 	switch f := f.(type) {
 	case *rotationalFrame:
@@ -160,7 +161,7 @@ func RevoluteDoF(f Frame) []bool {
 	limits := f.DoF()
 	ret := make([]bool, len(limits))
 	for i := range limits {
-		ret[i] = limits[i].IsRotational()
+		ret[i] = limitLooksRevolute(limits[i])
 	}
 	return ret
 }

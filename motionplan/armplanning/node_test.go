@@ -90,9 +90,8 @@ func TestNeutralBias(t *testing.T) {
 	test.That(t, biasXarmCenter, test.ShouldAlmostEqual, 0)
 	test.That(t, biasXarmPi, test.ShouldBeGreaterThan, biasXarmCenter)
 
-	// ±352°: revolute, though not multiples of π, so only the revolute flag can identify it.
+	// ±352°: revolute, though its limits are not multiples of π.
 	wideLimits := []referenceframe.Limit{{Min: -6.1435589670200397, Max: 6.1435589670200397}}
-	test.That(t, wideLimits[0].IsRotational(), test.ShouldBeFalse)
 	test.That(t, NeutralBias(wideLimits, []bool{true}, []float64{math.Pi}), test.ShouldBeGreaterThan, 0)
 	test.That(t, NeutralBias(wideLimits, []bool{false}, []float64{math.Pi}), test.ShouldEqual, 0)
 }
@@ -101,8 +100,6 @@ func TestUnwrapRotationalJoints(t *testing.T) {
 	const twoPi = 2 * math.Pi
 	rot := referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi} // rotational
 	lin := referenceframe.Limit{Min: 0, Max: 1}                      // not rotational
-	test.That(t, rot.IsRotational(), test.ShouldBeTrue)
-	test.That(t, lin.IsRotational(), test.ShouldBeFalse)
 
 	t.Run("no joints moved beyond 2pi", func(t *testing.T) {
 		cfg := []float64{0.5, -0.5}
@@ -160,7 +157,6 @@ func TestUnwrapRotationalJoints(t *testing.T) {
 	t.Run("unwrap candidate inside narrow rotational range", func(t *testing.T) {
 		// Rotational joint with limit [-π, π]. cfg = 2π+0.5 unwraps to 0.5, in range.
 		narrow := referenceframe.Limit{Min: -math.Pi, Max: math.Pi}
-		test.That(t, narrow.IsRotational(), test.ShouldBeTrue)
 		cfg := []float64{twoPi + 0.5}
 		start := []float64{0}
 		out, changed := unwrapRotationalJoints(cfg, start, []referenceframe.Limit{narrow}, []bool{true})
@@ -193,7 +189,6 @@ func TestUnwrapRotationalJoints(t *testing.T) {
 
 	t.Run("revolute joint with limits that are not multiples of pi unwraps", func(t *testing.T) {
 		wide := referenceframe.Limit{Min: -6.1435589670200397, Max: 6.1435589670200397} // ±352°
-		test.That(t, wide.IsRotational(), test.ShouldBeFalse)
 		start := []float64{-3}
 		cfg := []float64{start[0] + twoPi + 0.5}
 		out, changed := unwrapRotationalJoints(cfg, start, []referenceframe.Limit{wide}, []bool{true})
