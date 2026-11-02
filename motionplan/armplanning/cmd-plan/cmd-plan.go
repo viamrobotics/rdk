@@ -748,11 +748,27 @@ func sortedFrameNames(inputs referenceframe.FrameSystemInputs) []string {
 	return names
 }
 
+// transparentWallColors renders any frame whose name contains "wall" nearly
+// see-through so walls don't occlude the robot and scene. Matching on substring
+// catches both prefixes (wall-back) and suffixes (right-wall). Frames absent
+// from the returned map keep their default inherited color.
+func transparentWallColors(fs *referenceframe.FrameSystem) map[string]draw.Color {
+	colors := map[string]draw.Color{}
+	for _, name := range fs.FrameNames() {
+		if strings.Contains(name, "wall") {
+			colors[name] = draw.NewColor(draw.WithRGBA(128, 128, 128, 40))
+		}
+	}
+	return colors
+}
+
 func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
 	renderFramePeriod := 5 * time.Millisecond
 	if _, err := viz.RemoveAll(); err != nil {
 		return err
 	}
+
+	frameColors := transparentWallColors(req.FrameSystem)
 
 	startInputs := req.StartState.Configuration()
 	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
@@ -770,6 +786,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 		FrameSystem: req.FrameSystem,
 		Inputs:      startInputs,
+		Colors:      frameColors,
 	}); err != nil {
 		return err
 	}
@@ -860,6 +877,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 				if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 					FrameSystem: req.FrameSystem,
 					Inputs:      mp.ToFrameSystemInputs(),
+					Colors:      frameColors,
 				}); err != nil {
 					return err
 				}
@@ -871,6 +889,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 			FrameSystem: req.FrameSystem,
 			Inputs:      plan.Trajectory()[idx],
+			Colors:      frameColors,
 		}); err != nil {
 			return err
 		}
@@ -931,9 +950,12 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 		return err
 	}
 
+	frameColors := transparentWallColors(req.FrameSystem)
+
 	if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 		FrameSystem: req.FrameSystem,
 		Inputs:      req.StartState.Configuration(),
+		Colors:      frameColors,
 	}); err != nil {
 		return err
 	}
@@ -1083,6 +1105,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 						FrameSystem: req.FrameSystem,
 						Inputs:      configuration.ToFrameSystemInputs(),
+						Colors:      frameColors,
 					}); err != nil {
 						return err
 					}
