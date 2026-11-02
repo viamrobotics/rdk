@@ -157,7 +157,7 @@ func (l *localAppTestingServer) setupHTTPServerSingleMachineApp(port int, target
 	proxy := httputil.NewSingleHostReverseProxy(targetURLParsed)
 
 	// Modify the director to properly handle the /machine/ prefix and machine IDs
-	proxy.Director = removeMachinePathFromURL(proxy.Director)
+	proxy.Director = removeMachinePathFromURL(proxy.Director) //nolint:staticcheck
 
 	// Add response interceptor
 	//nolint: bodyclose

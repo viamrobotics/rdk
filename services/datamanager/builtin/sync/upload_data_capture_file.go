@@ -360,7 +360,7 @@ func uploadMultipleBinarySensorData(
 	// we only go down this path if the capture method returned multiple binary
 	// responses, which at time of writing, only includes camera.GetImages data.
 	for i, sd := range sensorData {
-		logger.Debugf("attempting to upload small binary file using DataCaptureUpload, sensor data index: %d, ext: %s, file: %s", i, path)
+		logger.Debugf("attempting to upload small binary file using DataCaptureUpload, sensor data index: %d, file: %s", i, path)
 		// we clone as the uploadMD may be changed for each sensor data
 		// and I'm not confident that it is safe to reuse grpc request structs
 		// between calls if the data in the request struct changes

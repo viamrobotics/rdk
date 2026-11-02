@@ -384,19 +384,24 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Setup Zig Compiler
-      # mlugg/setup-zig@v2.2.1
-      uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+    - name: Setup MinGW-w64
+      id: msys2
+      # msys2/setup-msys2@v2.33.0
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
       with:
-        version: 0.16.0
+        msystem: UCRT64
+        install: mingw-w64-ucrt-x86_64-gcc
+
+    - name: Add MinGW-w64 to PATH
+      # the test step runs in Git Bash, not the msys2 shell, so cgo needs gcc/g++ on PATH
+      shell: bash
+      run: echo "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin" >> "$GITHUB_PATH"
 
     - name: test
       shell: bash
       env:
         GOFLAGS: "-tags=no_cgo"
         CGO_ENABLED: "1"
-        CC: "zig cc"
-        CXX: "zig c++"
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
@@ -446,8 +451,11 @@ jobs:
         GOTEST_EXIT=$?
         echo "go test -json exit=$GOTEST_EXIT, raw.json size=$(wc -c < raw.json) bytes"
 
-        # Then let gotestsum format and summarize from the saved JSON file.
-        go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- cat raw.json
+        # gotestsum aborts on any JSON line over 64 KiB, and a zig libc++ build can emit a
+        # multi-MB build-output event, so cap Output first. raw.json keeps the full text.
+        go run gotest.tools/gotestsum --raw-command --format standard-verbose --jsonfile json.log -- \
+          jq -c 'if (.Output // "" | length) > 8192
+            then .Output |= .[:8192] + "\n[output truncated; full text in raw.json]\n" else . end' raw.json
         GOTESTSUM_EXIT=$?
 
         # Fail the step if either go test or gotestsum failed.

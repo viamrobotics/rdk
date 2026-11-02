@@ -1,0 +1,221 @@
+{
+    "name": "UR5e",
+    "links": [
+        {
+            "id": "base_link",
+            "parent": "world",
+            "pose": {
+                "translation": {
+                    "z": 162.5
+                }
+            },
+            "collision": [
+                {
+                    "center": {
+                        "z": 130,
+                        "o_z": 1
+                    },
+                    "capsule": {
+                        "radius_mm": 60,
+                        "length_mm": 260
+                    },
+                    "label": "base_link"
+                }
+            ]
+        },
+        {
+            "id": "shoulder_link",
+            "parent": "shoulder_pan_joint",
+            "pose": {
+                "translation": {}
+            }
+        },
+        {
+            "id": "upper_arm_link",
+            "parent": "shoulder_lift_joint",
+            "pose": {
+                "translation": {
+                    "x": -425
+                }
+            },
+            "collision": [
+                {
+                    "center": {
+                        "x": -212.5,
+                        "y": -130,
+                        "o_x": -1
+                    },
+                    "capsule": {
+                        "radius_mm": 65,
+                        "length_mm": 550
+                    },
+                    "label": "upper_arm_link"
+                }
+            ]
+        },
+        {
+            "id": "forearm_link",
+            "parent": "elbow_joint",
+            "pose": {
+                "translation": {
+                    "x": -392.2
+                }
+            },
+            "collision": [
+                {
+                    "center": {
+                        "x": -196.1,
+                        "o_x": -1
+                    },
+                    "capsule": {
+                        "radius_mm": 50,
+                        "length_mm": 490
+                    },
+                    "label": "forearm_link"
+                }
+            ]
+        },
+        {
+            "id": "wrist_1_link",
+            "parent": "wrist_1_joint",
+            "pose": {
+                "translation": {
+                    "y": -133.3
+                }
+            },
+            "collision": [
+                {
+                    "center": {
+                        "y": -80.65,
+                        "o_y": -1
+                    },
+                    "capsule": {
+                        "radius_mm": 40,
+                        "length_mm": 230
+                    },
+                    "label": "wrist_1_link"
+                }
+            ]
+        },
+        {
+            "id": "wrist_2_link",
+            "parent": "wrist_2_joint",
+            "pose": {
+                "translation": {
+                    "z": -99.7
+                }
+            },
+            "collision": [
+                {
+                    "center": {
+                        "o_z": -1
+                    },
+                    "sphere": {
+                        "radius_mm": 70
+                    },
+                    "label": "wrist_2_link"
+                }
+            ]
+        },
+        {
+            "id": "ee_link",
+            "parent": "wrist_3_joint",
+            "pose": {
+                "translation": {
+                    "y": -99.6
+                },
+                "orientation_vector": {
+                    "o_y": -1,
+                    "theta": 90
+                }
+            },
+            "collision": [
+                {
+                    "center": {
+                        "y": -49.85,
+                        "o_y": -1
+                    },
+                    "capsule": {
+                        "radius_mm": 40,
+                        "length_mm": 170
+                    },
+                    "label": "ee_link"
+                }
+            ]
+        }
+    ],
+    "joints": [
+        {
+            "id": "shoulder_pan_joint",
+            "parent": "base_link",
+            "type": "JOINT_TYPE_REVOLUTE",
+            "axis": {
+                "z": 1
+            },
+            "limits": {
+                "min": -360,
+                "max": 360
+            }
+        },
+        {
+            "id": "shoulder_lift_joint",
+            "parent": "shoulder_link",
+            "type": "JOINT_TYPE_REVOLUTE",
+            "axis": {
+                "y": -1
+            },
+            "limits": {
+                "min": -360,
+                "max": 360
+            }
+        },
+        {
+            "id": "elbow_joint",
+            "parent": "upper_arm_link",
+            "type": "JOINT_TYPE_REVOLUTE",
+            "axis": {
+                "y": -1
+            },
+            "limits": {
+                "min": -180,
+                "max": 180
+            }
+        },
+        {
+            "id": "wrist_1_joint",
+            "parent": "forearm_link",
+            "type": "JOINT_TYPE_REVOLUTE",
+            "axis": {
+                "y": -1
+            },
+            "limits": {
+                "min": -360,
+                "max": 360
+            }
+        },
+        {
+            "id": "wrist_2_joint",
+            "parent": "wrist_1_link",
+            "type": "JOINT_TYPE_REVOLUTE",
+            "axis": {
+                "z": -1
+            },
+            "limits": {
+                "min": -360,
+                "max": 360
+            }
+        },
+        {
+            "id": "wrist_3_joint",
+            "parent": "wrist_2_link",
+            "type": "JOINT_TYPE_REVOLUTE",
+            "axis": {
+                "y": -1
+            },
+            "limits": {
+                "min": -360,
+                "max": 360
+            }
+        }
+    ]
+}

@@ -118,7 +118,7 @@ func (m *Module) AddStream(ctx context.Context, req *streampb.AddStreamRequest) 
 		m.logger.Debugw(msg, "name", name.String(), "subID", sub.ID.String())
 		delete(m.activeResourceStreams, name)
 		if err := m.pc.RemoveTrack(sender); err != nil {
-			m.logger.Warnf("RemoveTrack returned error", "name", name.String(), "subID", sub.ID.String(), "err", err)
+			m.logger.Warnw("RemoveTrack returned error", "name", name.String(), "subID", sub.ID.String(), "err", err)
 		}
 	}
 	m.activeBackgroundWorkers.Add(1)

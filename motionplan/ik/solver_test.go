@@ -66,3 +66,61 @@ func TestUR5NloptIKinematics(t *testing.T) {
 	_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, home, [][]frame.Limit{m.DoF()})
 	test.That(t, err, test.ShouldBeNil)
 }
+
+// TestComputeAdjustLimitsArrayStaysWithinInputLimits asserts the adjusted limits never extend
+// beyond the limits they were derived from, including when the seed starts out of bounds. Items in
+// the input arrays are independent, so each case uses arrays of size one.
+func TestComputeAdjustLimitsArrayStaysWithinInputLimits(t *testing.T) {
+	// In bounds.
+	limits := []frame.Limit{{Min: 0, Max: 1}}
+	adjusted := ComputeAdjustLimitsArray([]float64{0.5}, limits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 1)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// In bounds, with the window clipped by the max.
+	adjusted = ComputeAdjustLimitsArray([]float64{0.99}, limits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 1)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// Seed far above the max.
+	adjusted = ComputeAdjustLimitsArray([]float64{5}, limits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 1)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// Seed far below the min.
+	adjusted = ComputeAdjustLimitsArray([]float64{-5}, limits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 1)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// Seed below the min by more than the window. The adjusted limits must stay ordered, not just
+	// within the input limits. This mirrors a shoulder lift with an override of +-pi/4 that was moved
+	// directly to -pi.
+	overrideLimits := []frame.Limit{{Min: -math.Pi / 4, Max: math.Pi / 4}}
+	adjusted = ComputeAdjustLimitsArray([]float64{-math.Pi}, overrideLimits, []float64{1})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, -math.Pi/4)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, math.Pi/4)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// Zero width limit, seed at the limit.
+	zeroWidthLimits := []frame.Limit{{Min: 0, Max: 0}}
+	adjusted = ComputeAdjustLimitsArray([]float64{0}, zeroWidthLimits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// Zero width limit, seed above the limit.
+	adjusted = ComputeAdjustLimitsArray([]float64{0.5}, zeroWidthLimits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+
+	// Zero width limit, seed below the limit.
+	adjusted = ComputeAdjustLimitsArray([]float64{-0.5}, zeroWidthLimits, []float64{0.05})
+	test.That(t, adjusted[0].Min, test.ShouldBeGreaterThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Max, test.ShouldBeLessThanOrEqualTo, 0)
+	test.That(t, adjusted[0].Min, test.ShouldBeLessThanOrEqualTo, adjusted[0].Max)
+}

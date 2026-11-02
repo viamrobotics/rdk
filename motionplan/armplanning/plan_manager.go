@@ -278,10 +278,9 @@ func (pm *planManager) planSingleGoal(
 		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && reconfigL2 > reconfigWallRad {
 			pm.logger.Warnf("goal is %0.1fmm of end-effector motion but the nearest valid goal configuration is "+
 				"%0.2f rad (joint-space L2) away; a linear constraint of %0.0fmm likely cannot accommodate that "+
-				"reconfiguration. Planning one search round only. Consider relaxing the constraint for this step "+
-				"or approaching in a different joint configuration.",
+				"reconfiguration. Giving up.",
 				eeDelta, reconfigL2, lc)
-			allowRelaunch = false
+			return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 		}
 	}
 

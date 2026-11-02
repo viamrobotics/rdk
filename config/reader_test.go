@@ -37,6 +37,11 @@ func TestFromReader(t *testing.T) {
 		ctx    = context.Background()
 	)
 
+	// The cloud server these reads talk to runs in this process, so the production config read
+	// timeout only ever turns a stalled CI machine into a failed read (RSDK-14774). Pin a generous
+	// one so the test asserts what is read, not how fast the machine ran.
+	t.Setenv(utils.ConfigReadTimeoutEnvVar, "1m")
+
 	// clear cache
 	setupClearCache := func(t *testing.T) {
 		t.Helper()
@@ -359,7 +364,7 @@ func TestGetFromCloudGRPCProtoDecodeFailureIsMalformed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
-	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, logger, appConn)
+	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, false, logger, appConn)
 	test.That(t, cfg, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)

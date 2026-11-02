@@ -1,4 +1,4 @@
-//go:build (windows && cgo) || viam_windows_resource_dump
+//go:build windows && cgo
 
 // Package register registers all relevant cameras and also API specific functions
 // This registers the webcam driver on Windows builds that have cgo enabled

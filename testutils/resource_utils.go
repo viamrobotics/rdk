@@ -93,7 +93,8 @@ func VerifySameResourceNames(tb testing.TB, actual, expected []resource.Name) {
 
 // VerifySameResourceStatuses asserts that two slices of [resource.Status] contain the
 // same elements without considering order. Does not consider
-// [resource.Status.LastUpdated] timestamps when comparing.
+// [resource.Status.LastUpdated] timestamps when comparing. An expected status with an unset
+// [resource.Status.Reachability] expects [resource.ReachabilityReachable].
 func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Status) {
 	tb.Helper()
 
@@ -105,6 +106,9 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 	}
 	for i := range sortedExpected {
 		sortedExpected[i].LastUpdated = time.Time{}
+		if sortedExpected[i].Reachability == resource.ReachabilityUnknown {
+			sortedExpected[i].Reachability = resource.ReachabilityReachable
+		}
 	}
 
 	// This deferred function provides more concise output for debugging on failure
@@ -120,6 +124,7 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 			State         resource.NodeState
 			Revision      string
 			Error         error
+			Reachability  resource.Reachability
 		}
 		expectedStatuses := make([]stat, len(sortedExpected))
 		for i, exp := range sortedExpected {
@@ -129,6 +134,7 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 				State:         exp.State,
 				Revision:      exp.Revision,
 				Error:         exp.Error,
+				Reachability:  exp.Reachability,
 			}
 		}
 		actualStatuses := make([]stat, len(sortedActual))
@@ -139,6 +145,7 @@ func VerifySameResourceStatuses(tb testing.TB, actual, expected []resource.Statu
 				State:         act.State,
 				Revision:      act.Revision,
 				Error:         act.Error,
+				Reachability:  act.Reachability,
 			}
 		}
 		sb.WriteString("Resource statuses do not match - see diff below: (-expected +actual)\n")

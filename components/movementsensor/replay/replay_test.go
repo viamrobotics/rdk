@@ -117,7 +117,7 @@ var (
 func TestNewReplayMovementSensor(t *testing.T) {
 	ctx := context.Background()
 
-	useShortInitTimeouts(t)
+	useShortPropertiesInitTimeout(t)
 
 	cases := []struct {
 		description          string
@@ -278,8 +278,6 @@ func TestNewReplayMovementSensor(t *testing.T) {
 
 func TestReplayMovementSensorFunctions(t *testing.T) {
 	ctx := context.Background()
-
-	useShortInitTimeouts(t)
 
 	cases := []struct {
 		description        string

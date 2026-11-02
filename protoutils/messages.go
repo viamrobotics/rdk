@@ -182,6 +182,7 @@ func DoFromResourceClient(ctx context.Context, svc ClientDoCommander, name strin
 	if err != nil {
 		return nil, err
 	}
+	RecordMessageSize(SiteDoCommandClient, name, command)
 	resp, err := svc.DoCommand(ctx, &commonpb.DoCommandRequest{
 		Name:    name,
 		Command: command,
@@ -206,6 +207,7 @@ func DoFromResourceServer(
 	if err != nil {
 		return nil, err
 	}
+	RecordMessageSize(SiteDoCommandServer, res.Name().String(), pbRes)
 	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }
 

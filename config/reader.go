@@ -803,10 +803,8 @@ func getFromCloudOrCache(
 	conn rpc.ClientConn,
 ) (*Config, bool, error) {
 	var cached bool
-	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, machineID, logger)
-	defer cancel()
 
-	cfg, err := getFromCloudGRPC(ctxWithTimeout, machineID, logger, conn)
+	cfg, err := getFromCloudGRPC(ctx, machineID, shouldReadFromCache, logger, conn)
 	if err != nil {
 		malformed := IsMalformedConfigError(err)
 		if shouldReadFromCache {
@@ -847,22 +845,30 @@ func getFromCloudOrCache(
 	return cfg, cached, nil
 }
 
-// getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint. A failure to
-// reach the cloud is returned as a plain error; a config the cloud could not produce or that we cannot
-// decode is returned as a malformedConfigError.
+// getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint, bounded by
+// the config read timeout. A failure to reach the cloud is returned as a plain error; a config the
+// cloud could not produce or that we cannot decode is returned as a malformedConfigError.
 func getFromCloudGRPC(
 	ctx context.Context,
 	machineID string,
+	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
 ) (*Config, error) {
+	// Agent info is gathered before the timeout starts: it is local work -- on darwin it shells out
+	// to sw_vers -- while the timeout is there to bound the cloud round trip. That timeout is as
+	// short as a second when a cached config exists, so local work charged against it can leave no
+	// time for a request the cloud would have answered (RSDK-14774).
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
 		return nil, errors.WithMessage(err, "error getting agent info")
 	}
 
+	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, machineID, logger)
+	defer cancel()
+
 	service := apppb.NewRobotServiceClient(conn)
-	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: machineID, AgentInfo: agentInfo})
+	res, err := service.Config(ctxWithTimeout, &apppb.ConfigRequest{Id: machineID, AgentInfo: agentInfo})
 	if err != nil {
 		// A status code indicating the cloud could not produce a usable config is treated as malformed.
 		// Anything else (connectivity, timeout, auth, rate-limiting, etc) is transient.

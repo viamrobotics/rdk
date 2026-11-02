@@ -653,3 +653,13 @@ func TestVesselPathRightArmStaysPut(t *testing.T) {
 		test.That(t, step["right-arm"], test.ShouldResemble, start)
 	}
 }
+
+func TestEarlyExitWhenLinearConstraintOutcomeLooksBleak(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	req, err := ReadRequestFromFile("data/big-movement-linear-constraint-early-exit.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "linear with cbirrt not allowed and no direct solutions found")
+}

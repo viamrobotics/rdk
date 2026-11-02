@@ -440,3 +440,30 @@ func TestSmartSeedPallette2(t *testing.T) {
 	}
 	test.That(t, anyContains, test.ShouldBeTrue)
 }
+
+// TestBuildCacheHelperZeroWidthLimit asserts buildCacheHelper terminates and samples a joint
+// exactly once when its min and max limits are equal.
+func TestBuildCacheHelperZeroWidthLimit(t *testing.T) {
+	frame, err := referenceframe.NewTranslationalFrame("pinned", r3.Vector{X: 1}, referenceframe.Limit{Min: 0.5, Max: 0.5})
+	test.That(t, err, test.ShouldBeNil)
+
+	cache := &cacheForFrame{entriesForCacheBuilding: make([][]smartSeedCacheEntry, defaultNumThreads)}
+
+	// A regression here loops forever and grows memory until the process is killed, so run it in a
+	// goroutine to fail fast.
+	done := make(chan error, 1)
+	go func() {
+		done <- cache.buildCacheHelper(frame, make([]float64, 1), 0, 0)
+	}()
+
+	select {
+	case err = <-done:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(5 * time.Second):
+		t.Fatal("buildCacheHelper did not terminate for a zero width limit")
+	}
+
+	test.That(t, cache.entriesForCacheBuilding[0], test.ShouldHaveLength, 1)
+	test.That(t, cache.entriesForCacheBuilding[0][0].inputs, test.ShouldResemble, []referenceframe.Input{0.5})
+	test.That(t, cache.entriesForCacheBuilding[0][0].pt, test.ShouldResemble, r3.Vector{X: 0.5})
+}

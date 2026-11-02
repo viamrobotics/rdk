@@ -401,7 +401,7 @@ func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cmd *cli.Co
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
 			return errors.Errorf("cannot create api-key for location: %s as there are multiple orgs on the location. "+
-				"Please re-run the command with an organization-id flag set", locationID)
+				"Please re-run the command with the --%s flag set", locationID, generalFlagOrgID)
 		}
 		return err
 	}
@@ -465,8 +465,8 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Comma
 	key, err := c.client.CreateKey(ctx, req)
 	if err != nil {
 		if strings.Contains(err.Error(), "multiple orgs") {
-			return errors.New("cannot create the machine api-key as there are multiple orgs on the location. " +
-				"Please re-run the command with an organization-id flag set")
+			return errors.Errorf("cannot create the machine api-key as there are multiple orgs on the location. "+
+				"Please re-run the command with the --%s flag set", generalFlagOrgID)
 		}
 		return err
 	}
@@ -475,6 +475,33 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Comma
 	printf(cmd.Root().Writer, "Key Value: %s", key.GetKey())
 	warningf(cmd.Root().Writer, "Keep this key somewhere safe; it has full write access to your machine")
 
+	return nil
+}
+
+type apiKeyDeleteArgs struct {
+	KeyID string
+}
+
+// APIKeyDeleteAction corresponds to `location api-key delete` and `machine api-key delete`.
+func APIKeyDeleteAction(ctx context.Context, cmd *cli.Command, args apiKeyDeleteArgs) error {
+	c, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return c.apiKeyDeleteAction(ctx, cmd, args)
+}
+
+func (c *viamClient) apiKeyDeleteAction(ctx context.Context, cmd *cli.Command, args apiKeyDeleteArgs) error {
+	keyID := args.KeyID
+	if keyID == "" {
+		return errors.New("cannot delete an api-key without an ID")
+	}
+
+	if _, err := c.client.DeleteKey(ctx, &apppb.DeleteKeyRequest{Id: keyID}); err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "Successfully deleted key: %s", keyID)
 	return nil
 }
 

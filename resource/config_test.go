@@ -9,8 +9,10 @@ import (
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // FakeConvertedAttributes is a helper for testing if validation works.
@@ -665,4 +667,28 @@ func TestEqual(t *testing.T) {
 			test.That(t, confA.Equals(resource.Config{API: base.API}), test.ShouldBeFalse)
 		})
 	})
+}
+
+func TestComponentValidateRefusesSeveralFrameGeometries(t *testing.T) {
+	// a config caches its first validation, so each case gets its own
+	withGeometries := func(extra []spatialmath.GeometryConfig) resource.Config {
+		return resource.Config{
+			Name:  "arm1",
+			API:   arm.API,
+			Model: fakeModel,
+			Frame: &referenceframe.LinkConfig{
+				Parent:     "world",
+				Geometry:   &spatialmath.GeometryConfig{Type: spatialmath.SphereType, R: 1},
+				Geometries: extra,
+			},
+		}
+	}
+	conf := withGeometries([]spatialmath.GeometryConfig{{Type: spatialmath.SphereType, R: 2}})
+	_, _, err := conf.Validate("path", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "frame.geometries")
+
+	conf = withGeometries(nil)
+	_, _, err = conf.Validate("path", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
 }

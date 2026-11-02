@@ -1242,8 +1242,6 @@ func FrameSystemGeometriesForFrames(
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
-//
-//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, ErrNoModelInformation
@@ -1262,7 +1260,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	}
 	return &pb.FrameSystemConfig{
 		Frame:      linkFrame,
-		Kinematics: kinematics,
+		Kinematics: kinematics, //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 	}, nil
 }
 
@@ -1307,7 +1305,8 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	// targeting a []byte struct field: a JSON string is base64-decoded; a JSON
 	// array is decoded element-by-element as uint8 values. No custom unmarshaler
 	// is needed and old/new viam-server versions interoperate in both directions.
-	if len(fsc.Kinematics.AsMap()) > 0 {
+	if len(fsc.Kinematics.AsMap()) > 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+		//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
 		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
 		if err != nil {
 			return nil, err

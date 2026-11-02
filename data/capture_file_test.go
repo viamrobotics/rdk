@@ -5,13 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -174,6 +177,7 @@ func TestBinaryPayloadReader(t *testing.T) {
 		test.That(t, len(entries), test.ShouldEqual, 1)
 		f, err := os.Open(filepath.Join(dir, entries[0].Name()))
 		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { goutils.UncheckedError(f.Close()) })
 		readCF, err := ReadCaptureFile(f)
 		test.That(t, err, test.ShouldBeNil)
 		return readCF
@@ -185,6 +189,7 @@ func TestBinaryPayloadReader(t *testing.T) {
 		t.Helper()
 		f, err := os.CreateTemp(t.TempDir(), "*"+CompletedCaptureFileExt)
 		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { goutils.UncheckedError(f.Close()) })
 		_, err = pbutil.WriteDelimited(f, &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_BINARY_SENSOR})
 		test.That(t, err, test.ShouldBeNil)
 		var lenBuf [binary.MaxVarintLen64]byte
@@ -300,6 +305,8 @@ func TestReadCorruptedFile(t *testing.T) {
 	}
 	f, err := NewCaptureFile(dir, md)
 	test.That(t, err, test.ShouldBeNil)
+	// Not f.Close(): that renames the file out from under the read below.
+	defer func() { goutils.UncheckedError(f.file.Close()) }()
 	numReadings := 100
 	for i := 0; i < numReadings; i++ {
 		err := f.WriteNext(&v1.SensorData{
@@ -400,6 +407,9 @@ func TestCloseIsIdempotent(t *testing.T) {
 	})
 
 	t.Run("close after failed rename returns nil", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("renames a file this process holds open, which Windows disallows (RSDK-14833)")
+		}
 		dir := t.TempDir()
 		f, err := NewCaptureFile(dir, &v1.DataCaptureMetadata{})
 		test.That(t, err, test.ShouldBeNil)
@@ -413,7 +423,7 @@ func TestCloseIsIdempotent(t *testing.T) {
 
 		err = f.Close()
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
+		test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
 
 		// The underlying file is already closed; repeated calls are no-ops.
 		test.That(t, f.Close(), test.ShouldBeNil)

@@ -1,7 +1,7 @@
 min_version = '2026.8.16'
 
 [tools]
-go = "1.25"
+go = "1.26.10"
 golangci-lint = "2.13.2"
 
 [tools.ffmpeg]

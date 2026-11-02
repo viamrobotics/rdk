@@ -813,6 +813,13 @@ func promptSharedInputs(shared *sharedInputs) error {
 	return nil
 }
 
+// cppResourceSubtypePascal maps subtypes whose C++ SDK class is not the PascalCase of the
+// snake name. Keep in sync with pascalOverrides in cpp-gen/src/viam/generator/generator.cpp.
+var cppResourceSubtypePascal = map[string]string{
+	"framesystem": "FrameSystem",
+	"mlmodel":     "MLModelService",
+}
+
 // resourceSubtypeArg converts a prompted resource (e.g. "arm component") into a value
 // CheckResourceAndSetType accepts. Generic keeps its type because a bare "generic" is ambiguous.
 func resourceSubtypeArg(resource string) string {
@@ -1036,6 +1043,11 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ModuleSnake = snakeReplacer.Replace(newModule.ModuleName)
 	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
 	newModule.ResourceSubtypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceSubtype)))
+	if newModule.Language == cpp {
+		if pascal, ok := cppResourceSubtypePascal[newModule.ResourceSubtype]; ok {
+			newModule.ResourceSubtypePascal = pascal
+		}
+	}
 	if newModule.Language == golang {
 		newModule.ResourceSubtype = spaceReplacer.Replace(newModule.ResourceSubtype)
 	}

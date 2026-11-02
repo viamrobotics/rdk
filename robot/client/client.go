@@ -1451,6 +1451,20 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			},
 			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
 		}
+		resStatus.Name.Remote = pbResStatus.GetRemote()
+
+		switch pbResStatus.Reachability {
+		case pb.ResourceStatus_REACHABILITY_UNSPECIFIED:
+			resStatus.Reachability = resource.ReachabilityUnknown
+		case pb.ResourceStatus_REACHABILITY_REACHABLE:
+			resStatus.Reachability = resource.ReachabilityReachable
+		case pb.ResourceStatus_REACHABILITY_REMOTE_DISCONNECTED:
+			resStatus.Reachability = resource.ReachabilityRemoteDisconnected
+		case pb.ResourceStatus_REACHABILITY_SHADOWED_BY_LOCAL:
+			resStatus.Reachability = resource.ReachabilityShadowedByLocal
+		case pb.ResourceStatus_REACHABILITY_AMBIGUOUS_REMOTE:
+			resStatus.Reachability = resource.ReachabilityAmbiguousRemote
+		}
 
 		switch pbResStatus.State {
 		case pb.ResourceStatus_STATE_UNSPECIFIED:
@@ -1526,6 +1540,17 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 				RecentSuccessfulRuns: lo.Map(js.GetRecentSuccessfulRuns(), tspbToTime),
 				RecentFailedRuns:     lo.Map(js.GetRecentFailedRuns(), tspbToTime),
 			}
+		}
+	}
+
+	if resp.GetPackages() != nil {
+		mStatus.Packages = make([]packages.PackageStatus, 0, len(resp.GetPackages()))
+		for _, pbPkgStatus := range resp.GetPackages() {
+			pkgStatus, err := packages.PackageStatusFromProto(pbPkgStatus)
+			if err != nil {
+				rc.logger.CWarnw(ctx, "invalid package status from server", "package", pkgStatus.Name, "error", err)
+			}
+			mStatus.Packages = append(mStatus.Packages, pkgStatus)
 		}
 	}
 

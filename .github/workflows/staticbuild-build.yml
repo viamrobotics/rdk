@@ -22,7 +22,7 @@ on:
 
 jobs:
   static:
-    name: Static Build Linux and Windows
+    name: Static Build Linux
     strategy:
       fail-fast: false
       matrix:
@@ -33,29 +33,18 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
             platform: linux/amd64
             target: static-release
-            sign_cmd_arg: ''
             build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
           - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/rdk-focal:arm64-cache
             platform: linux/arm64
             target: static-release
-            sign_cmd_arg: ''
             build_tags_arg: 'GO_BUILD_TAGS_EXTRA=viam_rdk_cgo_have_cxx20_rt'
-          - arch: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-focal:amd64-cache
-            platform: linux/amd64
-            target: static-release-win
-            sign_cmd_arg: 'SIGN_CMD=/tmp/sign-binary.sh'
-            build_tags_arg: ''
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
       options: --platform ${{ matrix.platform }}
     timeout-minutes: 15
     permissions:
-      # Lets us mint an OIDC token for the WIF login used by the Windows
-      # code signing step. GCS uploads uses a stored SA key instead.
-      id-token: write
       # Job-level permissions replace workflow-level ones and any not
       # explicitly granted are disallowed, so we need to re-grant this
       # for actions/checkout to check out the code and build from it.
@@ -96,44 +85,6 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Authorize signing (windows)
-      if: matrix.target == 'static-release-win'
-      id: signing-auth
-      uses: google-github-actions/auth@v2
-      with:
-        token_format: 'access_token'
-        project_id: 'engineering-tools-310515'
-        workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
-        service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
-
-    - name: Set up Authenticode signing (windows)
-      if: matrix.target == 'static-release-win'
-      env:
-        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
-      run: |
-        apt-get update
-        apt-get install -y openjdk-17-jre-headless jq
-        curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
-        # Fetch cert via Secret Manager REST; avoids another action dependency
-        curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
-          "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
-          | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
-        printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
-        cat > /tmp/sign-binary.sh <<'EOF'
-        #!/bin/bash
-        set -euo pipefail
-        java -jar /tmp/jsign.jar \
-          --storetype GOOGLECLOUD \
-          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key \
-          --storepass "$(cat /tmp/gcp-access-token)" \
-          --alias ev-code-signing-key/cryptoKeyVersions/2 \
-          --certfile /tmp/cert.pem \
-          --name "Viam Server" \
-          --tsaurl http://timestamp.digicert.com \
-          "$1"
-        EOF
-        chmod 755 /tmp/sign-binary.sh
-
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v2
       with:
@@ -142,12 +93,12 @@ jobs:
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.build_tags_arg }} ${{ matrix.target }}
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.build_tags_arg }} ${{ matrix.target }}
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -163,12 +114,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.build_tags_arg }} ${{ matrix.target }}
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}
+        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.build_tags_arg }} ${{ matrix.target }}
 
     - name: Set Date and Channel
       id: build_date
@@ -362,6 +313,172 @@ jobs:
     - name: Upload Manifest (Testing)
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/manifest/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+  # Built natively so cgo (the DirectShow webcam driver) uses MinGW-w64 from msys2
+  # rather than a cross-compiler, and so subsystem_manifest can run the binary.
+  windows:
+    name: Build Windows
+    runs-on: windows-2025
+    timeout-minutes: 15
+    permissions:
+      # Lets us mint an OIDC token for the WIF login used by the code signing
+      # step. GCS uploads uses a stored SA key instead.
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - name: Disable CRLF conversion
+      # the runner image defaults core.autocrlf to true, which breaks the Makefile
+      shell: bash
+      run: git config --global core.autocrlf false
+
+    - name: Check out code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      # actions/checkout@v7.0.1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      # actions/checkout@v7.0.1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see pullrequest-trusted.yml).
+        allow-unsafe-pr-checkout: true
+
+    # actions/setup-go@v7.0.0
+    - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+      with:
+        go-version-file: go.mod
+
+    # jsign (Authenticode signing) runs on the JVM
+    # actions/setup-java@v6.1.0
+    - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+      with:
+        java-version: 17
+        distribution: temurin
+
+    - name: Install upx
+      # crazy-max/ghaction-upx@v4.0.0
+      uses: crazy-max/ghaction-upx@c83f378efc804f828e988debb88ed6116feb2368
+      with:
+        version: v5.2.0
+        install-only: true
+
+    - name: Setup MinGW-w64 and make
+      # msys2/setup-msys2@v2.33.0
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
+      with:
+        msystem: UCRT64
+        # inherit the runner PATH so go, java, upx, and git from the steps above resolve
+        path-type: inherit
+        install: make mingw-w64-ucrt-x86_64-gcc
+
+    - name: Authorize signing
+      id: signing-auth
+      # google-github-actions/auth@v3.0.0
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        token_format: 'access_token'
+        project_id: 'engineering-tools-310515'
+        workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
+        service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
+
+    - name: Fetch signing cert
+      id: signing-cert
+      # google-github-actions/get-secretmanager-secrets@v3.0.0
+      uses: google-github-actions/get-secretmanager-secrets@bc9c54b29fdffb8a47776820a7d26e77b379d262
+      with:
+        secrets: |-
+          public_key:projects/385154741571/secrets/ev-code-signing-public-key
+
+    - name: Authorize GCP Upload
+      # google-github-actions/auth@v3.0.0
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    # single quotes keep the display name one word through packaging.make's `test -z "$(SIGN_CMD)"`
+    - name: Build (Test)
+      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      env:
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
+      run: |
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
+
+    - name: Build (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      env:
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
+      run: |
+        make BUILD_CHANNEL="pr-${PR_NUMBER}" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
+
+    - name: Upload Files (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      # google-github-actions/upload-cloud-storage@v3.0.0
+      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Build (Latest)
+      if: inputs.release_type == 'latest'
+      env:
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
+      run: |
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
+
+    - name: Build (Tagged)
+      if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
+      env:
+        RELEASE_TYPE: ${{ inputs.release_type }}
+        REF_NAME: ${{ github.ref_name }}
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.public_key }}
+      run: |
+        make RELEASE_TYPE="${RELEASE_TYPE}" BUILD_CHANNEL="${REF_NAME}" SIGN_CMD="./etc/sign-windows-binary.sh 'Viam Server'" static-release-win
+
+    - name: Set Date
+      id: build_date
+      shell: bash
+      run: echo "date=$(date +%F)" >> "$GITHUB_OUTPUT"
+
+    - name: Upload Files (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      # google-github-actions/upload-cloud-storage@v3.0.0
+      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Upload Manifest (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      # google-github-actions/upload-cloud-storage@v3.0.0
+      uses: google-github-actions/upload-cloud-storage@6397bd7208e18d13ba2619ee21b9873edc94427a
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/manifest/'

@@ -23,6 +23,8 @@ const (
 	ModelTypeMultiLabelClassification
 	// ModelTypeObjectDetection represents an object detection model.
 	ModelTypeObjectDetection
+	// ModelTypeRobotPolicy represents a policy that controls a robot.
+	ModelTypeRobotPolicy
 )
 
 // ModelFramework is the framework type of a model.
@@ -53,6 +55,8 @@ func modelTypeFromProto(modelType mltrainingpb.ModelType) ModelType {
 		return ModelTypeMultiLabelClassification
 	case mltrainingpb.ModelType_MODEL_TYPE_OBJECT_DETECTION:
 		return ModelTypeObjectDetection
+	case mltrainingpb.ModelType_MODEL_TYPE_ROBOT_POLICY:
+		return ModelTypeRobotPolicy
 	}
 	return ModelTypeUnspecified
 }
@@ -67,6 +71,8 @@ func modelTypeToProto(modelType ModelType) mltrainingpb.ModelType {
 		return mltrainingpb.ModelType_MODEL_TYPE_MULTI_LABEL_CLASSIFICATION
 	case ModelTypeObjectDetection:
 		return mltrainingpb.ModelType_MODEL_TYPE_OBJECT_DETECTION
+	case ModelTypeRobotPolicy:
+		return mltrainingpb.ModelType_MODEL_TYPE_ROBOT_POLICY
 	}
 	return mltrainingpb.ModelType_MODEL_TYPE_UNSPECIFIED
 }

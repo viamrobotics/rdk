@@ -26,7 +26,59 @@ type LinkConfig struct {
 	Translation r3.Vector                  `json:"translation"`
 	Orientation *spatial.OrientationConfig `json:"orientation"`
 	Geometry    *spatial.GeometryConfig    `json:"geometry,omitempty"`
-	Parent      string                     `json:"parent,omitempty"`
+	// Geometries holds any collision geometry beyond the first. The first stays in Geometry so a
+	// reader that predates this field still sees one geometry on the link instead of none.
+	Geometries []spatial.GeometryConfig `json:"geometries,omitempty"`
+	Parent     string                   `json:"parent,omitempty"`
+}
+
+// geometryConfigs returns every collision geometry on the link, Geometry first.
+func (cfg *LinkConfig) geometryConfigs() []spatial.GeometryConfig {
+	if cfg.Geometry == nil {
+		return cfg.Geometries
+	}
+	return append([]spatial.GeometryConfig{*cfg.Geometry}, cfg.Geometries...)
+}
+
+func (cfg *LinkConfig) setGeometryConfigs(configs []spatial.GeometryConfig) {
+	cfg.Geometry, cfg.Geometries = nil, nil
+	if len(configs) == 0 {
+		return
+	}
+	first := configs[0]
+	cfg.Geometry = &first
+	if len(configs) > 1 {
+		cfg.Geometries = configs[1:]
+	}
+}
+
+func newGeometryConfigs(geometries []spatial.Geometry) ([]spatial.GeometryConfig, error) {
+	configs := make([]spatial.GeometryConfig, 0, len(geometries))
+	for _, g := range geometries {
+		gc, err := spatial.NewGeometryConfig(g)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, *gc)
+	}
+	return configs, nil
+}
+
+// parseGeometryConfigs builds the geometries of a link and labels any that has no label of its
+// own, see defaultGeometryLabel.
+func parseGeometryConfigs(link string, configs []spatial.GeometryConfig) ([]spatial.Geometry, error) {
+	if len(configs) == 0 {
+		return nil, nil
+	}
+	geometries := make([]spatial.Geometry, 0, len(configs))
+	for i := range configs {
+		g, err := configs[i].ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		geometries = append(geometries, g)
+	}
+	return labelGeometries(link, geometries)
 }
 
 // MimicConfig describes a mimic joint relationship where this joint's position is derived
@@ -78,7 +130,6 @@ type DHParamConfig struct {
 
 // NewLinkConfig constructs a config from a Frame.
 // NOTE: this currently only works with Frames of len(DoF)==0 and will error otherwise
-// NOTE: this will not work if more than one Geometry is returned by the Geometries function.
 func NewLinkConfig(frame Frame) (*LinkConfig, error) {
 	if len(frame.DoF()) > 0 {
 		return nil, fmt.Errorf("cannot create link config for Frame with %d DoF", len(frame.DoF()))
@@ -93,40 +144,38 @@ func NewLinkConfig(frame Frame) (*LinkConfig, error) {
 		return nil, err
 	}
 
-	var geom *spatial.GeometryConfig
 	gif, err := frame.Geometries([]Input{})
 	if err != nil {
 		return nil, err
 	}
-	geometries := gif.Geometries()
-	if len(geometries) > 0 {
-		// TODO: when we support having multiple geometries on a pb.Frame in the API this will need to go away
-		if len(geometries) > 1 {
-			return nil, fmt.Errorf("cannot create link config for Frame with %d geometries", len(geometries))
-		}
-		geom, err = spatial.NewGeometryConfig(geometries[0])
-		if err != nil {
-			return nil, err
-		}
+	configs, err := newGeometryConfigs(gif.Geometries())
+	if err != nil {
+		return nil, err
 	}
 
-	return &LinkConfig{
+	lc := &LinkConfig{
 		ID:          frame.Name(),
 		Translation: pose.Point(),
 		Orientation: orient,
-		Geometry:    geom,
-	}, nil
+	}
+	lc.setGeometryConfigs(configs)
+	return lc, nil
 }
 
-// ParseConfig converts a LinkConfig into a staticFrame.
+// ParseConfig converts a LinkConfig into a LinkInFrame, which holds one geometry, so a link with
+// several is an error here. ToFrame carries them all.
 func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 	pose, err := cfg.Pose()
 	if err != nil {
 		return nil, err
 	}
+	configs := cfg.geometryConfigs()
+	if len(configs) > 1 {
+		return nil, fmt.Errorf("link %q has %d geometries and a LinkInFrame holds one", cfg.ID, len(configs))
+	}
 	var geom spatial.Geometry
-	if cfg.Geometry != nil {
-		geom, err = cfg.Geometry.ParseConfig()
+	if len(configs) == 1 {
+		geom, err = configs[0].ParseConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -135,6 +184,21 @@ func (cfg *LinkConfig) ParseConfig() (*LinkInFrame, error) {
 		}
 	}
 	return NewLinkInFrame(cfg.Parent, pose, cfg.ID, geom), nil
+}
+
+// ToFrame converts a LinkConfig into a static frame carrying every geometry on the link. A
+// geometry the config does not name is labelled with the link's id when it is the only one and
+// <id>_collision_<i> otherwise.
+func (cfg *LinkConfig) ToFrame() (Frame, error) {
+	pose, err := cfg.Pose()
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := parseGeometryConfigs(cfg.ID, cfg.geometryConfigs())
+	if err != nil {
+		return nil, err
+	}
+	return NewStaticFrameWithGeometries(cfg.ID, pose, geometries)
 }
 
 // Pose will parse out the Pose of a LinkConfig and return it if it is valid.
@@ -181,7 +245,14 @@ func (cfg *JointConfig) ToFrame() (Frame, error) {
 	case RevoluteJoint:
 		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(), limit)
 	case PrismaticJoint:
-		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
+		if cfg.Geometry == nil {
+			return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
+		}
+		geometry, err := cfg.Geometry.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		return NewTranslationalFrameWithGeometry(cfg.ID, r3.Vector(cfg.Axis), limit, geometry)
 	default:
 		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}

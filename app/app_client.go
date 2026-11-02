@@ -137,6 +137,21 @@ type RobotPartHistoryEntry struct {
 	EditedBy *AuthenticatorInfo
 }
 
+// ConfigPropertyChange is a single property to set in a robot part's config. Path is a dotted path
+// into the config (for example "components.my-arm.attributes.speed") and Value is the value to set there.
+type ConfigPropertyChange struct {
+	Path  string
+	Value interface{}
+}
+
+// ConfigPropertyChangeResult is the result of applying a single ConfigPropertyChange.
+type ConfigPropertyChangeResult struct {
+	Path    string
+	Value   interface{}
+	Success bool
+	Error   string
+}
+
 // LogEntry holds the information of a single log entry.
 type LogEntry struct {
 	Host       string
@@ -1803,6 +1818,48 @@ func (c *AppClient) UpdateRobotPart(ctx context.Context, id, name string, robotC
 	return robotPartFromProto(resp.Part), nil
 }
 
+// SetConfigProperty sets individual properties in a robot part's config without replacing the whole config.
+// Each change is written where the property comes from: the part config, a fragment mod or variable,
+// or a new fragment mod. Changes are applied in order, and the results are returned in the same order.
+//
+// SetConfigProperty example:
+//
+//	results, err := cloud.SetConfigProperty(
+//		context.Background(),
+//		"1ab2345c-a123-1ab2-1abc-1ab234567a12",
+//		[]*ConfigPropertyChange{
+//			{Path: "components.my-arm.attributes.speed", Value: 50},
+//		},
+//	)
+//
+// For more information, see the [SetConfigProperty method docs].
+//
+// [SetConfigProperty method docs]: https://docs.viam.com/reference/apis/fleet/#setconfigproperty
+func (c *AppClient) SetConfigProperty(
+	ctx context.Context, partID string, propertyChanges []*ConfigPropertyChange,
+) ([]*ConfigPropertyChangeResult, error) {
+	pbChanges := make([]*pb.ConfigPropertyChange, 0, len(propertyChanges))
+	for _, change := range propertyChanges {
+		pbChange, err := configPropertyChangeToProto(change)
+		if err != nil {
+			return nil, err
+		}
+		pbChanges = append(pbChanges, pbChange)
+	}
+	resp, err := c.client.SetConfigProperty(ctx, &pb.SetConfigPropertyRequest{
+		RobotPartId:     partID,
+		PropertyChanges: pbChanges,
+	})
+	if err != nil {
+		return nil, err
+	}
+	results := make([]*ConfigPropertyChangeResult, 0, len(resp.PropertyChanges))
+	for _, result := range resp.PropertyChanges {
+		results = append(results, configPropertyChangeResultFromProto(result))
+	}
+	return results, nil
+}
+
 // NewRobotPart creates a new robot part and returns its ID.
 //
 // NewRobotPart example:
@@ -3293,6 +3350,30 @@ func robotPartHistoryEntryFromProto(entry *pb.RobotPartHistoryEntry) *RobotPartH
 		When:     when,
 		Old:      robotPartFromProto(entry.Old),
 		EditedBy: authenticatorInfoFromProto(entry.EditedBy),
+	}
+}
+
+func configPropertyChangeToProto(change *ConfigPropertyChange) (*pb.ConfigPropertyChange, error) {
+	// StructToStructPb handles structs and typed slices/maps that structpb.NewValue rejects.
+	wrapped, err := protoutils.StructToStructPb(map[string]interface{}{"value": change.Value})
+	if err != nil {
+		return nil, fmt.Errorf("converting value for config property %q: %w", change.Path, err)
+	}
+	return &pb.ConfigPropertyChange{
+		Path:  change.Path,
+		Value: wrapped.Fields["value"],
+	}, nil
+}
+
+func configPropertyChangeResultFromProto(result *pb.ConfigPropertyChangeResult) *ConfigPropertyChangeResult {
+	if result == nil {
+		return nil
+	}
+	return &ConfigPropertyChangeResult{
+		Path:    result.Path,
+		Value:   result.Value.AsInterface(),
+		Success: result.Success,
+		Error:   result.Error,
 	}
 }
 

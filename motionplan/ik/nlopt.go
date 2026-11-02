@@ -3,6 +3,7 @@
 package ik
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -108,18 +109,11 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	// bounds.
 	for idx, seedVal := range ss.seed {
 		if seedVal < ss.lowerBound[idx] {
-			ss.seed[idx] = ss.lowerBound[idx] + defaultGoalThreshold
+			ss.seed[idx] = ss.lowerBound[idx]
 		}
 
 		if seedVal > ss.upperBound[idx] {
-			ss.seed[idx] = ss.upperBound[idx] - defaultGoalThreshold
-		}
-	}
-
-	// nlopt returns INVALID_ARGS for zero-range variables - nudge the upper bound by a small epsilon.
-	for i := range ss.lowerBound {
-		if ss.lowerBound[i] == ss.upperBound[i] {
-			ss.upperBound[i] += defaultGoalThreshold
+			ss.seed[idx] = ss.upperBound[idx]
 		}
 	}
 
@@ -216,14 +210,11 @@ func (ik *NloptIK) SolveOnce(ctx context.Context, minFunc CostFunc,
 		}
 		return nil, errors.New("unable to solve for position")
 	}
+
 	if ik.exact && result >= defaultGoalThreshold {
 		return nil, errors.New("unable to solve for position")
 	}
-	// clamp back to the real limits - the zero-range nudge in newSeedState
-	// (and general fp drift) can leave solutions epsilon outside them
-	for i, l := range limits {
-		solutionRaw[i] = min(max(solutionRaw[i], l.Min), l.Max)
-	}
+
 	return solutionRaw, nil
 }
 
@@ -301,17 +292,17 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
+				builder := bytes.NewBuffer(nil)
+				for idx, val := range ss.seed {
+					builder.WriteString(fmt.Sprintf("  Min: %v Max: %v Seed: %v\n", ss.lowerBound[idx], ss.upperBound[idx], val))
+				}
+				ik.logger.Warnf("Error: %v\nSeeds:\n%v", nloptErr, builder.String())
 				return solutionsFound, nil, nloptErr
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
 			meta[seedNumberRanged].Valid++
-			// clamp back to the real limits - the zero-range nudge above (and general fp
-			// drift) can leave solutions epsilon outside them
-			for i, l := range limits[seedNumberRanged] {
-				solutionRaw[i] = min(max(solutionRaw[i], l.Min), l.Max)
-			}
 			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,

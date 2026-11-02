@@ -46,7 +46,6 @@ const (
 	runFlagComponent = "component"
 
 	loginFlagDisableBrowser = "disable-browser-open"
-	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
 	// Flags shared by logs, api-key, module, ml-training, package, and data subcommands.
@@ -68,6 +67,7 @@ const (
 	generalFlagPartID            = "part-id"
 	generalFlagFragment          = "fragment"
 	generalFlagID                = "id"
+	generalFlagKeyID             = "key-id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
 	generalFlagModelName         = "model-name"
@@ -128,6 +128,7 @@ const (
 
 	mlTrainingFlagName           = "script-name"
 	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagModuleResource = "module-resource"
 	mlTrainingFlagDraft          = "draft"
 	mlTrainingFlagVisibility     = "visibility"
 	mlTrainingFlagDescription    = "description"
@@ -679,10 +680,10 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "api-key",
 					Usage:     "authenticate with an api key",
-					UsageText: createUsageText("login api-key", []string{loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("login api-key", []string{generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the key to authenticate with",
 						},
@@ -1247,6 +1248,19 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
+						{
+							Name:      "delete",
+							Usage:     "delete an api key for your location",
+							UsageText: createUsageText("locations api-key delete", []string{generalFlagKeyID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagKeyID,
+									Required: true,
+									Usage:    "id of the api-key to delete",
+								},
+							},
+							Action: createActionCommandWithT[apiKeyDeleteArgs](APIKeyDeleteAction),
+						},
 					},
 				},
 			},
@@ -1260,7 +1274,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "update",
 					Usage:     "update an existing profile for authentication, or add it if it doesn't exist",
-					UsageText: createUsageText("profiles update", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("profiles update", []string{profileFlagName, generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -1268,7 +1282,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to update",
 						},
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the profile's API key",
 						},
@@ -1283,7 +1297,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "add",
 					Usage:     "add a new profile for authentication (errors if the profile already exists)",
-					UsageText: createUsageText("profiles add", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("profiles add", []string{profileFlagName, generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -1291,7 +1305,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to add",
 						},
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the profile's API key",
 						},
@@ -2480,6 +2494,10 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 											Required: true,
 										},
+										&cli.StringSliceFlag{
+											Name:  mlTrainingFlagModuleResource,
+											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
@@ -2708,6 +2726,19 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
 						},
+						{
+							Name:      "delete",
+							Usage:     "delete an api-key for your machine",
+							UsageText: createUsageText("machines api-key delete", []string{generalFlagKeyID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagKeyID,
+									Required: true,
+									Usage:    "id of the api-key to delete",
+								},
+							},
+							Action: createActionCommandWithT[apiKeyDeleteArgs](APIKeyDeleteAction),
+						},
 					},
 				},
 				{
@@ -2783,9 +2814,10 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "filter logs by levels (e.g., info, warn, error)",
 						},
 						&cli.StringFlag{
-							Name:        generalFlagStart,
-							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "24 hours ago, unless --" + logsFlagRange + " is set",
+							Name:  generalFlagStart,
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+							DefaultText: "24 hours before --" + generalFlagEnd + " when it is set, 24 hours ago otherwise, " +
+								"unless --" + logsFlagRange + " is set",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
@@ -3337,7 +3369,7 @@ Note: There is no progress meter while copying is in progress.
 							Description: `Tunnel connections from a local port to a destination port on a machine part.
 
 By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
-directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + generalFlagKeyID + `,
 and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
@@ -3353,10 +3385,10 @@ and --` + loginFlagKey + `.`,
 								},
 								&cli.StringFlag{
 									Name:  generalFlagAddress,
-									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+									Usage: "machine FQDN to dial directly,  (requires --" + generalFlagKeyID + "/--" + loginFlagKey + ")",
 								},
 								&cli.StringFlag{
-									Name:  loginFlagKeyID,
+									Name:  generalFlagKeyID,
 									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 								&cli.StringFlag{
@@ -4258,7 +4290,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload-local --model-name acme:module-name:mybase --name my-resource
+	viam module reload-local --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Build and configure a module running on your local machine without shipping a tarball.
 	viam module reload-local --local
@@ -4273,16 +4305,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Usage: "path to a meta.json. its module ID is the module that is configured and restarted",
 							Value: "meta.json",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --id",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagID,
-							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
@@ -4346,7 +4370,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource
+	viam module reload --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Trigger a reload build of a module located in a different directory than the current workdir
 	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
@@ -4358,7 +4382,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
+							Usage: "relative path to a meta.json from workdir (default: ./). its module ID identifies the module to reload",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
@@ -4537,6 +4561,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+						},
 					},
 					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
@@ -4576,6 +4604,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:     mlTrainingFlagFramework,
 							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -4625,6 +4657,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
+						},
+						&cli.StringFlag{
+							Name:  mlTrainingFlagFramework,
+							Usage: formatAcceptedValues("framework of the ML training script", modelFrameworks...),
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
 					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),

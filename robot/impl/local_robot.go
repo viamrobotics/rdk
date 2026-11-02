@@ -49,6 +49,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -68,6 +69,9 @@ const localConfigPartID = "local-config"
 // configTickerInterval is the wait between automatic reconfiguration attempts,
 // measured from the end of the previous attempt.
 const configTickerInterval = 5 * time.Second
+
+// remotePathRefreshInterval is how often remote connection paths are refreshed and relays warned about.
+const remotePathRefreshInterval = 15 * time.Minute
 
 var _ = robot.LocalRobot(&localRobot{})
 
@@ -603,7 +607,10 @@ func newWithResources(
 	r.webSvc = web.New(r, logger, rOpts.webOptions...)
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
+		r.ftdc.Add("large_messages", rprotoutils.LargeMessageStatser{})
+		r.ftdc.Add("remote_connections", remoteConnStatser{r.manager})
 	}
+	rprotoutils.SetLargeMessageLogger(logger.Sublogger("large_messages"))
 	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
 	if err != nil {
 		return nil, err
@@ -672,6 +679,9 @@ func newWithResources(
 			r.completeConfigWorker()
 		}, r.activeBackgroundWorkers.Done)
 	}
+
+	r.activeBackgroundWorkers.Add(1)
+	goutils.ManagedGo(r.remotePathRefreshWorker, r.activeBackgroundWorkers.Done)
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
@@ -1685,6 +1695,15 @@ func dialRobotClient(
 	return robotClient, nil
 }
 
+// remotePathRefreshWorker periodically refreshes remote connection paths and warns about relays.
+func (r *localRobot) remotePathRefreshWorker() {
+	ticker := time.NewTicker(remotePathRefreshInterval)
+	defer ticker.Stop()
+	for goutils.SelectContextOrWaitChan(r.closeContext, ticker.C) {
+		r.manager.refreshRemotePaths()
+	}
+}
+
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
 // a best effort to remove no longer in use parts, but if it fails to do so, they could
 // possibly leak resources. The given config may be modified by Reconfigure.
@@ -2295,7 +2314,7 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 	isRunning := activeModules != nil && utils.FindInSlice(activeModules, req.MatchesModule) != nil
 	err := r.restartSingleModule(ctx, mod, isRunning)
 	if err != nil {
-		r.logger.Warn("Error restarting module. ID: %v Name: %v Err: %v", req.ModuleID, req.ModuleName, err)
+		r.logger.Warnf("Error restarting module. ID: %v Name: %v Err: %v", req.ModuleID, req.ModuleName, err)
 		return errors.Wrapf(err, "while restarting module id=%s, name=%s", req.ModuleID, req.ModuleName)
 	}
 
@@ -2328,7 +2347,7 @@ func (r *localRobot) packageManagerForModule(mod config.Module) (packages.Manage
 func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, error) {
 	var result robot.MachineStatus
 
-	remoteMdMap := r.manager.getRemoteResourceMetadata(ctx)
+	remoteStatuses := r.manager.getRemoteResourceStatuses(ctx)
 
 	// we can safely ignore errors from `r.CloudMetadata`. If there is an error, that means
 	// that this robot does not have CloudMetadata to attach to resources.
@@ -2340,14 +2359,21 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 			continue
 		}
 
-		// Otherwise, the resource is remote. If the corresponding status exists in remoteMdMap, use that.
-		if rMd, ok := remoteMdMap[resourceStatus.Name]; ok {
-			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rMd})
+		// Otherwise, the resource is remote. If the corresponding status exists in remoteStatuses, use its
+		// cloud metadata and reachability.
+		if rStatus, ok := remoteStatuses[resourceStatus.Name]; ok {
+			// Our link to the remote may be up while the remote's link to its own remote is down, e.g.
+			// A -> B -> C with C down: A sees B's resources from C as reachable, but B reports them disconnected.
+			if resourceStatus.Reachability == resource.ReachabilityReachable &&
+				rStatus.Reachability == resource.ReachabilityRemoteDisconnected {
+				resourceStatus.Reachability = resource.ReachabilityRemoteDisconnected
+			}
+			result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: rStatus.CloudMetadata})
 			continue
 		}
 
-		// if the remote resource is not in remoteMdMap, there is a mismatch between remote resource nodes
-		// in the resource graph and what was expected from getRemoteResourceMetadata. We should leave
+		// if the remote resource is not in remoteStatuses, there is a mismatch between remote resource nodes
+		// in the resource graph and what was expected from getRemoteResourceStatuses. We should leave
 		// cloud metadata blank in that case.
 		result.Resources = append(result.Resources, resource.Status{NodeStatus: resourceStatus, CloudMetadata: cloud.Metadata{}})
 	}

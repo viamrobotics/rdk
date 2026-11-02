@@ -4,7 +4,6 @@ import (
 	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"math/rand"
-	"os"
 	"strings"
 	"testing"
 )
@@ -94,12 +93,14 @@ func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 	return ret, nil
 }
 
-// SanitizePath conservatively sanitizes a string for use as a path. It replaces all
-// characters outside of [A-Za-z0-9] with '-'. Use this for relatively safe input, for example
-// a user running something on hardware they own, not for user input running in a secure context.
+// SanitizePath conservatively sanitizes a string for use as a single path segment.
+// It replaces both separators regardless of host OS, so a path built by a Windows
+// CLI still collapses to one segment on the Linux machine it is sent to. Use this for
+// relatively safe input, for example a user running something on hardware they own,
+// not for user input running in a secure context.
 // In sensitive contexts please use a third-party library for this.
 func SanitizePath(path string) string {
-	return strings.ReplaceAll(path, string(os.PathSeparator), "-")
+	return strings.NewReplacer("/", "-", `\`, "-").Replace(path)
 }
 
 // RIndex returns item at `index` of `items`, with support for negative indexes, or `fallback` if out of bounds.

@@ -186,6 +186,7 @@ type packageUploadArgs struct {
 	Type           string
 	ModelFramework string
 	ModelType      string
+	ModuleResource []string
 }
 
 // PackageUploadAction is the corresponding action for "packages upload".
@@ -214,20 +215,7 @@ func PackageUploadAction(ctx context.Context, cmd *cli.Command, args packageUplo
 		args.Version,
 		args.Type,
 		args.Path,
-		&structpb.Struct{
-			Fields: map[string]*structpb.Value{
-				"model_framework": {
-					Kind: &structpb.Value_StringValue{
-						StringValue: args.ModelFramework,
-					},
-				},
-				"model_type": {
-					Kind: &structpb.Value_StringValue{
-						StringValue: args.ModelType,
-					},
-				},
-			},
-		},
+		packageUploadMetadata(args),
 	)
 	if err != nil {
 		return err
@@ -317,6 +305,31 @@ func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
 }
 
+func packageUploadMetadata(args packageUploadArgs) *structpb.Struct {
+	fields := map[string]*structpb.Value{
+		"model_framework": {
+			Kind: &structpb.Value_StringValue{
+				StringValue: args.ModelFramework,
+			},
+		},
+		"model_type": {
+			Kind: &structpb.Value_StringValue{
+				StringValue: args.ModelType,
+			},
+		},
+	}
+	if len(args.ModuleResource) > 0 {
+		values := make([]*structpb.Value, len(args.ModuleResource))
+		for i, resource := range args.ModuleResource {
+			values[i] = &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: resource}}
+		}
+		fields[deploymentModularResourcesKey] = &structpb.Value{
+			Kind: &structpb.Value_ListValue{ListValue: &structpb.ListValue{Values: values}},
+		}
+	}
+	return &structpb.Struct{Fields: fields}
+}
+
 func validatePackageUploadRequest(_ *cli.Command, args packageUploadArgs) error {
 	packageType := args.Type
 
@@ -330,5 +343,5 @@ func validatePackageUploadRequest(_ *cli.Command, args packageUploadArgs) error 
 		}
 	}
 
-	return nil
+	return validateRegistryModuleResources(packageFlagFramework, args.ModelFramework, args.ModuleResource)
 }

@@ -358,7 +358,7 @@ func (o *odometry) checkBaseProps(ctx context.Context) {
 	if (o.baseWidth != props.WidthMeters) || (o.wheelCircumference != props.WheelCircumferenceMeters) {
 		o.baseWidth = props.WidthMeters
 		o.wheelCircumference = props.WheelCircumferenceMeters
-		o.logger.Warnf("Base %v's properties have changed: baseWidth = %v and wheelCirumference = %v.",
+		o.logger.Warnf("Base %v's properties have changed: baseWidth = %v and wheelCirumference = %v. "+
 			"Odometry can optionally be reset using DoCommand",
 			o.base.Name().ShortName(), o.baseWidth, o.wheelCircumference)
 	}

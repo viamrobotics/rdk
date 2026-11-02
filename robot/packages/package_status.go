@@ -1,7 +1,12 @@
 package packages
 
 import (
+	"errors"
+	"fmt"
 	"time"
+
+	robotpb "go.viam.com/api/robot/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/config"
 )
@@ -44,4 +49,91 @@ type PackageStatus struct {
 	BytesDownloaded uint64
 	// TotalBytes is the total size of the package tarball in bytes. Zero if unknown.
 	TotalBytes uint64
+}
+
+// PackageStatusToProto converts a package status to its protobuf equivalent. The returned
+// message is populated with unspecified enum values when err is non-nil.
+func PackageStatusToProto(status PackageStatus) (*robotpb.PackageStatus, error) {
+	pkgType, typeErr := config.PackageTypeToProto(status.Type)
+	state, stateErr := packageStateToProto(status.State)
+	lastUpdated := timestamppb.New(status.LastUpdated)
+
+	return &robotpb.PackageStatus{
+		Name:            status.Name,
+		Type:            *pkgType,
+		State:           state,
+		Error:           status.Error,
+		LastUpdated:     lastUpdated,
+		Version:         status.Version,
+		BytesDownloaded: status.BytesDownloaded,
+		TotalBytes:      status.TotalBytes,
+	}, errors.Join(typeErr, stateErr, lastUpdated.CheckValid())
+}
+
+// PackageStatusFromProto converts a protobuf package status to its RDK equivalent. Unsupported
+// enum values and invalid timestamps are left at their zero values and returned as errors.
+func PackageStatusFromProto(status *robotpb.PackageStatus) (PackageStatus, error) {
+	if status == nil {
+		return PackageStatus{}, errors.New("package status is nil")
+	}
+
+	pkgType, typeErr := config.PackageTypeFromProto(status.GetType())
+	state, stateErr := packageStateFromProto(status.GetState())
+	var lastUpdated time.Time
+	var timestampErr error
+	if timestamp := status.GetLastUpdated(); timestamp != nil {
+		timestampErr = timestamp.CheckValid()
+		if timestampErr == nil {
+			lastUpdated = timestamp.AsTime()
+		}
+	}
+
+	return PackageStatus{
+		Name:            status.GetName(),
+		Type:            pkgType,
+		State:           state,
+		Error:           status.GetError(),
+		LastUpdated:     lastUpdated,
+		Version:         status.GetVersion(),
+		BytesDownloaded: status.GetBytesDownloaded(),
+		TotalBytes:      status.GetTotalBytes(),
+	}, errors.Join(typeErr, stateErr, timestampErr)
+}
+
+func packageStateToProto(state PackageState) (robotpb.PackageStatus_State, error) {
+	switch state {
+	case PackageStateUnknown:
+		return robotpb.PackageStatus_STATE_UNSPECIFIED, nil
+	case PackageStateDownloading:
+		return robotpb.PackageStatus_STATE_DOWNLOADING, nil
+	case PackageStateLoading:
+		return robotpb.PackageStatus_STATE_LOADING, nil
+	case PackageStateFirstRun:
+		return robotpb.PackageStatus_STATE_FIRST_RUN, nil
+	case PackageStateReady:
+		return robotpb.PackageStatus_STATE_READY, nil
+	case PackageStateFailed:
+		return robotpb.PackageStatus_STATE_FAILED, nil
+	default:
+		return robotpb.PackageStatus_STATE_UNSPECIFIED, fmt.Errorf("unknown package state %d", state)
+	}
+}
+
+func packageStateFromProto(state robotpb.PackageStatus_State) (PackageState, error) {
+	switch state {
+	case robotpb.PackageStatus_STATE_UNSPECIFIED:
+		return PackageStateUnknown, nil
+	case robotpb.PackageStatus_STATE_DOWNLOADING:
+		return PackageStateDownloading, nil
+	case robotpb.PackageStatus_STATE_LOADING:
+		return PackageStateLoading, nil
+	case robotpb.PackageStatus_STATE_FIRST_RUN:
+		return PackageStateFirstRun, nil
+	case robotpb.PackageStatus_STATE_READY:
+		return PackageStateReady, nil
+	case robotpb.PackageStatus_STATE_FAILED:
+		return PackageStateFailed, nil
+	default:
+		return PackageStateUnknown, fmt.Errorf("unknown package state %d", state)
+	}
 }
