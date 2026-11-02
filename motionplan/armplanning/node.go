@@ -138,7 +138,7 @@ type SolutionSolvingState struct {
 	SeedDescriptions []string
 
 	moving, nonmoving []string
-	revolute []bool
+	revolute          []bool
 
 	goodCost        float64
 	doingSmartSeeds bool
