@@ -748,46 +748,201 @@ func sortedFrameNames(inputs referenceframe.FrameSystemInputs) []string {
 	return names
 }
 
-// transparentWallColors renders any frame whose name contains "wall" nearly
-// see-through so walls don't occlude the robot and scene. Matching on substring
-// catches both prefixes (wall-back) and suffixes (right-wall). Frames absent
-// from the returned map keep their default inherited color.
-func transparentWallColors(fs *referenceframe.FrameSystem) map[string]draw.Color {
+// Red and blue are reserved for path shadows and goal poses, so no scene object uses them.
+const (
+	// staticColor marks geometry that never moves: obstacles and frames with no DoF anywhere in
+	// their ancestry. It matches the visualizer's own fallback.
+	staticColor = "magenta"
+	// actuatedColor is shared by every frame that has its own DoF.
+	actuatedColor = "gold"
+	// allowedCollisionColor replaces staticColor for static geometry named in an allowed-collision
+	// pair, drawn see-through so whatever it is allowed to overlap stays visible.
+	allowedCollisionColor = "green"
+	// allowedCollisionAlpha is 30% opacity, i.e. 70% transparency.
+	allowedCollisionAlpha = 77
+)
+
+// staticGeometryColor colors static geometry, telling apart geometry the planner is allowed to
+// collide with.
+func staticGeometryColor(allowedCollision bool) draw.Color {
+	if allowedCollision {
+		return draw.ColorFromName(allowedCollisionColor).SetAlpha(allowedCollisionAlpha)
+	}
+	return draw.ColorFromName(staticColor)
+}
+
+// allowedCollisionNames returns every frame or geometry name that appears on either side of an
+// allowed-collision pair.
+func allowedCollisionNames(constraints *motionplan.Constraints) map[string]bool {
+	names := map[string]bool{}
+	if constraints == nil {
+		return names
+	}
+	for _, spec := range constraints.CollisionSpecification {
+		for _, allow := range spec.Allows {
+			names[allow.Frame1] = true
+			names[allow.Frame2] = true
+		}
+	}
+	return names
+}
+
+// frameAllowsCollision mirrors how the planner resolves allowed-collision names: a component name
+// also covers its "_origin" frame, and a geometry label covers that geometry. The visualizer colors
+// whole frames, so one allowed geometry marks its entire frame.
+func frameAllowsCollision(allowed map[string]bool, frameName string, gif *referenceframe.GeometriesInFrame) bool {
+	if allowed[frameName] {
+		return true
+	}
+	if component, ok := strings.CutSuffix(frameName, "_origin"); ok && allowed[component] {
+		return true
+	}
+	return slices.ContainsFunc(gif.Geometries(), func(g spatialmath.Geometry) bool { return allowed[g.Label()] })
+}
+
+// carriedPalette colors frames that have no DoF of their own but ride on an ancestor that does
+// (e.g. a gripper or camera on an arm). Each such frame gets its own entry; the palette wraps if
+// there are more frames than colors.
+var carriedPalette = []string{
+	"darkorange", "teal", "darkviolet", "turquoise", "saddlebrown", "darkslategray", "tan", "olive", "black",
+}
+
+type frameMotion int
+
+const (
+	frameStatic frameMotion = iota
+	frameActuated
+	frameCarried
+)
+
+// classifyFrame reports whether frame name moves because of its own DoF, because of an
+// ancestor's DoF, or not at all. Unknown frames are static.
+func classifyFrame(fs *referenceframe.FrameSystem, name string) frameMotion {
+	frame := fs.Frame(name)
+	if frame == nil {
+		return frameStatic
+	}
+	if len(frame.DoF()) > 0 {
+		return frameActuated
+	}
+	parent, err := fs.Parent(frame)
+	for parent != nil && err == nil {
+		if len(parent.DoF()) > 0 {
+			return frameCarried
+		}
+		parent, err = fs.Parent(parent)
+	}
+	return frameStatic
+}
+
+// enclosureNameParts are the name fragments of frames that box the scene in.
+var enclosureNameParts = []string{"wall", "ceiling"}
+
+// transparentEnclosureColors renders any frame whose name contains one of
+// enclosureNameParts nearly see-through so walls and ceilings don't occlude the
+// robot and scene. Matching on substring catches both prefixes (wall-back) and
+// suffixes (right-wall). Frames absent from the returned map keep their default
+// inherited color.
+func transparentEnclosureColors(fs *referenceframe.FrameSystem) map[string]draw.Color {
 	colors := map[string]draw.Color{}
 	for _, name := range fs.FrameNames() {
-		if strings.Contains(name, "wall") {
+		if slices.ContainsFunc(enclosureNameParts, func(part string) bool { return strings.Contains(name, part) }) {
 			colors[name] = draw.NewColor(draw.WithRGBA(128, 128, 128, 40))
 		}
 	}
 	return colors
 }
 
-func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
-	renderFramePeriod := 5 * time.Millisecond
+// frameColors assigns a color to every frame that carries geometry, according to its
+// classifyFrame motion. Enclosure frames keep their transparentEnclosureColors color regardless
+// of motion.
+// Carried frames are colored in sorted name order, so a given frame system gets the same colors on
+// every render and every run. allowed holds the allowedCollisionNames.
+func frameColors(
+	fs *referenceframe.FrameSystem, inputs referenceframe.FrameSystemInputs, allowed map[string]bool,
+) (map[string]draw.Color, error) {
+	gifs, err := referenceframe.FrameSystemGeometries(fs, inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	colors := transparentEnclosureColors(fs)
+	carried := 0
+	for _, name := range slices.Sorted(maps.Keys(gifs)) {
+		if _, isEnclosure := colors[name]; isEnclosure {
+			continue
+		}
+		switch classifyFrame(fs, name) {
+		case frameActuated:
+			colors[name] = draw.ColorFromName(actuatedColor)
+		case frameCarried:
+			colors[name] = draw.ColorFromName(carriedPalette[carried%len(carriedPalette)])
+			carried++
+		case frameStatic:
+			colors[name] = staticGeometryColor(frameAllowsCollision(allowed, name, gifs[name]))
+		}
+	}
+	return colors, nil
+}
+
+// obstacleColors returns one color per obstacle, in the order DrawWorldState draws them.
+func obstacleColors(
+	worldState *referenceframe.WorldState,
+	fs *referenceframe.FrameSystem,
+	inputs referenceframe.FrameSystemInputs,
+	allowed map[string]bool,
+) ([]draw.Color, error) {
+	// Obstacles can be expressed in frames of the frame system (e.g. a camera mounted on an
+	// arm), so resolving them needs the frame system and inputs.
+	obstacles, err := worldState.ObstaclesInWorldFrame(fs, inputs)
+	if err != nil {
+		return nil, err
+	}
+	geoms := obstacles.Geometries()
+	colors := make([]draw.Color, len(geoms))
+	for i, geom := range geoms {
+		colors[i] = staticGeometryColor(allowed[geom.Label()])
+	}
+	return colors, nil
+}
+
+// drawScene clears the visualizer and draws the obstacles and the frame system at inputs.
+func drawScene(req *armplanning.PlanRequest, inputs referenceframe.FrameSystemInputs, colors map[string]draw.Color) error {
 	if _, err := viz.RemoveAll(); err != nil {
 		return err
 	}
 
-	frameColors := transparentWallColors(req.FrameSystem)
-
-	startInputs := req.StartState.Configuration()
-	// `DrawWorldState` just draws the obstacles. I think the FrameSystem/Path are necessary
-	// because obstacles can be in terms of reference frames contained within the frame
-	// system. Such as a camera attached to an arm.
+	worldState := req.GetWorldState()
+	obstacles, err := obstacleColors(worldState, req.FrameSystem, inputs, allowedCollisionNames(req.Constraints))
+	if err != nil {
+		return err
+	}
 	if _, err := viz.DrawWorldState(viz.DrawWorldStateOptions{
-		WorldState:  req.GetWorldState(),
+		WorldState:  worldState,
 		FrameSystem: req.FrameSystem,
-		Inputs:      startInputs,
+		Inputs:      inputs,
+		Colors:      obstacles,
 	}); err != nil {
 		return err
 	}
 
-	// `DrawFrameSystem` draws everything else we're interested in.
-	if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
+	_, err = viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 		FrameSystem: req.FrameSystem,
-		Inputs:      startInputs,
-		Colors:      frameColors,
-	}); err != nil {
+		Inputs:      inputs,
+		Colors:      colors,
+	})
+	return err
+}
+
+func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
+	renderFramePeriod := 5 * time.Millisecond
+
+	startInputs := req.StartState.Configuration()
+	colors, err := frameColors(req.FrameSystem, startInputs, allowedCollisionNames(req.Constraints))
+	if err != nil {
+		return err
+	}
+	if err := drawScene(req, startInputs, colors); err != nil {
 		return err
 	}
 
@@ -796,25 +951,8 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	}
 
 	if showPoses {
-		// Helper to check if a frame or any ancestor has DOF (is moving)
 		isMovingFrame := func(frameName string) bool {
-			frame := req.FrameSystem.Frame(frameName)
-			if frame == nil {
-				return false
-			}
-			// Check if this frame has DOF
-			if len(frame.DoF()) > 0 {
-				return true
-			}
-			// Walk up the parent chain to see if any ancestor has DOF
-			parent, err := req.FrameSystem.Parent(frame)
-			for parent != nil && err == nil {
-				if len(parent.DoF()) > 0 {
-					return true
-				}
-				parent, err = req.FrameSystem.Parent(parent)
-			}
-			return false
+			return classifyFrame(req.FrameSystem, frameName) != frameStatic
 		}
 
 		// Draw shadows for path positions - moving components and their descendants
@@ -877,7 +1015,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 				if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 					FrameSystem: req.FrameSystem,
 					Inputs:      mp.ToFrameSystemInputs(),
-					Colors:      frameColors,
+					Colors:      colors,
 				}); err != nil {
 					return err
 				}
@@ -889,7 +1027,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 			FrameSystem: req.FrameSystem,
 			Inputs:      plan.Trajectory()[idx],
-			Colors:      frameColors,
+			Colors:      colors,
 		}); err != nil {
 			return err
 		}
@@ -938,25 +1076,11 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger, showPoses bool) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
-	if _, err := viz.RemoveAll(); err != nil {
+	colors, err := frameColors(req.FrameSystem, req.StartState.Configuration(), allowedCollisionNames(req.Constraints))
+	if err != nil {
 		return err
 	}
-
-	if _, err := viz.DrawWorldState(viz.DrawWorldStateOptions{
-		WorldState:  req.GetWorldState(),
-		FrameSystem: req.FrameSystem,
-		Inputs:      req.StartState.Configuration(),
-	}); err != nil {
-		return err
-	}
-
-	frameColors := transparentWallColors(req.FrameSystem)
-
-	if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
-		FrameSystem: req.FrameSystem,
-		Inputs:      req.StartState.Configuration(),
-		Colors:      frameColors,
-	}); err != nil {
+	if err := drawScene(req, req.StartState.Configuration(), colors); err != nil {
 		return err
 	}
 
@@ -1105,7 +1229,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					if _, err := viz.DrawFrameSystem(viz.DrawFrameSystemOptions{
 						FrameSystem: req.FrameSystem,
 						Inputs:      configuration.ToFrameSystemInputs(),
-						Colors:      frameColors,
+						Colors:      colors,
 					}); err != nil {
 						return err
 					}
