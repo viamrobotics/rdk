@@ -804,7 +804,7 @@ func frameAllowsCollision(allowed map[string]bool, frameName string, gif *refere
 // (e.g. a gripper or camera on an arm). Each such frame gets its own entry; the palette wraps if
 // there are more frames than colors.
 var carriedPalette = []string{
-	"darkorange", "forestgreen", "darkviolet", "turquoise", "saddlebrown", "darkslategray", "tan", "olive", "black",
+	"darkorange", "teal", "darkviolet", "turquoise", "saddlebrown", "darkslategray", "tan", "olive", "black",
 }
 
 type frameMotion int
