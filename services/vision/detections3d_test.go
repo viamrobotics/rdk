@@ -266,7 +266,9 @@ func TestBuilderRoundTripsRotatedSegmenterObjects(t *testing.T) {
 		return []*visionObject.Object{{PointCloud: cloud, Geometry: original}}, nil
 	}
 
-	deps := resource.Dependencies{camera.Named(testCameraName): inject.NewCamera(testCameraName)}
+	cam := inject.NewCamera(testCameraName)
+	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) { return camera.Properties{}, nil }
+	deps := resource.Dependencies{camera.Named(testCameraName): cam}
 	svc, err := vision.NewService(vision.Named("seg"), deps, logging.NewTestLogger(t), nil, nil, nil,
 		detection3d.FromSegmenter("seg", segmenter), testCameraName)
 	test.That(t, err, test.ShouldBeNil)
