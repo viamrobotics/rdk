@@ -94,8 +94,6 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 // legacyKinematicsResponse writes the typed model out as an SVA file for the deprecated bytes
 // fields. Whatever the SVA schema has no place for, such as visual geometry, is left out, since a
 // client reading these fields never saw it.
-//
-//nolint:staticcheck // the deprecated fields are served for clients that predate the typed model
 func legacyKinematicsResponse(pb *commonpb.KinematicModel) (*commonpb.GetKinematicsResponse, error) {
 	cfg, _, err := modelConfigFromProto(pb)
 	if err != nil {

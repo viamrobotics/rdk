@@ -230,7 +230,6 @@ func TestProtobufToFrameSystemPartAcceptsByteLists(t *testing.T) {
 
 			frame, err := LinkInFrameToTransformProtobuf(NewLinkInFrame(World, spatial.NewZeroPose(), model.Name(), nil))
 			test.That(t, err, test.ShouldBeNil)
-			//nolint:staticcheck // SA1019: Kinematics stays until clients read KinematicModel.
 			restored, err := ProtobufToFrameSystemPart(&robotpb.FrameSystemConfig{Frame: frame, Kinematics: legacy})
 			test.That(t, err, test.ShouldBeNil)
 			checkKinematicsPreserved(t, model, restored)
@@ -884,4 +883,49 @@ func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
 	b, err := spatial.NewBox(spatial.NewZeroPose(), dims, label)
 	test.That(t, err, test.ShouldBeNil)
 	return b
+}
+
+func TestFrameSystemParts(t *testing.T) {
+	modelJSON, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
+	test.That(t, err, test.ShouldBeNil)
+	armModel, err := UnmarshalModelJSON(modelJSON, "arm")
+	test.That(t, err, test.ShouldBeNil)
+
+	mountPose := spatial.NewPoseFromPoint(r3.Vector{X: 10, Y: 20, Z: 30})
+	gripperGeom := mustBox(t, "gripper", r3.Vector{X: 50, Y: 50, Z: 50})
+
+	original := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, mountPose, "arm", nil), ModelFrame: armModel},
+		{FrameConfig: NewLinkInFrame("arm", spatial.NewZeroPose(), "gripper", gripperGeom)},
+	}
+
+	fs, err := NewFrameSystem("test", original, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	parts, err := fs.Parts()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parts, test.ShouldHaveLength, len(original))
+
+	byName := make(map[string]*FrameSystemPart, len(parts))
+	for _, p := range parts {
+		byName[p.FrameConfig.Name()] = p
+	}
+
+	got := byName["arm"]
+	test.That(t, got, test.ShouldNotBeNil)
+	test.That(t, got.FrameConfig.Parent(), test.ShouldEqual, World)
+	test.That(t, spatial.PoseAlmostEqual(got.FrameConfig.Pose(), mountPose), test.ShouldBeTrue)
+	test.That(t, got.ModelFrame, test.ShouldNotBeNil)
+	test.That(t, got.ModelFrame.Name(), test.ShouldEqual, armModel.Name())
+	test.That(t, got.ModelFrame.DoF(), test.ShouldResemble, armModel.DoF())
+
+	got = byName["gripper"]
+	test.That(t, got, test.ShouldNotBeNil)
+	test.That(t, got.FrameConfig.Parent(), test.ShouldEqual, "arm")
+	test.That(t, got.ModelFrame, test.ShouldBeNil)
+	test.That(t, got.FrameConfig.Geometry(), test.ShouldNotBeNil)
+
+	rebuilt, err := NewFrameSystem("test", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rebuilt.FrameNames(), test.ShouldResemble, fs.FrameNames())
 }
