@@ -262,9 +262,10 @@ func TestDataSequenceDelete(t *testing.T) {
 
 	err := ac.deleteSequences(context.Background(), []string{"seq-1", "bad", "seq-2"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "bad")
-	test.That(t, deleted, test.ShouldResemble, []string{"seq-1"})
-	test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Deleted sequence seq-1\n")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "1 of 3 sequences (failed: bad)")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, deleted, test.ShouldResemble, []string{"seq-1", "seq-2"})
+	test.That(t, strings.Join(out.messages, ""), test.ShouldEqual, "Deleted sequence seq-1\nDeleted sequence seq-2\n")
 }
 
 func TestDatasetSequenceAddRemove(t *testing.T) {

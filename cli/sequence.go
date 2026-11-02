@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
@@ -216,12 +217,22 @@ func DataSequenceDeleteAction(ctx context.Context, cmd *cli.Command, args dataSe
 	return client.deleteSequences(ctx, args.SequenceIDs)
 }
 
+// deleteSequences attempts every ID even after a failure so one bad ID doesn't leave the rest
+// undeleted; failures are returned together.
 func (c *viamClient) deleteSequences(ctx context.Context, sequenceIDs []string) error {
+	var errs error
+	var failed []string
 	for _, id := range sequenceIDs {
 		if _, err := c.dataClient.DeleteSequence(ctx, &datapb.DeleteSequenceRequest{Id: id}); err != nil {
-			return errors.Wrapf(err, "%s while deleting sequence %s", serverErrorMessage, id)
+			failed = append(failed, id)
+			errs = multierr.Append(errs, errors.Wrapf(err, "sequence %s", id))
+			continue
 		}
 		printf(c.c.Root().Writer, "Deleted sequence %s", id)
+	}
+	if errs != nil {
+		return errors.Wrapf(errs, "%s while deleting %d of %d sequences (failed: %s)",
+			serverErrorMessage, len(failed), len(sequenceIDs), strings.Join(failed, ", "))
 	}
 	return nil
 }
