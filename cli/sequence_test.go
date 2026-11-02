@@ -37,9 +37,18 @@ func TestParseSequenceResources(t *testing.T) {
 				{ResourceName: "arm", MethodName: "JointPositions"},
 			},
 		},
+		{
+			name:   "remote resources",
+			values: []string{"remote1:camera-1:ReadImage", "a:b:camera-1:GetImages"},
+			want: []*datapb.SequenceResourceFilter{
+				{ResourceName: "remote1:camera-1", MethodName: "ReadImage"},
+				{ResourceName: "a:b:camera-1", MethodName: "GetImages"},
+			},
+		},
 		{name: "missing colon", values: []string{"cam"}, wantErr: true},
 		{name: "empty name", values: []string{":ReadImage"}, wantErr: true},
 		{name: "empty method", values: []string{"cam:"}, wantErr: true},
+		{name: "remote with empty method", values: []string{"remote1:cam:"}, wantErr: true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

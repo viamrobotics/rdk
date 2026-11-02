@@ -1679,7 +1679,8 @@ Note: There is no progress meter while copying is in progress.
 									Name:     sequenceFlagResources,
 									Required: true,
 									Usage: "resources in the sequence, each as <resource-name>:<method> " +
-										"(e.g. camera-1:ReadImage); repeat the flag or comma-separate values",
+										"(e.g. camera-1:ReadImage, or remote1:camera-1:ReadImage for a remote resource); " +
+										"repeat the flag or comma-separate values",
 								},
 								&cli.StringFlag{
 									Name:     generalFlagStart,
@@ -1724,7 +1725,8 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringSliceFlag{
 									Name: sequenceFlagResources,
-									Usage: "replaces the sequence's full resource list, each as <resource-name>:<method>; " +
+									Usage: "replaces the sequence's full resource list, each as <resource-name>:<method> " +
+										"(remote resources as <remote>:<resource-name>:<method>); " +
 										"repeat the flag or comma-separate values",
 								},
 								&cli.StringSliceFlag{

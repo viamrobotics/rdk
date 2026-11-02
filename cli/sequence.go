@@ -17,14 +17,16 @@ const (
 )
 
 // parseSequenceResources parses "<resource-name>:<method>" values into resource filters.
+// Values split on the last ':' because remote resource names are stored as "<remote>:<name>"
+// while method names never contain ':'.
 func parseSequenceResources(values []string) ([]*datapb.SequenceResourceFilter, error) {
 	resources := make([]*datapb.SequenceResourceFilter, 0, len(values))
 	for _, v := range values {
-		name, method, found := strings.Cut(v, ":")
-		if !found || name == "" || method == "" {
+		i := strings.LastIndex(v, ":")
+		if i <= 0 || i == len(v)-1 {
 			return nil, errors.Errorf("invalid --%s value %q (expected <resource-name>:<method>)", sequenceFlagResources, v)
 		}
-		resources = append(resources, &datapb.SequenceResourceFilter{ResourceName: name, MethodName: method})
+		resources = append(resources, &datapb.SequenceResourceFilter{ResourceName: v[:i], MethodName: v[i+1:]})
 	}
 	return resources, nil
 }
