@@ -1,3 +1,5 @@
+//go:debug multipathtcp=0
+
 // Package main provides a server offering gRPC/REST/GUI APIs to control and monitor
 // a robot.
 package main
