@@ -152,6 +152,11 @@ func (pm *planManager) planToDirectJoints(
 		}
 	}
 
+	// Everything was pinned - skip NewPlanSegmentContext, which rejects an empty goal map.
+	if len(goalPoses) == 0 {
+		return nil, nil
+	}
+
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
