@@ -309,8 +309,10 @@ func TestPreemption(t *testing.T) {
 
 func TestPreemptionTimeoutFaults(t *testing.T) {
 	stubborn := inject.NewTask("stubborn")
+	started := make(chan struct{})
 	release := make(chan struct{})
 	stubborn.RunFunc = func(ctx context.Context, _, _ map[string]interface{}) (task.Result, error) {
+		close(started)
 		<-release
 		return task.Done(nil), nil
 	}
@@ -326,6 +328,8 @@ func TestPreemptionTimeoutFaults(t *testing.T) {
 	}
 	svc := newMachine(t, cfg, deps)
 	ctx := context.Background()
+	// The event must find the task running, or cancellation wins before it starts.
+	<-started
 	res, err := svc.SendEvent(ctx, "stop_it", nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Handled, test.ShouldBeTrue)
