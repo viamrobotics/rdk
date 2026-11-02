@@ -748,13 +748,14 @@ func sortedFrameNames(inputs referenceframe.FrameSystemInputs) []string {
 	return names
 }
 
-// transparentWallColors renders any "wall*" frame nearly see-through so walls
-// don't occlude the robot and scene. Frames absent from the returned map keep
-// their default inherited color.
+// transparentWallColors renders any frame whose name contains "wall" nearly
+// see-through so walls don't occlude the robot and scene. Matching on substring
+// catches both prefixes (wall-back) and suffixes (right-wall). Frames absent
+// from the returned map keep their default inherited color.
 func transparentWallColors(fs *referenceframe.FrameSystem) map[string]draw.Color {
 	colors := map[string]draw.Color{}
 	for _, name := range fs.FrameNames() {
-		if strings.HasPrefix(name, "wall") {
+		if strings.Contains(name, "wall") {
 			colors[name] = draw.NewColor(draw.WithRGBA(128, 128, 128, 40))
 		}
 	}
