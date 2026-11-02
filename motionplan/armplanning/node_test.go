@@ -235,7 +235,7 @@ func TestWrapTowardNeutral(t *testing.T) {
 	})
 
 	t.Run("limits need not be multiples of pi", func(t *testing.T) {
-		// ±352°, as on a real arm whose joints Limit.IsRotational does not recognize.
+		// ±352°, as on a real arm whose limits are not multiples of π.
 		limit := referenceframe.Limit{Min: -6.1435589670200397, Max: 6.1435589670200397}
 		out, changed := wrapTowardNeutral([]float64{3.947}, []referenceframe.Limit{limit}, []bool{true})
 		test.That(t, changed, test.ShouldBeTrue)
