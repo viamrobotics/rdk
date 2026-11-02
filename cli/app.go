@@ -1950,7 +1950,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "create",
 					Usage:     "create a new dataset",
-					UsageText: createUsageText("dataset create", []string{generalFlagOrgID, datasetFlagName}, false, false),
+					UsageText: createUsageText("dataset create", []string{generalFlagOrgID, datasetFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
@@ -1962,9 +1962,10 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the new dataset",
 						},
 						&cli.StringFlag{
-							Name:  generalFlagType,
-							Usage: formatAcceptedValues("type of data the dataset holds", datasetTypeBinary, datasetTypeSequence),
-							Value: datasetTypeBinary,
+							Name:        generalFlagType,
+							Usage:       formatAcceptedValues("type of data the dataset holds", datasetTypeBinary, datasetTypeSequence),
+							Value:       datasetTypeBinary,
+							DefaultText: datasetTypeBinary,
 						},
 					},
 					Action: createActionCommandWithT[datasetCreateArgs](DatasetCreateAction),

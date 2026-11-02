@@ -58,6 +58,7 @@ func (c *viamClient) printSequence(seq *datapb.Sequence) {
 	printf(w, "\tPart ID: %s", seq.GetPartId())
 	printf(w, "\tResources: %s", formatSequenceResources(seq.GetResources()))
 	printf(w, "\tTags: %s", strings.Join(seq.GetSequenceTags(), ","))
+	printf(w, "\tDatasets: %s", strings.Join(seq.GetDatasetIds(), ","))
 	printf(w, "\tStart: %s", formatTimestamp(seq.GetStartTime()))
 	printf(w, "\tEnd: %s", formatTimestamp(seq.GetEndTime()))
 	printf(w, "\tCreated: %s", formatTimestamp(seq.GetCreatedAt()))
@@ -96,6 +97,9 @@ func (c *viamClient) createSequence(ctx context.Context, args dataSequenceCreate
 	end, err := parseTimeString(args.End)
 	if err != nil {
 		return err
+	}
+	if !start.AsTime().Before(end.AsTime()) {
+		return errors.Errorf("--%s must be before --%s", generalFlagStart, generalFlagEnd)
 	}
 
 	resp, err := c.dataClient.CreateSequence(ctx, &datapb.CreateSequenceRequest{

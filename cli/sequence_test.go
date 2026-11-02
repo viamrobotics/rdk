@@ -105,6 +105,23 @@ func TestDataSequenceCreate(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+
+	for _, tc := range []struct{ name, start, end string }{
+		{"start after end is an error", "2026-10-01T00:05:00Z", "2026-10-01T00:00:00Z"},
+		{"start equal to end is an error", "2026-10-01T00:00:00Z", "2026-10-01T00:00:00Z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ac := &viamClient{dataClient: &inject.DataServiceClient{}}
+			err := ac.createSequence(context.Background(), dataSequenceCreateArgs{
+				PartID:    "part-1",
+				Resources: []string{"cam:ReadImage"},
+				Start:     tc.start,
+				End:       tc.end,
+			})
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "must be before")
+		})
+	}
 }
 
 func TestDataSequenceGet(t *testing.T) {
@@ -112,11 +129,12 @@ func TestDataSequenceGet(t *testing.T) {
 		GetSequenceFunc: func(_ context.Context, in *datapb.GetSequenceRequest, _ ...grpc.CallOption,
 		) (*datapb.GetSequenceResponse, error) {
 			return &datapb.GetSequenceResponse{Sequence: &datapb.Sequence{
-				Id:        in.GetId(),
-				PartId:    "part-1",
-				Resources: []*datapb.SequenceResourceFilter{{ResourceName: "cam", MethodName: "ReadImage"}},
-				StartTime: timestamppb.Now(),
-				EndTime:   timestamppb.Now(),
+				Id:         in.GetId(),
+				PartId:     "part-1",
+				Resources:  []*datapb.SequenceResourceFilter{{ResourceName: "cam", MethodName: "ReadImage"}},
+				DatasetIds: []string{"ds-1", "ds-2"},
+				StartTime:  timestamppb.Now(),
+				EndTime:    timestamppb.Now(),
 			}}, nil
 		},
 	}
@@ -126,6 +144,7 @@ func TestDataSequenceGet(t *testing.T) {
 	output := strings.Join(out.messages, "")
 	test.That(t, output, test.ShouldContainSubstring, "ID: seq-1")
 	test.That(t, output, test.ShouldContainSubstring, "Resources: cam:ReadImage")
+	test.That(t, output, test.ShouldContainSubstring, "Datasets: ds-1,ds-2")
 }
 
 func TestDataSequenceUpdate(t *testing.T) {
