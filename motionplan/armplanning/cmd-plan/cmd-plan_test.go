@@ -168,6 +168,7 @@ func TestFrameColors(t *testing.T) {
 	add(must(referenceframe.NewStaticFrameWithGeometry("bin_origin", zero, box("bin"))), fs.World())
 	add(must(referenceframe.NewStaticFrameWithGeometry("plate", zero, box("plate"))), fs.World())
 	add(must(referenceframe.NewStaticFrameWithGeometry("right-wall", zero, box("right-wall"))), fs.World())
+	add(must(referenceframe.NewStaticFrameWithGeometry("ceiling-main", zero, box("ceiling-main"))), fs.World())
 
 	constraints := &motionplan.Constraints{CollisionSpecification: []motionplan.CollisionSpecification{{
 		Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{
@@ -184,19 +185,20 @@ func TestFrameColors(t *testing.T) {
 
 	// "mount" has no geometry, so it gets no entry; carried frames are colored in name order.
 	// Only static frames switch to the allowed-collision color; "fixture" matches by frame name,
-	// "bin_origin" through its component name, and "plate" through its geometry label. Walls keep
+	// "bin_origin" through its component name, and "plate" through its geometry label. Walls and ceilings keep
 	// their transparent gray even when allowed to collide.
 	see := draw.ColorFromName(allowedCollisionColor).SetAlpha(allowedCollisionAlpha)
 	test.That(t, colors, test.ShouldResemble, map[string]draw.Color{
-		"right-wall": draw.NewColor(draw.WithRGBA(128, 128, 128, 40)),
-		"table":      draw.ColorFromName(staticColor),
-		"fixture":    see,
-		"bin_origin": see,
-		"plate":      see,
-		"rail":       draw.ColorFromName(actuatedColor),
-		"slide":      draw.ColorFromName(actuatedColor),
-		"camera":     draw.ColorFromName(carriedPalette[0]),
-		"gripper":    draw.ColorFromName(carriedPalette[1]),
+		"right-wall":   draw.NewColor(draw.WithRGBA(128, 128, 128, 40)),
+		"ceiling-main": draw.NewColor(draw.WithRGBA(128, 128, 128, 40)),
+		"table":        draw.ColorFromName(staticColor),
+		"fixture":      see,
+		"bin_origin":   see,
+		"plate":        see,
+		"rail":         draw.ColorFromName(actuatedColor),
+		"slide":        draw.ColorFromName(actuatedColor),
+		"camera":       draw.ColorFromName(carriedPalette[0]),
+		"gripper":      draw.ColorFromName(carriedPalette[1]),
 	})
 
 	again, err := frameColors(fs, referenceframe.NewZeroInputs(fs), allowed)

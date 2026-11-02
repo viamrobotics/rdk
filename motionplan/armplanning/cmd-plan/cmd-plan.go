@@ -835,14 +835,18 @@ func classifyFrame(fs *referenceframe.FrameSystem, name string) frameMotion {
 	return frameStatic
 }
 
-// transparentWallColors renders any frame whose name contains "wall" nearly
-// see-through so walls don't occlude the robot and scene. Matching on substring
-// catches both prefixes (wall-back) and suffixes (right-wall). Frames absent
-// from the returned map keep their default inherited color.
-func transparentWallColors(fs *referenceframe.FrameSystem) map[string]draw.Color {
+// enclosureNameParts are the name fragments of frames that box the scene in.
+var enclosureNameParts = []string{"wall", "ceiling"}
+
+// transparentEnclosureColors renders any frame whose name contains one of
+// enclosureNameParts nearly see-through so walls and ceilings don't occlude the
+// robot and scene. Matching on substring catches both prefixes (wall-back) and
+// suffixes (right-wall). Frames absent from the returned map keep their default
+// inherited color.
+func transparentEnclosureColors(fs *referenceframe.FrameSystem) map[string]draw.Color {
 	colors := map[string]draw.Color{}
 	for _, name := range fs.FrameNames() {
-		if strings.Contains(name, "wall") {
+		if slices.ContainsFunc(enclosureNameParts, func(part string) bool { return strings.Contains(name, part) }) {
 			colors[name] = draw.NewColor(draw.WithRGBA(128, 128, 128, 40))
 		}
 	}
@@ -850,7 +854,8 @@ func transparentWallColors(fs *referenceframe.FrameSystem) map[string]draw.Color
 }
 
 // frameColors assigns a color to every frame that carries geometry, according to its
-// classifyFrame motion. Wall frames keep their transparentWallColors color regardless of motion.
+// classifyFrame motion. Enclosure frames keep their transparentEnclosureColors color regardless
+// of motion.
 // Carried frames are colored in sorted name order, so a given frame system gets the same colors on
 // every render and every run. allowed holds the allowedCollisionNames.
 func frameColors(
@@ -861,10 +866,10 @@ func frameColors(
 		return nil, err
 	}
 
-	colors := transparentWallColors(fs)
+	colors := transparentEnclosureColors(fs)
 	carried := 0
 	for _, name := range slices.Sorted(maps.Keys(gifs)) {
-		if _, isWall := colors[name]; isWall {
+		if _, isEnclosure := colors[name]; isEnclosure {
 			continue
 		}
 		switch classifyFrame(fs, name) {
