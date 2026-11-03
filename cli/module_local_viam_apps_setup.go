@@ -76,7 +76,10 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 		localAppTesting.machineAPIKey = machineAPIKey
 		localAppTesting.machineAPIKeyID = machineAPIKeyID
 
-		httpServer = localAppTesting.setupHTTPServerSingleMachineApp(serverPort, args.AppURL)
+		httpServer, err = localAppTesting.setupHTTPServerSingleMachineApp(args.AppURL)
+		if err != nil {
+			return err
+		}
 	} else {
 		// Multi machine Viam app
 		printf(cmd.Root().Writer, "Local testing for a multi-machine Viam app")
@@ -87,7 +90,10 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 				"Run the `viam login` command to re-authenticate, do NOT use an API key")
 		}
 
-		httpServer = localAppTesting.setupHTTPServerMultiMachineApp(serverPort, args.AppURL, currentToken.AccessToken)
+		httpServer, err = localAppTesting.setupHTTPServerMultiMachineApp(args.AppURL, currentToken.AccessToken)
+		if err != nil {
+			return err
+		}
 	}
 
 	if err := startServerInBackground(httpServer, cmd.Root().Writer); err != nil {
@@ -144,15 +150,14 @@ func getMachineHostname(ctx context.Context, viamAppClient apppb.AppServiceClien
 }
 
 // setupHTTPServerSingleMachineApp creates and configures an HTTP server for a single-machine Viam app.
-func (l *localAppTestingServer) setupHTTPServerSingleMachineApp(port int, targetURL string) *http.Server {
+func (l *localAppTestingServer) setupHTTPServerSingleMachineApp(targetURL string) (*http.Server, error) {
 	// Endpoint to start the flow
 	http.HandleFunc("/start", l.singleMachineCookieSetup)
 
 	// Proxy setup
 	targetURLParsed, err := url.Parse(targetURL)
 	if err != nil {
-		printf(l.logger, "Error parsing target URL: %v", err)
-		return nil
+		return nil, fmt.Errorf("error parsing target URL: %w", err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(targetURLParsed)
 
@@ -165,10 +170,15 @@ func (l *localAppTestingServer) setupHTTPServerSingleMachineApp(port int, target
 
 	http.Handle("/", proxy)
 
-	return &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
-		ReadHeaderTimeout: time.Minute * 5,
+	serverURLParsed, err := url.Parse(l.serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing server URL: %w", err)
 	}
+
+	return &http.Server{
+		Addr:              serverURLParsed.Host,
+		ReadHeaderTimeout: time.Minute * 5,
+	}, nil
 }
 
 type machineAuthCookieValue struct {
@@ -317,24 +327,28 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 }
 
 // setupHTTPServerMultiMachineApp creates and configures an HTTP server for a multi-machine Viam app.
-func (l *localAppTestingServer) setupHTTPServerMultiMachineApp(port int, targetURL, accessToken string) *http.Server {
+func (l *localAppTestingServer) setupHTTPServerMultiMachineApp(targetURL, accessToken string) (*http.Server, error) {
 	// Endpoint to start the flow
 	http.HandleFunc("/start", l.multiMachineCookieSetup(accessToken))
 
 	// Proxy setup
 	targetURLParsed, err := url.Parse(targetURL)
 	if err != nil {
-		printf(l.logger, "Error parsing target URL: %v", err)
-		return nil
+		return nil, fmt.Errorf("error parsing target URL: %w", err)
 	}
 	proxy := httputil.NewSingleHostReverseProxy(targetURLParsed)
 
 	http.Handle("/", proxy)
 
-	return &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
-		ReadHeaderTimeout: time.Minute * 5,
+	serverURLParsed, err := url.Parse(l.serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing server URL: %w", err)
 	}
+
+	return &http.Server{
+		Addr:              serverURLParsed.Host,
+		ReadHeaderTimeout: time.Minute * 5,
+	}, nil
 }
 
 type userTokenCookie struct {
