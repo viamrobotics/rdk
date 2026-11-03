@@ -844,7 +844,7 @@ func (mgr *Manager) CleanModuleDataDirectory(confs []config.Module) error {
 	// Absolute path to all dirs that should exist
 	expectedDirs := make(map[string]bool)
 	for _, conf := range confs {
-		// add() rejects these names, so they have no directory.
+		// Skip names that fail SafeJoinDir; add() rejects them, so they never have a data dir.
 		if dir, err := rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name); err == nil {
 			expectedDirs[dir] = true
 		}
