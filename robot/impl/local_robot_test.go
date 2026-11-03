@@ -452,21 +452,26 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// mDNS names are visible host-wide, so a fixed FQDN can resolve to another package's test server.
-	specificHost := primitive.NewObjectID().Hex()
-
 	for _, tc := range []struct {
-		Case       string
-		Managed    bool
-		EntityName string
+		Case            string
+		Managed         bool
+		UseSpecificHost bool
 	}{
 		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityName: specificHost},
+		{Case: "unmanaged and specific host", UseSpecificHost: true},
 		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityName: specificHost},
+		{Case: "managed and specific host", Managed: true, UseSpecificHost: true},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			ctx := context.Background()
+
+			// mDNS names are visible host-wide; mint a fresh FQDN per subtest so a prior
+			// subtest's withdrawn announcement cannot resolve for us (potential theory for
+			// RSDK-13874).
+			var specificHost string
+			if tc.UseSpecificHost {
+				specificHost = primitive.NewObjectID().Hex()
+			}
 
 			apiKeyID := "sosecretID"
 			apiKey := "sosecret"
@@ -501,12 +506,12 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				return srvAddr, options.LocalFQDN
 			}
 
-			// Setup two machines. foo will use API-key auth and needs no FQDN. bar will
-			// exercise the specific-host path, so it gets tc.EntityName as its FQDN.
+			// Setup two machines. foo uses API-key auth and needs no FQDN. bar exercises
+			// the specific-host path, so it gets specificHost as its FQDN.
 			addrFoo, localFQDNFoo := startBackend("")
-			addrBar, localFQDNBar := startBackend(tc.EntityName)
+			addrBar, localFQDNBar := startBackend(specificHost)
 
-			entityName := tc.EntityName
+			entityName := specificHost
 			if entityName == "" {
 				entityName = localFQDNBar
 			}
@@ -565,8 +570,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				ctx2 := context.Background()
 				if mdnsSupported {
 					remoteConfig.Remotes[0].Address = localFQDNFoo
-					if tc.EntityName != "" {
-						remoteConfig.Remotes[1].Address = tc.EntityName
+					if tc.UseSpecificHost {
+						remoteConfig.Remotes[1].Address = specificHost
 					}
 				}
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
