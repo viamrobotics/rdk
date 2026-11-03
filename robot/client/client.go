@@ -1365,8 +1365,9 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 		if err != nil {
 			return nil, err
 		}
-		inputEnabled, ok := res.(framesystem.InputEnabled)
-		if ok {
+		// FrameContribution, not a direct InputEnabled assertion: a composite's handle implements no
+		// capability interface, but a co-equal sub may be InputEnabled.
+		if inputEnabled, _, _, _ := framesystem.FrameContribution(res); inputEnabled != nil {
 			pos, err := inputEnabled.CurrentInputs(ctx)
 			if err != nil {
 				return nil, err
