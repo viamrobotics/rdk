@@ -361,7 +361,7 @@ func APIsOf(res Resource) []API {
 
 // SubsByName yields one (name, sub) pair per API the resource serves, canonical-first. Each name is
 // base.AsAPI(api) and each sub is that API's unwrapped resource. A composite yields a pair for every
-// co-equal API; an ordinary resource yields the single (base, res) pair.
+// API it serves; an ordinary resource yields the single (base, res) pair.
 func SubsByName(base Name, res Resource) iter.Seq2[Name, Resource] {
 	return func(yield func(Name, Resource) bool) {
 		for _, api := range APIsOf(res) {
@@ -372,9 +372,9 @@ func SubsByName(base Name, res Resource) iter.Seq2[Name, Resource] {
 	}
 }
 
-// DistinctSubs yields each distinct sub-resource once, canonical-first, paired with the name it is
-// served under (base.AsAPI(api)). Unlike SubsByName it dedups by identity, so a shared object reached
-// under several APIs yields once; an ordinary resource yields its single (base, res) pair.
+// DistinctSubs yields each distinct impl once, canonical-first, paired with the name it is served under
+// (base.AsAPI(api)). Unlike SubsByName it dedups by identity, so a shared impl reached under several APIs
+// yields once; an ordinary resource yields its single (base, res) pair.
 func DistinctSubs(base Name, res Resource) iter.Seq2[Name, Resource] {
 	return func(yield func(Name, Resource) bool) {
 		seen := make(map[Resource]bool)
