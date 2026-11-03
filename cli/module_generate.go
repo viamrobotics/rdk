@@ -1432,13 +1432,10 @@ func runGoImports(moduleFile *os.File) error {
 		goImportsName = "goimports.exe"
 	}
 	goImportsPath := filepath.Join(goPath, "bin", goImportsName)
-	var installOutput []byte
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
-		var err error
 		// installing goimports
-		installOutput, err = runGoWithRetry("", "install", "-x", "golang.org/x/tools/cmd/goimports@latest")
-		if err != nil {
-			return fmt.Errorf("failed to install goimports: %w\n%s", err, installOutput)
+		if out, err := runGoWithRetry("", "install", "golang.org/x/tools/cmd/goimports@latest"); err != nil {
+			return fmt.Errorf("failed to install goimports: %w\n%s", err, out)
 		}
 	}
 
@@ -1447,7 +1444,7 @@ func runGoImports(moduleFile *os.File) error {
 	formatCmd := exec.Command(goImportsPath, "-w", moduleFile.Name())
 	_, err = formatCmd.Output()
 	if err != nil {
-		return fmt.Errorf("failed to run goimports: %w\n%s", err, installOutput)
+		return fmt.Errorf("failed to run goimports: %w", err)
 	}
 	return err
 }
