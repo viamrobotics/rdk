@@ -86,7 +86,7 @@ func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppT
 
 		currentToken, found := viamClient.conf.Auth.(*token)
 		if !found || currentToken.AccessToken == "" {
-			printf(cmd.Root().ErrWriter, "You need an access token configured in the CLI to proceed. "+
+			return errors.New("you need an access token configured in the CLI to proceed. " +
 				"Run the `viam login` command to re-authenticate, do NOT use an API key")
 		}
 
