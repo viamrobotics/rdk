@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -27,6 +28,16 @@ const (
 	nloptStepsPerIter = 4001
 	defaultMaxIter    = 5000
 	defaultJump       = 1e-8
+
+	// An exact solver that has found no solution gives up after this many consecutive descents
+	// that fail to improve its best cost by stallImprovement. Random restarts that keep landing
+	// on the same nonzero floor mean the goal is out of reach within the limits; running out the
+	// time budget only confirms it. Across 2410 recorded plan requests, no successful solve went
+	// more than 26 descents without improving before its first solution, while unreachable goals
+	// settle on their floor within ~100 descents and then repeat it ~20,000 times per second.
+	// Counting descents rather than time keeps the cutoff the same on slow or busy machines.
+	stallAttempts    = 500
+	stallImprovement = 0.01
 )
 
 // NloptIK can solve IK problems with nlopt.
@@ -263,6 +274,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solutionsFound := 0
 	seedNumber := rseed // start randomly in the list
 
+	attempts := 0
+	exactFound := false
+	bestCost := math.Inf(1)
+	lastImprovement := 0
+
 	itStart := time.Now()
 	// maxIterations < 10 opts out of the time-based extension, running to exactly that many
 	// iterations regardless of machine speed. This ensures deterministic behavior on slow or
@@ -278,6 +294,14 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
+		attempts++
+		if nloptErr == nil {
+			if result < bestCost*(1-stallImprovement) {
+				bestCost = result
+				lastImprovement = attempts
+			}
+			exactFound = exactFound || result < defaultGoalThreshold
+		}
 		if ik.logger.GetLevel() <= logging.DEBUG {
 			ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
 				seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
@@ -319,6 +343,12 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		ss.seed = generateRandomPositions(ik.rng, ss.lowerBound, ss.upperBound)
 
 		seedNumber++
+
+		if ik.exact && !exactFound && attempts-lastImprovement >= stallAttempts {
+			ik.logger.Debugf("giving up after %d descents without improving on cost %g; the goal looks unreachable",
+				attempts-lastImprovement, bestCost)
+			break
+		}
 	}
 
 	return solutionsFound, meta, nil
