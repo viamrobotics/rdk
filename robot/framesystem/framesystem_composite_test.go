@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // kinematicRes implements framesystem.InputEnabled (a kinematic resource); plainRes does not.
@@ -27,12 +28,30 @@ type plainRes struct {
 	resource.TriviallyCloseable
 }
 
-// TestBuiltInReconfigureComposite covers how the frame system folds a composite's per-API siblings
-// (sharing a short name) into its short-name-keyed component map. It unwraps the composite to each API's
-// real impl so the kinematic sub is detected; otherwise CurrentInputs later fails NotInputEnabledError.
-// It keeps the single kinematic sub, whose API need not be the canonical one, and refuses a composite
-// serving more than one kinematic API as unsupported rather than crashing. The shared short name alone
-// never errors.
+// modelFramerRes implements framesystem.ModelFramer but not InputEnabled: it has a model, but is not
+// actuatable.
+type modelFramerRes struct {
+	resource.Named
+	resource.TriviallyCloseable
+}
+
+func (modelFramerRes) Kinematics(context.Context) (referenceframe.Model, error) { return nil, nil }
+
+// shapedRes implements resource.Shaped: it carries geometry but no model.
+type shapedRes struct {
+	resource.Named
+	resource.TriviallyCloseable
+}
+
+func (shapedRes) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+// TestBuiltInReconfigureComposite covers how BuiltInReconfigure folds a composite's per-API subs (sharing
+// a short name) into svc.components, the name→sub map CurrentInputs reads. It unwraps to each API's real
+// impl so the kinematic sub is found (else CurrentInputs fails NotInputEnabledError), keeps that sub even
+// when its API is non-canonical, and refuses a multi-kinematic composite rather than crashing. The shared
+// short name alone never errors.
 func TestBuiltInReconfigureComposite(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -78,7 +97,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 		resource.NewName(gantryAPI, "noncanon"): ncWrapper,
 	}
 
-	// No error on the duplicate short names (the old code returned DuplicateResourceNameError).
+	// No error on the duplicate short names.
 	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -98,7 +117,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 }
 
 // TestPickKinematicSubIdentity checks that pickKinematicSub distinguishes a composite by its InputEnabled
-// subs' identity, not its kinematic API count. One struct served under several kinematic APIs is the same
+// impls' identity, not its kinematic API count. One struct served under several kinematic APIs is the same
 // object each time (one chain, kept); distinct per-API implementations are the unsupported multi-kinematic
 // case.
 func TestPickKinematicSubIdentity(t *testing.T) {
@@ -111,42 +130,65 @@ func TestPickKinematicSubIdentity(t *testing.T) {
 	test.That(t, refuse, test.ShouldBeFalse)
 	test.That(t, chosen, test.ShouldEqual, shared)
 
-	// Two distinct kinematic subs, the unsupported multi-kinematic device.
+	// Two distinct kinematic impls, the unsupported multi-kinematic device.
 	kinArm := &kinematicRes{Named: resource.NewName(armAPI, "twochain").AsNamed()}
 	kinGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "twochain").AsNamed()}
 	_, refuse = pickKinematicSub([]resource.Resource{kinArm, kinGantry})
 	test.That(t, refuse, test.ShouldBeTrue)
 }
 
-// TestFrameContribution checks the helper that unwraps a resource across every API it serves to find its
-// kinematic sub: an ordinary kinematic resource is returned, an ordinary non-kinematic one yields nil, a
-// composite's kinematic sub is found under a non-canonical API, and a multi-kinematic composite is refused.
+// TestFrameContribution checks the helper that resolves a resource's frame contribution across every API
+// it serves: its kinematic (InputEnabled), model (ModelFramer), and shaped (geometry) impls, any of which
+// may be nil, plus refuse for a multi-kinematic composite.
 func TestFrameContribution(t *testing.T) {
 	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
 	camAPI := resource.APINamespaceRDK.WithComponentType("camera")
 
-	// Ordinary kinematic resource: returned as its own kinematic sub.
+	// Ordinary kinematic resource: its own kinematic impl, and a ModelFramer too, but not shaped.
 	arm := &kinematicRes{Named: resource.NewName(armAPI, "arm").AsNamed()}
-	ie, _, _, refuse := FrameContribution(arm)
+	ie, model, shaped, refuse := FrameContribution(arm)
 	test.That(t, refuse, test.ShouldBeFalse)
 	test.That(t, ie, test.ShouldEqual, arm)
+	test.That(t, model, test.ShouldEqual, arm)
+	test.That(t, shaped, test.ShouldBeNil)
 
-	// Ordinary non-kinematic resource: no kinematic sub.
-	ie, _, _, refuse = FrameContribution(&plainRes{Named: resource.NewName(camAPI, "cam").AsNamed()})
+	// Ordinary resource implementing none of the frame interfaces: all nil.
+	ie, model, shaped, refuse = FrameContribution(&plainRes{Named: resource.NewName(camAPI, "cam").AsNamed()})
 	test.That(t, refuse, test.ShouldBeFalse)
 	test.That(t, ie, test.ShouldBeNil)
+	test.That(t, model, test.ShouldBeNil)
+	test.That(t, shaped, test.ShouldBeNil)
 
-	// Composite whose kinematic sub is the non-canonical API (camera canonical, gantry kinematic).
-	ncCam := &plainRes{Named: resource.NewName(camAPI, "noncanon").AsNamed()}
+	// ModelFramer that is not InputEnabled: a model, no kinematic or shaped impl.
+	mf := &modelFramerRes{Named: resource.NewName(camAPI, "mf").AsNamed()}
+	ie, model, shaped, refuse = FrameContribution(mf)
+	test.That(t, refuse, test.ShouldBeFalse)
+	test.That(t, ie, test.ShouldBeNil)
+	test.That(t, model, test.ShouldEqual, mf)
+	test.That(t, shaped, test.ShouldBeNil)
+
+	// Shaped resource: a geometry, no kinematic or model impl.
+	shp := &shapedRes{Named: resource.NewName(camAPI, "shp").AsNamed()}
+	ie, model, shaped, refuse = FrameContribution(shp)
+	test.That(t, refuse, test.ShouldBeFalse)
+	test.That(t, ie, test.ShouldBeNil)
+	test.That(t, model, test.ShouldBeNil)
+	test.That(t, shaped, test.ShouldEqual, shp)
+
+	// Composite spreading contributions across APIs: the kinematic (and model) impl is the non-canonical
+	// gantry, the shaped impl is the canonical camera. Each is found whichever API exposes it.
+	ncCam := &shapedRes{Named: resource.NewName(camAPI, "noncanon").AsNamed()}
 	ncGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "noncanon").AsNamed()}
 	ncWrapper := resource.NewMultiAPIResource(
 		resource.NewName(camAPI, "noncanon"),
 		map[resource.API]resource.Resource{camAPI: ncCam, gantryAPI: ncGantry},
 	)
-	ie, _, _, refuse = FrameContribution(ncWrapper)
+	ie, model, shaped, refuse = FrameContribution(ncWrapper)
 	test.That(t, refuse, test.ShouldBeFalse)
 	test.That(t, ie, test.ShouldEqual, ncGantry)
+	test.That(t, model, test.ShouldEqual, ncGantry)
+	test.That(t, shaped, test.ShouldEqual, ncCam)
 
 	// Composite serving two distinct kinematic APIs: refused.
 	multiArm := &kinematicRes{Named: resource.NewName(armAPI, "multi").AsNamed()}
@@ -188,6 +230,6 @@ func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Kept as one kinematic chain, the shared sub, not refused.
+	// Kept as one kinematic chain, the shared impl, not refused.
 	test.That(t, svc.components["combo"], test.ShouldEqual, shared)
 }

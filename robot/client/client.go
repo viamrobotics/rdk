@@ -1371,7 +1371,7 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 			return nil, err
 		}
 		// FrameContribution, not a direct InputEnabled assertion: a composite's handle implements no
-		// capability interface, but a co-equal sub may be InputEnabled.
+		// capability interface, but one of its subs may be InputEnabled.
 		if inputEnabled, _, _, _ := framesystem.FrameContribution(res); inputEnabled != nil {
 			pos, err := inputEnabled.CurrentInputs(ctx)
 			if err != nil {

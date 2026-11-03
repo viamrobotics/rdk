@@ -118,11 +118,11 @@ func GeometriesFromKinematics(ctx context.Context, res InputEnabled) ([]spatialm
 	return gifs.Geometries(), nil
 }
 
-// pickKinematicSub chooses the one frame-relevant subresource from an already-unwrapped set of a
-// composite's co-equal subs: the single kinematic sub, or any sub when none is kinematic. refuse is
-// true for an unsupported multi-kinematic composite (more than one distinct kinematic sub), which the
+// pickKinematicSub chooses the one frame-relevant sub from a composite's subs: the single kinematic sub,
+// or any sub when none is kinematic. refuse is
+// true for an unsupported multi-kinematic composite (more than one distinct kinematic impl), which the
 // caller omits. Distinctness is by identity, so one object served under several kinematic APIs is one
-// chain, but genuinely separate per-API InputEnabled subs are a refusal.
+// impl, but genuinely separate per-API InputEnabled impls are a refusal.
 func pickKinematicSub(subs []resource.Resource) (res resource.Resource, refuse bool) {
 	var kinematic resource.Resource
 	for _, sub := range subs {
@@ -144,8 +144,9 @@ func pickKinematicSub(subs []resource.Resource) (res resource.Resource, refuse b
 	return subs[0], false
 }
 
-// PickKinematicComponents applies pickKinematicSub to each short-name group, logging and dropping a name
-// it refuses. Callers unwrap each dep to its API's sub before grouping.
+// PickKinematicComponents maps each component name to its kinematic sub, or any sub if none is kinematic.
+// A name with two distinct kinematic subs (a multi-kinematic composite) is unsupported, logged and dropped.
+// Callers unwrap each dep to its API's sub before grouping.
 func PickKinematicComponents(byName map[string][]resource.Resource, logger logging.Logger) map[string]resource.Resource {
 	out := make(map[string]resource.Resource, len(byName))
 	for name, subs := range byName {
@@ -361,8 +362,8 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// Group deps by short name so a composite's co-equal APIs collapse to one frame entry, each unwrapped
-	// to its API's sub (a no-op for an ordinary resource).
+	// Group deps by short name, each unwrapped to its API's sub (a no-op for an ordinary resource), so we
+	// can collapse them to one frame entry.
 	componentsByName := make(map[string][]resource.Resource)
 	for name, dep := range deps {
 		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(dep, name.API))
