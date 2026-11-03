@@ -29,13 +29,11 @@ const (
 	defaultMaxIter    = 5000
 	defaultJump       = 1e-8
 
-	// An exact solver that has found no solution gives up after this many consecutive descents
-	// that fail to improve its best cost by stallImprovement. Random restarts that keep landing
-	// on the same nonzero floor mean the goal is out of reach within the limits; running out the
-	// time budget only confirms it. Across 2410 recorded plan requests, no successful solve went
-	// more than 26 descents without improving before its first solution, while unreachable goals
-	// settle on their floor within ~100 descents and then repeat it ~20,000 times per second.
-	// Counting descents rather than time keeps the cutoff the same on slow or busy machines.
+	// An exact solver with no solution yet gives up after stallAttempts consecutive descents that
+	// fail to improve its best cost by stallImprovement: restarts that keep landing on the same
+	// nonzero floor mean the goal is out of reach within the limits. Successful solves seldom go
+	// more than a few dozen descents without improving, so 500 leaves wide margin. Counted in
+	// descents rather than time so the cutoff doesn't depend on machine speed.
 	stallAttempts    = 500
 	stallImprovement = 0.01
 )
