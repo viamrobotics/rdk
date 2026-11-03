@@ -849,6 +849,7 @@ func (mgr *Manager) CleanModuleDataDirectory(confs []config.Module) error {
 			expectedDirs[dir] = true
 		}
 	}
+	// Also keep dirs of running modules whose removal didn't finish, so we don't delete files out from under a live process.
 	mgr.modules.Range(func(_ string, m *module) bool {
 		expectedDirs[m.dataDir] = true
 		return true
