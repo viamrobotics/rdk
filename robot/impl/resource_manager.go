@@ -338,9 +338,9 @@ func (manager *resourceManager) updateRemoteResourceNames(
 
 		// Keep a composite as one node under its canonical (sorted-first) API; its other per-API names
 		// resolve to that node through the composite index, so skip them here.
-		coequalAPIs := remoteAPIsByName[resName.Name]
-		isComposite := len(coequalAPIs) >= 2
-		if isComposite && resName.API != coequalAPIs[0] {
+		remoteAPIs := remoteAPIsByName[resName.Name]
+		isComposite := len(remoteAPIs) >= 2
+		if isComposite && resName.API != remoteAPIs[0] {
 			continue
 		}
 
@@ -379,12 +379,12 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			manager.resources.UpdateNodePrefix(resName, prefix)
 		}
 
-		// An existing node whose composite membership changed (gained or lost a co-equal API, or flipped
+		// An existing node whose composite membership changed (gained or lost an API, or flipped
 		// single<->composite) must be rebuilt even on a ticker pass, so the one composite node reflects the
 		// remote's current API set.
 		desiredAPIs := []resource.API{resName.API}
 		if isComposite {
-			desiredAPIs = coequalAPIs
+			desiredAPIs = remoteAPIs
 		}
 		compositeChanged := nodeAlreadyExists && !sameSet(servedAPIs(gNode, resName.API), desiredAPIs)
 
@@ -419,7 +419,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			// remote stays in the graph but is hidden from the machine's resource list. FindAllBySimpleName
 			// scans all APIs, so it catches same-API and cross-API collisions. Matches from this remote are
 			// skipped, because a remote's own names are unique, so a same-name match on the same remote is this
-			// resource itself (a composite matches under each of its co-equal APIs), not a real collision.
+			// resource itself (a composite matches under each of its APIs), not a real collision.
 			prefixedSimpleName := prefix + resName.Name
 			var conflicts []resource.Name
 			for _, match := range manager.resources.FindAllBySimpleName(prefixedSimpleName) {
@@ -453,8 +453,8 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		// remote resource be detected as stale by updateWeakAndOptionalDependents.
 		gNode.SwapResource(res, unknownModel, manager.opts.ftdc, true)
 		if compositeChanged {
-			// An in-place swap keeps the same node and bypasses the graph's cache-write paths, so
-			// refresh the composite co-equal index to match the node's new API set.
+			// An in-place swap keeps the same node and bypasses the graph's cache-write paths, so refresh
+			// the composite index to match the node's new API set. No-op for ordinary resources.
 			manager.resources.ReindexComposite(resName)
 		}
 
@@ -611,7 +611,7 @@ func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
 // Remotes resources' Name field will be automatically prefixed.
 func (manager *resourceManager) ResourceNames() []resource.Name {
 	// A composite is stored as one node under its canonical API; ExpandCompositeNames advertises it
-	// as one same-named ResourceName per co-equal API so a client can detect and assemble it.
+	// as one same-named ResourceName per served API so a client can detect and assemble it.
 	return manager.resources.ExpandCompositeNames(
 		manager.resources.SimpleNamesWhere(func(k resource.Name, gNode *resource.GraphNode) bool {
 			return k.API != client.RemoteAPI &&
@@ -641,9 +641,8 @@ func (manager *resourceManager) ResourceRPCAPIs() []resource.RPCAPI {
 	resourceAPIs := resource.RegisteredAPIs()
 
 	types := map[resource.API]*desc.ServiceDescriptor{}
-	// A composite is stored as one node under its canonical API; ExpandCompositeNames yields one
-	// same-named Name per co-equal API it serves so every served API surfaces its RPC descriptor,
-	// regardless of which API the composite is declared under.
+	// A composite is one node, so expand it to one Name per API it serves, surfacing each API's RPC
+	// descriptor whichever API it is declared under.
 	for _, k := range manager.resources.ExpandCompositeNames(manager.resources.Names()) {
 		if k.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			continue
@@ -1047,9 +1046,8 @@ func (manager *resourceManager) completeConfig(
 								"error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
-							// An in-place rebuild keeps the same node and does not pass through the graph's
-							// cache-write paths, so refresh the composite co-equal index in case the model's
-							// served API set changed. No-op for ordinary resources.
+							// An in-place swap keeps the same node and bypasses the graph's cache-write paths, so
+							// refresh the composite index to match the node's new API set. No-op for ordinary resources.
 							manager.resources.ReindexComposite(resName)
 							buildDuration := time.Since(activityStarted)
 							manager.logger.Activity(activityType, "complete",

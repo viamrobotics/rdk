@@ -78,8 +78,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// 1) An api-less SimpleName resolves to the one composite handle, which reports its full co-equal API
-	// set (not just the config API). AsType extracts a served API's interface and it works.
+	// 1) An api-less name resolves to the one composite handle serving every API; AsType extracts a sub.
 	res, err := r.ResourceByName(resource.SimpleName("combo"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource.APIsOf(res), test.ShouldContain, sensor.API)
@@ -90,8 +89,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings["reading"], test.ShouldEqual, 7)
 
-	// 2) An API-qualified lookup returns that API's handle directly (the unwrapped sub, not the
-	// wrapper), usable as that API with no further unwrapping.
+	// 2) A per-API lookup returns that API's unwrapped sub, not the wrapper.
 	bySensor, err := r.ResourceByName(sensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
 	s2, ok := bySensor.(sensor.Sensor)
@@ -106,7 +104,7 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, echoed["echo"], test.ShouldEqual, "pong")
 
-	// 3) It is advertised as N same-named ResourceNames (one per co-equal API).
+	// 3) Advertised as N same-named ResourceNames, one per API.
 	var advertised []resource.API
 	for _, n := range r.ResourceNames() {
 		if n.Name == "combo" {
@@ -123,9 +121,9 @@ func TestCompositeResourceEndToEnd(t *testing.T) {
 }
 
 // TestCompositeModelReconfigureReindexes reconfigures a resource from a single-API model to a composite
-// model serving an extra co-equal API (same name and config API). A model change rebuilds the resource
+// model serving an extra API (same name and config API). A model change rebuilds the resource
 // in place on the same graph node, which does not pass through the graph's cache-write paths, so the
-// manager must refresh the composite co-equal index afterward. Without that, the newly-served API would
+// manager must refresh the composite index afterward. Without that, the newly-served API would
 // not resolve even though the resource now serves it.
 func TestCompositeModelReconfigureReindexes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -162,7 +160,7 @@ func TestCompositeModelReconfigureReindexes(t *testing.T) {
 }
 
 // TestCompositeDependencyResolvesAllAPIs asserts that a second resource depending on a composite can
-// resolve it under each of the composite's co-equal API names (the composite dependency is keyed
+// resolve it under each of the composite's API names (the composite dependency is keyed
 // under each API in the dependent's Dependencies).
 func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 	logger := logging.NewTestLogger(t)
@@ -201,7 +199,7 @@ func TestCompositeDependencyResolvesAllAPIs(t *testing.T) {
 }
 
 // TestCompositeDependsOnComposite asserts a composite resource can itself depend on another composite,
-// resolving it under each of its co-equal APIs, and is in turn advertised under all of its own.
+// resolving it under each of its APIs, and is in turn advertised under all of its own.
 func TestCompositeDependsOnComposite(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -462,8 +460,7 @@ func registerGripperServoModel(t *testing.T, name string, stopCount, closeCount 
 }
 
 // TestCompositeInProcessTypedLookup checks that fetching an in-process composite by a specific API
-// returns the concrete typed sub, so component.FromProvider(localRobot, name) works for each co-equal
-// API, while an api-less lookup still returns the full composite.
+// returns the concrete typed sub, while an api-less lookup still returns the full composite.
 func TestCompositeInProcessTypedLookup(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()

@@ -185,11 +185,10 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	if err != nil {
 		return nil, refClient, "", "", err
 	}
-	// A composite serves several co-equal APIs, so the job's method may belong to any of them. Try each
-	// served API and route to the one whose service exposes the method; an ordinary resource has one API
-	// and routes to its service directly.
-	// Known limitation: if two co-equal APIs expose a same-named method, the canonical API (sorted first
-	// by API string) wins. A job addresses a composite by simple name and can't target a specific API.
+	// A resource usually has one API and routes to its service directly. A composite serves several, so the
+	// job's method may belong to any; try each served API and route to the one whose service exposes it.
+	// Known limitation: if two APIs expose a same-named method, the canonical API (sorted first by API
+	// string) wins, since a job addresses a resource by simple name and can't target a specific API.
 	apis := resource.APIsOf(res)
 	var grpcService string
 	for _, api := range apis {
@@ -222,7 +221,7 @@ func serviceForAPI(services []string, api resource.API) string {
 }
 
 // serviceHasMethod reports whether the named gRPC service exposes the given method. It picks the right
-// co-equal API when dispatching a job to a composite resource that serves several.
+// API when dispatching a job to a composite resource that serves several.
 func serviceHasMethod(descSource grpcurl.DescriptorSource, service, method string) bool {
 	sym, err := descSource.FindSymbol(service)
 	if err != nil {
