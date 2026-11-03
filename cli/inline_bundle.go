@@ -67,8 +67,8 @@ type inlineBundleArgs struct {
 
 // runCommand runs a command in dir. Tests replace it so go get and go mod tidy
 // are not executed outside the tag job.
-var runCommand = func(dir, name string, args ...string) error {
-	cmd := exec.Command(name, args...) //nolint:gosec
+var runCommand = func(ctx context.Context, dir, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec
 	cmd.Dir = dir
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
@@ -91,7 +91,7 @@ func InlineBundleAction(ctx context.Context, cmd *cli.Command, args inlineBundle
 	if err != nil {
 		return err
 	}
-	goVersion, err := resolveGoVersion()
+	goVersion, err := resolveGoVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -99,11 +99,11 @@ func InlineBundleAction(ctx context.Context, cmd *cli.Command, args inlineBundle
 	if err != nil {
 		return err
 	}
-	goBundle, err := buildGoBundle(root, goVersion)
+	goBundle, err := buildGoBundle(ctx, root, goVersion)
 	if err != nil {
 		return err
 	}
-	pythonBundle, err := buildPythonBundle(pythonVersion)
+	pythonBundle, err := buildPythonBundle(ctx, pythonVersion)
 	if err != nil {
 		return err
 	}
@@ -156,14 +156,14 @@ func findSDKRoot(start string) (string, error) {
 	}
 }
 
-func resolveGoVersion() (string, error) {
+func resolveGoVersion(ctx context.Context) (string, error) {
 	if version := strings.TrimSpace(os.Getenv("GITHUB_REF_NAME")); version != "" {
 		if !strings.HasPrefix(version, "v") {
 			return "", errors.Errorf("GITHUB_REF_NAME %q is not a v* tag", version)
 		}
 		return version, nil
 	}
-	out, err := exec.Command("git", "describe", "--tags", "--exact-match").Output()
+	out, err := exec.CommandContext(ctx, "git", "describe", "--tags", "--exact-match").Output()
 	if err != nil {
 		return "", errors.Wrap(err, "GITHUB_REF_NAME is unset and HEAD is not a version tag")
 	}
@@ -230,7 +230,7 @@ func inlineModules(language string) ([]modulegen.ModuleInputs, error) {
 	return modules, nil
 }
 
-func buildGoBundle(sdkRoot, goVersion string) (languageBundle, error) {
+func buildGoBundle(ctx context.Context, sdkRoot, goVersion string) (languageBundle, error) {
 	previous := gen.LocalSDKRoot
 	gen.LocalSDKRoot = sdkRoot
 	defer func() { gen.LocalSDKRoot = previous }()
@@ -299,7 +299,7 @@ func buildGoBundle(sdkRoot, goVersion string) (languageBundle, error) {
 		sections[api] = rewriteSection(section, pairs)
 	}
 
-	goMod, goSum, err := pinGoModule(goVersion, importPaths(sections))
+	goMod, goSum, err := pinGoModule(ctx, goVersion, importPaths(sections))
 	if err != nil {
 		return languageBundle{}, err
 	}
@@ -491,7 +491,7 @@ func importPaths(sections map[string]stubSection) []string {
 
 // pinGoModule writes a module that imports every generated Go API, requires the
 // triggering tag, and tidies once. The returned go.mod still requires that tag.
-func pinGoModule(goVersion string, paths []string) (string, string, error) {
+func pinGoModule(ctx context.Context, goVersion string, paths []string) (string, string, error) {
 	dir, err := os.MkdirTemp("", "inline-gomod")
 	if err != nil {
 		return "", "", err
@@ -511,10 +511,10 @@ func pinGoModule(goVersion string, paths []string) (string, string, error) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644); err != nil { //nolint:gosec
 		return "", "", err
 	}
-	if err := runCommand(dir, "go", "get", "go.viam.com/rdk@"+goVersion); err != nil {
+	if err := runCommand(ctx, dir, "go", "get", "go.viam.com/rdk@"+goVersion); err != nil {
 		return "", "", err
 	}
-	if err := runCommand(dir, "go", "mod", "tidy"); err != nil {
+	if err := runCommand(ctx, dir, "go", "mod", "tidy"); err != nil {
 		return "", "", err
 	}
 	modBytes, err := os.ReadFile(filepath.Join(dir, "go.mod")) //nolint:gosec
@@ -560,7 +560,6 @@ func renderLanguageFiles(module modulegen.ModuleInputs) (map[string]string, erro
 		if d.IsDir() {
 			return nil
 		}
-		//nolint:gosec
 		data, readErr := fs.ReadFile(tempDir, filePath)
 		if readErr != nil {
 			return readErr
@@ -598,7 +597,7 @@ type pyRendered struct {
 	File            string `json:"file"`
 }
 
-func buildPythonBundle(pythonVersion string) (languageBundle, error) {
+func buildPythonBundle(ctx context.Context, pythonVersion string) (languageBundle, error) {
 	modules, err := inlineModules(python)
 	if err != nil {
 		return languageBundle{}, err
@@ -607,7 +606,7 @@ func buildPythonBundle(pythonVersion string) (languageBundle, error) {
 	if pythonCmd == "" {
 		return languageBundle{}, errors.New("python runtime not found")
 	}
-	rendered, err := renderPythonSlots(pythonCmd, pythonVersion, modules)
+	rendered, err := renderPythonSlots(ctx, pythonCmd, pythonVersion, modules)
 	if err != nil {
 		return languageBundle{}, err
 	}
@@ -712,7 +711,7 @@ func splitPythonModel(file string) (string, stubSection, error) {
 	return shell, section, nil
 }
 
-func renderPythonSlots(pythonCmd, version string, modules []modulegen.ModuleInputs) ([]pyRendered, error) {
+func renderPythonSlots(ctx context.Context, pythonCmd, version string, modules []modulegen.ModuleInputs) ([]pyRendered, error) {
 	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
 		return nil, err
@@ -747,7 +746,7 @@ func renderPythonSlots(pythonCmd, version string, modules []modulegen.ModuleInpu
 	if err != nil {
 		return nil, err
 	}
-	cmd := exec.Command(pythonCmd, scriptPath, "--bundle", version) //nolint:gosec
+	cmd := exec.CommandContext(ctx, pythonCmd, scriptPath, "--bundle", version) //nolint:gosec
 	cmd.Stdin = bytes.NewReader(payload)
 	cmd.Env = append(os.Environ(), "VIAM_PYTHON_SDK_VERSION="+version)
 	var stderr bytes.Buffer

@@ -27,7 +27,7 @@ import (
 //go:embed tmpl-module
 var goTmpl string
 
-// LocalSDKRoot, when set, is an RDK checkout. Go stubs are read from that tree's
+// LocalSDKRoot is an RDK checkout when set. Go stubs are read from that tree's
 // components/ and services/ directories instead of downloading a GitHub tag.
 // The inline-bundle tag job sets this to the checkout it was triggered with.
 // An empty value keeps the laptop CLI's tag lookup.

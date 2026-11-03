@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,7 +56,7 @@ func TestGoBundleUsesLocalStubsAndPinsTheTag(t *testing.T) {
 	const tag = "v1.2.3"
 	var calls []string
 	previous := runCommand
-	runCommand = func(dir, name string, args ...string) error {
+	runCommand = func(_ context.Context, dir, name string, args ...string) error {
 		calls = append(calls, name+" "+strings.Join(args, " "))
 		if len(args) > 0 && args[0] == "mod" {
 			// tidy rewrites a single require line into a block. The checker has to accept that.
@@ -69,7 +70,7 @@ func TestGoBundleUsesLocalStubsAndPinsTheTag(t *testing.T) {
 	}
 	t.Cleanup(func() { runCommand = previous })
 
-	bundle, err := buildGoBundle(root, tag)
+	bundle, err := buildGoBundle(t.Context(), root, tag)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, bundle.SDKVersion, test.ShouldEqual, tag)
 	test.That(t, calls, test.ShouldResemble, []string{
@@ -167,7 +168,7 @@ func TestPythonSDKRequirementPinsTheVersion(t *testing.T) {
 		t.Skip("python3 is not installed")
 	}
 	script := filepath.Join("module_generate", "scripts", "generate_stubs.py")
-	cmd := exec.Command("python3", "-c", `
+	cmd := exec.CommandContext(t.Context(), "python3", "-c", `
 import importlib.util, os, sys
 spec = importlib.util.spec_from_file_location("generate_stubs", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
