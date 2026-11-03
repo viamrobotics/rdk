@@ -30,8 +30,7 @@ import (
 )
 
 // connectToSeparateServer dials a robot client to a viam-server running in a separate process,
-// retrying until the server is dialable. It mirrors the module integration tests' connect helper
-// (force direct gRPC, sessions disabled — modules do not yet support sessions).
+// retrying until the server is dialable.
 func connectToSeparateServer(t *testing.T, ctx context.Context, port int, logger logging.Logger) robot.Robot {
 	t.Helper()
 	connectCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -55,15 +54,19 @@ func connectToSeparateServer(t *testing.T, ctx context.Context, port int, logger
 	}
 }
 
+// TestCompositeResourceOverClient asserts the robot client assembles a composite served over the wire and
+// routes each served API to the right per-API sub-client, including two builtin APIs that collide on a
+// method name (camera.Properties and movementsensor.Properties, with different return types), which must
+// each route to their own implementation.
 func TestCompositeResourceOverClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
-	model := registerComboModel(t, "composite-sensor-client", nil)
+	var closeCount atomic.Int32
+	// camera sorts before movement_sensor, so camera is the canonical API.
+	model := registerCollideModel(t, "collide-cam-imu", &closeCount)
 
 	cfg := &config.Config{
-		Components: []resource.Config{
-			{Name: "combo", API: sensor.API, Model: model},
-		},
+		Components: []resource.Config{{Name: "combo", API: camera.API, Model: model}},
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
@@ -74,34 +77,44 @@ func TestCompositeResourceOverClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
 
-	// 1) advertised as N same-named ResourceNames over the wire.
-	var apis []resource.API
-	for _, n := range rc.ResourceNames() {
+	// 1) An api-less name resolves to the one composite handle serving every API; AsType extracts a sub.
+	one, err := resource.NamedFromProvider(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	apisOf := resource.APIsOf(one)
+	test.That(t, apisOf, test.ShouldContain, camera.API)
+	test.That(t, apisOf, test.ShouldContain, movementsensor.API)
+	_, err = resource.AsType[camera.Camera](one)
+	test.That(t, err, test.ShouldBeNil)
+
+	// 2) A per-API lookup returns that API's sub-client; the two colliding Properties methods each route to
+	// their own implementation over the wire.
+	cam, err := camera.FromProvider(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	camProps, err := cam.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camProps.FrameRate, test.ShouldEqual, 30)
+	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
+	ms, err := movementsensor.FromProvider(rc, "combo")
+	test.That(t, err, test.ShouldBeNil)
+	msProps, err := ms.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
+	test.That(t, msProps.PositionSupported, test.ShouldBeTrue)
+
+	// 3) Advertised as N same-named ResourceNames, one per API.
+	var advertised []resource.API
+	for _, n := range r.ResourceNames() {
 		if n.Name == "combo" {
-			apis = append(apis, n.API)
+			advertised = append(advertised, n.API)
 		}
 	}
-	test.That(t, apis, test.ShouldContain, sensor.API)
-	test.That(t, apis, test.ShouldContain, generic.API)
+	test.That(t, advertised, test.ShouldContain, camera.API)
+	test.That(t, advertised, test.ShouldContain, movementsensor.API)
 
-	// 2) client assembles an api-less composite handle; AsType extracts the sensor sub-client and the
-	// call round-trips to the server instance.
-	res, err := resource.NamedFromProvider(rc, "combo")
-	test.That(t, err, test.ShouldBeNil)
-	s, err := resource.AsType[sensor.Sensor](res)
-	test.That(t, err, test.ShouldBeNil)
-	readings, err := s.Readings(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings["reading"], test.ShouldEqual, 7)
-
-	// 3) per-API access over the wire also works (typed FromProvider-style path).
-	res2, err := rc.ResourceByName(sensor.Named("combo"))
-	test.That(t, err, test.ShouldBeNil)
-	s2, err := resource.AsType[sensor.Sensor](res2)
-	test.That(t, err, test.ShouldBeNil)
-	r2, err := s2.Readings(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, r2["reading"], test.ShouldEqual, 7)
+	// 4) Teardown closes each distinct facade; the shared impl is reached under both and so closed twice,
+	// which is safe because Close must be idempotent.
+	r.Reconfigure(ctx, &config.Config{})
+	test.That(t, closeCount.Load(), test.ShouldEqual, 2)
 }
 
 // TestModularCompositeCustomAPI exercises a composite's custom gizmo API over a client whose separate
@@ -291,70 +304,6 @@ func registerCollideModel(t *testing.T, name string, closeCount *atomic.Int32) r
 	return model
 }
 
-// TestCompositeCollidingMethodsBuiltin checks a builtin composite serving two APIs that collide on a
-// method name (camera.Properties and movementsensor.Properties, with different return types). Over a
-// client, each colliding Properties call routes to the correct implementation for its API, a lookup without an
-// API resolves to the one composite, and teardown closes each distinct facade (the shared impl, reached
-// under both, is closed twice, which Close must tolerate).
-func TestCompositeCollidingMethodsBuiltin(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	var closeCount atomic.Int32
-	// camera sorts before movement_sensor, so camera is the canonical (sorted-first) API.
-	model := registerCollideModel(t, "collide-cam-imu", &closeCount)
-
-	cfg := &config.Config{
-		Components: []resource.Config{
-			{Name: "combo", API: camera.API, Model: model},
-		},
-	}
-	r := setupLocalRobot(t, ctx, cfg, logger)
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	test.That(t, r.StartWeb(ctx, options), test.ShouldBeNil)
-
-	rc, err := client.New(ctx, addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() { test.That(t, rc.Close(ctx), test.ShouldBeNil) }()
-
-	// The two colliding Properties methods each route to their own implementation over the wire.
-	cam, err := camera.FromProvider(rc, "combo")
-	test.That(t, err, test.ShouldBeNil)
-	camProps, err := cam.Properties(ctx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, camProps.FrameRate, test.ShouldEqual, 30)
-	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
-
-	ms, err := movementsensor.FromProvider(rc, "combo")
-	test.That(t, err, test.ShouldBeNil)
-	msProps, err := ms.Properties(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
-	test.That(t, msProps.PositionSupported, test.ShouldBeTrue)
-
-	// An api-less SimpleName resolves to the one composite handle, which serves both APIs.
-	one, err := rc.ResourceByName(resource.SimpleName("combo"))
-	test.That(t, err, test.ShouldBeNil)
-	apisOf := resource.APIsOf(one)
-	test.That(t, apisOf, test.ShouldContain, camera.API)
-	test.That(t, apisOf, test.ShouldContain, movementsensor.API)
-
-	// Advertised as one same-named ResourceName per co-equal API on the server.
-	var advertised []resource.API
-	for _, n := range r.ResourceNames() {
-		if n.Name == "combo" {
-			advertised = append(advertised, n.API)
-		}
-	}
-	test.That(t, advertised, test.ShouldContain, camera.API)
-	test.That(t, advertised, test.ShouldContain, movementsensor.API)
-
-	// Teardown closes each distinct facade; the shared impl is reached under both and so closed twice,
-	// which is safe because Close must be idempotent.
-	r.Reconfigure(ctx, &config.Config{})
-	test.That(t, closeCount.Load(), test.ShouldEqual, 2)
-}
-
 // TestCompositeOverClientResourceSetChange asserts that when a composite shrinks to a single-API resource
 // on the server, a client Refresh reassembles it so the dropped API is gone and it still resolves under
 // its remaining one.
@@ -363,7 +312,7 @@ func TestCompositeOverClientResourceSetChange(t *testing.T) {
 	ctx := context.Background()
 	compositeModel := registerComboModel(t, "client-change-combo", nil)
 
-	// A single-API sensor model to reconfigure "combo" to, dropping its generic co-equal API.
+	// A single-API sensor model to reconfigure "combo" to, dropping its generic API.
 	singleModel := resource.NewModel("acme", "test", "client-change-single")
 	resource.RegisterComponent(sensor.API, singleModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
