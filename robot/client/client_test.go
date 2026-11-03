@@ -2965,7 +2965,7 @@ func TestSignalReconnectCheckCoalesces(t *testing.T) {
 }
 
 // TestClientResourceBySimpleNameComposite checks that the client's api-less getter resolves a composite,
-// advertised once per co-equal API, to the one multi-API handle serving every API.
+// advertised once per API, to the one multi-API handle serving every API.
 func TestClientResourceBySimpleNameComposite(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	//nolint: noctx
@@ -2975,7 +2975,7 @@ func TestClientResourceBySimpleNameComposite(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
-	// A composite "combo" surfaces once per co-equal API, exactly as ResourceNames advertises it.
+	// A composite "combo" surfaces once per API, exactly as ResourceNames advertises it.
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{gripper.Named("combo"), servo.Named("combo")}
 	}
