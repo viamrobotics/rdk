@@ -104,12 +104,16 @@ func TestCreateViamClientFromEnvVarsTests(t *testing.T) {
 		name      string
 		apiKey    string
 		apiKeyID  string
-		expectErr bool
+		expectErr string
 	}{
-		{"Valid API Key", testAPIKey, testAPIKeyID, false},
-		{"Empty API Key", "", testAPIKeyID, true},
-		{"Empty API Key ID", testAPIKey, "", true},
+		{"Valid API Key", testAPIKey, testAPIKeyID, ""},
+		{"Empty API Key", "", testAPIKeyID, "VIAM_API_KEY must be set to a non-empty value"},
+		{"Empty API Key ID", testAPIKey, "", "VIAM_API_KEY_ID must be set to a non-empty value"},
+		{"Both empty", "", "", "VIAM_API_KEY and VIAM_API_KEY_ID must be set to a non-empty value"},
 	}
+	originalDialDirectGRPC := dialDirectGRPC
+	dialDirectGRPC = mockDialDirectGRPC
+	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
 			//nolint: usetesting
@@ -117,16 +121,14 @@ func TestCreateViamClientFromEnvVarsTests(t *testing.T) {
 			//nolint: usetesting
 			os.Setenv(rutils.APIKeyIDEnvVar, tt.apiKeyID)
 			client, err := CreateViamClientFromEnvVars(context.Background(), &Options{}, logger)
-			if (err != nil) != tt.expectErr {
-				t.Errorf("Expected error: %v, got: %v", tt.expectErr, err)
+			if tt.expectErr != "" {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldEqual, tt.expectErr)
+				return
 			}
-			if !tt.expectErr {
-				if client == nil {
-					t.Error("Expected a valid client, got nil")
-				} else {
-					client.Close()
-				}
-			}
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, client, test.ShouldNotBeNil)
+			client.Close()
 		})
 	}
 }
