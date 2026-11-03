@@ -1167,12 +1167,11 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		}
 	}
 
-	// components is the frame system service's dependency set, keyed per component API. AllNonColliding
-	// yields a composite once under its configured API; ExpandCompositeNames fans it out to each API it
-	// serves (a no-op for an ordinary resource), and ResourceByName unwraps each to that API's sub, so a
-	// composite's kinematic component sub reaches the frame system even when it is configured under a
-	// service API.
-	components := map[resource.Name]resource.Resource{}
+	// Fan a composite out to each component API it serves so the frame system sees its component sub even
+	// when it is configured under a service API. This must expand via ExpandCompositeNames, which reads the
+	// graph node: ResourceByName above resolves a service-configured composite to its service sub, which
+	// hides the component APIs.
+	frameSystemDeps := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.resources.ExpandCompositeNames(names) {
 		if !n.API.IsComponent() {
 			continue
@@ -1181,7 +1180,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		components[n] = sub
+		frameSystemDeps[n] = sub
 	}
 
 	timeout := utils.GetResourceConfigurationTimeout(r.logger)
@@ -1235,7 +1234,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 						)
 						break
 					}
-					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, frameSystemDeps, resource.Config{ConvertedAttributes: fsCfg})
 					if err != nil {
 						r.Logger().CErrorw(
 							ctx,
@@ -1422,10 +1421,7 @@ func isKinematicSubtype(subtype string) bool {
 	return subtype == arm.SubtypeName || subtype == gantry.SubtypeName || subtype == gripper.SubtypeName
 }
 
-// modelMayBeKinematic reports whether a config's own API or any API its model serves is a kinematic
-// subtype. It answers the kinematics question from config alone, for a resource that is unavailable and
-// so can't be asked whether it is InputEnabled. Checking every served API (not just the configured one)
-// keeps a composite whose kinematic sub is a non-configured API from being treated as rigid.
+// modelMayBeKinematic reports whether a config's own API or any API its model serves is a kinematic subtype.
 func modelMayBeKinematic(resConfig resource.Config) bool {
 	if isKinematicSubtype(resConfig.ResourceName().API.SubtypeName) {
 		return true
@@ -1484,15 +1480,15 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		resType := resConfig.ResourceName().API.SubtypeName
-		// Resolve the full graph handle once. For a composite this is the multi-API wrapper, so the frame
-		// helpers below find a kinematic or shaped sub under any API it serves, not just the configured one.
-		// resErr covers both a missing node and an unavailable resource.
+		// Resolve the full graph handle once, which for a composite is the multi-API wrapper, so the frame
+		// helpers below see it under every API it serves. resErr covers a missing node and an unavailable
+		// resource.
 		var rawRes resource.Resource
 		node, resErr := r.manager.resources.FindBySimpleNameAndAPI(resConfig.Name, resConfig.ResourceName().API)
 		if resErr == nil {
 			rawRes, resErr = node.Resource()
 		}
+		resType := resConfig.ResourceName().API.SubtypeName
 		linkInFrame, err := (&referenceframe.LinkConfig{
 			ID:          frameName,
 			Translation: resConfig.Frame.Translation,
@@ -1517,8 +1513,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		// rawRes is the full handle so a composite's kinematic, model, or shaped sub is found under any API
-		// it serves, not just the configured one.
+		// Add the richest frame contribution available, in priority: a kinematic model, else a model-framer
+		// model, else a geometry, else the bare frame config.
 		kinematic, modelFramer, shaped, refuse := framesystem.FrameContribution(rawRes)
 		if refuse {
 			logger.Warnw("Composite serves multiple kinematic APIs; omitting from FrameSystem.", "resource", resConfig.Name)
@@ -1560,8 +1556,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		// Any other resource may still describe itself with a kinematic model, e.g. a static
 		// obstacle assembled from several frames. That is preferred over a flat `Geometries`
-		// query because it keeps the resource's internal frame hierarchy. Detect it across every API the
-		// resource serves, so a composite's model-framing sub is found whichever API exposes it.
+		// query because it keeps the resource's internal frame hierarchy.
 		if modelFramer != nil {
 			model, err := modelFramer.Kinematics(ctx)
 			if err != nil {
@@ -1584,8 +1579,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		// The config gave no geometry, so ask the resource for one. A composite's geometry may live on a
-		// sub whose API is not the one it is configured under, so detect Shaped across every served API.
+		// The config gave no geometry, so ask the resource for one.
 		if shaped != nil {
 			resGeometries, err := shaped.Geometries(ctx, nil)
 			// Dan: I'm concerned that `Geometries` will return unimplemented errors? Leaving as
