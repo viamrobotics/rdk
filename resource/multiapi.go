@@ -122,9 +122,8 @@ func (c *compositeResource) Status(ctx context.Context) (map[string]interface{},
 	return c.canonicalSub().Status(ctx)
 }
 
-// Close closes each distinct sub-resource once, deduped by sub identity. Separate per-API objects each
-// own resources that would leak if not closed; facades that share one core each close it, so Close must
-// be idempotent.
+// Close closes each distinct impl once, deduped by identity. Separate per-API impls each own resources
+// that would leak if not closed; facades that share one core each close it, so Close must be idempotent.
 func (c *compositeResource) Close(ctx context.Context) error {
 	seen := make(map[Resource]bool)
 	var errs error

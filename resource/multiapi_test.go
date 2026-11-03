@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// Two co-equal test APIs plus a third the composite does not serve. testcam sorts before testsens,
+// Two test APIs plus a third the composite does not serve. testcam sorts before testsens,
 // so testCamAPI is the canonical (sorted-first) API of a {cam, sens} composite.
 var (
 	testCamAPI   = APINamespaceRDK.WithComponentType("testcam")
@@ -209,7 +209,7 @@ func (f fakeProvider) GetResource(name Name) (Resource, error) {
 	return res, nil
 }
 
-// Two co-equal APIs whose method sets collide by name. Both declare Properties, with different
+// Two APIs whose method sets collide by name. Both declare Properties, with different
 // signatures. propcam sorts before propimu, so propCamAPI is the canonical (sorted-first) API.
 var (
 	propCamAPI = APINamespaceRDK.WithComponentType("propcam")
@@ -278,7 +278,7 @@ func TestComposeFacadesCollidingMethods(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Each co-equal API resolves to its own facade
+	// Each API resolves to its own facade
 	camSub, ok := composite.ResourceForAPI(propCamAPI)
 	test.That(t, ok, test.ShouldBeTrue)
 	_, isCam := camSub.(camFacade)
@@ -500,7 +500,7 @@ func TestProviderUnwrapsComposite(t *testing.T) {
 func TestSubsByNameAndDistinctSubs(t *testing.T) {
 	base := NewName(testCamAPI, "dev")
 
-	// A shared core served under both co-equal APIs.
+	// A shared core served under both APIs.
 	core := &combo{Named: base.AsNamed()}
 	shared := NewMultiAPIResource(base, map[API]Resource{testCamAPI: core, testSensAPI: core})
 
@@ -540,7 +540,7 @@ func TestSubsByNameAndDistinctSubs(t *testing.T) {
 }
 
 // TestComposeSingleStructComposite covers RegisterMultiAPI's single-struct wrapping: a model whose
-// constructor returns one struct implementing every co-equal API is wrapped so the stored constructor
+// constructor returns one struct implementing every API is wrapped so the stored constructor
 // yields a MultiAPIResource. An already-composed result is left untouched, and a nil result passes through.
 func TestComposeSingleStructComposite(t *testing.T) {
 	ctx := context.Background()

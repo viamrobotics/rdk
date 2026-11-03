@@ -200,7 +200,7 @@ type AssociatedConfigRegistration[AssocT AssociatedConfig] struct {
 var (
 	registryMu sync.RWMutex
 	registry   = map[APIModel]Registration[Resource, ConfigValidator]{}
-	// multiAPIByModel records, for models that serve more than one co-equal API, the full set of APIs
+	// multiAPIByModel records, for models that serve more than one API, the full set of APIs
 	// they serve. The stored slice is kept sorted by API string so that the first entry is a
 	// deterministic canonical API. Guarded by registryMu.
 	multiAPIByModel               = map[Model][]API{}
@@ -327,7 +327,7 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	registry[apiModel] = makeGenericResourceRegistration(reg)
 }
 
-// RegisterMultiAPI registers one model that serves one or more co-equal APIs. The single constructor is
+// RegisterMultiAPI registers one model that serves one or more APIs. The single constructor is
 // registered under every API (so LookupRegistration finds it for any of them), and the API set is
 // recorded for models serving more than one. It panics on an empty API list.
 //
@@ -351,7 +351,7 @@ func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, m
 
 // composeSingleStructComposite rewrites the stored constructor for each API of a multi-API model so a
 // single-struct result is composed into a MultiAPIResource aliased under every served API. It runs
-// after Register/RegisterMultiAPISet, reading back the sorted co-equal set recorded by the latter.
+// after Register/RegisterMultiAPISet, reading back the sorted API set recorded by the latter.
 func composeSingleStructComposite(model Model) {
 	sorted := APIsForModel(model)
 	if len(sorted) < 2 {
@@ -384,7 +384,7 @@ func composeSingleStructComposite(model Model) {
 	}
 }
 
-// RegisterMultiAPISet records the co-equal APIs a composite model serves without registering constructors,
+// RegisterMultiAPISet records the APIs a composite model serves without registering constructors,
 // for modular composites whose per-API constructors are the module proxies. The set is sorted by API
 // string so the first entry is a deterministic canonical API. No-op for models serving fewer than two APIs.
 func RegisterMultiAPISet(model Model, apis []API) {
@@ -407,7 +407,7 @@ func RegisterMultiAPISet(model Model, apis []API) {
 	multiAPIByModel[model] = sorted
 }
 
-// APIsForModel returns the set of co-equal APIs a composite model serves, sorted by API string, or
+// APIsForModel returns the set of APIs a composite model serves, sorted by API string, or
 // nil for an ordinary single-API model.
 func APIsForModel(model Model) []API {
 	registryMu.RLock()
@@ -417,7 +417,7 @@ func APIsForModel(model Model) []API {
 
 // ExpandModel expands a model into one APIModel per API it was registered under, so a module's main() can
 // serve all of a composite's APIs without re-listing them. For a composite it returns one entry per
-// co-equal API (sorted by API string); for an ordinary model, the single {api, model} pair from the
+// served API (sorted by API string); for an ordinary model, the single {api, model} pair from the
 // registry; nil for an unregistered model.
 func ExpandModel(model Model) []APIModel {
 	registryMu.RLock()
