@@ -1933,7 +1933,7 @@ func TestJobManagerErrors(t *testing.T) {
 }
 
 // TestCompositeJobDispatchesToServingAPI runs a job whose method belongs to one of a composite's
-// non-canonical co-equal APIs. It only succeeds if dispatch routes to the API that serves the method
+// non-canonical APIs. It only succeeds if dispatch routes to the API that serves the method
 // rather than the composite's canonical one.
 func TestCompositeJobDispatchesToServingAPI(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)

@@ -1,4 +1,4 @@
-// Package main is a module demonstrating the simple composite case, one model serving two co-equal
+// Package main is a module demonstrating the simple composite case, one model serving two
 // APIs whose method names do not collide. simplecombo serves rdk:component:sensor and
 // rdk:component:button from a single identity. Because sensor (Readings) and button (Push) share no
 // method names, one shared struct satisfies both interfaces directly, so there are no per-API facades
@@ -21,7 +21,7 @@ import (
 var Model = resource.NewModel("acme", "demo", "simplecombo")
 
 func main() {
-	// One registration declares the full co-equal API set; the single constructor is registered under each.
+	// One registration declares the full API set; the single constructor is registered under each.
 	resource.RegisterMultiAPI(
 		[]resource.API{sensor.API, button.API}, Model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{

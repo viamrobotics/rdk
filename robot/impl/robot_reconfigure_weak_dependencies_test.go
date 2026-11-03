@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -737,7 +738,8 @@ func TestWeakDependencyOnNewRemoteResource(t *testing.T) {
 // TestWeakDependencyOnComposite asserts a composite is wired into a weakly dependent resource under
 // each of the APIs the matcher matches, not only under its canonical API. It is wired as the composite
 // wrapper. The combomodule composite is configured under camera (its canonical API), so a weak
-// dependency matcher must wire it under both camera and movement_sensor.
+// dependency matcher must wire it under every component API it serves: camera, movement_sensor, and the
+// module-defined gizmo.
 func TestWeakDependencyOnComposite(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -784,6 +786,12 @@ func TestWeakDependencyOnComposite(t *testing.T) {
 	// It is the composite wrapper, which AsType resolves to the movement_sensor sub.
 	_, err = resource.AsType[movementsensor.MovementSensor](msDep)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Also wired under its module-defined gizmo API, which the component matcher matches too.
+	gizDep, ok := weak.resources[gizmoapi.Named("combo")]
+	test.That(t, ok, test.ShouldBeTrue)
+	_, err = resource.AsType[gizmoapi.Gizmo](gizDep)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 // optionalCompositeConfig declares an optional dependency on a single named resource.
@@ -813,7 +821,7 @@ func newOptionalCompositeConsumer(
 }
 
 // TestOptionalDependencyOnComposite asserts a resource that optionally depends on a composite by simple
-// name receives it under each of the composite's co-equal APIs, and still builds when the composite is absent.
+// name receives it under each of the composite's APIs, and still builds when the composite is absent.
 func TestOptionalDependencyOnComposite(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -830,7 +838,7 @@ func TestOptionalDependencyOnComposite(t *testing.T) {
 	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
 	model := resource.NewModel("acme", "demo", "combodevice")
 
-	// The composite is present: the consumer should receive it under each co-equal API.
+	// The composite is present: the consumer should receive it under each API.
 	cfg := &config.Config{
 		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
 		Components: []resource.Config{
@@ -870,7 +878,7 @@ func TestOptionalDependencyOnComposite(t *testing.T) {
 }
 
 // TestWeakDependencySubtypeMatchesCompositeServedAPI asserts a SubtypeMatcher weak dependency matches a
-// composite under a co-equal API it serves but is not configured under. combo is configured as a camera
+// composite under an API it serves but is not configured under. combo is configured as a camera
 // but also serves movement_sensor, and motion/datamanager weak-depend by subtype, so a movement_sensor
 // matcher must pick it up under its movement_sensor API.
 func TestWeakDependencySubtypeMatchesCompositeServedAPI(t *testing.T) {

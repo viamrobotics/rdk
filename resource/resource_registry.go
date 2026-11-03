@@ -416,7 +416,7 @@ func APIsForModel(model Model) []API {
 }
 
 // APIsForConfig returns the APIs a configured resource is served under, canonical-first: the full
-// co-equal set for a composite model, or the config's own API for an ordinary one. Unlike APIsOf it
+// API set for a composite model, or the config's own API for an ordinary one. Unlike APIsOf it
 // works from config alone, before any instance exists.
 func APIsForConfig(conf Config) []API {
 	if apis := APIsForModel(conf.Model); len(apis) > 1 {

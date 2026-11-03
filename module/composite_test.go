@@ -137,9 +137,12 @@ func (c *rtpCamComposite) Readings(context.Context, map[string]interface{}) (map
 	return map[string]interface{}{"reading": 7}, nil
 }
 
-// TestCompositeCameraStreamSourceRegistered asserts a composite whose camera sub is an
-// rtppassthrough.Source registers (and, on remove, clears) that stream source under its camera name.
-func TestCompositeCameraStreamSourceRegistered(t *testing.T) {
+// TestCompositeAddRebuildRemoveAcrossCollections walks a composite (camera + sensor, whose camera sub is
+// an rtppassthrough.Source) through add, reconfigure, and remove, asserting it fans out across every
+// served API collection at each step: added to both collections with the stream source under the camera
+// name only, rebuilt as a new instance in both with the stream source re-registered, and gone from both
+// on remove with the stream source cleared.
+func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -168,27 +171,49 @@ func TestCompositeCameraStreamSourceRegistered(t *testing.T) {
 	test.That(t, m.AddModelFromRegistry(ctx, camera.API, model), test.ShouldBeNil)
 	test.That(t, m.AddModelFromRegistry(ctx, sensor.API, model), test.ShouldBeNil)
 
-	_, err = m.AddResource(ctx, &pb.AddResourceRequest{
-		Config: &appv1.ComponentConfig{Name: "cam", Api: camera.API.String(), Model: model.String()},
-	})
+	cfg := &appv1.ComponentConfig{Name: "cam", Api: camera.API.String(), Model: model.String()}
+
+	// inCollection reports whether "cam" resolves in the given API's collection.
+	inCollection := func(api resource.API) bool {
+		_, err := m.collections[api].Resource("cam")
+		return err == nil
+	}
+	// streamUnderCamera reports whether the stream source is registered under the camera name; it is never
+	// registered under the sensor name (sensor is not a stream source).
+	streamUnderCamera := func() bool {
+		m.registerMu.Lock()
+		defer m.registerMu.Unlock()
+		_, underSensor := m.streamSourceByName[sensor.Named("cam")]
+		test.That(t, underSensor, test.ShouldBeFalse)
+		_, underCamera := m.streamSourceByName[camera.Named("cam")]
+		return underCamera
+	}
+
+	// Add: fanned into both served collections, stream source under the camera name.
+	_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: cfg})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inCollection(camera.API), test.ShouldBeTrue)
+	test.That(t, inCollection(sensor.API), test.ShouldBeTrue)
+	test.That(t, streamUnderCamera(), test.ShouldBeTrue)
+	first, err := m.collections[camera.API].Resource("cam")
 	test.That(t, err, test.ShouldBeNil)
 
-	// The stream source is registered under the camera API only, not under the composite's other co-equal
-	// API (sensor is not a stream source).
-	m.registerMu.Lock()
-	_, underCamera := m.streamSourceByName[camera.Named("cam")]
-	_, underSensor := m.streamSourceByName[sensor.Named("cam")]
-	m.registerMu.Unlock()
-	test.That(t, underCamera, test.ShouldBeTrue)
-	test.That(t, underSensor, test.ShouldBeFalse)
+	// Reconfigure: rebuilt as a new instance in both collections, stream source re-registered.
+	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfg})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inCollection(camera.API), test.ShouldBeTrue)
+	test.That(t, inCollection(sensor.API), test.ShouldBeTrue)
+	test.That(t, streamUnderCamera(), test.ShouldBeTrue)
+	rebuilt, err := m.collections[camera.API].Resource("cam")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rebuilt, test.ShouldNotEqual, first)
 
-	// Removing the composite clears the stream source.
+	// Remove: gone from every served collection, stream source cleared.
 	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: camera.Named("cam").String()})
 	test.That(t, err, test.ShouldBeNil)
-	m.registerMu.Lock()
-	_, stillRegistered := m.streamSourceByName[camera.Named("cam")]
-	m.registerMu.Unlock()
-	test.That(t, stillRegistered, test.ShouldBeFalse)
+	test.That(t, inCollection(camera.API), test.ShouldBeFalse)
+	test.That(t, inCollection(sensor.API), test.ShouldBeFalse)
+	test.That(t, streamUnderCamera(), test.ShouldBeFalse)
 }
 
 // localConsumer depends on a composite in the same module and remembers the exact instance it resolved.

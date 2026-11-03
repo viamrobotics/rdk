@@ -319,7 +319,7 @@ func validateCompositeDeclaration(model resource.Model) error {
 	if len(resource.ExpandModel(model)) > 1 && len(resource.APIsForModel(model)) < 2 {
 		return fmt.Errorf(
 			"model %q is registered under multiple APIs but was not declared as a composite; "+
-				"serve one model under several co-equal APIs with resource.RegisterMultiAPI", model,
+				"serve one model under several APIs with resource.RegisterMultiAPI", model,
 		)
 	}
 	return nil
@@ -367,7 +367,7 @@ func (m *Module) addResource(
 	defer m.registerMu.Unlock()
 
 	// Add the resource under every API it serves (just conf.API for an ordinary resource, the full
-	// co-equal set for a composite), each as that API's unwrapped sub. Each collection's Add type-checks
+	// set for a composite), each as that API's unwrapped sub. Each collection's Add type-checks
 	// the sub against its API, so a misdeclared model fails fast. Track the adds so any failure undoes them
 	// all before closing res, leaving no collection pointing at a resource we are about to close.
 	var added []resource.Name
@@ -520,7 +520,7 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	}
 	m.registerMu.Unlock()
 
-	// Close the stored handle. For a composite that closes every distinct sub once, not just the sub
+	// Close the stored handle. For a composite that closes every distinct impl once, not just the one
 	// registered under the configured API.
 	if err := lr.res.Close(ctx); err != nil {
 		m.logger.Error(err)
@@ -560,7 +560,7 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 		}
 	}
 
-	// A composite instance lives in one collection per co-equal API; an ordinary resource only in its
+	// A composite instance lives in one collection per served API; an ordinary resource only in its
 	// own. Remove it from every collection that serves it.
 	var errs error
 	for api, c := range m.collections {
@@ -604,7 +604,7 @@ func (m *Module) rebuildResource(
 		lr.logger.SetLevel(*logLevel)
 	}
 
-	// Close the stored handle, which for a composite closes every distinct sub once, before rebuilding.
+	// Close the stored handle, which for a composite closes every distinct impl once, before rebuilding.
 	if err := lr.res.Close(ctx); err != nil {
 		m.logger.Error(err)
 	}
