@@ -131,6 +131,151 @@ def return_subclass(
     return "\n".join(["    " + line for line in ast.unparse(stmt).splitlines()])
 
 
+def wrap_do_command_region(methods_text: str) -> str:
+    """Wrap each do_command body in inline-example comments. Other methods stay plain."""
+    lines = methods_text.splitlines(keepends=True)
+    out: List[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.lstrip()
+        if not (
+            stripped.startswith("async def do_command(")
+            or stripped.startswith("def do_command(")
+        ):
+            out.append(line)
+            index += 1
+            continue
+        indent = line[: len(line) - len(stripped)]
+        out.append(line)
+        index += 1
+        while index < len(lines) and not out[-1].rstrip().endswith(":"):
+            out.append(lines[index])
+            index += 1
+        body: List[str] = []
+        while index < len(lines):
+            nxt = lines[index]
+            if nxt.strip() == "":
+                break
+            if len(nxt) - len(nxt.lstrip()) <= len(indent):
+                break
+            body.append(nxt)
+            index += 1
+        body_indent = indent + "    "
+        out.append(f"{body_indent}# inline-example:do-command\n")
+        out.extend(body)
+        out.append(f"{body_indent}# inline-example:do-command-end\n")
+    return "".join(out)
+
+
+def render_resource_file(
+    imports_text: str,
+    resource_type: str,
+    resource_subtype: str,
+    model_name_pascal: str,
+    resource_name: str,
+    namespace: str,
+    mod_name: str,
+    model_name: str,
+    subclasses_text: str,
+    methods_text: str,
+    slots: bool,
+) -> str:
+    """Render one Python model file. slots adds the inline-bundle example regions."""
+    example_imports = ""
+    example_fields = ""
+    init_body = "        return super().new(config, dependencies)"
+    validate_body = "        return [], []"
+    if slots:
+        example_imports = "# inline-example:imports\n# inline-example:imports-end\n"
+        example_fields = (
+            "    # inline-example:fields\n    # inline-example:fields-end\n"
+        )
+        init_body = (
+            "        # inline-example:init\n"
+            "        return super().new(config, dependencies)\n"
+            "        # inline-example:init-end"
+        )
+        validate_body = (
+            "        # inline-example:validate\n"
+            "        return [], []\n"
+            "        # inline-example:validate-end"
+        )
+        methods_text = wrap_do_command_region(methods_text)
+    resource_file = """
+from typing import ClassVar, Mapping, Sequence, Tuple
+from typing_extensions import Self
+from viam.proto.app.robot import ComponentConfig
+from viam.proto.common import ResourceName
+from viam.resource.base import ResourceBase
+from viam.resource.easy_resource import EasyResource
+from viam.resource.types import Model, ModelFamily
+{0}
+{10}from viam.{1}s.{2} import *
+
+
+class {3}({4}, EasyResource):
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
+    MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
+
+{13}    @classmethod
+    def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
+        \"\"\"This method creates a new instance of this {4} {1}.
+        The default implementation sets the name from the `config` parameter.
+
+        Args:
+            config (ComponentConfig): The configuration for this resource
+            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both required and optional)
+
+        Returns:
+            Self: The resource
+        \"\"\"
+{11}
+
+    @classmethod
+    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
+        \"\"\"This method allows you to validate the configuration object received from the machine,
+        as well as to return any required dependencies or optional dependencies based on that `config`.
+
+        Args:
+            config (ComponentConfig): The configuration for this resource
+
+        Returns:
+            Tuple[Sequence[str], Sequence[str]]: A tuple where the
+                first element is a list of required dependencies and the
+                second element is a list of optional dependencies
+        \"\"\"
+{12}
+
+{8}
+{9}
+""".format(
+        imports_text,
+        resource_type,
+        resource_subtype,
+        model_name_pascal,
+        resource_name,
+        namespace,
+        mod_name,
+        model_name,
+        subclasses_text,
+        methods_text,
+        example_imports,
+        init_body,
+        validate_body,
+        example_fields,
+    )
+    if slots:
+        old_class = f"class {model_name_pascal}({resource_name}, EasyResource):"
+        new_class = (
+            f"class {model_name_pascal}(/*inline-slot:bases*/{resource_name}, "
+            "EasyResource/*inline-slot:bases-end*/):"
+        )
+        resource_file = resource_file.replace(old_class, new_class, 1)
+    return resource_file
+
+
 def main(
     resource_type: str,
     resource_subtype: str,
@@ -233,55 +378,7 @@ def main(
         imports_text = f"/*inline-slot:imports*/\n{imports_text}\n/*inline-slot:imports-end*/"
         subclasses_text = f"/*inline-slot:methods*/\n{subclasses_text}"
         methods_text = f"{methods_text}\n/*inline-slot:methods-end*/"
-    resource_file = '''
-from typing import ClassVar, Mapping, Sequence, Tuple
-from typing_extensions import Self
-from viam.proto.app.robot import ComponentConfig
-from viam.proto.common import ResourceName
-from viam.resource.base import ResourceBase
-from viam.resource.easy_resource import EasyResource
-from viam.resource.types import Model, ModelFamily
-{0}
-from viam.{1}s.{2} import *
-
-
-class {3}({4}, EasyResource):
-    # To enable debug-level logging, either run viam-server with the --debug option,
-    # or configure your resource/machine to display debug logs.
-    MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
-
-    @classmethod
-    def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
-        """This method creates a new instance of this {4} {1}.
-        The default implementation sets the name from the `config` parameter.
-
-        Args:
-            config (ComponentConfig): The configuration for this resource
-            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both required and optional)
-
-        Returns:
-            Self: The resource
-        """
-        return super().new(config, dependencies)
-
-    @classmethod
-    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
-        """This method allows you to validate the configuration object received from the machine,
-        as well as to return any required dependencies or optional dependencies based on that `config`.
-
-        Args:
-            config (ComponentConfig): The configuration for this resource
-
-        Returns:
-            Tuple[Sequence[str], Sequence[str]]: A tuple where the
-                first element is a list of required dependencies and the
-                second element is a list of optional dependencies
-        """
-        return [], []
-
-{8}
-{9}
-'''.format(
+    resource_file = render_resource_file(
         imports_text,
         resource_type,
         resource_subtype,
@@ -292,14 +389,9 @@ class {3}({4}, EasyResource):
         model_name,
         subclasses_text,
         methods_text,
+        slots,
     )
     if slots:
-        old_class = f"class {model_name_pascal}({resource_name}, EasyResource):"
-        new_class = (
-            f"class {model_name_pascal}(/*inline-slot:bases*/{resource_name}, "
-            "EasyResource/*inline-slot:bases-end*/):"
-        )
-        resource_file = resource_file.replace(old_class, new_class, 1)
         return resource_file
     with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as f:
         f_name = f.name

@@ -158,9 +158,102 @@ func TestPlainGoRenderHasNoSlotMarkers(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source := string(rendered)
 	test.That(t, source, test.ShouldNotContainSubstring, "/*inline-slot:")
+	test.That(t, source, test.ShouldNotContainSubstring, "inline-example:")
 	test.That(t, source, test.ShouldContainSubstring, "resource.Resource")
 	test.That(t, source, test.ShouldContainSubstring, "func init()")
 	test.That(t, source, test.ShouldContainSubstring, "errUnimplemented")
+}
+
+func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
+	root := rdkRoot(t)
+	previous := gen.LocalSDKRoot
+	gen.LocalSDKRoot = root
+	t.Cleanup(func() { gen.LocalSDKRoot = previous })
+
+	modules, err := inlineModules(golang)
+	test.That(t, err, test.ShouldBeNil)
+	var generic modulegen.ModuleInputs
+	for _, module := range modules {
+		if module.API == "rdk:service:generic" {
+			generic = module
+			break
+		}
+	}
+	rendered, err := gen.RenderGoTemplatesWithSlots(generic, false)
+	test.That(t, err, test.ShouldBeNil)
+	source := string(rendered)
+	for _, name := range []string{"imports", "config", "validate", "fields", "init", "struct", "do-command"} {
+		test.That(t, strings.Count(source, "// inline-example:"+name+"\n"), test.ShouldEqual, 1)
+		test.That(t, strings.Count(source, "// inline-example:"+name+"-end\n"), test.ShouldEqual, 1)
+	}
+
+	shell, section, splitErr := splitGoModule(source)
+	test.That(t, splitErr, test.ShouldBeNil)
+	for _, name := range []string{"imports", "config", "validate", "fields", "init", "struct"} {
+		test.That(t, shell, test.ShouldContainSubstring, "// inline-example:"+name)
+	}
+	test.That(t, shell, test.ShouldNotContainSubstring, "inline-example:do-command")
+	test.That(t, shell, test.ShouldNotContainSubstring, "/*inline-slot:")
+	test.That(t, section.Methods, test.ShouldContainSubstring, "// inline-example:do-command")
+	test.That(t, section.Methods, test.ShouldContainSubstring, "return nil, fmt.Errorf(\"not implemented\")")
+	test.That(t, section.Imports, test.ShouldNotEqual, "")
+}
+
+func TestPythonScaffoldExampleRegions(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 is not installed")
+	}
+	script := filepath.Join("module_generate", "scripts", "generate_stubs.py")
+	cmd := exec.CommandContext(t.Context(), "python3", "-c", `
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("generate_stubs", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+
+methods = """    async def do_command(self, command):
+        self.logger.error("nope")
+        raise NotImplementedError()
+
+    async def get_status(self):
+        self.logger.error("nope")
+        raise NotImplementedError()
+"""
+plain = mod.render_resource_file("import os", "service", "generic", "GenericService", "Generic", "org", "mod", "generic-service", "", methods, False)
+assert "inline-example:" not in plain, plain
+assert "return super().new(config, dependencies)" in plain
+assert "return [], []" in plain
+assert "/*inline-slot:" not in plain
+assert plain.count("async def do_command") == 1
+assert "get_status" in plain
+
+slotted_methods = "/*inline-slot:methods*/\n" + methods + "\n/*inline-slot:methods-end*/"
+slotted = mod.render_resource_file(
+    "/*inline-slot:imports*/\nimport os\n/*inline-slot:imports-end*/",
+    "service", "generic", "GenericService", "Generic", "org", "mod", "generic-service",
+    "/*inline-slot:methods*/\n",
+    slotted_methods,
+    True,
+)
+for name in ("imports", "fields", "validate", "init", "do-command"):
+    start = "# inline-example:" + name + "\n"
+    end = "# inline-example:" + name + "-end\n"
+    assert slotted.count(start) == 1, (name, slotted.count(start), slotted)
+    assert slotted.count(end) == 1, (name, slotted)
+assert "/*inline-slot:bases*/" in slotted
+assert slotted.count("# inline-example:do-command\n") == 1
+# get_status stays a plain stub
+status_at = slotted.index("async def get_status")
+do_at = slotted.index("# inline-example:do-command")
+assert status_at > do_at
+assert "# inline-example:" not in slotted[status_at:]
+wrapped = mod.wrap_do_command_region(methods)
+assert wrapped.count("# inline-example:do-command\n") == 1
+assert "async def get_status" in wrapped
+assert "# inline-example:" not in wrapped[wrapped.index("async def get_status"):]
+`, script)
+	out, err := cmd.CombinedOutput()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(out), test.ShouldEqual, "")
 }
 
 func TestPythonSDKRequirementPinsTheVersion(t *testing.T) {

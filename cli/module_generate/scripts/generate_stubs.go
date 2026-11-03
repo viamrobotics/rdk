@@ -259,6 +259,7 @@ func setGoModuleTemplate(
 	module modulegen.ModuleInputs,
 	docMap map[string]*ast.CommentGroup,
 	additionalModel bool,
+	slots bool,
 ) (*modulegen.GoModuleTmpl, error) {
 	var goTmplInputs modulegen.GoModuleTmpl
 	if additionalModel {
@@ -310,7 +311,7 @@ func setGoModuleTemplate(
 				if docGroup, ok := docMap[name]; ok && docGroup != nil {
 					doc = docGroup.Text()
 				}
-				functions = append(functions, formatEmptyFunctionWithDoc(doc, receiver, name, args, returns))
+				functions = append(functions, formatEmptyFunctionWithDoc(doc, receiver, name, args, returns, slots))
 			}
 		}
 		return true
@@ -321,7 +322,8 @@ func setGoModuleTemplate(
 		doCommandFunction := formatEmptyFunction(module.ModuleCamel+module.ModelPascal,
 			"DoCommand",
 			"ctx context.Context, cmd map[string]interface{}",
-			[]string{"map[string]interface{}", "error"})
+			[]string{"map[string]interface{}", "error"},
+			slots)
 		functions = append(functions, doCommandFunction)
 	}
 
@@ -558,16 +560,18 @@ func formatNotImplementedBody(returns []string) string {
 
 // formatEmptyFunction generates a stub method for the given receiver,
 // inserting a "not implemented" body with appropriate zero-value returns.
-func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
-	returnDef := formatReturnDef(returns)
-	body := formatNotImplementedBody(returns)
-	return fmt.Sprintf("func (s *%s) %s(%s)%s {\n%s\n}\n\n", receiver, funcName, args, returnDef, body)
+// slots wraps a DoCommand body in inline-example comments. Other methods stay plain.
+func formatEmptyFunction(receiver, funcName, args string, returns []string, slots bool) string {
+	return formatEmptyFunctionWithDoc("", receiver, funcName, args, returns, slots)
 }
 
 // formatEmptyFunctionWithDoc does the same as formatEmptyFunction but adds doc comment if the component interface has one.
-func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string) string {
+func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string, slots bool) string {
 	returnDef := formatReturnDef(returns)
 	body := formatNotImplementedBody(returns)
+	if slots && funcName == "DoCommand" {
+		body = "\t// inline-example:do-command\n" + body + "\n\t// inline-example:do-command-end"
+	}
 
 	var docComment string
 	if doc != "" {
@@ -686,7 +690,7 @@ func renderGoTemplates(module modulegen.ModuleInputs, additionalModel, slots boo
 	if err != nil {
 		return empty, err
 	}
-	goModule, err := setGoModuleTemplate(clientCode, module, docMap, additionalModel)
+	goModule, err := setGoModuleTemplate(clientCode, module, docMap, additionalModel, slots)
 	if err != nil {
 		return empty, err
 	}
