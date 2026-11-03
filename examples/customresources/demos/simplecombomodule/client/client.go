@@ -34,7 +34,7 @@ func main() {
 		}
 	}
 
-	// ── 2) api-less handle, one object that reports its full co-equal API set ───────
+	// ── 2) api-less handle, one object that reports its full API set ───────
 	logger.Info("── api-less composite handle ──")
 	if combo, err := resource.NamedFromProvider(machine, "simplecombo"); err != nil {
 		logger.Errorf("  NamedFromProvider: %v", err)
@@ -52,7 +52,7 @@ func main() {
 		logger.Infof("  sensor Readings: %v", rd) // map[reading:7]
 	}
 
-	// ── 4) as a button, the other co-equal API on the same identity ──────────────────
+	// ── 4) as a button, the other API on the same identity ──────────────────
 	logger.Info("── simplecombo as button ──")
 	if b, err := button.FromProvider(machine, "simplecombo"); err != nil {
 		logger.Errorf("  button.FromProvider: %v", err)

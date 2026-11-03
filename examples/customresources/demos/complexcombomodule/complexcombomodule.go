@@ -1,5 +1,5 @@
 // Package main is a module demonstrating a composite that spans a colliding pair and a custom API. It is
-// one model serving three co-equal APIs from a single identity. combodevice serves
+// one model serving three APIs from a single identity. combodevice serves
 // rdk:component:camera, rdk:component:movement_sensor, and the custom acme:component:gizmo API.
 // camera and movement_sensor collide on Properties (both declare a Properties method with different
 // return types, so neither can live on the shared struct), so each gets a thin facade embedding
@@ -33,7 +33,7 @@ var Model = resource.NewModel("acme", "demo", "combodevice")
 const wantArg = "combo"
 
 func main() {
-	// One registration declares the full co-equal API set; the single constructor is registered under each.
+	// One registration declares the full API set; the single constructor is registered under each.
 	resource.RegisterMultiAPI(
 		[]resource.API{camera.API, movementsensor.API, gizmoapi.API}, Model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
@@ -158,8 +158,7 @@ func (d *comboDevice) DoTwo(_ context.Context, arg1 bool) (string, error) {
 // other camera method, so camFacade satisfies camera.Camera.
 type camFacade struct{ *comboDevice }
 
-// Properties returns the camera Properties (distinguishable from the movement-sensor Properties by its
-// FrameRate). This is the colliding method routed to the camera facade.
+// Properties returns the camera Properties. This is the colliding method routed to the camera facade.
 func (f camFacade) Properties(context.Context) (camera.Properties, error) {
 	return camera.Properties{SupportsPCD: true, FrameRate: 30}, nil
 }
@@ -168,8 +167,7 @@ func (f camFacade) Properties(context.Context) (camera.Properties, error) {
 // every other movement-sensor method, so imuFacade satisfies movementsensor.MovementSensor.
 type imuFacade struct{ *comboDevice }
 
-// Properties returns the movement-sensor Properties (a different return type than the camera's, and
-// distinguishable by AngularVelocitySupported). This is the colliding method routed to the IMU facade.
+// Properties returns the movement-sensor Properties. This is the colliding method routed to the IMU facade.
 func (f imuFacade) Properties(context.Context, map[string]interface{}) (*movementsensor.Properties, error) {
 	return &movementsensor.Properties{PositionSupported: true, AngularVelocitySupported: true}, nil
 }

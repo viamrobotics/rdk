@@ -580,9 +580,8 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	mod.resources[conf.ResourceName()] = ar
 
 	// Build a sub-client for every API the resource serves (just conf.API for an ordinary resource, the
-	// full co-equal set for a composite) and route each name to this module. On a build failure, abort
-	// undoes the routes, closes what was built, drops the mod.resources entry, and tells the module to drop
-	// the instance (AddResource already constructed it) so a retry doesn't hit "already exists".
+	// full set for a composite) and route each name to this module. On a build failure, abort undoes any
+	// partial construction so a retry starts clean.
 	apis := resource.APIsForConfig(conf)
 	base := conf.ResourceName()
 	byAPI := make(map[resource.API]resource.Resource, len(apis))
@@ -1015,7 +1014,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		for resourceName, ar := range mod.resources {
 			orphanedResourceNames = append(orphanedResourceNames, resourceName)
 			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-			// let resource manager re-add instead of manually doing it here. Drop every co-equal API
+			// let resource manager re-add instead of manually doing it here. Drop every API
 			// route of a composite, not just the configured name, so no stale route to the crashed module
 			// lingers if the resource is not successfully re-added.
 			for _, api := range resource.APIsForModel(ar.conf.Model) {

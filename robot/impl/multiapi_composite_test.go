@@ -543,15 +543,26 @@ func TestModularCompositeResource(t *testing.T) {
 	}
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	// 1) api-less composite handle; AsType extracts each colliding API's sub-client.
+	// 1) An api-less name resolves to the one composite handle serving every API; AsType extracts each
+	// served API's sub-client.
 	res, err := r.ResourceByName(resource.SimpleName("combo"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = resource.AsType[camera.Camera](res)
+	cam, err := resource.AsType[camera.Camera](res)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = resource.AsType[movementsensor.MovementSensor](res)
+	ms, err := resource.AsType[movementsensor.MovementSensor](res)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = resource.AsType[gizmoapi.Gizmo](res)
 	test.That(t, err, test.ShouldBeNil)
+
+	// camera and movement_sensor both declare a Properties method with different return types. Calling each
+	// must route to its own facade over the module: camera.Properties from the camera sub, a
+	// *movementsensor.Properties from the movement-sensor sub.
+	camProps, err := cam.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
+	msProps, err := ms.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
 
 	// The modular composite handle is a resource.MultiAPIResource, so APIsOf reports its full set —
 	// the two colliding builtin APIs plus the custom gizmo API.
@@ -560,7 +571,7 @@ func TestModularCompositeResource(t *testing.T) {
 	test.That(t, apisOf, test.ShouldContain, movementsensor.API)
 	test.That(t, apisOf, test.ShouldContain, gizmoapi.API)
 
-	// 2) reachable under its other APIs too (one instance in the module, served under all of them).
+	// 2) A per-API lookup returns that API's sub, reachable under each API the module serves.
 	byMS, err := r.ResourceByName(movementsensor.Named("combo"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, byMS, test.ShouldNotBeNil)
@@ -569,7 +580,7 @@ func TestModularCompositeResource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, byGiz, test.ShouldNotBeNil)
 
-	// 3) advertised as N same-named ResourceNames.
+	// 3) Advertised as N same-named ResourceNames, one per API.
 	var apis []resource.API
 	for _, n := range r.ResourceNames() {
 		if n.Name == "combo" {
@@ -581,8 +592,8 @@ func TestModularCompositeResource(t *testing.T) {
 	test.That(t, apis, test.ShouldContain, gizmoapi.API)
 
 	// 4) Remove the composite (keep the module up). This tears down its module sub-clients. The composite
-	// wrapper's Close closes every distinct sub-client, so none leak goroutines that this package's goleak
-	// check flags at teardown. Assert the resource is gone under every API.
+	// wrapper's Close closes every distinct sub-client, so none leak goroutines. Assert the resource is
+	// gone under every API.
 	r.Reconfigure(ctx, &config.Config{
 		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
 	})

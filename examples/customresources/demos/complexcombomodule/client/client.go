@@ -35,7 +35,7 @@ func main() {
 		}
 	}
 
-	// ── 2) api-less handle, one object that reports its full co-equal API set ───────
+	// ── 2) api-less handle, one object that reports its full API set ───────
 	logger.Info("── api-less composite handle ──")
 	if combo, err := resource.NamedFromProvider(machine, "combo"); err != nil {
 		logger.Errorf("  NamedFromProvider: %v", err)
@@ -53,7 +53,7 @@ func main() {
 		logger.Infof("  camera Properties: %+v", props) // FrameRate=30 SupportsPCD=true
 	}
 
-	// ── 4) as a movement sensor, same method name, different facade & return type ───
+	// ── 4) as a movement sensor, same method name, different impl & return type ───
 	logger.Info("── combo as movement_sensor ──")
 	if ms, err := movementsensor.FromProvider(machine, "combo"); err != nil {
 		logger.Errorf("  movementsensor.FromProvider: %v", err)

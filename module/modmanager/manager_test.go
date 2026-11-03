@@ -2022,11 +2022,10 @@ func TestHangModuleSIGQUIT(t *testing.T) {
 		test.ShouldBeGreaterThanOrEqualTo, 3)
 }
 
-// TestModularCompositeRemoveClearsAllState verifies that removing a modular composite by its wrapper's
-// Name() fully clears the module manager's state for it. Every per-API
-// sub-client is closed, every co-equal route is dropped from rMap, and no addedResource entry lingers,
-// so the module can be torn down. The combodevice composite serves camera, movement_sensor, and the
-// custom gizmo API.
+// TestModularCompositeRemoveClearsAllState verifies that removing a modular composite fully clears the
+// module manager's state for it: every per-API sub-client is closed, every route is dropped from rMap,
+// and no addedResource entry lingers, so the module can be torn down. The combodevice composite serves
+// camera, movement_sensor, and the custom gizmo API.
 func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 	// Use TCP sockets so the long test name does not overflow the Unix-socket path limit.
 	t.Setenv(rutils.ViamTCPSocketsEnvVar, "true")
@@ -2050,15 +2049,15 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 	// not the canonical (gizmo) api.
 	test.That(t, res.Name().API, test.ShouldResemble, camera.API)
 
-	// Reachable under each co-equal api before removal.
+	// Reachable under each api before removal.
 	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
 	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
 	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
 
-	// Removing by the composite's one wrapper name must clear all its co-equal APIs.
+	// Removing the composite by its single name must drop all the APIs it served.
 	test.That(t, mgr.RemoveResource(ctx, res.Name()), test.ShouldBeNil)
 
-	// No ghost addedResource remains (so the module can be torn down), and no co-equal route lingers.
+	// No ghost addedResource remains (so the module can be torn down), and no route lingers.
 	mgr.modules.Range(func(_ string, mod *module) bool {
 		test.That(t, mod.resources, test.ShouldBeEmpty)
 		return true
@@ -2069,7 +2068,7 @@ func TestModularCompositeRemoveClearsAllState(t *testing.T) {
 }
 
 // TestModuleReloadingComposite asserts that after a composite module crashes and restarts, the composite
-// is modularly managed again under every one of its co-equal APIs, with no stale route left behind.
+// is modularly managed again under every one of its APIs, with no stale route left behind.
 func TestModuleReloadingComposite(t *testing.T) {
 	ctx := context.Background()
 	comboModel := resource.NewModel("acme", "demo", "combodevice")
@@ -2091,7 +2090,7 @@ func TestModuleReloadingComposite(t *testing.T) {
 
 	h, err := mgr.AddResource(ctx, comboCfg, nil)
 	test.That(t, err, test.ShouldBeNil)
-	// The composite is modularly managed under every co-equal API.
+	// The composite is modularly managed under every API.
 	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
 	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
 	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
@@ -2106,12 +2105,12 @@ func TestModuleReloadingComposite(t *testing.T) {
 			test.ShouldEqual, 1)
 	})
 
-	// The crash dropped every co-equal route, not just the configured one, so none stays routed to the dead module.
+	// The crash dropped every route, not just the configured one, so none stays routed to the dead module.
 	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
 	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
 	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
 
-	// Re-add after restart; every co-equal API is modularly managed again.
+	// Re-add after restart; every API is modularly managed again.
 	h, err = mgr.AddResource(ctx, comboCfg, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)

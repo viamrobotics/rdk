@@ -454,9 +454,8 @@ func (m *module) registerResourceModels(mgr *Manager) {
 		}
 	}
 
-	// Record composite models (those this module advertises under more than one API) so every layer
-	// (graph, manager, client) can expand the model into its full co-equal API set. Sorting yields a
-	// deterministic canonical API (apis[0]).
+	// Record the models this module advertises under more than one API, so any layer can expand a model
+	// into its full API set. Sorting makes apis[0] a deterministic canonical API.
 	apisByModel := map[resource.Model][]resource.API{}
 	for api, models := range m.handles {
 		for _, model := range models {
