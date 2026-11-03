@@ -56,17 +56,27 @@ type InputEnabled interface {
 // pickKinematicSub chooses the one frame-relevant subresource from an already-unwrapped set of a
 // composite's co-equal subs: the single kinematic sub, or any sub when none is kinematic. refuse is
 // true for an unsupported multi-kinematic composite (more than one distinct kinematic sub), which the
-// caller omits.
+// caller omits. Distinctness is by identity, so one object served under several kinematic APIs is one
+// chain, but genuinely separate per-API InputEnabled subs are a refusal.
 func pickKinematicSub(subs []resource.Resource) (res resource.Resource, refuse bool) {
-	kinematic := distinctKinematicSubs(subs)
-	switch {
-	case len(kinematic) > 1:
-		return nil, true
-	case len(kinematic) == 1:
-		return kinematic[0], false
-	default:
-		return subs[0], false
+	var kinematic resource.Resource
+	for _, sub := range subs {
+		ie, ok := sub.(InputEnabled)
+		if !ok {
+			continue
+		}
+		if kinematic == nil {
+			kinematic = sub
+			continue
+		}
+		if kinematic.(InputEnabled) != ie {
+			return nil, true
+		}
 	}
+	if kinematic != nil {
+		return kinematic, false
+	}
+	return subs[0], false
 }
 
 // PickKinematicComponents applies pickKinematicSub to each short-name group, logging and dropping a name
@@ -90,31 +100,6 @@ func PickKinematicComponents(byName map[string][]resource.Resource, logger loggi
 		out[name] = sub
 	}
 	return out
-}
-
-// distinctKinematicSubs returns the InputEnabled subresources, deduplicated by identity. A single
-// object served under several kinematic APIs appears once per API alias but is one chain, so it
-// collapses to a single entry; genuinely distinct InputEnabled subresources (per-API facades) stay
-// separate, and more than one entry is an unsupported multi-kinematic composite.
-func distinctKinematicSubs(subs []resource.Resource) []resource.Resource {
-	var kinematic []resource.Resource
-	for _, sub := range subs {
-		ie, ok := sub.(InputEnabled)
-		if !ok {
-			continue
-		}
-		duplicate := false
-		for _, seen := range kinematic {
-			if seen.(InputEnabled) == ie {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			kinematic = append(kinematic, sub)
-		}
-	}
-	return kinematic
 }
 
 // FrameContribution reports the frame-system capabilities a resource offers: its kinematic (InputEnabled),

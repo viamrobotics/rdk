@@ -223,7 +223,6 @@ func (ms *builtIn) BuiltInReconfigure(
 			componentsByName[name.Name] = append(componentsByName[name.Name], dep)
 		}
 	}
-	// Motion uses this map only for kinematics, so when no subresource is kinematic any one will do.
 	componentMap := framesystem.PickKinematicComponents(componentsByName, ms.logger)
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
