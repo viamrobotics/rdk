@@ -73,7 +73,7 @@ type moduleManager interface {
 	Add(ctx context.Context, confs ...config.Module) error
 	AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error)
 	AllModels() []resource.ModuleModel
-	CleanModuleDataDirectory() error
+	CleanModuleDataDirectory(confs []config.Module) error
 	Close(ctx context.Context) error
 	Configs() []config.Module
 	FirstRun(ctx context.Context, conf config.Module) error
