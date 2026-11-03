@@ -82,6 +82,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 					metas[idx].Attempts += mm.Attempts
 					metas[idx].Valid += mm.Valid
 					metas[idx].Errors += mm.Errors
+					metas[idx].mergeBest(mm)
 				}
 			}
 		})

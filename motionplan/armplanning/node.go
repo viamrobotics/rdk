@@ -720,7 +720,7 @@ solutionLoop:
 		// We have failed to produce a usable IK solution. Let the user know if zero IK solutions
 		// were produced, or if non-zero solutions were produced, which constraints were violated.
 		if solvingState.failures.Count == 0 {
-			return nil, errIKSolve
+			return nil, diagnoseUnreachable(ctx, psc, minFunc, solveMeta, logger)
 		}
 
 		return nil, solvingState.failures
