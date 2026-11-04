@@ -220,6 +220,10 @@ methods = """    async def do_command(self, command):
 """
 plain = mod.render_resource_file("import os", "service", "generic", "GenericService", "Generic", "org", "mod", "generic-service", "", methods, False)
 assert "inline-example:" not in plain, plain
+assert plain.startswith("from typing import ClassVar"), repr(plain[:40])
+assert "\n\n\nclass " not in plain
+assert "\n\nclass " in plain
+assert "\n\n\n    @classmethod" not in plain
 assert "return super().new(config, dependencies)" in plain
 assert "return [], []" in plain
 assert "/*inline-slot:" not in plain
@@ -240,6 +244,9 @@ for name in ("imports", "fields", "validate", "init", "do-command"):
     assert slotted.count(start) == 1, (name, slotted.count(start), slotted)
     assert slotted.count(end) == 1, (name, slotted)
 assert "/*inline-slot:bases*/" in slotted
+assert slotted.startswith("from typing import ClassVar"), repr(slotted[:40])
+assert "\n\n\nclass " not in slotted
+assert "# inline-example:fields-end\n\n    @classmethod" in slotted
 assert slotted.count("# inline-example:do-command\n") == 1
 # get_status stays a plain stub
 status_at = slotted.index("async def get_status")

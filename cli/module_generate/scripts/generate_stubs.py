@@ -188,8 +188,10 @@ def render_resource_file(
     validate_body = "        return [], []"
     if slots:
         example_imports = "# inline-example:imports\n# inline-example:imports-end\n"
+        # The blank line after the fields region stays outside the markers, so a
+        # filled field list is still separated from ``new``.
         example_fields = (
-            "    # inline-example:fields\n    # inline-example:fields-end\n"
+            "    # inline-example:fields\n    # inline-example:fields-end\n\n"
         )
         init_body = (
             "        # inline-example:init\n"
@@ -202,8 +204,7 @@ def render_resource_file(
             "        # inline-example:validate-end"
         )
         methods_text = wrap_do_command_region(methods_text)
-    resource_file = """
-from typing import ClassVar, Mapping, Sequence, Tuple
+    resource_file = """from typing import ClassVar, Mapping, Sequence, Tuple
 from typing_extensions import Self
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
@@ -212,7 +213,6 @@ from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
 {0}
 {10}from viam.{1}s.{2} import *
-
 
 class {3}({4}, EasyResource):
     # To enable debug-level logging, either run viam-server with the --debug option,

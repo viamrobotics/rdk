@@ -707,8 +707,14 @@ func splitPythonModel(file string) (string, stubSection, error) {
 	}
 	section.Imports = strings.TrimSpace(section.Imports)
 	section.Bases = strings.TrimSpace(section.Bases)
-	section.Methods = strings.TrimSpace(section.Methods)
+	// Keep the class indent. TrimSpace would unindent only the first method.
+	section.Methods = trimKeepingIndent(section.Methods)
 	return shell, section, nil
+}
+
+// trimKeepingIndent drops blank lines around a slot without unindenting code.
+func trimKeepingIndent(content string) string {
+	return strings.TrimRight(strings.Trim(content, "\n"), " \t")
 }
 
 func renderPythonSlots(ctx context.Context, pythonCmd, version string, modules []modulegen.ModuleInputs) ([]pyRendered, error) {
