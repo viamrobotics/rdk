@@ -1616,7 +1616,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	}
 
 	// The rendered templates list imports in one order regardless of resource type.
-	return errors.Wrap(sortPythonImports(pythonVenvPath, module.ModuleName, "src"),
+	return errors.Wrap(sortPythonImports(pythonVenvPath, module.ModuleName, true, "src"),
 		"cannot generate python stubs")
 }
 
@@ -1990,7 +1990,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if err := addPythonModelImport(mainPyPath, module.ModelSnake, module.ModelPascal); err != nil {
 		return errors.Wrap(err, "unable to update main.py")
 	}
-	return sortPythonImports(pythonVenvPath, ".", mainPyPath)
+	return sortPythonImports(pythonVenvPath, ".", false, mainPyPath)
 }
 
 // addPythonModelImport inserts an import line for the new model into src/main.py,
@@ -2016,15 +2016,20 @@ func addPythonModelImport(mainPyPath, modelSnake, modelPascal string) error {
 }
 
 // sortPythonImports runs ruff's import sorter on paths, relative to moduleDir, using the ruff that
-// generate_stubs.py installs into the venv. Ruff runs from the module root with --isolated: the root
-// puts src/models in the first-party section, as the module's own lint does, and --isolated keeps a
-// ruff config around the module from changing the result.
-func sortPythonImports(pythonPath, moduleDir string, paths ...string) error {
+// generate_stubs.py installs into the venv. Ruff runs from the module root, which puts src/models in
+// the first-party section as the module's own lint does. isolated ignores every ruff config, for a
+// freshly generated module whose only config is the template's; without it, ruff follows the
+// module's own config, so a model added to an existing module matches that module's lint.
+func sortPythonImports(pythonPath, moduleDir string, isolated bool, paths ...string) error {
 	python, err := filepath.Abs(pythonPath)
 	if err != nil {
 		return err
 	}
-	args := append([]string{"-m", "ruff", "check", "--isolated", "--select", "I", "--fix", "--quiet"}, paths...)
+	args := []string{"-m", "ruff", "check", "--select", "I", "--fix", "--quiet"}
+	if isolated {
+		args = append(args, "--isolated")
+	}
+	args = append(args, paths...)
 	//nolint: gosec,noctx
 	cmd := exec.Command(python, args...)
 	cmd.Dir = moduleDir
