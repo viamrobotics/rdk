@@ -62,6 +62,10 @@ func (req *PlanRequest) MarshalJSON() ([]byte, error) {
 // new type Alias with PlanRequest's fields but none of its methods, cast req
 // to *Alias, and marshal that. json.Marshal sees no MarshalJSON method on
 // Alias and falls back to default struct-tag serialization.
+//
+// Preferred over the parallel-struct pattern in config/config.go's configData
+// because Alias inherits PlanRequest's fields, so a new field can't silently
+// drift out of the legacy wire form.
 func (req *PlanRequest) marshalLegacy() ([]byte, error) {
 	type Alias PlanRequest
 	return json.Marshal((*Alias)(req))
