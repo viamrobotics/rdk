@@ -168,6 +168,30 @@ def wrap_do_command_region(methods_text: str) -> str:
     return "".join(out)
 
 
+def resource_import_line(
+    resource_type: str, resource_subtype: str, resource_name: str
+) -> str:
+    """Named import of the base class. A star import leaves ``Generic`` unbound once removed."""
+    return (
+        f"from viam.{resource_type}s.{resource_subtype} import {resource_name}"
+    )
+
+
+def with_resource_import(
+    imports_text: str, resource_type: str, resource_subtype: str, resource_name: str
+) -> str:
+    """Put the base-class import in the imports slot when there is one."""
+    line = resource_import_line(resource_type, resource_subtype, resource_name)
+    if line in imports_text.splitlines():
+        return imports_text
+    marker = "/*inline-slot:imports*/"
+    if marker in imports_text:
+        return imports_text.replace(marker, f"{marker}\n{line}", 1)
+    if imports_text.strip() == "":
+        return line
+    return f"{line}\n{imports_text}"
+
+
 def render_resource_file(
     imports_text: str,
     resource_type: str,
@@ -182,6 +206,9 @@ def render_resource_file(
     slots: bool,
 ) -> str:
     """Render one Python model file. slots adds the inline-bundle example regions."""
+    imports_text = with_resource_import(
+        imports_text, resource_type, resource_subtype, resource_name
+    )
     example_imports = ""
     example_fields = ""
     init_body = "        return super().new(config, dependencies)"
@@ -212,8 +239,7 @@ from viam.resource.base import ResourceBase
 from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
 {0}
-{10}from viam.{1}s.{2} import *
-
+{10}
 class {3}({4}, EasyResource):
     # To enable debug-level logging, either run viam-server with the --debug option,
     # or configure your resource/machine to display debug logs.

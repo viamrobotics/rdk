@@ -327,9 +327,15 @@ func setGoModuleTemplate(
 		functions = append(functions, doCommandFunction)
 	}
 
-	goTmplInputs.Imports = strings.Join(imports, "\n")
+	// Tab-indent each import. The template only indents the first line, and a
+	// space join turns the newline between methods into " func".
+	indentedImports := make([]string, 0, len(imports))
+	for _, imp := range imports {
+		indentedImports = append(indentedImports, "\t"+imp)
+	}
+	goTmplInputs.Imports = strings.Join(indentedImports, "\n")
 	goTmplInputs.ModelType = module.ModuleCamel + module.ModelPascal
-	goTmplInputs.Functions = strings.Join(functions, " ")
+	goTmplInputs.Functions = strings.Join(functions, "")
 	goTmplInputs.Module = module
 	goTmplInputs.ReturnType = goReturnType(module)
 

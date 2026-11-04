@@ -1,8 +1,10 @@
 package {{.Module.ModuleLowercase}}
 
 import (
-  {{if .CaptureSlots}}/*inline-slot:imports*/{{end}}{{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
-  {{.Imports}}{{if .CaptureSlots}}
+{{if not .IsAdditionalModel}}	"errors"
+{{end}}{{if .CaptureSlots}}/*inline-slot:imports*/{{end}}
+	{{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
+{{.Imports}}{{if .CaptureSlots}}
 /*inline-slot:imports-end*/{{end}}
 {{if .CaptureSlots}}	// inline-example:imports
 	// inline-example:imports-end
@@ -60,7 +62,7 @@ type {{.ConfigType}} struct {
 func (cfg {{.ConfigType}}) Validate(path string) ([]string, []string, error) {
 {{if .CaptureSlots}}	// inline-example:validate
 {{end}}	// Add config validation code here
-	 return nil, nil, nil
+	return nil, nil, nil
 {{if .CaptureSlots}}	// inline-example:validate-end
 {{end}}}
 
@@ -85,7 +87,7 @@ func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, dep
 		return nil, err
 	}
 
-    return New{{.Module.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
+	return New{{.Module.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
 
 }
 

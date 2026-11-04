@@ -162,6 +162,9 @@ func TestPlainGoRenderHasNoSlotMarkers(t *testing.T) {
 	test.That(t, source, test.ShouldContainSubstring, "resource.Resource")
 	test.That(t, source, test.ShouldContainSubstring, "func init()")
 	test.That(t, source, test.ShouldContainSubstring, "errUnimplemented")
+	test.That(t, source, test.ShouldContainSubstring, "\t\"errors\"")
+	test.That(t, source, test.ShouldNotContainSubstring, "    return New")
+	test.That(t, source, test.ShouldContainSubstring, "\treturn New")
 }
 
 func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
@@ -196,7 +199,11 @@ func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
 	test.That(t, shell, test.ShouldNotContainSubstring, "/*inline-slot:")
 	test.That(t, section.Methods, test.ShouldContainSubstring, "// inline-example:do-command")
 	test.That(t, section.Methods, test.ShouldContainSubstring, "return nil, fmt.Errorf(\"not implemented\")")
+	test.That(t, section.Methods, test.ShouldNotContainSubstring, "\n func ")
 	test.That(t, section.Imports, test.ShouldNotEqual, "")
+	test.That(t, shell, test.ShouldContainSubstring, "\t\"errors\"")
+	test.That(t, shell, test.ShouldContainSubstring, "\treturn New")
+	test.That(t, shell, test.ShouldNotContainSubstring, "    return New")
 }
 
 func TestPythonScaffoldExampleRegions(t *testing.T) {
@@ -227,6 +234,8 @@ assert "\n\n\n    @classmethod" not in plain
 assert "return super().new(config, dependencies)" in plain
 assert "return [], []" in plain
 assert "/*inline-slot:" not in plain
+assert "import *" not in plain
+assert "from viam.services.generic import Generic" in plain
 assert plain.count("async def do_command") == 1
 assert "get_status" in plain
 
@@ -244,6 +253,8 @@ for name in ("imports", "fields", "validate", "init", "do-command"):
     assert slotted.count(start) == 1, (name, slotted.count(start), slotted)
     assert slotted.count(end) == 1, (name, slotted)
 assert "/*inline-slot:bases*/" in slotted
+assert "import *" not in slotted
+assert "/*inline-slot:imports*/\nfrom viam.services.generic import Generic\n" in slotted
 assert slotted.startswith("from typing import ClassVar"), repr(slotted[:40])
 assert "\n\n\nclass " not in slotted
 assert "# inline-example:fields-end\n\n    @classmethod" in slotted
