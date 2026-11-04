@@ -225,7 +225,10 @@ methods = """    async def do_command(self, command):
         self.logger.error("nope")
         raise NotImplementedError()
 """
-plain = mod.render_resource_file("import os", "service", "generic", "GenericService", "Generic", "org", "mod", "generic-service", "", methods, False)
+plain = mod.render_resource_file(
+    "import os", "service", "generic", "GenericService", "Generic",
+    "org", "mod", "generic-service", "", methods, False,
+)
 assert "inline-example:" not in plain, plain
 assert plain.startswith("from typing import ClassVar"), repr(plain[:40])
 assert "\n\n\nclass " not in plain
