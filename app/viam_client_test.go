@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"os"
 	"testing"
 
 	"github.com/viamrobotics/webrtc/v3"
@@ -116,10 +115,8 @@ func TestCreateViamClientFromEnvVarsTests(t *testing.T) {
 	defer func() { dialDirectGRPC = originalDialDirectGRPC }()
 	for _, tt := range apiKeyTests {
 		t.Run(tt.name, func(t *testing.T) {
-			//nolint: usetesting
-			os.Setenv(rutils.APIKeyEnvVar, tt.apiKey)
-			//nolint: usetesting
-			os.Setenv(rutils.APIKeyIDEnvVar, tt.apiKeyID)
+			t.Setenv(rutils.APIKeyEnvVar, tt.apiKey)
+			t.Setenv(rutils.APIKeyIDEnvVar, tt.apiKeyID)
 			client, err := CreateViamClientFromEnvVars(context.Background(), &Options{}, logger)
 			if tt.expectErr != "" {
 				test.That(t, err, test.ShouldNotBeNil)
