@@ -159,6 +159,7 @@ func TestPlainGoRenderHasNoSlotMarkers(t *testing.T) {
 	source := string(rendered)
 	test.That(t, source, test.ShouldNotContainSubstring, "/*inline-slot:")
 	test.That(t, source, test.ShouldNotContainSubstring, "inline-example:")
+	test.That(t, source, test.ShouldNotContainSubstring, "IMPORTANT:")
 	test.That(t, source, test.ShouldContainSubstring, "resource.Resource")
 	test.That(t, source, test.ShouldContainSubstring, "func init()")
 	test.That(t, source, test.ShouldContainSubstring, "errUnimplemented")
@@ -204,6 +205,9 @@ func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
 	test.That(t, section.Imports, test.ShouldNotEqual, "")
 	test.That(t, shell, test.ShouldContainSubstring, "\t\"errors\"")
 	test.That(t, shell, test.ShouldContainSubstring, "\treturn New")
+	test.That(t, shell, test.ShouldContainSubstring, "// IMPORTANT: Do not change the model name triplet")
+	test.That(t, shell, test.ShouldContainSubstring, "// Changing them will break your inline module.\nvar (")
+	test.That(t, section.Methods, test.ShouldNotContainSubstring, "IMPORTANT:")
 	test.That(t, shell, test.ShouldNotContainSubstring, "    return New")
 }
 
@@ -231,6 +235,7 @@ plain = mod.render_resource_file(
     "org", "mod", "generic-service", "", methods, False,
 )
 assert "inline-example:" not in plain, plain
+assert "IMPORTANT:" not in plain, plain
 assert plain.startswith("from typing import ClassVar"), repr(plain[:40])
 assert "\n\n\nclass " not in plain
 assert "\n\nclass " in plain
@@ -260,6 +265,13 @@ assert "/*inline-slot:bases*/" in slotted
 assert "import *" not in slotted
 assert "/*inline-slot:imports*/\nfrom viam.services.generic import Generic\n" in slotted
 assert slotted.startswith("from typing import ClassVar"), repr(slotted[:40])
+warning = (
+    "# IMPORTANT: Do not change the class name or the MODEL triplet below.\n"
+    "# The platform uses these auto-generated values to identify your module.\n"
+    "# Changing them will break your inline module.\n"
+    "class GenericService("
+)
+assert warning in slotted, slotted
 assert "\n\n\nclass " not in slotted
 assert "# inline-example:fields-end\n\n    @classmethod" in slotted
 assert slotted.count("# inline-example:do-command\n") == 1

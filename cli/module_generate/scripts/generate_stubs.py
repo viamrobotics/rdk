@@ -213,7 +213,14 @@ def render_resource_file(
     example_fields = ""
     init_body = "        return super().new(config, dependencies)"
     validate_body = "        return [], []"
+    class_warning = ""
     if slots:
+        # The inline editor shows this above the class. viam module generate does not.
+        class_warning = (
+            "# IMPORTANT: Do not change the class name or the MODEL triplet below.\n"
+            "# The platform uses these auto-generated values to identify your module.\n"
+            "# Changing them will break your inline module.\n"
+        )
         example_imports = "# inline-example:imports\n# inline-example:imports-end\n"
         # The blank line after the fields region stays outside the markers, so a
         # filled field list is still separated from ``new``.
@@ -240,7 +247,7 @@ from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model, ModelFamily
 {0}
 {10}
-class {3}({4}, EasyResource):
+{14}class {3}({4}, EasyResource):
     # To enable debug-level logging, either run viam-server with the --debug option,
     # or configure your resource/machine to display debug logs.
     MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
@@ -291,6 +298,7 @@ class {3}({4}, EasyResource):
         init_body,
         validate_body,
         example_fields,
+        class_warning,
     )
     if slots:
         old_class = f"class {model_name_pascal}({resource_name}, EasyResource):"

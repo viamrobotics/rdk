@@ -10,7 +10,10 @@ import (
 	// inline-example:imports-end
 {{end}})
 
-var (
+{{if .CaptureSlots}}// IMPORTANT: Do not change the model name triplet, the struct names, or the public function names below.
+// The platform uses these auto-generated values to identify your module.
+// Changing them will break your inline module.
+{{end}}var (
 	{{if .CaptureSlots}}/*inline-slot:registration*/{{end}}{{.Module.ModelPascal}} = resource.NewModel("{{ .Module.Namespace}}", "{{ .Module.ModuleName}}", "{{.Module.ModelName}}"){{if .CaptureSlots}}
 /*inline-slot:registration-end*/{{end}}{{if not .IsAdditionalModel}}
 	errUnimplemented = errors.New("unimplemented"){{end}}
