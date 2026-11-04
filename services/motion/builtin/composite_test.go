@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-// kinematicComp implements framesystem.InputEnabled (a kinematic component); plainComp does not.
+// kinematicComp implements framesystem.InputEnabled; plainComp does not.
 type kinematicComp struct {
 	resource.Named
 	resource.TriviallyCloseable
@@ -43,8 +43,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
 	camAPI := resource.APINamespaceRDK.WithComponentType("camera")
 
-	// A modular composite "wrap" serving arm (kinematic) + camera (non-kinematic). In deps it is the
-	// MultiAPIResource wrapper, aliased under both API names.
+	// A composite "wrap" serving arm (kinematic) + camera (non-kinematic).
 	wrapArm := &kinematicComp{Named: resource.NewName(armAPI, "wrap").AsNamed()}
 	wrapCam := &plainComp{Named: resource.NewName(camAPI, "wrap").AsNamed()}
 	wrapper := resource.NewMultiAPIResource(
@@ -70,9 +69,14 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 		map[resource.API]resource.Resource{armAPI: svcArm, vision.API: svcVision},
 	)
 
-	// "multi": a composite serving two kinematic APIs (arm + gantry), unsupported, must be refused.
+	// "multi": a composite serving two kinematic APIs (arm + gantry) with distinct objects, unsupported,
+	// must be refused.
 	multiArm := &kinematicComp{Named: resource.NewName(armAPI, "multi").AsNamed()}
 	multiGantry := &kinematicComp{Named: resource.NewName(gantryAPI, "multi").AsNamed()}
+	multiWrapper := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "multi"),
+		map[resource.API]resource.Resource{armAPI: multiArm, gantryAPI: multiGantry},
+	)
 	// "solo": an ordinary component.
 	solo := &kinematicComp{Named: resource.NewName(armAPI, "solo").AsNamed()}
 
@@ -83,8 +87,8 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 		resource.NewName(gantryAPI, "noncanon"):  ncWrapper,
 		resource.NewName(armAPI, "svccombo"):     svcWrapper,
 		resource.NewName(vision.API, "svccombo"): svcWrapper,
-		resource.NewName(armAPI, "multi"):        multiArm,
-		resource.NewName(gantryAPI, "multi"):     multiGantry,
+		resource.NewName(armAPI, "multi"):        multiWrapper,
+		resource.NewName(gantryAPI, "multi"):     multiWrapper,
 		resource.NewName(armAPI, "solo"):         solo,
 	}
 
@@ -105,9 +109,9 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	test.That(t, ms.components["solo"], test.ShouldEqual, solo)
 }
 
-// TestBuiltInReconfigureSingleStructMultiKinematic verifies motion keeps a single struct served under
-// two kinematic APIs as one chain in the component map rather than refusing it as it does a composite
-// backed by two distinct kinematic subs.
+// TestBuiltInReconfigureSingleStructMultiKinematic checks that motion keeps a single struct served under
+// several kinematic APIs as one component, by subresource identity rather than API count. Distinct per-API
+// objects would be the unsupported multi-kinematic case.
 func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	ctx := context.Background()
 	ms := &builtIn{logger: logging.NewTestLogger(t)}
@@ -127,6 +131,6 @@ func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
 	}
 
 	test.That(t, ms.BuiltInReconfigure(ctx, deps, conf), test.ShouldBeNil)
-	// One shared kinematic object under two APIs is one chain, kept in the component map (not refused).
+	// The same object under both APIs is kept, not refused.
 	test.That(t, ms.components["combo"], test.ShouldEqual, shared)
 }

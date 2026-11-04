@@ -4,8 +4,6 @@ package framesystem
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -53,14 +51,14 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
-// pickKinematicSub chooses the one frame-relevant sub from a composite's subs: the single kinematic sub,
-// or any sub when none is kinematic. refuse is
-// true for an unsupported multi-kinematic composite (more than one distinct kinematic impl), which the
-// caller omits. Distinctness is by identity, so one object served under several kinematic APIs is one
-// impl, but genuinely separate per-API InputEnabled impls are a refusal.
-func pickKinematicSub(subs []resource.Resource) (res resource.Resource, refuse bool) {
+// ResolveKinematic returns res's one kinematic resource — itself if ordinary, or its single kinematic
+// subresource if a composite — or nil if it has none. One object served under several kinematic APIs counts
+// once. A composite with two or more distinct kinematic subresources is unsupported: ResolveKinematic logs
+// it and returns nil so the caller leaves it out of the frame system.
+func ResolveKinematic(res resource.Resource, logger logging.Logger) resource.Resource {
 	var kinematic resource.Resource
-	for _, sub := range subs {
+	for _, api := range resource.APIsOf(res) {
+		sub := resource.SubresourceForAPI(res, api)
 		ie, ok := sub.(InputEnabled)
 		if !ok {
 			continue
@@ -70,50 +68,33 @@ func pickKinematicSub(subs []resource.Resource) (res resource.Resource, refuse b
 			continue
 		}
 		if kinematic.(InputEnabled) != ie {
-			return nil, true
-		}
-	}
-	if kinematic != nil {
-		return kinematic, false
-	}
-	return subs[0], false
-}
-
-// PickKinematicComponents maps each component name to its kinematic sub, or any sub if none is kinematic.
-// A name with two distinct kinematic subs (a multi-kinematic composite) is unsupported, logged and dropped.
-// Callers unwrap each dep to its API's sub before grouping.
-func PickKinematicComponents(byName map[string][]resource.Resource, logger logging.Logger) map[string]resource.Resource {
-	out := make(map[string]resource.Resource, len(byName))
-	for name, subs := range byName {
-		// Sort by API so the non-kinematic fallback is deterministic regardless of dependency-map order.
-		sorted := slices.Clone(subs)
-		slices.SortFunc(sorted, func(a, b resource.Resource) int {
-			return strings.Compare(a.Name().API.String(), b.Name().API.String())
-		})
-		sub, refuse := pickKinematicSub(sorted)
-		if refuse {
 			logger.Errorw(
 				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
-				"resource", name,
+				"resource", res.Name().ShortName(),
 			)
-			continue
+			return nil
 		}
-		out[name] = sub
 	}
-	return out
+	return kinematic
 }
 
 // FrameContribution reports the frame-system capabilities a resource offers: its kinematic (InputEnabled),
-// model-framer, and shaped (geometry) handles, any of which may be nil. For an ordinary resource each is
+// model (ModelFramer), and geometry (Shaped) handles, any of which may be nil. For an ordinary resource each is
 // the resource itself when it implements that interface; for a composite each is resolved across the
-// several APIs it serves. refuse follows pickKinematicSub, which the caller omits from the frame system.
+// several APIs it serves. refuse follows ResolveKinematic, which the caller omits from the frame system.
 func FrameContribution(res resource.Resource) (kinematic InputEnabled, model ModelFramer, shaped resource.Shaped, refuse bool) {
-	apis := resource.APIsOf(res)
-	subs := make([]resource.Resource, 0, len(apis))
-	// A composite is one physical device, so the first sub satisfying each interface will do.
-	for _, api := range apis {
+	// A composite is one physical device, so model and shaped take the first sub providing each. Two distinct
+	// kinematic subs are unsupported (refused) since they can't share one frame's inputs.
+	var kinematicRes resource.Resource
+	for _, api := range resource.APIsOf(res) {
 		sub := resource.SubresourceForAPI(res, api)
-		subs = append(subs, sub)
+		if ie, ok := sub.(InputEnabled); ok {
+			if kinematicRes == nil {
+				kinematicRes = sub
+			} else if kinematicRes.(InputEnabled) != ie {
+				return nil, nil, nil, true
+			}
+		}
 		if model == nil {
 			if mf, ok := sub.(ModelFramer); ok {
 				model = mf
@@ -125,11 +106,7 @@ func FrameContribution(res resource.Resource) (kinematic InputEnabled, model Mod
 			}
 		}
 	}
-	chosen, refuse := pickKinematicSub(subs)
-	if refuse {
-		return nil, nil, nil, true
-	}
-	kinematic, _ = chosen.(InputEnabled)
+	kinematic, _ = kinematicRes.(InputEnabled)
 	return kinematic, model, shaped, false
 }
 
@@ -297,13 +274,13 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// Group deps by short name, each unwrapped to its API's sub (a no-op for an ordinary resource), so we
-	// can collapse them to one frame entry.
-	componentsByName := make(map[string][]resource.Resource)
+	// svc.components maps a short name to its kinematic resource for CurrentInputs.
+	svc.components = make(map[string]resource.Resource)
 	for name, dep := range deps {
-		componentsByName[name.Name] = append(componentsByName[name.Name], resource.SubresourceForAPI(dep, name.API))
+		if kinematic := ResolveKinematic(dep, svc.logger); kinematic != nil {
+			svc.components[name.Name] = kinematic
+		}
 	}
-	svc.components = PickKinematicComponents(componentsByName, svc.logger)
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
