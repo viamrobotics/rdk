@@ -6,9 +6,9 @@ name: Inline module templates
 # to sdk_module_templates_staging. This job overwrites both buckets so a tag
 # leaves them on the same catalogs.
 #
-# .synced is removed before the copy and written after it. While it is absent
-# the app keeps its previous cache, so a refresh does not read a half-published
-# tree. Uploading the same key replaces it. go get and go mod tidy run only here.
+# Each catalog.json is one object. Uploading the same key replaces that object
+# in a single write, so a failed step leaves the previous object in place.
+# go get and go mod tidy run only here.
 #
 # Names match the app constants inlinetemplates.StagingBucket and ProdBucket.
 # GCP_CREDENTIALS needs object create and delete on both buckets.
@@ -43,10 +43,6 @@ jobs:
             sdk_module_templates_prod
           )
           for bucket in "${buckets[@]}"; do
-            if gcloud storage ls "gs://${bucket}/.synced" >/dev/null 2>&1; then
-              gcloud storage rm "gs://${bucket}/.synced"
-            fi
             gcloud storage cp -r inline-bundle-out/go "gs://${bucket}/"
             gcloud storage cp -r inline-bundle-out/python "gs://${bucket}/"
-            printf 'synced\n' | gcloud storage cp - "gs://${bucket}/.synced"
           done
