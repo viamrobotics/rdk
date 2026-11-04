@@ -185,6 +185,7 @@ func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
 	rendered, err := gen.RenderGoTemplatesWithSlots(generic, false)
 	test.That(t, err, test.ShouldBeNil)
 	source := string(rendered)
+	test.That(t, strings.Contains(source, "\r"), test.ShouldBeFalse)
 	for _, name := range []string{"imports", "config", "validate", "fields", "init", "struct", "do-command"} {
 		test.That(t, strings.Count(source, "// inline-example:"+name+"\n"), test.ShouldEqual, 1)
 		test.That(t, strings.Count(source, "// inline-example:"+name+"-end\n"), test.ShouldEqual, 1)

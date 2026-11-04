@@ -703,7 +703,9 @@ func renderGoTemplates(module modulegen.ModuleInputs, additionalModel, slots boo
 	goModule.CaptureSlots = slots
 
 	var output bytes.Buffer
-	tmpl, err := template.New("module").Parse(goTmpl)
+	// A Windows checkout can embed tmpl-module with CRLF. Generated Go stays LF,
+	// which is what the example-region markers are counted against.
+	tmpl, err := template.New("module").Parse(strings.ReplaceAll(goTmpl, "\r\n", "\n"))
 	if err != nil {
 		return empty, err
 	}
