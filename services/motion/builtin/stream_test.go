@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -54,7 +54,7 @@ func newStreamTestService(t *testing.T) (*builtIn, func() (points, streams, stop
 
 	ms := &builtIn{
 		logger:     logging.NewTestLogger(t),
-		components: map[string]resource.Resource{"arm": inj},
+		components: map[string]framesystem.InputEnabled{"arm": inj},
 	}
 	return ms, func() (int, int, int) {
 		mu.Lock()
@@ -296,7 +296,7 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 
 	ms := &builtIn{
 		logger:     logging.NewTestLogger(t),
-		components: map[string]resource.Resource{"arm": inj},
+		components: map[string]framesystem.InputEnabled{"arm": inj},
 	}
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	ctx := context.Background()

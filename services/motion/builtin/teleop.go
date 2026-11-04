@@ -17,7 +17,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
@@ -317,17 +316,12 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 	errs := make([]error, len(perComponent))
 	idx := 0
 	for name, inputs := range perComponent {
-		r, ok := ms.components[name]
+		ie, ok := ms.components[name]
 		if !ok {
 			// The planner included this component but it has since left the motion
 			// service (e.g. a concurrent reconfigure). Skip it but make the gap visible
 			// instead of silently moving only some arms.
 			tp.logger.CWarnf(ctx, "teleop executor: component %q in trajectory is not known to the motion service; skipping", name)
-			continue
-		}
-		ie, err := utils.AssertType[framesystem.InputEnabled](r)
-		if err != nil {
-			tp.logger.CWarnf(ctx, "teleop executor: component %q is not input-enabled (%v); skipping", name, err)
 			continue
 		}
 
@@ -341,10 +335,10 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		tp.smoothedJoints[name] = prev
 
 		wg.Add(1)
-		go func(i int, ie framesystem.InputEnabled, smoothed [][]referenceframe.Input, r resource.Resource) {
+		go func(i int, ie framesystem.InputEnabled, smoothed [][]referenceframe.Input) {
 			defer wg.Done()
 			var err error
-			if armComp, ok := r.(arm.Arm); ok {
+			if armComp, ok := ie.(arm.Arm); ok {
 				if interpolateOverride {
 					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
 						"waitAtEnd":   true,
@@ -360,13 +354,13 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 				err = ie.GoToInputs(ctx, smoothed...)
 			}
 			if err != nil {
-				if actuator, ok := r.(inputEnabledActuator); ok {
+				if actuator, ok := ie.(inputEnabledActuator); ok {
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
 				errs[i] = err
 			}
-		}(idx, ie, smoothed, r)
+		}(idx, ie, smoothed)
 		idx++
 	}
 	wg.Wait()

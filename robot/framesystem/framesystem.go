@@ -55,19 +55,18 @@ type InputEnabled interface {
 // subresource if a composite — or nil if it has none. One object served under several kinematic APIs counts
 // once. A composite with two or more distinct kinematic subresources is unsupported: ResolveKinematic logs
 // it and returns nil so the caller leaves it out of the frame system.
-func ResolveKinematic(res resource.Resource, logger logging.Logger) resource.Resource {
-	var kinematic resource.Resource
+func ResolveKinematic(res resource.Resource, logger logging.Logger) InputEnabled {
+	var kinematic InputEnabled
 	for _, api := range resource.APIsOf(res) {
-		sub := resource.SubresourceForAPI(res, api)
-		ie, ok := sub.(InputEnabled)
+		ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled)
 		if !ok {
 			continue
 		}
 		if kinematic == nil {
-			kinematic = sub
+			kinematic = ie
 			continue
 		}
-		if kinematic.(InputEnabled) != ie {
+		if kinematic != ie {
 			logger.Errorw(
 				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
 				"resource", res.Name().ShortName(),
@@ -193,7 +192,7 @@ func FromProvider(provider resource.Provider) (Service, error) {
 func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger) (Service, error) {
 	fs := &frameSystemService{
 		Named:      InternalServiceName.AsNamed(),
-		components: make(map[string]resource.Resource),
+		components: make(map[string]InputEnabled),
 		logger:     logger,
 	}
 	if err := fs.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
@@ -255,7 +254,7 @@ func (cfg Config) String() string {
 type frameSystemService struct {
 	resource.Named
 	resource.TriviallyCloseable
-	components map[string]resource.Resource
+	components map[string]InputEnabled
 	logger     logging.Logger
 
 	partsMu sync.RWMutex
@@ -274,8 +273,8 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// svc.components maps a short name to its kinematic resource for CurrentInputs.
-	svc.components = make(map[string]resource.Resource)
+	// svc.components maps a short resource name to its kinematic handle for CurrentInputs.
+	svc.components = make(map[string]InputEnabled)
 	for name, dep := range deps {
 		if kinematic := ResolveKinematic(dep, svc.logger); kinematic != nil {
 			svc.components[name.Name] = kinematic
@@ -403,13 +402,9 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 		}
 
 		// add component to map
-		component, ok := svc.components[name]
+		inputEnabled, ok := svc.components[name]
 		if !ok {
 			return nil, DependencyNotFoundError(name)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, NotInputEnabledError(component)
 		}
 
 		// add input to map

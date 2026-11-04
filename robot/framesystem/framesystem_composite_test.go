@@ -104,11 +104,9 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
 	test.That(t, err, test.ShouldBeNil)
 
-	// The composite is unwrapped to its kinematic (arm) sub, not the opaque wrapper, so
-	// CurrentInputs can type-assert InputEnabled on it.
+	// The composite is unwrapped to its kinematic (arm) sub, not the opaque wrapper, so its stored
+	// InputEnabled handle is that sub.
 	test.That(t, svc.components["combo"], test.ShouldEqual, comboKin)
-	_, isInputEnabled := svc.components["combo"].(InputEnabled)
-	test.That(t, isInputEnabled, test.ShouldBeTrue)
 	// A multi-kinematic composite is refused, not silently picked.
 	_, present := svc.components["multi"]
 	test.That(t, present, test.ShouldBeFalse)
