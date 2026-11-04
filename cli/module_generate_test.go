@@ -114,29 +114,6 @@ func TestAddModel(t *testing.T) {
 		test.That(t, content, test.ShouldContainSubstring, "from models.first import First as FirstModel")
 	})
 
-	t.Run("addPythonModelImport keeps model imports sorted", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		mainPy := filepath.Join(dir, "main.py")
-		original := "import asyncio\n\n" +
-			"from viam.module.module import Module\n\n" +
-			"from models.first import First as FirstModel  # noqa: F401\n\n" +
-			"if __name__ == \"__main__\":\n" +
-			"    asyncio.run(Module.run_from_registry())\n"
-		test.That(t, os.WriteFile(mainPy, []byte(original), 0o600), test.ShouldBeNil)
-
-		test.That(t, addPythonModelImport(mainPy, "alpha", "Alpha"), test.ShouldBeNil)
-
-		result, err := os.ReadFile(mainPy)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, string(result), test.ShouldEqual, "import asyncio\n\n"+
-			"from viam.module.module import Module\n\n"+
-			"from models.alpha import Alpha as AlphaModel  # noqa: F401\n"+
-			"from models.first import First as FirstModel  # noqa: F401\n\n"+
-			"if __name__ == \"__main__\":\n"+
-			"    asyncio.run(Module.run_from_registry())\n")
-	})
-
 	t.Run("addPythonModelImport falls back to append when no main guard", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
@@ -505,7 +482,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
-		ModelSnake:            "my-model",
+		ModelSnake:            "my_model",
 		ModelTriple:           "my-org:my-module:my-model",
 		ModelReadmeLink:       "my-org_my-module_my-model.md",
 

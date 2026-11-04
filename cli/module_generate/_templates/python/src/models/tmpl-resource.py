@@ -1,16 +1,11 @@
 from typing import ClassVar, Mapping, Self, Sequence, Tuple
 
-{{ if eq .ResourceType "component" -}}
-from viam.components.{{ .ResourceSubtype }} import {{ .ResourceSubtypePascal }}
-{{ end -}}
 from viam.proto.app.robot import ComponentConfig
 from viam.proto.common import ResourceName
 from viam.resource.base import ResourceBase
 from viam.resource.easy_resource import EasyResource
 from viam.resource.types import Model
-{{- if eq .ResourceType "service" }}
-from viam.services.{{ .ResourceSubtype }} import {{ .ResourceSubtypePascal }}
-{{- end }}
+from viam.{{ .ResourceType }}s.{{ .ResourceSubtype }} import {{ .ResourceSubtypePascal }}
 
 
 class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):

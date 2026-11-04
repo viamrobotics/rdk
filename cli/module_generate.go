@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"go/format"
+	"go/parser"
+	gotoken "go/token"
 	"io"
 	"io/fs"
 	"net/http"
@@ -30,6 +32,7 @@ import (
 	"go.viam.com/utils"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"golang.org/x/tools/go/ast/astutil"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
@@ -1265,17 +1268,20 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 				return err
 			}
 
+			var rendered bytes.Buffer
+			if err := tmpl.Execute(&rendered, module); err != nil {
+				return err
+			}
+			out := rendered.Bytes()
+			// Templates list imports in one order and leave sorting them to gofmt, since where an
+			// import lands depends on the resource type and module name.
+			if filepath.Ext(destPath) == ".go" {
+				if out, err = format.Source(out); err != nil {
+					return errors.Wrapf(err, "failed to format rendered %s", destPath)
+				}
+			}
 			//nolint:gosec
-			destFile, err := os.Create(destPath)
-			if err != nil {
-				return err
-			}
-			defer utils.UncheckedErrorFunc(destFile.Close)
-
-			err = tmpl.Execute(destFile, module)
-			if err != nil {
-				return err
-			}
+			return os.WriteFile(destPath, out, 0o644)
 		}
 		return nil
 	})
@@ -1609,7 +1615,9 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to write to file")
 	}
 
-	return nil
+	// The rendered templates list imports in one order regardless of resource type.
+	return errors.Wrap(sortPythonImports(pythonVenvPath, module.ModuleName, "src"),
+		"cannot generate python stubs")
 }
 
 func getLatestSDKTag(ctx context.Context, cmd *cli.Command, language string, globalArgs globalArgs) (string, error) {
@@ -1895,17 +1903,10 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 	}
 	content := string(data)
 
-	// Add the import for the new resource subtype if it isn't already present.
 	importPath := fmt.Sprintf("go.viam.com/rdk/%ss/%s", module.ResourceType, module.ResourceSubtype)
-	if !strings.Contains(content, importPath) {
-		newImport := fmt.Sprintf("\t%s \"go.viam.com/rdk/%ss/%s\"",
-			module.ResourceSubtypeAlias, module.ResourceType, module.ResourceSubtype)
-		// Insert before the blank line + closing ) that ends the import block.
-		const importBlockEnd = "\n)\n\nfunc main"
-		if !strings.Contains(content, importBlockEnd) {
-			return errors.New("cannot locate import block closing in main.go; file may have been manually edited")
-		}
-		content = strings.Replace(content, importBlockEnd, "\n"+newImport+importBlockEnd, 1)
+	content, err = addGoImport(content, module.ResourceSubtypeAlias, importPath)
+	if err != nil {
+		return err
 	}
 
 	// Insert the new APIModel entry into the module.ModularMain(...) call.
@@ -1925,18 +1926,23 @@ func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
 	content = content[:insertAt] + newAPIModel + content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainGoPath, gofmtOrOriginal(content), 0o644)
+	return os.WriteFile(mainGoPath, []byte(content), 0o644)
 }
 
-// gofmtOrOriginal formats Go source so imports inserted at the end of the import block
-// land in sorted order and the generated module passes gofmt. Source that does not parse,
-// such as a hand-edited main.go, is returned unchanged rather than failing the command.
-func gofmtOrOriginal(src string) []byte {
-	formatted, err := format.Source([]byte(src))
+// addGoImport adds an import to Go source unless it is already there. The import goes in the group
+// whose paths best match it, so an rdk import joins the other rdk imports.
+func addGoImport(src, name, importPath string) (string, error) {
+	fset := gotoken.NewFileSet()
+	file, err := parser.ParseFile(fset, "main.go", src, parser.ParseComments)
 	if err != nil {
-		return []byte(src)
+		return "", errors.Wrap(err, "unable to parse main.go")
 	}
-	return formatted
+	astutil.AddNamedImport(fset, file, name, importPath)
+	var buf bytes.Buffer
+	if err := format.Node(&buf, fset, file); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
 }
 
 // addPythonModelFiles generates a Python stub file for the new model in src/models/ and
@@ -1984,7 +1990,7 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if err := addPythonModelImport(mainPyPath, module.ModelSnake, module.ModelPascal); err != nil {
 		return errors.Wrap(err, "unable to update main.py")
 	}
-	return nil
+	return sortPythonImports(pythonVenvPath, ".", mainPyPath)
 }
 
 // addPythonModelImport inserts an import line for the new model into src/main.py,
@@ -2001,31 +2007,31 @@ func addPythonModelImport(mainPyPath, modelSnake, modelPascal string) error {
 
 	const mainGuard = "if __name__"
 	if idx := strings.Index(content, mainGuard); idx != -1 {
-		// Keep the new import in the same block as the existing ones, followed by the
-		// single blank line ruff's import sorting expects before the main guard.
-		content = strings.TrimRight(content[:idx], "\n") + "\n" + importLine + "\n" + content[idx:]
+		content = content[:idx] + importLine + "\n" + content[idx:]
 	} else {
 		content = strings.TrimRight(content, "\n") + "\n" + importLine + "\n"
 	}
 	//nolint:gosec
-	return os.WriteFile(mainPyPath, []byte(sortModelImports(content)), 0o644)
+	return os.WriteFile(mainPyPath, []byte(content), 0o644)
 }
 
-// sortModelImports sorts the first contiguous run of `from models.` imports in main.py, so a
-// newly added model lands where ruff's import sorting expects it.
-func sortModelImports(content string) string {
-	const modelImportPrefix = "from models."
-	lines := strings.Split(content, "\n")
-	start := slices.IndexFunc(lines, func(line string) bool { return strings.HasPrefix(line, modelImportPrefix) })
-	if start == -1 {
-		return content
+// sortPythonImports runs ruff's import sorter on paths, relative to moduleDir, using the ruff that
+// generate_stubs.py installs into the venv. Ruff runs from the module root with --isolated: the root
+// puts src/models in the first-party section, as the module's own lint does, and --isolated keeps a
+// ruff config around the module from changing the result.
+func sortPythonImports(pythonPath, moduleDir string, paths ...string) error {
+	python, err := filepath.Abs(pythonPath)
+	if err != nil {
+		return err
 	}
-	end := start
-	for end < len(lines) && strings.HasPrefix(lines[end], modelImportPrefix) {
-		end++
+	args := append([]string{"-m", "ruff", "check", "--isolated", "--select", "I", "--fix", "--quiet"}, paths...)
+	//nolint: gosec,noctx
+	cmd := exec.Command(python, args...)
+	cmd.Dir = moduleDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to sort python imports: %w\n%s", err, out)
 	}
-	slices.Sort(lines[start:end])
-	return strings.Join(lines, "\n")
+	return nil
 }
 
 // addCppModelFiles generates the per-model C++ source and header files in src/ and
@@ -2384,15 +2390,9 @@ func addGoWebappToMain(mainGoPath string, data appTemplateData) error {
 	}
 	content := string(rawData)
 
-	// Add generic import if not already present.
-	const genericPkg = "go.viam.com/rdk/components/generic"
-	if !strings.Contains(content, genericPkg) {
-		newImport := "\t\"go.viam.com/rdk/components/generic\""
-		const importBlockEnd = "\n)\n\nfunc main"
-		if !strings.Contains(content, importBlockEnd) {
-			return errors.New("cannot locate import block in main.go; file may have been manually edited")
-		}
-		content = strings.Replace(content, importBlockEnd, "\n"+newImport+importBlockEnd, 1)
+	content, err = addGoImport(content, "", "go.viam.com/rdk/components/generic")
+	if err != nil {
+		return err
 	}
 
 	// Append the webapp APIModel entry to the module.ModularMain call.
@@ -2411,7 +2411,7 @@ func addGoWebappToMain(mainGoPath string, data appTemplateData) error {
 	content = content[:insertAt] + newAPIModel + content[insertAt:]
 
 	//nolint:gosec
-	return os.WriteFile(mainGoPath, gofmtOrOriginal(content), 0o644)
+	return os.WriteFile(mainGoPath, []byte(content), 0o644)
 }
 
 // addAppStaticFiles copies the static app files (auth.js, dist/index.html) into dir.

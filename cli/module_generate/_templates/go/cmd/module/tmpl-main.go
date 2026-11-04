@@ -1,15 +1,9 @@
 package main
 
 import (
-{{- if eq .ResourceType "component"}}
-	{{.ResourceSubtypeAlias}} "go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
-	"go.viam.com/rdk/module"
-	"go.viam.com/rdk/resource"
-{{- else}}
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	{{.ResourceSubtypeAlias}} "go.viam.com/rdk/{{.ResourceType}}s/{{.ResourceSubtype}}"
-{{- end}}
 
 	"{{.ModuleLowercase}}"
 )
