@@ -246,7 +246,7 @@ type builtIn struct {
 	movementSensors map[string]movementsensor.MovementSensor
 	slamServices    map[string]slam.Service
 	visionServices  map[string]vision.Service
-	components      map[string]resource.Resource
+	components      map[string]framesystem.InputEnabled
 	logger          logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
@@ -303,7 +303,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
-	components := make(map[string]resource.Resource)
+	components := make(map[string]framesystem.InputEnabled)
 	for name, dep := range deps {
 		// For a composite, unwrap to the API's sub so the type switch sees the interface its wrapper hides.
 		switch sub := resource.SubresourceForAPI(dep, name.API).(type) {
@@ -751,13 +751,9 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					continue
 				}
 
-				r, ok := ms.components[name]
+				ie, ok := ms.components[name]
 				if !ok {
 					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
-				}
-				ie, err := utils.AssertType[framesystem.InputEnabled](r)
-				if err != nil {
-					return err
 				}
 				curr, err := ie.CurrentInputs(ctx)
 				if err != nil {
@@ -820,17 +816,13 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			r, ok := ms.components[name]
+			ie, ok := ms.components[name]
 			if !ok {
 				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
 			}
-			ie, err := utils.AssertType[framesystem.InputEnabled](r)
-			if err != nil {
-				return err
-			}
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if actuator, ok := r.(inputEnabledActuator); ok {
+				if actuator, ok := ie.(inputEnabledActuator); ok {
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
