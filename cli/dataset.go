@@ -32,8 +32,8 @@ const (
 	datasetTypeSequence = "sequence"
 )
 
-// parseDatasetType maps a --type flag value to its proto enum.
-func parseDatasetType(datasetType string) (datasetpb.DatasetType, error) {
+// datasetTypeToProto maps a --type flag value to its proto enum.
+func datasetTypeToProto(datasetType string) (datasetpb.DatasetType, error) {
 	switch datasetType {
 	case datasetTypeBinary:
 		return datasetpb.DatasetType_DATASET_TYPE_BINARY_DATA, nil
@@ -66,11 +66,7 @@ func DatasetCreateAction(ctx context.Context, cmd *cli.Command, args datasetCrea
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a dataset")
 	}
-	datasetType := datasetTypeBinary
-	if args.Type != "" {
-		datasetType = args.Type
-	}
-	dsType, err := parseDatasetType(datasetType)
+	dsType, err := datasetTypeToProto(args.Type)
 	if err != nil {
 		return err
 	}

@@ -1962,10 +1962,9 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the new dataset",
 						},
 						&cli.StringFlag{
-							Name:        generalFlagType,
-							Usage:       formatAcceptedValues("type of data the dataset holds", datasetTypeBinary, datasetTypeSequence),
-							Value:       datasetTypeBinary,
-							DefaultText: datasetTypeBinary,
+							Name:  generalFlagType,
+							Usage: formatAcceptedValues("type of data the dataset holds", datasetTypeBinary, datasetTypeSequence),
+							Value: datasetTypeBinary,
 						},
 					},
 					Action: createActionCommandWithT[datasetCreateArgs](DatasetCreateAction),

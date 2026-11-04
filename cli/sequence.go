@@ -3,12 +3,14 @@ package cli
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -17,17 +19,22 @@ const (
 	sequenceFlagResources   = "resources"
 )
 
-// parseSequenceResources parses "<resource-name>:<method>" values into resource filters.
+// parseSequenceResources parses "<resource-name>:<method>" values into resource filters,
+// trimming surrounding whitespace from each half so "cam : ReadImage" matches stored data.
 // Values split on the last ':' because remote resource names are stored as "<remote>:<name>"
 // while method names never contain ':'.
 func parseSequenceResources(values []string) ([]*datapb.SequenceResourceFilter, error) {
 	resources := make([]*datapb.SequenceResourceFilter, 0, len(values))
 	for _, v := range values {
 		i := strings.LastIndex(v, ":")
-		if i <= 0 || i == len(v)-1 {
+		if i < 0 {
 			return nil, errors.Errorf("invalid --%s value %q (expected <resource-name>:<method>)", sequenceFlagResources, v)
 		}
-		resources = append(resources, &datapb.SequenceResourceFilter{ResourceName: v[:i], MethodName: v[i+1:]})
+		name, method := strings.TrimSpace(v[:i]), strings.TrimSpace(v[i+1:])
+		if name == "" || method == "" {
+			return nil, errors.Errorf("invalid --%s value %q (expected <resource-name>:<method>)", sequenceFlagResources, v)
+		}
+		resources = append(resources, &datapb.SequenceResourceFilter{ResourceName: name, MethodName: method})
 	}
 	return resources, nil
 }
@@ -52,6 +59,15 @@ func formatSequenceResources(resources []*datapb.SequenceResourceFilter) string 
 	return strings.Join(formatted, ",")
 }
 
+// formatSequenceTimestamp keeps sub-second precision because sequence bounds select captured
+// data points that are often milliseconds apart.
+func formatSequenceTimestamp(ts *timestamppb.Timestamp) string {
+	if ts == nil || ts.AsTime().IsZero() {
+		return "<unknown>"
+	}
+	return ts.AsTime().Format(time.RFC3339Nano)
+}
+
 func (c *viamClient) printSequence(seq *datapb.Sequence) {
 	w := c.c.Root().Writer
 	printf(w, "ID: %s", seq.GetId())
@@ -59,10 +75,10 @@ func (c *viamClient) printSequence(seq *datapb.Sequence) {
 	printf(w, "\tResources: %s", formatSequenceResources(seq.GetResources()))
 	printf(w, "\tTags: %s", strings.Join(seq.GetSequenceTags(), ","))
 	printf(w, "\tDatasets: %s", strings.Join(seq.GetDatasetIds(), ","))
-	printf(w, "\tStart: %s", formatTimestamp(seq.GetStartTime()))
-	printf(w, "\tEnd: %s", formatTimestamp(seq.GetEndTime()))
-	printf(w, "\tCreated: %s", formatTimestamp(seq.GetCreatedAt()))
-	printf(w, "\tUpdated: %s", formatTimestamp(seq.GetUpdatedAt()))
+	printf(w, "\tStart: %s", formatSequenceTimestamp(seq.GetStartTime()))
+	printf(w, "\tEnd: %s", formatSequenceTimestamp(seq.GetEndTime()))
+	printf(w, "\tCreated: %s", formatSequenceTimestamp(seq.GetCreatedAt()))
+	printf(w, "\tUpdated: %s", formatSequenceTimestamp(seq.GetUpdatedAt()))
 }
 
 type dataSequenceCreateArgs struct {

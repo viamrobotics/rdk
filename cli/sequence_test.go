@@ -45,6 +45,18 @@ func TestParseSequenceResources(t *testing.T) {
 				{ResourceName: "a:b:camera-1", MethodName: "GetImages"},
 			},
 		},
+		{
+			name:   "whitespace around entries and separator is trimmed",
+			values: []string{"cam:ReadImage", " arm:JointPositions", "cam : GetPointCloud ", " remote1:cam : ReadImage"},
+			want: []*datapb.SequenceResourceFilter{
+				{ResourceName: "cam", MethodName: "ReadImage"},
+				{ResourceName: "arm", MethodName: "JointPositions"},
+				{ResourceName: "cam", MethodName: "GetPointCloud"},
+				{ResourceName: "remote1:cam", MethodName: "ReadImage"},
+			},
+		},
+		{name: "whitespace-only name", values: []string{"  :ReadImage"}, wantErr: true},
+		{name: "whitespace-only method", values: []string{"cam:  "}, wantErr: true},
 		{name: "missing colon", values: []string{"cam"}, wantErr: true},
 		{name: "empty name", values: []string{":ReadImage"}, wantErr: true},
 		{name: "empty method", values: []string{"cam:"}, wantErr: true},
@@ -320,15 +332,15 @@ func TestDatasetSequenceAddRemove(t *testing.T) {
 
 func TestDatasetCreateType(t *testing.T) {
 	t.Run("parse", func(t *testing.T) {
-		got, err := parseDatasetType(datasetTypeBinary)
+		got, err := datasetTypeToProto(datasetTypeBinary)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldEqual, datasetpb.DatasetType_DATASET_TYPE_BINARY_DATA)
 
-		got, err = parseDatasetType(datasetTypeSequence)
+		got, err = datasetTypeToProto(datasetTypeSequence)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldEqual, datasetpb.DatasetType_DATASET_TYPE_SEQUENCE_DATA)
 
-		_, err = parseDatasetType("tabular")
+		_, err = datasetTypeToProto("tabular")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
