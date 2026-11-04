@@ -12,10 +12,10 @@ buf.build/gen/go/bufbuild/protodescriptor/protocolbuffers/go v1.36.11-2026101217
 buf.build/gen/go/bufbuild/protodescriptor/protocolbuffers/go v1.36.11-20261012172039-ff528c23443f.1/go.mod h1:8PRKXhgNes29Tjrnv8KdZzg3I1QceOkzibW1QK7EXv0=
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260825204119-511051f7f437.1 h1:luUtD4Wp5GO/W+k08/vAfjTmnoAK7a/T1Q+ZtNheh0Q=
 buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260825204119-511051f7f437.1/go.mod h1:tvtbpgaVXZX4g6Pn+AnzFycuRK3MOz5HJfEGeEllXYM=
-buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261021182822-0b1ad74125ef.1 h1:No1hTew3ELdaWkGygeYiTX4y9up4PxZsORxk3x+5ivQ=
-buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261021182822-0b1ad74125ef.1/go.mod h1:KW6E0nuTObMLfMy6bpX/z9pOgTpqPXCKIw9x1XKNxro=
-buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261021182822-0b1ad74125ef.1 h1:Ouxzcs9b2TuWRU0OCXUrg+aXu2+5dg4q/MKmP4v1ycs=
-buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261021182822-0b1ad74125ef.1/go.mod h1:5QgvXU4BhJqHgkO27sFJrRQHABWN4X6QnGvL8hWCJKk=
+buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261029170924-54cd3c2f6265.1 h1:HSIspsKrT0vraN07UNnsqRko3cstTYwMDvoG8iR+9ts=
+buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261029170924-54cd3c2f6265.1/go.mod h1:5fL7CrOyxDOouys1yXqXICO53zYHv6w+tjcQwhh0jvA=
+buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261029170924-54cd3c2f6265.1 h1:/HDt0fXraZpZyTw6wsA9IdAAXXgTCHSryOBU38jdZh4=
+buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261029170924-54cd3c2f6265.1/go.mod h1:5QgvXU4BhJqHgkO27sFJrRQHABWN4X6QnGvL8hWCJKk=
 buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.11-20241007202033-cf42259fcbfc.1 h1:iGPvEJltOXUMANWf0zajcRcbiOXLD90ZwPUFvbcuv6Q=
 buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.11-20241007202033-cf42259fcbfc.1/go.mod h1:nWVKKRA29zdt4uvkjka3i/y4mkrswyWwiu0TbdX0zts=
 buf.build/go/app v0.2.1-0.20260407195847-833f8f978cda h1:eysSyjrJtkxU1A/9+Kv+1Mwq9K6BYBw+STIOVsZ256Y=
@@ -418,8 +418,8 @@ github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/mathgl v1.0.0 h1:t9DznWJlXxxjeeKLIdovCOVJQk/GzDEL7h/h+Ro2B68=
 github.com/go-gl/mathgl v1.0.0/go.mod h1:yhpkQzEiH9yPyxDUGzkmgScbaBVlhC06qodikEM0ZwQ=
-github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
-github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
+github.com/go-jose/go-jose/v4 v4.1.6 h1:sNRkftxFJxwsILiQukqp5z83QBSmntVwmgRY7AqBDO4=
+github.com/go-jose/go-jose/v4 v4.1.6/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.9.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.10.0/go.mod h1:xUsJbQ/Fp4kEt7AFgCuvyX4a71u8h9jB8tj/ORgOZ7o=
@@ -1096,8 +1096,8 @@ github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a h1:qk5MX36oytF
 github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a/go.mod h1:MwPm+Hpd8PZRx+jkOVLGxqHl/bN+Hcsw0dD7ntSpLy0=
 github.com/viam-labs/motion-tools v1.45.2-0.20260825171254-94549756064c h1:9dmzHNNIB44/FF5/ggUELmgxdxkDthYwWvWwTBdjtcA=
 github.com/viam-labs/motion-tools v1.45.2-0.20260825171254-94549756064c/go.mod h1:Fb4YGdIytnuRRG16vTNeb+RVbs+nJiQMiaTg/6+t0QY=
-github.com/viam-modules/trajex/go v0.101.0-rc5 h1:yuoJY+Seao8gcupfD1YO05hS0803o4Fu8Z87rNhVeiI=
-github.com/viam-modules/trajex/go v0.101.0-rc5/go.mod h1:e++tWpii+6KjSNMl6J4EPXoVuK9qoOxSFMVf/RfwlW4=
+github.com/viam-modules/trajex/go v0.101.0 h1:1jOG0qPC1LJ3fduyovPOusTQsvNos7Gn22u2ZGNsUHg=
+github.com/viam-modules/trajex/go v0.101.0/go.mod h1:e++tWpii+6KjSNMl6J4EPXoVuK9qoOxSFMVf/RfwlW4=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=

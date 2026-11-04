@@ -14,6 +14,7 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"go.viam.com/utils"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -307,6 +308,9 @@ func SensorDataFromCaptureFilePath(filePath string) ([]*v1.SensorData, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Close the raw handle, not dcFile: CaptureFile.Close renames the file.
+	defer func() { utils.UncheckedError(f.Close()) }()
+
 	dcFile, err := ReadCaptureFile(f)
 	if err != nil {
 		return nil, err

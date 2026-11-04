@@ -2067,7 +2067,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		allErrs = multierr.Combine(allErrs, r.localPackages.Cleanup(ctx))
 
 		// Cleanup extra dirs from previous modules or rogue scripts.
-		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory())
+		allErrs = multierr.Combine(allErrs, r.manager.moduleManager.CleanModuleDataDirectory(newConfig.Modules))
 	}
 
 	reconfigureDuration := time.Since(reconfigureStarted)

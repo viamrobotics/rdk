@@ -2,6 +2,8 @@ module go.viam.com/rdk
 
 go 1.26.10
 
+godebug multipathtcp=0
+
 // This must be a replace because a bunch of our deps also use it + `go mod tidy` fails from the conflict
 // if you switch it out in the require block.
 // We fork this bc the stock version of this library is over 20mb.
@@ -86,7 +88,7 @@ require (
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v3 v3.7.0
 	github.com/viam-labs/motion-tools v1.45.2-0.20260825171254-94549756064c
-	github.com/viam-modules/trajex/go v0.101.0-rc5
+	github.com/viam-modules/trajex/go v0.101.0
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/viamrobotics/webrtc/v3 v3.99.16
 	github.com/xfmoulet/qoi v0.2.0
@@ -138,8 +140,8 @@ require (
 	buf.build/gen/go/bufbuild/bufplugin/protocolbuffers/go v1.36.11-20261002170247-538130002972.1 // indirect
 	buf.build/gen/go/bufbuild/protodescriptor/protocolbuffers/go v1.36.11-20261012172039-ff528c23443f.1 // indirect
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.11-20260825204119-511051f7f437.1 // indirect
-	buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261021182822-0b1ad74125ef.1 // indirect
-	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261021182822-0b1ad74125ef.1 // indirect
+	buf.build/gen/go/bufbuild/registry/connectrpc/go v1.20.0-20261029170924-54cd3c2f6265.1 // indirect
+	buf.build/gen/go/bufbuild/registry/protocolbuffers/go v1.36.11-20261029170924-54cd3c2f6265.1 // indirect
 	buf.build/gen/go/pluginrpc/pluginrpc/protocolbuffers/go v1.36.11-20241007202033-cf42259fcbfc.1 // indirect
 	buf.build/go/app v0.2.1-0.20260407195847-833f8f978cda // indirect
 	buf.build/go/bufplugin v0.10.0 // indirect
@@ -234,7 +236,7 @@ require (
 	github.com/gen2brain/malgo v0.11.26 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.6 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect

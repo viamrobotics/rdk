@@ -473,7 +473,7 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 func (m *dummyModMan) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
 }
 
-func (m *dummyModMan) CleanModuleDataDirectory() error {
+func (m *dummyModMan) CleanModuleDataDirectory(confs []config.Module) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return nil

@@ -384,19 +384,24 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Setup Zig Compiler
-      # mlugg/setup-zig@v2.2.1
-      uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+    - name: Setup MinGW-w64
+      id: msys2
+      # msys2/setup-msys2@v2.33.0
+      uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e
       with:
-        version: 0.16.0
+        msystem: UCRT64
+        install: mingw-w64-ucrt-x86_64-gcc
+
+    - name: Add MinGW-w64 to PATH
+      # the test step runs in Git Bash, not the msys2 shell, so cgo needs gcc/g++ on PATH
+      shell: bash
+      run: echo "${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin" >> "$GITHUB_PATH"
 
     - name: test
       shell: bash
       env:
         GOFLAGS: "-tags=no_cgo"
         CGO_ENABLED: "1"
-        CC: "zig cc"
-        CXX: "zig c++"
         SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
         SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
         SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}

@@ -53,12 +53,12 @@ jobs:
             echo "Requiring 2 approvals."
           fi
 
-      # viamrobotics/claude-ci-workflows@v2.2.4
+      # viamrobotics/claude-ci-workflows@v2.5.0
       - name: Checkout claude-ci-workflows for composite action
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: viamrobotics/claude-ci-workflows
-          ref: c27e2ba8d7e6e818f74271132041ab48707cc0ca
+          ref: 9f3b405100d2d08744f4c6fe7e1406678dbb9e1a
           path: .claude-ci-workflows
           sparse-checkout: |
             .github/actions/check-approvals/

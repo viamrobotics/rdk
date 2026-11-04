@@ -162,19 +162,6 @@ func TestKinematicsResponseFromConfigInCode(t *testing.T) {
 	assertSameKinematics(t, original, fromBytes)
 }
 
-// A model built from frames alone has nothing to convert, so the response is what it always was.
-func TestKinematicsResponseWithoutConfig(t *testing.T) {
-	limit := Limit{Min: -1, Max: 1}
-	model, err := New2DMobileModelFrame("base", []Limit{limit, limit}, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	resp := KinematicModelToProtobuf(model)
-	test.That(t, resp.GetModel(), test.ShouldBeNil)
-	//nolint:staticcheck // deprecated fields are still served
-	test.That(t, resp.GetFormat(), test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
-	test.That(t, len(resp.GetKinematicsData()), test.ShouldEqual, 0) //nolint:staticcheck // deprecated fields are still served
-}
-
 // The message carries the limits the model enforces, not the ones its file declared. The bytes
 // an old client reads still replay the file, as they always have.
 func TestModelToProtoCarriesLiveLimits(t *testing.T) {

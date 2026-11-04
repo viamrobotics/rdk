@@ -1493,6 +1493,39 @@ func TestAppClient(t *testing.T) {
 		test.That(t, resp, test.ShouldResemble, &robotPart)
 	})
 
+	t.Run("SetConfigProperty", func(t *testing.T) {
+		speedPath := "components.my-arm.attributes.speed"
+		framePath := "components.my-arm.frame"
+		frame := map[string]interface{}{"parent": "world"}
+		changes := []*ConfigPropertyChange{
+			{Path: speedPath, Value: 50},
+			{Path: framePath, Value: frame},
+		}
+		expectedResults := []*ConfigPropertyChangeResult{
+			{Path: speedPath, Value: float64(50), Success: true},
+			{Path: framePath, Value: frame, Success: false, Error: "invalid frame"},
+		}
+		grpcClient.SetConfigPropertyFunc = func(
+			ctx context.Context, in *pb.SetConfigPropertyRequest, opts ...grpc.CallOption,
+		) (*pb.SetConfigPropertyResponse, error) {
+			test.That(t, in.RobotPartId, test.ShouldEqual, partID)
+			test.That(t, in.PropertyChanges, test.ShouldHaveLength, 2)
+			test.That(t, in.PropertyChanges[0].Path, test.ShouldEqual, speedPath)
+			test.That(t, in.PropertyChanges[0].Value.GetNumberValue(), test.ShouldEqual, 50)
+			test.That(t, in.PropertyChanges[1].Path, test.ShouldEqual, framePath)
+			test.That(t, in.PropertyChanges[1].Value.AsInterface(), test.ShouldResemble, frame)
+			return &pb.SetConfigPropertyResponse{
+				PropertyChanges: []*pb.ConfigPropertyChangeResult{
+					{Path: speedPath, Value: in.PropertyChanges[0].Value, Success: true},
+					{Path: framePath, Value: in.PropertyChanges[1].Value, Success: false, Error: "invalid frame"},
+				},
+			}, nil
+		}
+		resp, err := client.SetConfigProperty(context.Background(), partID, changes)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, expectedResults)
+	})
+
 	t.Run("NewRobotPart", func(t *testing.T) {
 		grpcClient.NewRobotPartFunc = func(
 			ctx context.Context, in *pb.NewRobotPartRequest, opts ...grpc.CallOption,

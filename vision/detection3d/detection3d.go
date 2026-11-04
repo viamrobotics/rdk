@@ -31,21 +31,30 @@ type Detection struct {
 // Segmenter returns the 3D detections perceived through src.
 type Segmenter func(ctx context.Context, src camera.Camera) ([]*Detection, error)
 
-// FromSegmenter adapts a segmentation.Segmenter whose objects are point cloud clusters in src's frame into a Segmenter.
+// FromSegmenter adapts a segmentation.Segmenter whose objects are clusters of src.NextPointCloud into a Segmenter.
 //
-// Each object becomes a root transform named "<namePrefix>/object-<i>", parented to src at the object's geometry pose
-// and carrying that geometry recentered on the root, plus a "<root>/points" child carrying the cluster's points in the
-// root frame. Root names are only unique within one call, since segmenters do not track objects across calls.
+// Each object becomes a root transform named "<namePrefix>/object-<i>" at the object's geometry pose and carrying that
+// geometry recentered on the root, plus a "<root>/points" child carrying the cluster's points in the root frame. The
+// root is parented to the frame src's point clouds are expressed in: src's Properties.DefaultReferenceFrame, or src's
+// name when the camera leaves it empty. Root names are only unique within one call, since segmenters do not track
+// objects across calls.
 //
 // An object carries one geometry and no confidence scores, so producers that know more, such as an object's parts,
-// its class scores, or a frame other than src's, should build Detections directly instead.
+// its class scores, or a parent frame other than src's point cloud frame, should build Detections directly instead.
 func FromSegmenter(namePrefix string, seg segmentation.Segmenter) Segmenter {
 	return func(ctx context.Context, src camera.Camera) ([]*Detection, error) {
 		objects, err := seg(ctx, src)
 		if err != nil {
 			return nil, err
 		}
-		parent := src.Name().ShortName()
+		props, err := src.Properties(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "reading camera properties for its point cloud frame")
+		}
+		parent := props.DefaultReferenceFrame
+		if parent == "" {
+			parent = src.Name().ShortName()
+		}
 		detections := make([]*Detection, 0, len(objects))
 		for i, obj := range objects {
 			name := fmt.Sprintf("%s/object-%d", namePrefix, i)

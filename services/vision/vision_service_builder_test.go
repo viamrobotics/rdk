@@ -67,6 +67,7 @@ func TestDefaultCameraSettings(t *testing.T) {
 	var s simpleSegmenter
 
 	fakeCamera := &inject.Camera{
+		PropertiesFunc: func(ctx context.Context) (camera.Properties, error) { return camera.Properties{}, nil },
 		ImagesFunc: func(
 			ctx context.Context,
 			filterSourceNames []string,
