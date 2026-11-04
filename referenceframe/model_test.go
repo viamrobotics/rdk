@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -205,6 +206,63 @@ func TestLimitOverrideRoundTrip(t *testing.T) {
 
 	test.That(t, restored.DoF()[0], test.ShouldResemble, overriddenLimit)
 	test.That(t, restored.DoF()[1], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+}
+
+// Guards against UnmarshalJSON wiping parsed limits when the payload omits the limits key.
+func TestUnmarshalPreservesParsedLimitsWhenNoLimitsKey(t *testing.T) {
+	armModel, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "xarm6")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(armModel.DoF()), test.ShouldEqual, 6)
+	armCfgBytes, err := json.Marshal(armModel.ModelConfig())
+	test.That(t, err, test.ShouldBeNil)
+
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	serial, err := NewSerialModel("serial", []Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+	internalFSBytes, err := json.Marshal(serial.internalFS)
+	test.That(t, err, test.ShouldBeNil)
+
+	armBody := fmt.Sprintf(`"name":"xarm6","model":%s`, armCfgBytes)
+	serialBody := fmt.Sprintf(`"name":"serial","internal_fs":%s,"primary_output_frame":%q`, internalFSBytes, serial.primaryOutputFrame)
+	withLimitsKey := func(body, limits string) []byte {
+		if limits == "" {
+			return []byte("{" + body + "}")
+		}
+		return []byte("{" + body + `,"limits":` + limits + "}")
+	}
+
+	cases := []struct {
+		name    string
+		payload []byte
+		dof     int
+		inputs  []Input
+	}{
+		{"model path, missing limits", withLimitsKey(armBody, ""), 6, []Input{0, 0, 0, 0, 0, 0}},
+		{"model path, null limits", withLimitsKey(armBody, "null"), 6, []Input{0, 0, 0, 0, 0, 0}},
+		{"model path, empty limits", withLimitsKey(armBody, "[]"), 6, []Input{0, 0, 0, 0, 0, 0}},
+		{"internal_fs path, missing limits", withLimitsKey(serialBody, ""), 2, []Input{0, 0}},
+		{"internal_fs path, null limits", withLimitsKey(serialBody, "null"), 2, []Input{0, 0}},
+		{"internal_fs path, empty limits", withLimitsKey(serialBody, "[]"), 2, []Input{0, 0}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			restored := new(SimpleModel)
+			test.That(t, restored.UnmarshalJSON(tc.payload), test.ShouldBeNil)
+			test.That(t, len(restored.DoF()), test.ShouldEqual, tc.dof)
+			pose, err := restored.Transform(tc.inputs)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pose, test.ShouldNotBeNil)
+		})
+	}
+
+	// Mismatched count errors instead of silently producing a broken model.
+	wrongCount := withLimitsKey(armBody, `[{"min":-1,"max":1},{"min":-1,"max":1},{"min":-1,"max":1}]`)
+	err = new(SimpleModel).UnmarshalJSON(wrongCount)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "DoF")
 }
 
 func TestSerialModelDuplicateNames(t *testing.T) {

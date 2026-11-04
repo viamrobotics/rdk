@@ -862,6 +862,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		frameName = ser.Model.Name
 	}
 
+	var derivedLimits []Limit
 	if ser.Model != nil {
 		// If Model is not nil, we build by parsing the config
 		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
@@ -885,6 +886,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.transformChain = newModel.transformChain
 		m.transformChainInputOffsets = newModel.transformChainInputOffsets
 		m.mimicMappings = newModel.mimicMappings
+		derivedLimits = newModel.limits
 	} else if ser.InternalFS != nil {
 		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
@@ -896,14 +898,22 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.inputSchema = rebuilt.inputSchema
 		m.transformChain = rebuilt.transformChain
 		m.transformChainInputOffsets = rebuilt.transformChainInputOffsets
-		m.limits = rebuilt.limits
+		derivedLimits = rebuilt.limits
 	} else {
 		fs := NewEmptyFrameSystem(frameName)
 		m.internalFS = fs
 		m.primaryOutputFrame = fs.World().Name()
 		m.inputSchema = &LinearInputsSchema{}
 	}
-	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
+	// missing limits key: keep the ones derived from the model
+	limits := ser.Limits
+	switch {
+	case len(limits) == 0:
+		limits = derivedLimits
+	case len(limits) != len(derivedLimits):
+		return fmt.Errorf("model %q: serialized limits has %d entries, model has %d DoF", frameName, len(limits), len(derivedLimits))
+	}
+	m.baseFrame = baseFrame{name: frameName, limits: limits}
 	m.modelConfig = ser.Model
 
 	return nil
