@@ -6340,3 +6340,57 @@ func TestUserPermissionsHotReconfiguration(t *testing.T) {
 	_, err = rc.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
 }
+
+func TestPackageManagerForModule(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithViamHomeDir(t.TempDir())).(*localRobot)
+
+	// The app names registry module packages differently from the module itself.
+	pkgs := []config.PackageConfig{
+		{Name: "some-model", Package: "org/some-model", Version: "1.0.0", Type: config.PackageTypeMlModel},
+		{Name: "m_org_foo", Package: "org/foo", Version: "1.0.0", Type: config.PackageTypeModule},
+	}
+	pkgDir := pkgs[1].LocalDataDirectory(config.DefaultPackagesDir())
+
+	for _, tc := range []struct {
+		name    string
+		mod     config.Module
+		expMgr  packages.ManagerSyncer
+		expName packages.PackageName
+		expNoop bool
+	}{
+		{
+			name:    "registry",
+			mod:     config.Module{Name: "org_foo", Type: config.ModuleTypeRegistry, ExePath: filepath.Join(pkgDir, "bin", "foo")},
+			expMgr:  r.packageManager,
+			expName: "m_org_foo",
+		},
+		{
+			name:    "registry without package",
+			mod:     config.Module{Name: "org_foo", Type: config.ModuleTypeRegistry, ExePath: pkgDir + "-other/foo"},
+			expNoop: true,
+		},
+		{
+			name:    "local tarball",
+			mod:     config.Module{Name: "bar", Type: config.ModuleTypeLocal, ExePath: "/tmp/bar.tar.gz"},
+			expMgr:  r.localPackages,
+			expName: "synthetic-bar",
+		},
+		{
+			name:    "local executable",
+			mod:     config.Module{Name: "baz", Type: config.ModuleTypeLocal, ExePath: "/tmp/baz"},
+			expNoop: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mgr, name := r.packageManagerForModule(tc.mod, pkgs)
+			if tc.expNoop {
+				test.That(t, mgr, test.ShouldHaveSameTypeAs, packages.NewNoopManager())
+				return
+			}
+			test.That(t, mgr, test.ShouldEqual, tc.expMgr)
+			test.That(t, name, test.ShouldEqual, tc.expName)
+		})
+	}
+}
