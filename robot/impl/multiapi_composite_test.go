@@ -637,10 +637,10 @@ func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
 }
 
 // TestCompositeInFrameSystemNonCanonicalKinematic checks that a composite gets a model frame from its
-// kinematic sub whichever API it is configured under, including a non-kinematic API the frame system
-// would not recognize as kinematic by subtype. The button+gripper composite's only kinematic sub is
-// gripper; configured under button (non-kinematic) or under gripper, it still contributes a model frame,
-// because kinematics is detected by interface across every served API.
+// kinematic sub regardless of what API it is configured under, including a non-kinematic API the frame
+// system would not recognize as kinematic by subtype. The button+gripper composite's only kinematic sub is
+// gripper, so it contributes a model frame whether configured under button or gripper. Kinematics is found
+// by interface across its served APIs, not by the configured subtype.
 func TestCompositeInFrameSystemNonCanonicalKinematic(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -728,11 +728,8 @@ func TestCompositeFrameKinematicPrecedesGeometry(t *testing.T) {
 }
 
 // TestServiceConfiguredCompositeKinematicResolvesInFrameSystem configures a composite under a service API
-// (generic) while it also serves a kinematic component (gripper), with a frame. Its kinematics must still
-// attach to the frame system. getLocalFrameSystemParts walks services as well as components so the frame is
-// built, and updateWeakAndOptionalDependents fans the composite's component subs into the frame system
-// component map so CurrentInputs can resolve it across whichever API it is configured under. Without either
-// half, CurrentInputs omits the composite.
+// (generic) that also serves a kinematic component (gripper), with a frame. Its kinematics must still
+// resolve in the frame system regardless of the API it is configured under.
 func TestServiceConfiguredCompositeKinematicResolvesInFrameSystem(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()

@@ -1144,43 +1144,34 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
-	names := r.manager.AllNonCollidingResourceNames()
-	for _, n := range names {
+	// frameSystemDeps gives the frame system every resource that serves a component API. For a composite that
+	// is the wrapper, so the frame system sees every API it serves and can resolve its kinematics even when it
+	// is configured under a service API.
+	frameSystemDeps := map[resource.Name]resource.Resource{}
+	for _, n := range r.manager.AllNonCollidingResourceNames() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}
-		res, err := r.ResourceByName(n)
+		// The api-less lookup returns the resource itself, which for a composite is the wrapper. res is it
+		// unwrapped to n's API.
+		nodeRes, err := r.resourceBySimpleName(n.Name)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().CDebugw(
-					ctx,
-					"error finding resource during weak/optional dependent update",
-					"resource", n,
-					"error", err,
-				)
+				r.Logger().CDebugw(ctx, "error finding resource during weak/optional dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
+		res := resource.SubresourceForAPI(nodeRes, n.API)
 		allResources[n] = res
 		if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			internalResources[n] = res
 		}
-	}
-
-	// Fan a composite out to each component API it serves so the frame system sees its component sub even
-	// when it is configured under a service API. This must expand via ExpandCompositeNames, which reads the
-	// graph node: ResourceByName above resolves a service-configured composite to its service sub, which
-	// hides the component APIs.
-	frameSystemDeps := map[resource.Name]resource.Resource{}
-	for _, n := range r.manager.resources.ExpandCompositeNames(names) {
-		if !n.API.IsComponent() {
-			continue
+		for _, api := range resource.APIsOf(nodeRes) {
+			if api.IsComponent() {
+				frameSystemDeps[n] = nodeRes
+				break
+			}
 		}
-		sub, err := r.ResourceByName(n)
-		if err != nil {
-			continue
-		}
-		frameSystemDeps[n] = sub
 	}
 
 	timeout := utils.GetResourceConfigurationTimeout(r.logger)
@@ -1447,7 +1438,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// `ModelFramer`. Geometries can be specified in the robot config. If none exists, we will
 	// perform a `Geometries` query on the resource; a single geometry is attached to the frame
 	// directly and several are wrapped in a zero-DoF model. Services are walked alongside components, so a
-	// composite configured under a service API still contributes a frame when one of its co-equal subs is
+	// composite configured under a service API still contributes a frame when one of its subs is
 	// kinematic; the body finds that sub across every API the resource serves, so the configured kind does
 	// not matter.
 	framedConfigs := append(append([]resource.Config{}, cfg.Components...), cfg.Services...)
@@ -1480,14 +1471,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		// Resolve the full graph handle once, which for a composite is the multi-API wrapper, so the frame
-		// helpers below see it under every API it serves. resErr covers a missing node and an unavailable
-		// resource.
-		var rawRes resource.Resource
-		node, resErr := r.manager.resources.FindBySimpleNameAndAPI(resConfig.Name, resConfig.ResourceName().API)
-		if resErr == nil {
-			rawRes, resErr = node.Resource()
-		}
+		// The api-less lookup returns the resource itself, which for a composite is the wrapper, so the frame
+		// helpers below see it under every API it serves. resErr covers a missing or unavailable resource.
+		rawRes, resErr := r.resourceBySimpleName(resConfig.Name)
 		resType := resConfig.ResourceName().API.SubtypeName
 		linkInFrame, err := (&referenceframe.LinkConfig{
 			ID:          frameName,
@@ -1517,7 +1503,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		// model, else a geometry, else the bare frame config.
 		kinematic, modelFramer, shaped, refuse := framesystem.FrameContribution(rawRes)
 		if refuse {
-			logger.Warnw("Composite serves multiple kinematic APIs; omitting from FrameSystem.", "resource", resConfig.Name)
+			// ResolveKinematic already logged this multi-kinematic composite during the frame-system reconfigure.
 			continue
 		}
 		if kinematic != nil {

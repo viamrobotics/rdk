@@ -47,11 +47,10 @@ func (shapedRes) Geometries(context.Context, map[string]interface{}) ([]spatialm
 	return nil, nil
 }
 
-// TestBuiltInReconfigureComposite covers how BuiltInReconfigure folds a composite's per-API subs (sharing
-// a short name) into svc.components, the name→sub map CurrentInputs reads. It unwraps to each API's real
-// impl so the kinematic sub is found (else CurrentInputs fails NotInputEnabledError), keeps that sub even
-// when its API is non-canonical, and refuses a multi-kinematic composite rather than crashing. The shared
-// short name alone never errors.
+// TestBuiltInReconfigureComposite covers how BuiltInReconfigure maps each resource to its kinematic
+// subresource. ResolveKinematic finds that subresource (so CurrentInputs can assert InputEnabled) even when
+// its API is non-canonical, refuses a multi-kinematic composite, and gives a non-kinematic resource no
+// entry. Duplicate short names across a composite's APIs never error.
 func TestBuiltInReconfigureComposite(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -64,17 +63,21 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
 	camAPI := resource.APINamespaceRDK.WithComponentType("camera")
 
-	// "combo": a modular composite serving arm (kinematic) + camera (non-kinematic), one
-	// MultiAPIResource wrapper aliased under both API names.
+	// "combo": a composite serving arm (kinematic) + camera (non-kinematic).
 	comboKin := &kinematicRes{Named: resource.NewName(armAPI, "combo").AsNamed()}
 	comboCam := &plainRes{Named: resource.NewName(camAPI, "combo").AsNamed()}
 	wrapper := resource.NewMultiAPIResource(
 		resource.NewName(armAPI, "combo"),
 		map[resource.API]resource.Resource{armAPI: comboKin, camAPI: comboCam},
 	)
-	// "multi": a composite serving two kinematic APIs (arm + gantry), unsupported, must be refused.
+	// "multi": a composite serving two kinematic APIs (arm + gantry) with distinct objects, unsupported,
+	// must be refused.
 	multiArm := &kinematicRes{Named: resource.NewName(armAPI, "multi").AsNamed()}
 	multiGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "multi").AsNamed()}
+	multiWrapper := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "multi"),
+		map[resource.API]resource.Resource{armAPI: multiArm, gantryAPI: multiGantry},
+	)
 	// "solo": an ordinary resource.
 	solo := &plainRes{Named: resource.NewName(camAPI, "solo").AsNamed()}
 	// "noncanon": a composite whose kinematic API is not the canonical one, camera (canonical,
@@ -90,8 +93,8 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	deps := resource.Dependencies{
 		resource.NewName(armAPI, "combo"):       wrapper,
 		resource.NewName(camAPI, "combo"):       wrapper,
-		resource.NewName(armAPI, "multi"):       multiArm,
-		resource.NewName(gantryAPI, "multi"):    multiGantry,
+		resource.NewName(armAPI, "multi"):       multiWrapper,
+		resource.NewName(gantryAPI, "multi"):    multiWrapper,
 		resource.NewName(camAPI, "solo"):        solo,
 		resource.NewName(camAPI, "noncanon"):    ncWrapper,
 		resource.NewName(gantryAPI, "noncanon"): ncWrapper,
@@ -101,7 +104,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
 	test.That(t, err, test.ShouldBeNil)
 
-	// The modular composite is unwrapped to its kinematic (arm) sub, not the opaque wrapper, so
+	// The composite is unwrapped to its kinematic (arm) sub, not the opaque wrapper, so
 	// CurrentInputs can type-assert InputEnabled on it.
 	test.That(t, svc.components["combo"], test.ShouldEqual, comboKin)
 	_, isInputEnabled := svc.components["combo"].(InputEnabled)
@@ -109,32 +112,39 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	// A multi-kinematic composite is refused, not silently picked.
 	_, present := svc.components["multi"]
 	test.That(t, present, test.ShouldBeFalse)
-	// An ordinary resource is unaffected.
-	test.That(t, svc.components["solo"], test.ShouldEqual, solo)
+	// A non-kinematic ordinary resource has no inputs entry.
+	_, soloPresent := svc.components["solo"]
+	test.That(t, soloPresent, test.ShouldBeFalse)
 	// The kinematic sub is kept even when it is the non-canonical API (gantry under a camera-canonical
 	// composite).
 	test.That(t, svc.components["noncanon"], test.ShouldEqual, ncGantry)
 }
 
-// TestPickKinematicSubIdentity checks that pickKinematicSub distinguishes a composite by its InputEnabled
-// impls' identity, not its kinematic API count. One struct served under several kinematic APIs is the same
-// object each time (one chain, kept); distinct per-API implementations are the unsupported multi-kinematic
-// case.
-func TestPickKinematicSubIdentity(t *testing.T) {
+// TestResolveKinematicIdentity checks that ResolveKinematic distinguishes a composite by its kinematic
+// subresources' identity, not its kinematic API count. One struct served under several kinematic APIs is
+// the same object each time; distinct per-API objects are the unsupported multi-kinematic case.
+func TestResolveKinematicIdentity(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
 
-	// One struct served under both kinematic APIs, the same object unwraps once per API.
+	// One struct served under both kinematic APIs: the same object unwraps once per API.
 	shared := &kinematicRes{Named: resource.NewName(armAPI, "shared").AsNamed()}
-	chosen, refuse := pickKinematicSub([]resource.Resource{shared, shared})
-	test.That(t, refuse, test.ShouldBeFalse)
+	sharedWrapper := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "shared"),
+		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
+	)
+	chosen := ResolveKinematic(sharedWrapper, logger)
 	test.That(t, chosen, test.ShouldEqual, shared)
 
-	// Two distinct kinematic impls, the unsupported multi-kinematic device.
+	// Two distinct kinematic objects: the unsupported multi-kinematic device.
 	kinArm := &kinematicRes{Named: resource.NewName(armAPI, "twochain").AsNamed()}
 	kinGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "twochain").AsNamed()}
-	_, refuse = pickKinematicSub([]resource.Resource{kinArm, kinGantry})
-	test.That(t, refuse, test.ShouldBeTrue)
+	twoChain := resource.NewMultiAPIResource(
+		resource.NewName(armAPI, "twochain"),
+		map[resource.API]resource.Resource{armAPI: kinArm, gantryAPI: kinGantry},
+	)
+	test.That(t, ResolveKinematic(twoChain, logger), test.ShouldBeNil)
 }
 
 // TestFrameContribution checks the helper that resolves a resource's frame contribution across every API
@@ -176,8 +186,8 @@ func TestFrameContribution(t *testing.T) {
 	test.That(t, model, test.ShouldBeNil)
 	test.That(t, shaped, test.ShouldEqual, shp)
 
-	// Composite spreading contributions across APIs: the kinematic (and model) impl is the non-canonical
-	// gantry, the shaped impl is the canonical camera. Each is found whichever API exposes it.
+	// A composite whose capabilities come from different subs: the gantry sub implements InputEnabled, the
+	// camera sub implements resource.Shaped. FrameContribution collects each from whichever sub provides it.
 	ncCam := &shapedRes{Named: resource.NewName(camAPI, "noncanon").AsNamed()}
 	ncGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "noncanon").AsNamed()}
 	ncWrapper := resource.NewMultiAPIResource(
@@ -197,39 +207,7 @@ func TestFrameContribution(t *testing.T) {
 		resource.NewName(armAPI, "multi"),
 		map[resource.API]resource.Resource{armAPI: multiArm, gantryAPI: multiGantry},
 	)
-	_, _, _, refuse = FrameContribution(multiWrapper)
+	ie, _, _, refuse = FrameContribution(multiWrapper)
 	test.That(t, refuse, test.ShouldBeTrue)
-}
-
-// TestBuiltInReconfigureSingleStructMultiKinematic verifies a single struct served under two kinematic
-// APIs is kept as one chain by BuiltInReconfigure. The composite wrapper is aliased under both API names
-// and unwraps to the same object under each, so a count-based guard would see two kinematic subs and
-// wrongly refuse it, leaving its frame modeled but svc.components["combo"] unset and CurrentInputs
-// unserviceable.
-func TestBuiltInReconfigureSingleStructMultiKinematic(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	svcIface, err := New(ctx, resource.Dependencies{}, logger)
-	test.That(t, err, test.ShouldBeNil)
-	svc := svcIface.(*frameSystemService)
-
-	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
-	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
-
-	// One struct serving two kinematic APIs, aliased under each (the single-struct composite shape).
-	shared := &kinematicRes{Named: resource.NewName(armAPI, "combo").AsNamed()}
-	wrapper := resource.NewMultiAPIResource(
-		resource.NewName(armAPI, "combo"),
-		map[resource.API]resource.Resource{armAPI: shared, gantryAPI: shared},
-	)
-	deps := resource.Dependencies{
-		resource.NewName(armAPI, "combo"):    wrapper,
-		resource.NewName(gantryAPI, "combo"): wrapper,
-	}
-
-	err = svc.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Kept as one kinematic chain, the shared impl, not refused.
-	test.That(t, svc.components["combo"], test.ShouldEqual, shared)
+	test.That(t, ie, test.ShouldBeNil)
 }

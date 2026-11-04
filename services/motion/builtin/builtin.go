@@ -303,30 +303,29 @@ func (ms *builtIn) BuiltInReconfigure(
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
-	// Unwrap each dep to its API's sub so the type switch sees the real interface -- the composite
-	// wrapper implements none. Components group by short name, since a composite can serve several
-	// component APIs under one name.
-	componentsByName := make(map[string][]resource.Resource)
+	components := make(map[string]resource.Resource)
 	for name, dep := range deps {
-		dep := resource.SubresourceForAPI(dep, name.API)
-		switch dep := dep.(type) {
+		// For a composite, unwrap to the API's sub so the type switch sees the interface its wrapper hides.
+		switch sub := resource.SubresourceForAPI(dep, name.API).(type) {
 		case framesystem.Service:
-			ms.fsService = dep
+			ms.fsService = sub
 		case movementsensor.MovementSensor:
-			movementSensors[name.Name] = dep
+			movementSensors[name.Name] = sub
 		case slam.Service:
-			slamServices[name.Name] = dep
+			slamServices[name.Name] = sub
 		case vision.Service:
-			visionServices[name.Name] = dep
+			visionServices[name.Name] = sub
 		default:
-			componentsByName[name.Name] = append(componentsByName[name.Name], dep)
+			// Pass the whole dep so ResolveKinematic reads every API a composite serves, not just this one.
+			if kinematic := framesystem.ResolveKinematic(dep, ms.logger); kinematic != nil {
+				components[name.Name] = kinematic
+			}
 		}
 	}
-	componentMap := framesystem.PickKinematicComponents(componentsByName, ms.logger)
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
-	ms.components = componentMap
+	ms.components = components
 
 	return nil
 }
