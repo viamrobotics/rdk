@@ -6,16 +6,20 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	appv1 "go.viam.com/api/app/v1"
 	pb "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // comboSensor serves both sensor.Sensor and generic.Resource from one identity.
@@ -128,35 +132,90 @@ func TestCompositeAddResourceRollback(t *testing.T) {
 	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 }
 
-// rtpCamComposite serves camera and sensor from one object; its camera side is an rtppassthrough.Source.
-type rtpCamComposite struct {
-	*inject.Camera
+// rtpComboDevice serves camera and base through per-API facades; its camera facade is an rtppassthrough.Source.
+type rtpComboDevice struct {
+	resource.Named
+	resource.TriviallyCloseable
 }
 
-func (c *rtpCamComposite) Readings(context.Context, map[string]interface{}) (map[string]interface{}, error) {
-	return map[string]interface{}{"reading": 7}, nil
+func (d *rtpComboDevice) Images(
+	context.Context, []string, map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	return nil, resource.ResponseMetadata{}, nil
 }
 
-// TestCompositeAddRebuildRemoveAcrossCollections walks a composite (camera + sensor, whose camera sub is
-// an rtppassthrough.Source) through add, reconfigure, and remove, asserting it fans out across every
-// served API collection at each step: added to both collections with the stream source under the camera
-// name only, rebuilt as a new instance in both with the stream source re-registered, and gone from both
-// on remove with the stream source cleared.
+func (d *rtpComboDevice) NextPointCloud(context.Context, map[string]interface{}) (pointcloud.PointCloud, error) {
+	return nil, nil
+}
+
+func (d *rtpComboDevice) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+func (d *rtpComboDevice) MoveStraight(context.Context, int, float64, map[string]interface{}) error {
+	return nil
+}
+
+func (d *rtpComboDevice) Spin(context.Context, float64, float64, map[string]interface{}) error {
+	return nil
+}
+
+func (d *rtpComboDevice) SetPower(context.Context, r3.Vector, r3.Vector, map[string]interface{}) error {
+	return nil
+}
+
+func (d *rtpComboDevice) SetVelocity(context.Context, r3.Vector, r3.Vector, map[string]interface{}) error {
+	return nil
+}
+
+func (d *rtpComboDevice) Stop(context.Context, map[string]interface{}) error { return nil }
+
+func (d *rtpComboDevice) IsMoving(context.Context) (bool, error) { return false, nil }
+
+// camFacade serves the camera API over a shared core; it is a stream source via the embedded passthrough.
+type camFacade struct {
+	*rtpComboDevice
+	rtppassthrough.Source
+}
+
+func (camFacade) Properties(context.Context) (camera.Properties, error) {
+	return camera.Properties{}, nil
+}
+
+// baseFacade serves the base API over the same shared core; it is not a stream source.
+type baseFacade struct {
+	*rtpComboDevice
+}
+
+func (baseFacade) Properties(context.Context, map[string]interface{}) (base.Properties, error) {
+	return base.Properties{}, nil
+}
+
+// TestCompositeAddRebuildRemoveAcrossCollections walks a composite (camera + base, whose camera sub is an
+// rtppassthrough.Source) through add, reconfigure, and remove, asserting it fans out across every served
+// API collection at each step: added to both collections with the stream source under the camera name
+// only, rebuilt as a new instance in both with the stream source re-registered, and gone from both on
+// remove with the stream source cleared. base sorts before camera, so camera is the non-canonical API;
+// the stream source following it proves registration tracks the stream-capable sub, not the canonical one.
 func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
 	model := resource.NewModel("acme", "test", "rtp-combo")
-	resource.RegisterMultiAPI([]resource.API{camera.API, sensor.API}, model,
+	resource.RegisterMultiAPI([]resource.API{camera.API, base.API}, model,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{
 			Constructor: func(
 				_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger,
 			) (resource.Resource, error) {
-				return &rtpCamComposite{Camera: inject.NewCamera(conf.ResourceName().Name)}, nil
+				core := &rtpComboDevice{Named: conf.ResourceName().AsNamed()}
+				return resource.Compose(
+					camera.AsSub(camFacade{rtpComboDevice: core}),
+					base.AsSub(baseFacade{core}),
+				)
 			},
 		})
 	defer resource.Deregister(camera.API, model)
-	defer resource.Deregister(sensor.API, model)
+	defer resource.Deregister(base.API, model)
 
 	//nolint:usetesting
 	test.That(t, os.Setenv(NoModuleParentEnvVar, "true"), test.ShouldBeNil)
@@ -169,7 +228,7 @@ func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, m.AddModelFromRegistry(ctx, camera.API, model), test.ShouldBeNil)
-	test.That(t, m.AddModelFromRegistry(ctx, sensor.API, model), test.ShouldBeNil)
+	test.That(t, m.AddModelFromRegistry(ctx, base.API, model), test.ShouldBeNil)
 
 	cfg := &appv1.ComponentConfig{Name: "cam", Api: camera.API.String(), Model: model.String()}
 
@@ -179,12 +238,12 @@ func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 		return err == nil
 	}
 	// streamUnderCamera reports whether the stream source is registered under the camera name; it is never
-	// registered under the sensor name (sensor is not a stream source).
+	// registered under the base name (base is not a stream source).
 	streamUnderCamera := func() bool {
 		m.registerMu.Lock()
 		defer m.registerMu.Unlock()
-		_, underSensor := m.streamSourceByName[sensor.Named("cam")]
-		test.That(t, underSensor, test.ShouldBeFalse)
+		_, underBase := m.streamSourceByName[base.Named("cam")]
+		test.That(t, underBase, test.ShouldBeFalse)
 		_, underCamera := m.streamSourceByName[camera.Named("cam")]
 		return underCamera
 	}
@@ -193,7 +252,7 @@ func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 	_, err = m.AddResource(ctx, &pb.AddResourceRequest{Config: cfg})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inCollection(camera.API), test.ShouldBeTrue)
-	test.That(t, inCollection(sensor.API), test.ShouldBeTrue)
+	test.That(t, inCollection(base.API), test.ShouldBeTrue)
 	test.That(t, streamUnderCamera(), test.ShouldBeTrue)
 	first, err := m.collections[camera.API].Resource("cam")
 	test.That(t, err, test.ShouldBeNil)
@@ -202,7 +261,7 @@ func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 	_, err = m.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: cfg})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inCollection(camera.API), test.ShouldBeTrue)
-	test.That(t, inCollection(sensor.API), test.ShouldBeTrue)
+	test.That(t, inCollection(base.API), test.ShouldBeTrue)
 	test.That(t, streamUnderCamera(), test.ShouldBeTrue)
 	rebuilt, err := m.collections[camera.API].Resource("cam")
 	test.That(t, err, test.ShouldBeNil)
@@ -212,7 +271,7 @@ func TestCompositeAddRebuildRemoveAcrossCollections(t *testing.T) {
 	_, err = m.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: camera.Named("cam").String()})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inCollection(camera.API), test.ShouldBeFalse)
-	test.That(t, inCollection(sensor.API), test.ShouldBeFalse)
+	test.That(t, inCollection(base.API), test.ShouldBeFalse)
 	test.That(t, streamUnderCamera(), test.ShouldBeFalse)
 }
 
