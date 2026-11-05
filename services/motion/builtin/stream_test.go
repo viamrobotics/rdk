@@ -369,10 +369,16 @@ func TestWriteStreamDiagnostics(t *testing.T) {
 	start := time.Now().Add(-time.Second)
 
 	t.Run("unset path writes nothing", func(t *testing.T) {
+		// An empty path must not fall through to writing relative to the working directory.
+		dir := t.TempDir()
+		t.Chdir(dir)
 		ms := &builtIn{logger: logging.NewTestLogger(t), conf: &Config{}}
 		test.That(t, ms.writeStreamDiagnostics("arm", streaming.StreamOptions{}, diag, start, nil), test.ShouldBeNil)
 		ms.conf = nil
 		test.That(t, ms.writeStreamDiagnostics("arm", streaming.StreamOptions{}, diag, start, nil), test.ShouldBeNil)
+		entries, err := os.ReadDir(dir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, entries, test.ShouldBeEmpty)
 	})
 
 	t.Run("success", func(t *testing.T) {
