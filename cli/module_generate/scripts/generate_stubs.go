@@ -33,8 +33,25 @@ var goTmpl string
 // An empty value keeps the laptop CLI's tag lookup.
 var LocalSDKRoot string
 
-// typePrefixes lists possible prefixes before function parameter and return types.
-var typePrefixes = []string{"*", "[]*", "[]", "chan "}
+// typePrefixes lists possible prefixes before an exported type name.
+// Longer prefixes come first so <-chan []Type is not treated as <-chan.
+var typePrefixes = []string{
+	"<-chan []*",
+	"<-chan []",
+	"<-chan *",
+	"<-chan ",
+	"chan<- []*",
+	"chan<- []",
+	"chan<- *",
+	"chan<- ",
+	"[]*",
+	"*",
+	"[]",
+	"chan []*",
+	"chan []",
+	"chan *",
+	"chan ",
+}
 
 // CreateGetClientCodeRequest creates a request to get the client code of the specified resource type.
 var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
@@ -487,11 +504,16 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 	case "bool":
 		return "false", false
 	default:
-		// return nil for pointer, slice, map, and function types
+		// return nil for pointer, slice, map, channel, function, and interface types
 		if strings.HasPrefix(typ, "*") ||
 			strings.HasPrefix(typ, "[]") ||
 			strings.HasPrefix(typ, "map[") ||
-			strings.HasPrefix(typ, "func(") {
+			strings.HasPrefix(typ, "func(") ||
+			strings.HasPrefix(typ, "chan ") ||
+			strings.HasPrefix(typ, "<-chan ") ||
+			strings.HasPrefix(typ, "chan<- ") ||
+			typ == "any" ||
+			strings.HasPrefix(typ, "interface{") {
 			return "nil", false
 		}
 		// otherwise, generate a variable name like "myTypeRetVal"

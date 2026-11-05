@@ -1,9 +1,8 @@
 package {{.Module.ModuleLowercase}}
 
 import (
-{{if not .IsAdditionalModel}}	"errors"
-{{end}}{{if .CaptureSlots}}/*inline-slot:imports*/{{end}}
-	{{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
+{{if .CaptureSlots}}/*inline-slot:imports*/
+{{end}}	{{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
 {{.Imports}}{{if .CaptureSlots}}
 /*inline-slot:imports-end*/{{end}}
 {{if .CaptureSlots}}	// inline-example:imports

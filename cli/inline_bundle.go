@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
 	"go.viam.com/utils"
+	"golang.org/x/tools/imports"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
@@ -110,18 +111,7 @@ func InlineBundleAction(ctx context.Context, cmd *cli.Command, args inlineBundle
 	if err := writeLanguageBundle(out, goBundle); err != nil {
 		return err
 	}
-	if err := writeLanguageBundle(out, pythonBundle); err != nil {
-		return err
-	}
-	manifest := map[string]string{
-		"go_version":     goBundle.SDKVersion,
-		"python_version": pythonBundle.SDKVersion,
-	}
-	payload, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(out, "manifest.json"), append(payload, '\n'), 0o644) //nolint:gosec
+	return writeLanguageBundle(out, pythonBundle)
 }
 
 func writeLanguageBundle(dir string, bundle languageBundle) error {
@@ -291,6 +281,16 @@ func buildGoBundle(ctx context.Context, sdkRoot, goVersion string) (languageBund
 	// The shell was split from generic, so keep generic's extracted init and registration.
 	sections[generic.API] = fillGoIdentity(genericSection, generic)
 
+	// client.go imports are copied verbatim, including ones the stub never uses.
+	// goimports drops those and adds the ones the shell needs, such as fmt.
+	for api, section := range sections {
+		cleaned, cleanErr := tidyGoSectionImports(sdkRoot, shell["module.go"], section)
+		if cleanErr != nil {
+			return languageBundle{}, cleanErr
+		}
+		sections[api] = cleaned
+	}
+
 	pairs := placeholderPairs(generic)
 	for path, content := range shell {
 		shell[path] = rewritePlaceholders(content, pairs)
@@ -303,7 +303,9 @@ func buildGoBundle(ctx context.Context, sdkRoot, goVersion string) (languageBund
 	if err != nil {
 		return languageBundle{}, err
 	}
-	shell["go.mod"] = rewritePlaceholders(goMod, pairs)
+	// The tidy directory uses a real module path. The catalog copy uses the
+	// same placeholder as the rest of the shell.
+	shell["go.mod"] = replaceModuleLine(rewritePlaceholders(goMod, pairs), "${inline_module_name_lower}")
 	shell["go.sum"] = goSum
 
 	return languageBundle{
@@ -333,6 +335,72 @@ func goMainImport(module modulegen.ModuleInputs) string {
 func goMainModel(module modulegen.ModuleInputs) string {
 	return fmt.Sprintf("resource.APIModel{ %s.API, %s.%s}",
 		module.ResourceSubtypeAlias, module.ModuleLowercase, module.ModelPascal)
+}
+
+// assembleGoModule splices one API into the shell. Name placeholders are still
+// the generator sentinels, so the result is ordinary Go.
+func assembleGoModule(shell string, section stubSection) string {
+	content := strings.Replace(shell, "${inline_imports}", section.Imports, 1)
+	content = strings.Replace(content, "${inline_registration}", section.Registration, 1)
+	content = strings.Replace(content, "${inline_init}", section.Init, 1)
+	content = strings.Replace(content, "${inline_methods}", section.Methods, 1)
+	return strings.ReplaceAll(content, "${inline_return_type}", section.ReturnType)
+}
+
+// tidyGoSectionImports runs goimports on the assembled module and keeps the
+// import block that actually compiles. The shell still has the example-import
+// comments, so those are not stored again on the section.
+func tidyGoSectionImports(sdkRoot, shell string, section stubSection) (stubSection, error) {
+	formatted, err := imports.Process(
+		filepath.Join(sdkRoot, "inline_module.go"),
+		[]byte(assembleGoModule(shell, section)),
+		nil,
+	)
+	if err != nil {
+		return section, errors.Wrapf(err, "format imports for %s", section.API)
+	}
+	block, err := parenthesizedImportBlock(string(formatted))
+	if err != nil {
+		return section, errors.Wrapf(err, "format imports for %s", section.API)
+	}
+	section.Imports = stripInlineExampleImportComments(block)
+	return section, nil
+}
+
+func parenthesizedImportBlock(source string) (string, error) {
+	const start = "import ("
+	i := strings.Index(source, start)
+	if i < 0 {
+		return "", errors.New("formatted module has no import block")
+	}
+	rest := source[i+len(start):]
+	j := strings.Index(rest, "\n)")
+	if j < 0 {
+		return "", errors.New("formatted module has an unclosed import block")
+	}
+	return strings.Trim(rest[:j], "\n"), nil
+}
+
+func stripInlineExampleImportComments(body string) string {
+	var lines []string
+	for _, line := range strings.Split(body, "\n") {
+		if strings.Contains(line, "inline-example:imports") {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return strings.Trim(strings.Join(lines, "\n"), "\n") + "\n"
+}
+
+func replaceModuleLine(mod, modulePath string) string {
+	lines := strings.Split(mod, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "module ") {
+			lines[i] = "module " + modulePath
+			break
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func slotGoMain(content string, module modulegen.ModuleInputs) string {
@@ -507,6 +575,8 @@ func pinGoModule(ctx context.Context, goVersion string, paths []string) (string,
 	if err := os.WriteFile(filepath.Join(dir, "tidy.go"), source.Bytes(), 0o644); err != nil { //nolint:gosec
 		return "", "", err
 	}
+	// A real module path. ${inline_module_name_lower} is not a path go get can fetch.
+	// replaceModuleLine writes that placeholder onto the catalog copy after tidy.
 	goMod := fmt.Sprintf("module inlinemodule\n\ngo 1.25\n\nrequire go.viam.com/rdk %s\n", goVersion)
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644); err != nil { //nolint:gosec
 		return "", "", err

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -78,6 +79,8 @@ func TestGoBundleUsesLocalStubsAndPinsTheTag(t *testing.T) {
 		"go mod tidy",
 	})
 	test.That(t, goModRequires(bundle.Shell["go.mod"], "go.viam.com/rdk", tag), test.ShouldBeTrue)
+	test.That(t, bundle.Shell["go.mod"], test.ShouldContainSubstring, "module ${inline_module_name_lower}\n")
+	test.That(t, bundle.Shell["go.mod"], test.ShouldNotContainSubstring, "module inlinemodule")
 	test.That(t, bundle.Shell["go.mod"], test.ShouldContainSubstring, "go.viam.com/rdk "+tag)
 	test.That(t, bundle.Shell["go.sum"], test.ShouldContainSubstring, "go.viam.com/rdk "+tag)
 
@@ -110,6 +113,21 @@ func TestGoBundleUsesLocalStubsAndPinsTheTag(t *testing.T) {
 	generic := bundle.StubSections["rdk:service:generic"]
 	test.That(t, generic.API, test.ShouldEqual, "rdk:service:generic")
 	test.That(t, generic.ReturnType, test.ShouldEqual, "resource.Resource")
+	// client.go imports that the stub never calls are gone, and the shell's
+	// errors.New / fmt.Errorf imports are present. Arm and vision keep an
+	// import when a method signature still names that package.
+	for _, api := range []string{"rdk:service:generic", "rdk:component:motor"} {
+		imports := bundle.StubSections[api].Imports
+		test.That(t, imports, test.ShouldNotContainSubstring, "commonpb")
+		test.That(t, imports, test.ShouldNotContainSubstring, "protoutils")
+		test.That(t, imports, test.ShouldContainSubstring, "\t\"fmt\"\n")
+	}
+	test.That(t, bundle.StubSections["rdk:component:arm"].Imports, test.ShouldContainSubstring, "\t\"fmt\"\n")
+	test.That(t, bundle.StubSections["rdk:service:vision"].Imports, test.ShouldContainSubstring, "\t\"fmt\"\n")
+	test.That(t, generic.Imports, test.ShouldContainSubstring, "\t\"errors\"\n")
+	test.That(t, strings.Count(bundle.StubSections["rdk:component:arm"].Imports, "\t\"errors\"\n"), test.ShouldEqual, 1)
+	test.That(t, bundle.StubSections["rdk:service:vision"].Imports, test.ShouldContainSubstring, "\t\"github.com/pkg/errors\"\n")
+	test.That(t, bundle.StubSections["rdk:service:vision"].Imports, test.ShouldNotContainSubstring, "\t\"errors\"\n")
 }
 
 func TestGoShellIsSharedAcrossAPIs(t *testing.T) {
@@ -163,7 +181,9 @@ func TestPlainGoRenderHasNoSlotMarkers(t *testing.T) {
 	test.That(t, source, test.ShouldContainSubstring, "resource.Resource")
 	test.That(t, source, test.ShouldContainSubstring, "func init()")
 	test.That(t, source, test.ShouldContainSubstring, "errUnimplemented")
-	test.That(t, source, test.ShouldContainSubstring, "\t\"errors\"")
+	// "errors" is not injected here. client.go may already import it, and
+	// viam module generate runs goimports, which adds the import when it is missing.
+	test.That(t, source, test.ShouldNotContainSubstring, "\t\"errors\"")
 	test.That(t, source, test.ShouldNotContainSubstring, "    return New")
 	test.That(t, source, test.ShouldContainSubstring, "\treturn New")
 }
@@ -203,7 +223,7 @@ func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
 	test.That(t, section.Methods, test.ShouldContainSubstring, "return nil, fmt.Errorf(\"not implemented\")")
 	test.That(t, section.Methods, test.ShouldNotContainSubstring, "\n func ")
 	test.That(t, section.Imports, test.ShouldNotEqual, "")
-	test.That(t, shell, test.ShouldContainSubstring, "\t\"errors\"")
+	test.That(t, shell, test.ShouldContainSubstring, "${inline_imports}")
 	test.That(t, shell, test.ShouldContainSubstring, "\treturn New")
 	test.That(t, shell, test.ShouldContainSubstring, "// IMPORTANT: Do not change the model name triplet")
 	test.That(t, shell, test.ShouldContainSubstring, "// Changing them will break your inline module.\nvar (")
@@ -314,6 +334,68 @@ assert "--target" not in plain, plain
 	out, err := cmd.CombinedOutput()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, string(out), test.ShouldEqual, "")
+}
+
+func TestAssembledGoModulesBuild(t *testing.T) {
+	root := rdkRoot(t)
+	bundle := goBundleWithFakeTidy(t, root, "v1.2.3")
+	modules, err := inlineModules(golang)
+	test.That(t, err, test.ShouldBeNil)
+	pairs := placeholderPairs(modules[0])
+
+	dir := t.TempDir()
+	goMod := "module example.com/inlinecheck\n\ngo 1.26.10\n\nrequire go.viam.com/rdk v0.0.0\n\nreplace go.viam.com/rdk => " +
+		root + "\n"
+	test.That(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644), test.ShouldBeNil)
+
+	apis := make([]string, 0, len(bundle.StubSections))
+	for api := range bundle.StubSections {
+		apis = append(apis, api)
+	}
+	sort.Strings(apis)
+	for _, api := range apis {
+		section := bundle.StubSections[api]
+		source := restoreGeneratorNames(assembleGoModule(bundle.Shell["module.go"], section), pairs)
+		test.That(t, os.WriteFile(filepath.Join(dir, "module.go"), []byte(source), 0o644), test.ShouldBeNil)
+		// -mod=mod fills go.sum from the replaced RDK checkout. The default
+		// readonly mode has no sums in this throwaway module.
+		cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", ".")
+		cmd.Dir = dir
+		out, buildErr := cmd.CombinedOutput()
+		if buildErr != nil {
+			t.Fatalf("%s failed to build: %v\n%s", api, buildErr, out)
+		}
+	}
+}
+
+func goBundleWithFakeTidy(t *testing.T, root, tag string) languageBundle {
+	t.Helper()
+	previous := runCommand
+	runCommand = func(_ context.Context, dir, _ string, args ...string) error {
+		if len(args) > 0 && args[0] == "mod" {
+			block := "module inlinemodule\n\ngo 1.25.0\n\nrequire (\n\tgo.viam.com/rdk " + tag + "\n)\n"
+			if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(block), 0o644); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(dir, "go.sum"), []byte("go.viam.com/rdk "+tag+" h1:abc\n"), 0o644)
+		}
+		return nil
+	}
+	t.Cleanup(func() { runCommand = previous })
+	bundle, err := buildGoBundle(t.Context(), root, tag)
+	test.That(t, err, test.ShouldBeNil)
+	return bundle
+}
+
+func restoreGeneratorNames(content string, pairs [][2]string) string {
+	sorted := append([][2]string(nil), pairs...)
+	sort.Slice(sorted, func(i, j int) bool {
+		return len(sorted[i][1]) > len(sorted[j][1])
+	})
+	for _, pair := range sorted {
+		content = strings.ReplaceAll(content, pair[1], pair[0])
+	}
+	return content
 }
 
 func rdkRoot(t *testing.T) string {
