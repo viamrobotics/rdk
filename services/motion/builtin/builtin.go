@@ -92,7 +92,9 @@ type Config struct {
 	LogPlannerErrors            bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
-	StreamDiagnosticsFilePath        string   `json:"stream_diagnostics_file_path"`
+	// StreamDiagnosticsFilePath is the directory each arm-streaming session writes its diagnostics file under when it ends.
+	StreamDiagnosticsFilePath string `json:"stream_diagnostics_file_path"`
+	// StreamDiagnosticsMetadataTagKeys names request metadata keys whose values become tag=<value> directories on the diagnostics file.
 	StreamDiagnosticsMetadataTagKeys []string `json:"stream_diagnostics_metadata_tag_keys"`
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
