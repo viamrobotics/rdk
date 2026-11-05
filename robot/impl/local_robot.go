@@ -244,7 +244,7 @@ func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error
 		// Resolve the raw graph node (not the localRobot FindBySimpleNameAndAPI, which unwraps a
 		// composite to one API's sub) so the full multi-API handle is returned.
 		match := matches[0]
-		n, err := r.manager.resources.FindBySimpleNameAndAPI(name, match.API)
+		n, err := r.manager.resources.NodeBySimpleNameAndAPI(name, match.API)
 		if err != nil {
 			return nil, err
 		}
@@ -367,7 +367,7 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	resourceErrs := make(map[string]error)
 	stopped := make(map[resource.Resource]bool)
 	for _, name := range r.ResourceNames() {
-		node, err := r.manager.resources.FindBySimpleNameAndAPI(name.Name, name.API)
+		node, err := r.manager.resources.NodeBySimpleNameAndAPI(name.Name, name.API)
 		if err != nil {
 			resourceErrs[name.Name] = err
 			continue
@@ -720,23 +720,13 @@ func newWithResources(
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
-		var found bool
-		var match resource.Name
-		names := r.manager.AllNonCollidingResourceNames()
-		for _, name := range names {
+		for _, name := range r.manager.AllNonCollidingResourceNames() {
 			if name.Name == res {
-				if found {
-					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
-				}
-				match = name
-				found = true
+				// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
+				return r.ResourceByName(resource.SimpleName(name.Name))
 			}
 		}
-		if !found {
-			return nil, errors.Errorf("could not find the resource for name %s", res)
-		}
-		// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
-		return r.ResourceByName(resource.SimpleName(match.Name))
+		return nil, errors.Errorf("could not find the resource for name %s", res)
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -1029,9 +1019,6 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
 	snapshot := make(map[resource.Name]int64)
-	// A composite is one node reached under each of its API names, and SubsByName fans all its
-	// subs in a single pass, so handle each node once instead of re-fanning it per name.
-	seenNodes := make(map[*resource.GraphNode]bool)
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
@@ -1045,10 +1032,6 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
-		if seenNodes[node] {
-			continue
-		}
-		seenNodes[node] = true
 		res, err := node.Resource()
 		if err != nil {
 			// Wrap as NotAvailableError to match the prior ResourceByName behavior
@@ -1058,19 +1041,17 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
-		// A composite serves several APIs, so match the weak-dep matchers against each API it serves and
-		// store that API's sub under its own name. Consumers get the unwrapped sub for the API they asked
-		// for and never see the composite. An ordinary resource is its own only sub, so nothing changes.
-		for apiName, sub := range resource.SubsByName(n, res) {
-			for _, matcher := range weakDepMatchers {
-				if matcher.IsMatch(sub) {
-					// Pop the remote name off since callers won't be expecting it when accessing it in the
-					// resource dependency map in a resource constructor.
-					popped := apiName.PopRemote()
-					deps[popped] = sub
-					snapshot[popped] = node.UpdatedAt()
-					break
-				}
+		// res is the whole resource; for a composite that is the wrapper, so unwrap to the sub serving n's API.
+		// A non-composite is its own sub.
+		sub := resource.SubresourceForAPI(res, n.API)
+		for _, matcher := range weakDepMatchers {
+			if matcher.IsMatch(sub) {
+				// Pop the remote name off since callers won't be expecting it when accessing it in the
+				// resource dependency map in a resource constructor.
+				popped := n.PopRemote()
+				deps[popped] = sub
+				snapshot[popped] = node.UpdatedAt()
+				break
 			}
 		}
 	}
