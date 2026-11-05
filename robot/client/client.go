@@ -1370,9 +1370,7 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 		if err != nil {
 			return nil, err
 		}
-		// ResolveKinematic, not a direct assertion: a composite's handle implements no capability
-		// interface, but one of its subs may be InputEnabled.
-		if inputEnabled := framesystem.ResolveKinematic(res, rc.logger); inputEnabled != nil {
+		if inputEnabled, ok := res.(framesystem.InputEnabled); ok {
 			pos, err := inputEnabled.CurrentInputs(ctx)
 			if err != nil {
 				return nil, err

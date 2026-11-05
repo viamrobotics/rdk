@@ -116,36 +116,11 @@ func GeometriesFromKinematics(ctx context.Context, res InputEnabled) ([]spatialm
 	return gifs.Geometries(), nil
 }
 
-// ResolveKinematic returns res's one kinematic resource — itself if ordinary, or its single kinematic
-// subresource if a composite — or nil if it has none. One object served under several kinematic APIs counts
-// once. A composite with two or more distinct kinematic subresources is unsupported: ResolveKinematic logs
-// it and returns nil so the caller leaves it out of the frame system.
-func ResolveKinematic(res resource.Resource, logger logging.Logger) InputEnabled {
-	var kinematic InputEnabled
-	for _, api := range resource.APIsOf(res) {
-		ie, ok := resource.SubresourceForAPI(res, api).(InputEnabled)
-		if !ok {
-			continue
-		}
-		if kinematic == nil {
-			kinematic = ie
-			continue
-		}
-		if kinematic != ie {
-			logger.Errorw(
-				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
-				"resource", res.Name().ShortName(),
-			)
-			return nil
-		}
-	}
-	return kinematic
-}
-
 // FrameContribution reports the frame-system capabilities a resource offers: its kinematic (InputEnabled),
 // model (ModelFramer), and geometry (Shaped) handles, any of which may be nil. For an ordinary resource each is
 // the resource itself when it implements that interface; for a composite each is resolved across the
-// several APIs it serves. refuse follows ResolveKinematic, which the caller omits from the frame system.
+// several APIs it serves. refuse is true for a composite serving two distinct kinematic subs, which the
+// caller omits from the frame system.
 func FrameContribution(res resource.Resource) (kinematic InputEnabled, model ModelFramer, shaped resource.Shaped, refuse bool) {
 	// A composite is one physical device, so model and shaped take the first sub providing each. Two distinct
 	// kinematic subs are unsupported (refused) since they can't share one frame's inputs.
@@ -338,12 +313,30 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// svc.components maps a short resource name to its kinematic handle for CurrentInputs.
+	// svc.components maps a short resource name to its kinematic handle for CurrentInputs. Two distinct
+	// kinematic subresources under one short name (a composite serving two kinematic APIs) can't share one
+	// frame's inputs, so that name is refused.
 	svc.components = make(map[string]InputEnabled)
+	refused := make(map[string]bool)
 	for name, dep := range deps {
-		if kinematic := ResolveKinematic(dep, svc.logger); kinematic != nil {
-			svc.components[name.Name] = kinematic
+		kinematic, ok := dep.(InputEnabled)
+		if !ok {
+			continue
 		}
+		short := name.Name
+		if refused[short] {
+			continue
+		}
+		if existing, present := svc.components[short]; present && existing != kinematic {
+			delete(svc.components, short)
+			refused[short] = true
+			svc.logger.Errorw(
+				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
+				"resource", short,
+			)
+			continue
+		}
+		svc.components[short] = kinematic
 	}
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
