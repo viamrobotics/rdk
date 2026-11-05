@@ -361,8 +361,6 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-// runShortStreamSession runs a session that streams a short ramp and then closes targets, and
-// returns the error the session ended with.
 func runShortStreamSession(t *testing.T, ms *builtIn) error {
 	t.Helper()
 	opts := streamTestOptions()
@@ -387,7 +385,6 @@ func runShortStreamSession(t *testing.T, ms *builtIn) error {
 	}
 }
 
-// readOnlyDiagnosticsFile reads the one diagnostics file matching pattern under dir.
 func readOnlyDiagnosticsFile(t *testing.T, dir, pattern string) streamDiagnosticsFile {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(dir, pattern))
