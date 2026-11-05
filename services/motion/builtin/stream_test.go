@@ -385,7 +385,7 @@ func runShortStreamSession(t *testing.T, ms *builtIn) error {
 	}
 }
 
-func readOnlyDiagnosticsFile(t *testing.T, dir, pattern string) streamDiagnosticsFile {
+func loadDiagnosticsFile(t *testing.T, dir, pattern string) streamDiagnosticsFile {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(dir, pattern))
 	test.That(t, err, test.ShouldBeNil)
@@ -405,7 +405,7 @@ func TestTempStreamArmJointPositionsWritesDiagnosticsFile(t *testing.T) {
 
 	test.That(t, runShortStreamSession(t, ms), test.ShouldBeNil)
 
-	doc := readOnlyDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/stream-diagnostics-arm-*.json")
+	doc := loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/stream-diagnostics-arm-*.json")
 	test.That(t, doc.Arm, test.ShouldEqual, "arm")
 	test.That(t, doc.Error, test.ShouldBeEmpty)
 	test.That(t, doc.Stats.JointPositionTargetsReceived > 0, test.ShouldBeTrue)
@@ -434,7 +434,7 @@ func TestTempStreamArmJointPositionsWritesDiagnosticsFileOnError(t *testing.T) {
 	sessionErr := runShortStreamSession(t, ms)
 	test.That(t, sessionErr, test.ShouldNotBeNil)
 
-	doc := readOnlyDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics-err/tag=arm/stream-diagnostics-arm-*-err.json")
+	doc := loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics-err/tag=arm/stream-diagnostics-arm-*-err.json")
 	test.That(t, doc.Error, test.ShouldEqual, sessionErr.Error())
 
 	successFiles, err := filepath.Glob(filepath.Join(dir, "tag=arm-stream-diagnostics", "*", "*.json"))
