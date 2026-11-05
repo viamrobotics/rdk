@@ -596,19 +596,14 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 	return names
 }
 
-// resourceNodeNames returns one name per resource graph node, with any configured remote prefix applied.
-// A composite yields its single node name here, not one name per API it serves. Callers that
-// address a resource by its underlying node rather than by each advertised API want this.
-func (manager *resourceManager) resourceNodeNames() []resource.Name {
-	return manager.resources.SimpleNamesWhere(func(resource.Name, *resource.GraphNode) bool {
-		return true
-	})
-}
-
 // AllNonCollidingResourceNames returns every advertised resource name, expanding a composite into one name
 // per API it serves (all valid and non-colliding) so consumers see each API view.
 func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
-	return manager.resources.ExpandCompositeNames(manager.resourceNodeNames())
+	return manager.resources.ExpandCompositeNames(
+		manager.resources.SimpleNamesWhere(func(resource.Name, *resource.GraphNode) bool {
+			return true
+		}),
+	)
 }
 
 // ResourceNames returns the names of all resources in the manager, excluding the following types of resources:

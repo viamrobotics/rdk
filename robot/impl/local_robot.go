@@ -720,10 +720,7 @@ func newWithResources(
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
-		var found bool
-		var match resource.Name
-		names := r.manager.resourceNodeNames()
-		for _, name := range names {
+		for _, name := range r.manager.AllNonCollidingResourceNames() {
 			if name.Name == res {
 				// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
 				return r.ResourceByName(resource.SimpleName(name.Name))
@@ -1019,7 +1016,7 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 ) (resource.Dependencies, map[resource.Name]int64) {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
-	allNames := r.manager.resourceNodeNames()
+	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
 	snapshot := make(map[resource.Name]int64)
 	for _, n := range allNames {
