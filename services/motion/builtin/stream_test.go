@@ -459,8 +459,8 @@ func TestTempStreamArmJointPositionsDiagnosticsFileMetadataTags(t *testing.T) {
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	dir := t.TempDir()
 	ms.conf = &Config{
-		StreamDiagnosticsFilePath:        dir,
-		StreamDiagnosticsMetadataTagKeys: []string{"pass-id", "absent", "other"},
+		StreamDiagnosticsFilePath:                    dir,
+		StreamDiagnosticsMetadataKeysToUseAsFileTags: []string{"pass-id", "absent", "other"},
 	}
 
 	ctx := metadata.Set(context.Background(), "pass-id", "pass123", "other", "abc", "unlisted", "nope")
@@ -475,7 +475,7 @@ func TestTempStreamArmJointPositionsRejectsUnsafeMetadataTagValue(t *testing.T) 
 	ms, _ := newStreamTestService(t)
 	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
 	dir := t.TempDir()
-	ms.conf = &Config{StreamDiagnosticsFilePath: dir, StreamDiagnosticsMetadataTagKeys: []string{"pass-id"}}
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir, StreamDiagnosticsMetadataKeysToUseAsFileTags: []string{"pass-id"}}
 
 	targets := make(chan []referenceframe.Input)
 	close(targets)

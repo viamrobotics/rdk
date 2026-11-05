@@ -167,7 +167,12 @@ type streamDiagnosticsFile struct {
 }
 
 func (ms *builtIn) writeStreamDiagnostics(
-	armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, metadataTags []string, sessionErr error,
+	armName string,
+	opts streaming.StreamOptions,
+	diag *diagnostics.SingleSessionDiagnostics,
+	start time.Time,
+	metadataTags []string,
+	sessionErr error,
 ) error {
 	if ms.conf == nil || ms.conf.StreamDiagnosticsFilePath == "" {
 		return nil
@@ -211,7 +216,7 @@ func (ms *builtIn) streamDiagnosticsMetadataTags(ctx context.Context) ([]string,
 		return nil, nil
 	}
 	var tags []string
-	for _, key := range ms.conf.StreamDiagnosticsMetadataTagKeys {
+	for _, key := range ms.conf.StreamDiagnosticsMetadataKeysToUseAsFileTags {
 		value, ok := metadata.Get(ctx, key)
 		if !ok || value == "" {
 			continue
