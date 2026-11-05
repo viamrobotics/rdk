@@ -92,6 +92,11 @@ type Config struct {
 	LogPlannerErrors            bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
+	// StreamDiagnosticsFilePath, when set, is the directory each arm-streaming session writes its
+	// diagnostics file under when it ends. Point it at (a subdirectory of) the data capture
+	// directory for the files to be synced.
+	StreamDiagnosticsFilePath string `json:"stream_diagnostics_file_path"`
+
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 

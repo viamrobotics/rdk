@@ -2,7 +2,10 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"go.viam.com/rdk/components/arm"
@@ -135,12 +138,69 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		close(s.done)
 	}()
 
+	sessionStart := time.Now()
 	err = streaming.Run(streamCtx, ms.logger, a, opts, targets, seed, diag, responses)
 	if err != nil {
 		ms.logger.CWarnf(streamCtx, "arm streaming session for %q ended with error: %v", armName, err)
 	}
 	ms.logger.Infow("arm streaming session stats", "arm", armName, "options", opts, "stats", diag.Stats())
+	if werr := ms.writeStreamDiagnostics(armName, opts, diag, sessionStart, err); werr != nil {
+		ms.logger.Warnf("couldn't write arm streaming diagnostics: %v", werr)
+	}
 	return err
+}
+
+// streamDiagnosticsFile is the JSON document written when an arm-streaming session ends.
+type streamDiagnosticsFile struct {
+	Arm               string                                     `json:"arm"`
+	StartTime         time.Time                                  `json:"start_time"`
+	EndTime           time.Time                                  `json:"end_time"`
+	Error             string                                     `json:"error,omitempty"`
+	Options           streaming.StreamOptions                    `json:"options"`
+	Stats             diagnostics.SingleSessionStats             `json:"stats"`
+	LastWindowDetails diagnostics.SingleSessionLastWindowDetails `json:"last_window_details"`
+}
+
+// writeStreamDiagnostics writes the ended session's diagnostics under stream_diagnostics_file_path,
+// in tag=<type>/tag=<arm>/ subdirectories so data manager can infer tags when syncing the file.
+// It does nothing when stream_diagnostics_file_path is unset.
+func (ms *builtIn) writeStreamDiagnostics(
+	armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, sessionErr error,
+) error {
+	if ms.conf == nil || ms.conf.StreamDiagnosticsFilePath == "" {
+		return nil
+	}
+
+	end := time.Now()
+	doc := streamDiagnosticsFile{
+		Arm:               armName,
+		StartTime:         start,
+		EndTime:           end,
+		Options:           opts,
+		Stats:             diag.Stats(),
+		LastWindowDetails: diag.LastWindowDetails(),
+	}
+	typeTag := "tag=arm-stream-diagnostics"
+	errSuffix := ""
+	if sessionErr != nil {
+		doc.Error = sessionErr.Error()
+		typeTag += "-err"
+		errSuffix = "-err"
+	}
+	bytes, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	dir := filepath.Join(ms.conf.StreamDiagnosticsFilePath, typeTag, "tag="+armName)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	fn := filepath.Join(dir, fmt.Sprintf("stream-diagnostics-%s-%s-ms-%d%s.json",
+		armName, end.Format(time.RFC3339), end.Sub(start).Milliseconds(), errSuffix))
+
+	ms.logger.Infof("writing arm streaming diagnostics to %s", fn)
+	return os.WriteFile(fn, bytes, 0o600)
 }
 
 func (ms *builtIn) streamStatus(armName string) map[string]any {
