@@ -214,7 +214,7 @@ func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *da
 // resource. A nil resource and an error is returned in the case of no resource found, or
 // multiple matching remote resources found.
 func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
-	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
+	n, err := r.manager.resources.NodeBySimpleNameAndAPI(name, api)
 	if err != nil {
 		return nil, err
 	}
@@ -914,9 +914,9 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 
-		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// Resolve through NodeBySimpleNameAndAPI so the Resource and its UpdatedAt
 		// come from one *GraphNode, keeping deps and snapshot in lockstep.
-		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
+		node, err := r.manager.resources.NodeBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
 		if err != nil {
 			r.logger.Infow(
 				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
@@ -989,9 +989,9 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// Resolve through NodeBySimpleNameAndAPI so the Resource and its UpdatedAt
 		// come from one *GraphNode, keeping deps and snapshot in lockstep.
-		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
+		node, err := r.manager.resources.NodeBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)

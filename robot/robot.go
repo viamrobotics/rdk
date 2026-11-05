@@ -201,7 +201,7 @@ type LocalRobot interface {
 	Kill()
 
 	// FindBySimpleNameAndAPI returns a resource from the resource graph. See
-	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
+	// [resource.Graph.NodeBySimpleNameAndAPI] for specifics about what is
 	// returned in the case of name collisions.
 	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
 
