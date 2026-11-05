@@ -796,7 +796,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					)
 					continue
 				}
-				rc.Logger().CErrorw(ctx,
+				// Warn rather than error: the reconnect loop usually restores the connection within
+				// reconnectEvery, and each failed reconnect attempt is logged as an error.
+				rc.Logger().CWarnw(ctx,
 					"lost connection to remote",
 					"error", outerError,
 					"address", rc.address,
@@ -1121,7 +1123,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
+		rc.Logger().Warnw("failed to get remote resource names", "error", err.Error())
 		return nil
 	}
 	rc.mu.RLock()
@@ -1134,7 +1136,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 // ResourceRPCAPIs returns a list of all known resource APIs.
 func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource types", "error", err)
+		rc.Logger().Warnw("failed to get remote resource types", "error", err)
 		return nil
 	}
 
