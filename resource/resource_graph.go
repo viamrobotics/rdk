@@ -809,6 +809,10 @@ func (g *Graph) findBySimpleName(name string) (Name, error) {
 // the Name.Name field of the return value will not. Unlike [Graph.FindBySimpleName] it does not
 // apply machine-wide name-uniqueness resolution, so it may return several names sharing a simple
 // name; use it where all matches are needed (e.g. to enumerate collisions for logging).
+//
+// Internal resources ("rdk-internal" namespace) are ignored because none of them besides the
+// framesystem have exposed grpc methods. In any case, the framesystem is expected to be called for
+// differently.
 func (g *Graph) FindAllBySimpleName(name string) []Name {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -820,6 +824,9 @@ func (g *Graph) FindAllBySimpleName(name string) []Name {
 func (g *Graph) namesMatchingSimpleName(name string) []Name {
 	var result []Name
 	for key, val := range g.nodes.simpleNames.all() {
+		if key.api.Type.Namespace == APINamespaceRDKInternal {
+			continue
+		}
 		if name != key.name || !(key.api.IsComponent() || key.api.IsService()) {
 			continue
 		}

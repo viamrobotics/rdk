@@ -603,12 +603,14 @@ func (manager *resourceManager) internalResourceNames() []resource.Name {
 	return names
 }
 
-// AllNonCollidingResourceNames returns the names of all non-colliding resources in the
-// manager. To be used by weak and optional dependency updates.
+// AllNonCollidingResourceNames returns every advertised resource name, expanding a composite into one name
+// per API it serves (all valid and non-colliding) so consumers see each API view.
 func (manager *resourceManager) AllNonCollidingResourceNames() []resource.Name {
-	return manager.resources.SimpleNamesWhere(func(resource.Name, *resource.GraphNode) bool {
-		return true
-	})
+	return manager.resources.ExpandCompositeNames(
+		manager.resources.SimpleNamesWhere(func(resource.Name, *resource.GraphNode) bool {
+			return true
+		}),
+	)
 }
 
 // ResourceNames returns the names of all resources in the manager, excluding the following types of resources:
