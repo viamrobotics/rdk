@@ -17,7 +17,7 @@ import (
 )
 
 // NodeNotFoundError is returned when the name and API combination are not found by
-// FindBySimpleNameAndAPI, or when a simple name is not found by FindBySimpleName.
+// NodeBySimpleNameAndAPI, or when a simple name is not found by FindBySimpleName.
 type NodeNotFoundError struct {
 	Name string
 	API  API
@@ -34,7 +34,7 @@ func IsNodeNotFoundError(err error) bool {
 }
 
 // MultipleMatchingRemoteNodesError is returned when more than one remote resource node matches the name
-// and API query passed to FindBySimpleNameAndAPI.
+// and API query passed to NodeBySimpleNameAndAPI.
 type MultipleMatchingRemoteNodesError struct {
 	Name    string
 	API     API
@@ -75,7 +75,7 @@ type graphNodes map[Name]*GraphNode
 // graphStorage is used by [Graph] to store the collection of nodes. It
 // consists of
 // - a map of [Name] to *[GraphNode]s, used to serve most queries
-// - a simpleNameIndex, used to serve [Graph.FindBySimpleNameAndAPI] (simpleName, api) lookups
+// - a simpleNameIndex, used to serve [Graph.NodeBySimpleNameAndAPI] (simpleName, api) lookups
 // The various methods on graphStorage handle keeping these in sync.
 // graphStorage itself is _not_ thread safe. and depends on [Graph] to handle
 // synchronization between goroutines.
@@ -319,7 +319,7 @@ func (s graphStorage) Copy() graphStorage {
 	}
 }
 
-func (s graphStorage) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
+func (s graphStorage) NodeBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	return s.simpleNames.find(name, api)
 }
 
@@ -544,13 +544,13 @@ func (g *Graph) UpdateNodePrefix(name Name, prefix string) {
 	g.nodes.reindexCompositeAPIs(name, node)
 }
 
-// FindBySimpleNameAndAPI returns a single graph node based on a simple name string and an
+// NodeBySimpleNameAndAPI returns a single graph node based on a simple name string and an
 // API. It returns an error in the case that no matching node is found or multiple remote
 // nodes are found.
-func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
+func (g *Graph) NodeBySimpleNameAndAPI(name string, api API) (*GraphNode, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
-	return g.nodes.FindBySimpleNameAndAPI(name, api)
+	return g.nodes.NodeBySimpleNameAndAPI(name, api)
 }
 
 // ReindexComposite refreshes a node's composite index entries to match its model's current API set. Reads
@@ -700,8 +700,8 @@ func (g *Graph) ExpandCompositeNames(names []Name) []Name {
 	defer g.mu.RUnlock()
 	var out []Name
 	for _, n := range names {
-		// FindBySimpleNameAndAPI resolves a remote's prefixed name as well as a plain local name.
-		node, err := g.nodes.FindBySimpleNameAndAPI(n.Name, n.API)
+		// NodeBySimpleNameAndAPI resolves a remote's prefixed name as well as a plain local name.
+		node, err := g.nodes.NodeBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			out = append(out, n)
 			continue

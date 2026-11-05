@@ -1164,8 +1164,8 @@ type someResource struct {
 	TriviallyCloseable
 }
 
-func TestFindBySimpleNameAndAPI(t *testing.T) {
-	// Tests the success and failure paths of FindBySimpleNameAndAPI, which is invoked by
+func TestNodeBySimpleNameAndAPI(t *testing.T) {
+	// Tests the success and failure paths of NodeBySimpleNameAndAPI, which is invoked by
 	// all gRPC server-wrappers to route gRPC requests to the correct resource and handles
 	// duplicately-named resources.
 
@@ -1193,52 +1193,52 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 	}
 
 	// Assert that find on an empty graph returns the correct NodeNotFoundError.
-	foundNode, err := g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err := g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, foundNode, test.ShouldBeNil)
 	test.That(t, err, test.ShouldResemble, fooNotFoundError)
 
 	// Assert that find with just a local "foo" finds localNode.
 	g.AddNode(localName, localNode)
-	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, foundNode, test.ShouldEqual, localNode)
 
 	// Assert that find with a local "foo" _and_ a remote "foo" still finds localNode.
 	g.AddNode(remote1Name, remote1Node)
-	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, foundNode, test.ShouldEqual, localNode)
 
 	// Assert that find with a local "foo" and _two_ remote "foo"s still finds localNode.
 	g.AddNode(remote2Name, remote2Node)
-	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, foundNode, test.ShouldEqual, localNode)
 
 	// Assert that find with _two_ remote "foo"s returns the correct MultipleMatchingRemoteNodesError.
 	localNode.MarkForRemoval()
 	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
-	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, foundNode, test.ShouldBeNil)
 	test.That(t, err, shouldMatchMultipleNodesErr, remote1AndRemote2MatchingError)
 
 	// Assert that setting a prefix on remote1Node allows find to get remote2Node.
 	g.UpdateNodePrefix(remote1Name, "prefix.")
-	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, foundNode, test.ShouldEqual, remote2Node)
 
 	// Assert that setting the same prefix on remote2Node makes find return the expected
 	// MultipleMatchingRemoteNodesError when looking for "prefix.foo".
 	g.UpdateNodePrefix(remote2Name, "prefix.")
-	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("prefix.foo", apiA)
 	test.That(t, foundNode, test.ShouldBeNil)
 	test.That(t, err, shouldMatchMultipleNodesErr, remote1AndRemote2PrefixedMatchingError)
 
 	// Assert that removing remote1Node allows find to get remote2Node with "prefix.foo".
 	remote1Node.MarkForRemoval()
 	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
-	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("prefix.foo", apiA)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, foundNode, test.ShouldEqual, remote2Node)
 
@@ -1246,10 +1246,10 @@ func TestFindBySimpleNameAndAPI(t *testing.T) {
 	// for both "prefix.foo" and "foo".
 	remote2Node.MarkForRemoval()
 	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
-	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("foo", apiA)
 	test.That(t, foundNode, test.ShouldBeNil)
 	test.That(t, err, test.ShouldResemble, fooNotFoundError)
-	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	foundNode, err = g.NodeBySimpleNameAndAPI("prefix.foo", apiA)
 	test.That(t, foundNode, test.ShouldBeNil)
 	test.That(t, err, test.ShouldResemble, fooPrefixedNotFoundError)
 }
@@ -1541,17 +1541,17 @@ func TestCompositeNodeForAPIResolvesEachAPI(t *testing.T) {
 	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
 
 	// The node is stored under the canonical api and resolves directly
-	got, err := g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	got, err := g.NodeBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
 	// Each api resolves to the same one node, even though nothing is cached under it
-	got, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	got, err = g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
 	// An api the model does not serve is still not found
-	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testMotorAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 }
 
@@ -1577,13 +1577,13 @@ func TestLocalCompositeWinsOverRemote(t *testing.T) {
 	test.That(t, g.AddNode(remoteSensor, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
 
 	// Resolving the sensor API must return the local composite, not the same-named remote sensor.
-	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	got, err := g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, localComposite)
 
 	// The composite's canonical API still resolves to it directly, and the remote is reachable only
 	// under its own prefixed name once prefixed (unprefixed, local wins).
-	got, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	got, err = g.NodeBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, localComposite)
 }
@@ -1602,16 +1602,16 @@ func TestCompositeIndexMaintenance(t *testing.T) {
 	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
 
 	// The non-configured API resolves to the one node via the index.
-	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	got, err := g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
 	// Deleting the composite drops both its canonical primary entry and its composite index
 	// entry, so neither api resolves afterward.
 	g.nodes.Delete(canonical)
-	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
-	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 	test.That(t, g.nodes.simpleNames.composite, test.ShouldBeEmpty)
 }
@@ -1639,9 +1639,9 @@ func TestCompositeIndexModelReconfigure(t *testing.T) {
 	test.That(t, g.AddNode(name, node), test.ShouldBeNil)
 
 	// cam+sens: the sens API resolves; motor does not.
-	_, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	_, err := g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testMotorAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 
 	// Reconfigure the model in place to cam+motor, mirroring the manager's rebuild (new config + a new
@@ -1652,11 +1652,11 @@ func TestCompositeIndexModelReconfigure(t *testing.T) {
 
 	// The dropped sens API no longer resolves to this node; the newly-served motor API now does; and
 	// the configured API still resolves throughout.
-	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
-	_, err = g.FindBySimpleNameAndAPI("dev", testMotorAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testMotorAPI)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1677,9 +1677,9 @@ func TestCompositeIndexViaPlaceholderReplace(t *testing.T) {
 	configured := NewConfiguredGraphNode(Config{Name: "dev", API: testCamAPI, Model: model}, &combo{Named: compName.AsNamed()}, model)
 	test.That(t, g.AddNode(compName, configured), test.ShouldBeNil)
 
-	_, err := g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	_, err := g.NodeBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	_, err = g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -1762,7 +1762,7 @@ func TestGraphCloneCompositeIndex(t *testing.T) {
 	test.That(t, g.AddNode(canonical, node), test.ShouldBeNil)
 
 	clone := g.Clone()
-	got, err := clone.FindBySimpleNameAndAPI("dev", testSensAPI)
+	got, err := clone.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 }
@@ -1782,10 +1782,10 @@ func TestCompositeIndexWhenConfigAPINotCanonical(t *testing.T) {
 	test.That(t, g.AddNode(stored, node), test.ShouldBeNil)
 
 	// The stored api resolves directly; the sorted-first api resolves through the index.
-	got, err := g.FindBySimpleNameAndAPI("dev", testSensAPI)
+	got, err := g.NodeBySimpleNameAndAPI("dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
-	got, err = g.FindBySimpleNameAndAPI("dev", testCamAPI)
+	got, err = g.NodeBySimpleNameAndAPI("dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 }
@@ -1843,27 +1843,27 @@ func TestCompositeRemotePrefixChangeKeepsAPIs(t *testing.T) {
 	g.UpdateNodePrefix(name, "p1.")
 
 	// Resolves under both APIs at the initial prefix (the non-configured one via the composite index).
-	got, err := g.FindBySimpleNameAndAPI("p1.dev", testCamAPI)
+	got, err := g.NodeBySimpleNameAndAPI("p1.dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
-	got, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
+	got, err = g.NodeBySimpleNameAndAPI("p1.dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
 	// Change the prefix: both APIs must resolve under the NEW prefix (reindex moved the
 	// composite entry, not just the primary one).
 	g.UpdateNodePrefix(name, "p2.")
-	got, err = g.FindBySimpleNameAndAPI("p2.dev", testCamAPI)
+	got, err = g.NodeBySimpleNameAndAPI("p2.dev", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
-	got, err = g.FindBySimpleNameAndAPI("p2.dev", testSensAPI)
+	got, err = g.NodeBySimpleNameAndAPI("p2.dev", testSensAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, node)
 
 	// The old prefix no longer resolves under either API.
-	_, err = g.FindBySimpleNameAndAPI("p1.dev", testCamAPI)
+	_, err = g.NodeBySimpleNameAndAPI("p1.dev", testCamAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
-	_, err = g.FindBySimpleNameAndAPI("p1.dev", testSensAPI)
+	_, err = g.NodeBySimpleNameAndAPI("p1.dev", testSensAPI)
 	test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 }
 
@@ -1885,7 +1885,7 @@ func TestRemoteCompositeAmbiguityCountsAllRemotes(t *testing.T) {
 	plainName := Name{API: testSensAPI, Remote: "remoteB", Name: "foo"}
 	test.That(t, g.AddNode(plainName, NewUnconfiguredGraphNode(Config{}, nil)), test.ShouldBeNil)
 
-	_, err := g.FindBySimpleNameAndAPI("foo", testSensAPI)
+	_, err := g.NodeBySimpleNameAndAPI("foo", testSensAPI)
 	test.That(t, err, shouldMatchMultipleNodesErr, &MultipleMatchingRemoteNodesError{
 		Name:    "foo",
 		API:     testSensAPI,
@@ -1893,14 +1893,14 @@ func TestRemoteCompositeAmbiguityCountsAllRemotes(t *testing.T) {
 	})
 
 	// The composite's canonical api is served only by remote A, so it resolves to A with no ambiguity.
-	got, err := g.FindBySimpleNameAndAPI("foo", testCamAPI)
+	got, err := g.NodeBySimpleNameAndAPI("foo", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, compNode)
 }
 
-// TestFindBySimpleNameAndAPISkipsMarkedForRemovalComposite asserts that once a composite is marked for
+// TestNodeBySimpleNameAndAPISkipsMarkedForRemovalComposite asserts that once a composite is marked for
 // removal it stops resolving under every one of its APIs.
-func TestFindBySimpleNameAndAPISkipsMarkedForRemovalComposite(t *testing.T) {
+func TestNodeBySimpleNameAndAPISkipsMarkedForRemovalComposite(t *testing.T) {
 	model := NewModel("acme", "test", "markremovalcombo")
 	RegisterMultiAPI([]API{testCamAPI, testSensAPI}, model, newComboConstructor())
 	defer Deregister(testCamAPI, model)
@@ -1913,7 +1913,7 @@ func TestFindBySimpleNameAndAPISkipsMarkedForRemovalComposite(t *testing.T) {
 
 	// Resolves under each API before removal.
 	for _, api := range []API{testCamAPI, testSensAPI} {
-		_, err := g.FindBySimpleNameAndAPI("dev", api)
+		_, err := g.NodeBySimpleNameAndAPI("dev", api)
 		test.That(t, err, test.ShouldBeNil)
 	}
 
@@ -1921,14 +1921,14 @@ func TestFindBySimpleNameAndAPISkipsMarkedForRemovalComposite(t *testing.T) {
 
 	// Once marked for removal it is found under none of its APIs.
 	for _, api := range []API{testCamAPI, testSensAPI} {
-		_, err := g.FindBySimpleNameAndAPI("dev", api)
+		_, err := g.NodeBySimpleNameAndAPI("dev", api)
 		test.That(t, IsNodeNotFoundError(err), test.ShouldBeTrue)
 	}
 }
 
-// TestFindBySimpleNameAndAPISkipsRemovingRemote covers two remotes advertising the same name where one
+// TestNodeBySimpleNameAndAPISkipsRemovingRemote covers two remotes advertising the same name where one
 // is being removed. Resolution returns the live one rather than reporting a spurious collision.
-func TestFindBySimpleNameAndAPISkipsRemovingRemote(t *testing.T) {
+func TestNodeBySimpleNameAndAPISkipsRemovingRemote(t *testing.T) {
 	g := NewGraph(logging.NewTestLogger(t))
 	removing := NewUnconfiguredGraphNode(Config{}, nil)
 	live := NewUnconfiguredGraphNode(Config{}, nil)
@@ -1936,7 +1936,7 @@ func TestFindBySimpleNameAndAPISkipsRemovingRemote(t *testing.T) {
 	test.That(t, g.AddNode(Name{API: testCamAPI, Name: "combo", Remote: "r2"}, live), test.ShouldBeNil)
 	removing.MarkForRemoval()
 
-	got, err := g.FindBySimpleNameAndAPI("combo", testCamAPI)
+	got, err := g.NodeBySimpleNameAndAPI("combo", testCamAPI)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldEqual, live)
 }
@@ -1969,7 +1969,7 @@ func TestPrefixedRemoteCompositeSimpleNamesAndExpand(t *testing.T) {
 
 	// Both APIs resolve under the prefixed simple name.
 	for _, api := range []API{testCamAPI, testSensAPI} {
-		_, err := g.FindBySimpleNameAndAPI("p1.combo", api)
+		_, err := g.NodeBySimpleNameAndAPI("p1.combo", api)
 		test.That(t, err, test.ShouldBeNil)
 	}
 
