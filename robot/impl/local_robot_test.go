@@ -5502,6 +5502,110 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
+func TestMaintenanceSensorOverride(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// "ThatsMyWallet" always reads false, so the sensor blocks every reconfigure.
+	maintenanceCfg := &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"}
+	sensorCfg := resource.Config{Name: "sensor", Model: model, API: sensor.API}
+	sensor2Cfg := resource.Config{Name: "sensor2", Model: model, API: sensor.API}
+	sensor3Cfg := resource.Config{Name: "sensor3", Model: model, API: sensor.API}
+
+	newRobot := func(t *testing.T) *localRobot {
+		t.Helper()
+		r := setupLocalRobot(t, ctx, &config.Config{
+			MaintenanceConfig: maintenanceCfg,
+			Components:        []resource.Config{sensorCfg},
+		}, logger)
+		return r.(*localRobot)
+	}
+	hasResource := func(r *localRobot, name string) bool {
+		_, err := r.ResourceByName(sensor.Named(name))
+		return err == nil
+	}
+
+	cfgWith := func(extra ...resource.Config) *config.Config {
+		return &config.Config{
+			MaintenanceConfig: maintenanceCfg,
+			Components:        append([]resource.Config{sensorCfg}, extra...),
+		}
+	}
+
+	t.Run("override applies exactly one blocked reconfigure", func(t *testing.T) {
+		r := newRobot(t)
+
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeFalse)
+
+		expiresAt, err := r.OverrideMaintenanceSensor(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, expiresAt.After(time.Now()), test.ShouldBeTrue)
+		gotExpiry, armed := r.MaintenanceOverrideExpiry()
+		test.That(t, armed, test.ShouldBeTrue)
+		test.That(t, gotExpiry, test.ShouldEqual, expiresAt)
+		test.That(t, r.RestartAllowed(), test.ShouldBeFalse)
+
+		// Re-delivering the same blocked config, as the cloud watcher does each poll, applies it.
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeTrue)
+		_, armed = r.MaintenanceOverrideExpiry()
+		test.That(t, armed, test.ShouldBeFalse)
+
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg, sensor3Cfg))
+		test.That(t, hasResource(r, "sensor3"), test.ShouldBeFalse)
+	})
+
+	t.Run("unchanged config does not consume the override", func(t *testing.T) {
+		r := newRobot(t)
+		_, err := r.OverrideMaintenanceSensor(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		r.Reconfigure(ctx, cfgWith())
+		_, armed := r.MaintenanceOverrideExpiry()
+		test.That(t, armed, test.ShouldBeTrue)
+
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeTrue)
+	})
+
+	t.Run("lapsed override does not apply", func(t *testing.T) {
+		r := newRobot(t)
+		_, err := r.OverrideMaintenanceSensor(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		r.maintenanceOverrideMu.Lock()
+		r.maintenanceOverrideUntil = time.Now().Add(-time.Second)
+		r.maintenanceOverrideMu.Unlock()
+
+		_, armed := r.MaintenanceOverrideExpiry()
+		test.That(t, armed, test.ShouldBeFalse)
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeFalse)
+	})
+}
+
+func TestMaintenanceOverrideWindow(t *testing.T) {
+	test.That(t, maintenanceOverrideWindow(nil), test.ShouldEqual, 2*defaultConfigRefreshInterval)
+	test.That(t, maintenanceOverrideWindow(&config.Config{}), test.ShouldEqual, 2*defaultConfigRefreshInterval)
+	test.That(t,
+		maintenanceOverrideWindow(&config.Config{Cloud: &config.Cloud{RefreshInterval: time.Minute}}),
+		test.ShouldEqual, 2*time.Minute)
+}
+
 func TestMaintenanceConfigLogs(t *testing.T) {
 	ctx := context.Background()
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
