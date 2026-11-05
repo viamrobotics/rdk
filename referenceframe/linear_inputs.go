@@ -118,6 +118,18 @@ func (lis *LinearInputsSchema) GetLimits() []Limit {
 	return ret
 }
 
+// FrameForIndex returns the frame that owns linearized input idx and idx's position within that
+// frame's DoF. The frame is nil if idx is out of range or the schema has no frames attached yet
+// (see `LinearInputs.GetSchema`).
+func (lis *LinearInputsSchema) FrameForIndex(idx int) (Frame, int) {
+	for _, meta := range lis.metas {
+		if idx >= meta.offset && idx < meta.offset+meta.dof {
+			return meta.frame, idx - meta.offset
+		}
+	}
+	return nil, -1
+}
+
 // Jog returns a value that's one "jog" away from its current value. Where a jog is a fraction
 // (`percentJog`) of the total range of the input.
 func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float64) float64 {

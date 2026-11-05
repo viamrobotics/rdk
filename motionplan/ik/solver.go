@@ -33,6 +33,21 @@ type SeedSolveMetaData struct {
 	Attempts int
 	Errors   int
 	Valid    int
+
+	// BestScore is the lowest cost any attempt on this seed converged to. It is only meaningful
+	// when BestConfiguration is non-nil.
+	BestScore float64
+	// BestConfiguration is the configuration that reached BestScore, or nil if no attempt
+	// converged. When no solution is found, this is how close the solver got.
+	BestConfiguration []float64
+}
+
+// mergeBest folds other's best attempt into md, keeping whichever scored lower.
+func (md *SeedSolveMetaData) mergeBest(other SeedSolveMetaData) {
+	if other.BestConfiguration != nil && (md.BestConfiguration == nil || other.BestScore < md.BestScore) {
+		md.BestScore = other.BestScore
+		md.BestConfiguration = other.BestConfiguration
+	}
 }
 
 // Solver defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found

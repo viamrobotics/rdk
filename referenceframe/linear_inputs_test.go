@@ -111,3 +111,39 @@ func TestLinearInputsLimits(t *testing.T) {
 		}
 	}
 }
+
+func TestLinearInputsSchemaFrameForIndex(t *testing.T) {
+	fs := NewEmptyFrameSystem("fs")
+	test.That(t, fs.AddFrame(NewZeroStaticFrame("static"), fs.World()), test.ShouldBeNil)
+	rot, err := NewRotationalFrame("rot", spatial.R4AA{RZ: 1}, Limit{Min: -1, Max: 1})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(rot, fs.World()), test.ShouldBeNil)
+	shoulder, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1}, Limit{Min: -1, Max: 1})
+	test.That(t, err, test.ShouldBeNil)
+	elbow, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1}, Limit{Min: -1, Max: 1})
+	test.That(t, err, test.ShouldBeNil)
+	arm, err := NewSerialModel("arm", []Frame{shoulder, elbow})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(arm, fs.World()), test.ShouldBeNil)
+
+	li := NewLinearInputs()
+	li.Put("arm", []Input{0, 0})
+	li.Put("static", []Input{})
+	li.Put("rot", []Input{0})
+	schema, err := li.GetSchema(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	for idx, want := range []struct {
+		frame  string
+		dofIdx int
+	}{{"arm", 0}, {"arm", 1}, {"rot", 0}} {
+		f, dofIdx := schema.FrameForIndex(idx)
+		test.That(t, f, test.ShouldNotBeNil)
+		test.That(t, f.Name(), test.ShouldEqual, want.frame)
+		test.That(t, dofIdx, test.ShouldEqual, want.dofIdx)
+	}
+
+	f, dofIdx := schema.FrameForIndex(3)
+	test.That(t, f, test.ShouldBeNil)
+	test.That(t, dofIdx, test.ShouldEqual, -1)
+}

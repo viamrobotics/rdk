@@ -323,7 +323,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
-		} else if result < defaultGoalThreshold || !ik.exact {
+		} else {
+			meta[seedNumberRanged].mergeBest(SeedSolveMetaData{BestScore: result, BestConfiguration: solutionRaw})
+		}
+
+		if nloptErr == nil && (result < defaultGoalThreshold || !ik.exact) {
 			meta[seedNumberRanged].Valid++
 			solution := &Solution{
 				Configuration: solutionRaw,
