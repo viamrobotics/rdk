@@ -363,12 +363,21 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources   []resource.Status
-	Modules     []modulestatus.Status
-	Config      config.Revision
-	State       MachineState
-	JobStatuses map[string]JobStatus
-	Packages    []packages.PackageStatus
+	Resources         []resource.Status
+	Modules           []modulestatus.Status
+	Config            config.Revision
+	State             MachineState
+	JobStatuses       map[string]JobStatus
+	Packages          []packages.PackageStatus
+	MaintenanceStatus *MaintenanceStatus
+}
+
+// MaintenanceStatus reports whether the machine would currently allow a reconfigure.
+// Populated only when the machine is running and has a maintenance config; nil otherwise so
+// callers can distinguish "no opinion" from an explicit allow/deny.
+type MaintenanceStatus struct {
+	Allowed bool
+	Reason  string
 }
 
 // JobStatus encapsulates status information about a single JobManager job.

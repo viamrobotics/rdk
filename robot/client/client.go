@@ -1554,6 +1554,13 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		}
 	}
 
+	if pbMaint := resp.GetMaintenanceStatus(); pbMaint != nil {
+		mStatus.MaintenanceStatus = &robot.MaintenanceStatus{
+			Allowed: pbMaint.GetAllowed(),
+			Reason:  pbMaint.GetReason(),
+		}
+	}
+
 	return mStatus, nil
 }
 

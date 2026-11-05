@@ -5502,6 +5502,146 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
+// TestMaintenanceConfigFromPart exercises the `from_part` path, where a subpart defers its
+// reconfigure decision to another (main) part via a sideband SDK connection.
+func TestMaintenanceConfigFromPart(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// A sensor-less config component we can use as "proof of reconfigure": if "sensor2" ends
+	// up on the subpart, reconfigure went through.
+	sensor2 := []resource.Config{{Name: "sensor2", API: sensor.API, Model: model}}
+
+	startMain := func(t *testing.T, mCfg *config.MaintenanceConfig) string {
+		t.Helper()
+		mainCfg := &config.Config{
+			MaintenanceConfig: mCfg,
+			Components: []resource.Config{{Name: "sensor", Model: model, API: sensor.API}},
+		}
+		main := setupLocalRobot(t, context.Background(), mainCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, main.StartWeb(ctx, options), test.ShouldBeNil)
+		return addr
+	}
+
+	subpartFromPartCfg := func(addr string, comps []resource.Config) *config.Config {
+		return &config.Config{
+			// AllowInsecureCreds permits the sideband dial to downgrade to plain TCP against
+			// the in-process test main listener, which doesn't serve TLS. Prod configs don't
+			// set this; the from_part field itself has no insecure toggle.
+			AllowInsecureCreds: true,
+			MaintenanceConfig: &config.MaintenanceConfig{
+				FromPart: &config.FromPartRef{Address: addr},
+			},
+			Components: comps,
+		}
+	}
+
+	t.Run("main allows → subpart reconfigure proceeds", func(t *testing.T) {
+		// "ThatsNotMyWallet" reads true on the valid sensor → main reports allowed=true.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		r := setupLocalRobot(t, ctx, subpartFromPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("main blocks → subpart reconfigure blocked", func(t *testing.T) {
+		// "ThatsMyWallet" reads false on the valid sensor → main reports allowed=false.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet",
+		})
+
+		r := setupLocalRobot(t, ctx, subpartFromPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+	})
+
+	t.Run("main with no maintenance config → subpart reconfigure proceeds (unknown → allow)", func(t *testing.T) {
+		// Main sets no maintenance config, so its MaintenanceStatus field is nil and the
+		// subpart should treat that as "no opinion, proceed."
+		addr := startMain(t, nil)
+
+		r := setupLocalRobot(t, ctx, subpartFromPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("main unreachable → subpart reconfigure blocked", func(t *testing.T) {
+		// Pick an address nothing is listening on. (Port 1 is privileged, so it will fail
+		// fast without lingering DNS or routing.)
+		cfg := subpartFromPartCfg("127.0.0.1:1", nil)
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithReconfig := subpartFromPartCfg("127.0.0.1:1", sensor2)
+		r.Reconfigure(ctx, cfgWithReconfig)
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+	})
+
+	t.Run("borked from_part address self-heals on next config push", func(t *testing.T) {
+		// Subpart starts with a wrong address: every probe fails and reconfigure is blocked.
+		// Then a new config arrives with the correct address; the next reconfigure uses the
+		// NEW address (reconfigureAllowed receives newConfig.MaintenanceConfig) and succeeds.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		badAddrCfg := subpartFromPartCfg("127.0.0.1:1", nil)
+		r := setupLocalRobot(t, ctx, badAddrCfg, logger)
+
+		// Confirm the bad address blocks reconfigure.
+		r.Reconfigure(ctx, subpartFromPartCfg("127.0.0.1:1", sensor2))
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+
+		// Push a corrected config. The next reconfigure uses the new address.
+		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+		got, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("from_part does not cascade: a main that itself follows another part reports nil MaintenanceStatus", func(t *testing.T) {
+		// A machine whose own maintenance is `from_part` must NOT probe on behalf of its
+		// status readers; MaintenanceStatus in its own MachineStatus should be nil.
+		cfg := subpartFromPartCfg("127.0.0.1:1", nil)
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		status, err := r.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status.MaintenanceStatus, test.ShouldBeNil)
+	})
+}
+
 func TestMaintenanceConfigLogs(t *testing.T) {
 	ctx := context.Background()
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
