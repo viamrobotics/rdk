@@ -72,9 +72,9 @@ type Capture struct {
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
 
-	// resourcesByShortName keeps track of every weak-dep resource by short name, so the capture
-	// control sensor can auto enable capture for resources that do not have it specified in the machine config.
-	resourcesByShortName map[string]resource.Resource
+	// deps is every weak-dep resource keyed by (API, name), so the capture control sensor can auto-enable
+	// capture for resources not specified in the machine config.
+	deps resource.Dependencies
 
 	// defaultTags is the service-level tags from the data manager service config.
 	defaultTags []string
@@ -135,7 +135,7 @@ func (c *Capture) newCollectors(
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
 	for res, cfgs := range collectorConfigsByResource {
 		for _, cfg := range cfgs {
-			md := newCollectorMetadata(res, cfg)
+			md := newCollectorMetadata(cfg)
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
@@ -229,7 +229,7 @@ func (c *Capture) Reconfigure(
 	ctx context.Context,
 	frameSystem framesystem.Service,
 	collectorConfigsByResource CollectorConfigsByResource,
-	resourcesByShortName map[string]resource.Resource,
+	deps resource.Dependencies,
 	config Config,
 ) {
 	c.logger.Debug("Reconfigure START")
@@ -266,7 +266,7 @@ func (c *Capture) Reconfigure(
 	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
 	c.defaultCollectorConfigs = collectorConfigsByResource
-	c.resourcesByShortName = resourcesByShortName
+	c.deps = deps
 	c.defaultTags = config.Tags
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
@@ -363,17 +363,10 @@ func (c *Capture) buildCollector(
 	// Get collector constructor for the owning API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
-		if err := unresolvedCaptureMethodError(res, collectorConfig); err != nil {
-			return nil, err
-		}
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
-	// captureAPI is the API that owns this method, which for a composite may differ from the
-	// resource's configured API. Tag data, lay out capture files, and resolve the typed sub-resource
-	// for the constructor by it so a composite's data lands under the API that implements the method.
 	captureAPI := md.MethodMetadata.API
-	sub := resource.SubresourceForAPI(res, captureAPI)
 
 	targetDir := targetDir(collectorConfig.CaptureDirectory, captureAPI, collectorConfig)
 	// Create a collector for this resource and method.
@@ -392,7 +385,7 @@ func (c *Capture) buildCollector(
 	// Parameters to initialize collector.
 	queueSize := defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize)
 	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
-	collector, err := collectorConstructor(sub, data.CollectorParams{
+	collector, err := collectorConstructor(res, data.CollectorParams{
 		MongoCollection: collection,
 		DataType:        dataType,
 		ComponentName:   collectorConfig.Name.ShortName(),

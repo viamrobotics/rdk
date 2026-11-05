@@ -33,9 +33,9 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // Passing nil or an empty map reverts all collectors to their default machine configs.
 //
 // Overrides may target resource/method pairs that are not in the static config. When that happens,
-// the resource is looked up by short name in c.resourcesByShortName and a collector is built from
-// the sensor reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios)
-// cannot be enabled this way.
+// the owning sub for the method is resolved from c.deps and a collector is built from the sensor
+// reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios) cannot be
+// enabled this way.
 func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager.CaptureConfigReading) {
 	effectiveCollectors := c.buildEffectiveCollectors(captureConfigReadings)
 	c.updateCollectors(effectiveCollectors)
@@ -62,7 +62,7 @@ func (c *Capture) buildEffectiveCollectors(
 			if result == nil {
 				continue
 			}
-			effectiveCollectors[newCollectorMetadata(res, *result)] = effectiveCollectorConfig{res, *result, key}
+			effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
 		}
 	}
 
@@ -73,14 +73,14 @@ func (c *Capture) buildEffectiveCollectors(
 			continue
 		}
 
-		res, ok := c.shouldAutoEnable(override)
+		res, owningAPI, ok := c.shouldAutoEnable(override)
 		if !ok {
 			continue
 		}
 
-		// create a fresh data capture config from the resolved resource.
+		// create a fresh data capture config pinned to the method's owning API.
 		result := applyOverride(datamanager.DataCaptureConfig{
-			Name:             res.Name().PopRemote(),
+			Name:             res.Name().AsAPI(owningAPI).PopRemote(),
 			Method:           override.MethodName,
 			CaptureDirectory: c.captureDir,
 			Tags:             c.defaultTags,
@@ -88,7 +88,7 @@ func (c *Capture) buildEffectiveCollectors(
 		if result == nil {
 			continue
 		}
-		effectiveCollectors[newCollectorMetadata(res, *result)] = effectiveCollectorConfig{res, *result, key}
+		effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
 	}
 
 	return effectiveCollectors
@@ -201,28 +201,26 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 
 // shouldAutoEnable validates that the sensor's override can produce a running collector when
 // data capture is not configured on the machine config for that resource/method pair. It returns the
-// resource and the API that owns the method, which for a composite may differ from the resource's
-// configured API.
-func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, bool) {
-	res, ok := c.resourcesByShortName[override.ResourceName]
+// resource that owns the method, its owning API (for a composite, the API that implements it), and whether
+// it resolved.
+func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, resource.API, bool) {
+	res, api, ok := owningResourceForAutoEnable(c.deps, override.ResourceName, override.MethodName)
 	if !ok {
 		c.logger.Warnw("capture control sensor referenced unknown resource",
 			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, false
+		return nil, resource.API{}, false
 	}
-
-	api := captureAPIForMethod(res, override.MethodName, res.Name().API)
 
 	if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: override.MethodName}) == nil {
 		c.logger.Warnw("capture control sensor referenced unknown method for resource",
 			"resource", override.ResourceName, "method", override.MethodName, "api", api)
-		return nil, false
+		return nil, resource.API{}, false
 	}
 
 	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(api.String(), override.MethodName)]; needsParams {
 		c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
 			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, false
+		return nil, resource.API{}, false
 	}
-	return res, true
+	return res, api, true
 }
