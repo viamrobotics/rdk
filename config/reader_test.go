@@ -239,7 +239,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger, logs := logging.NewObservedTestLogger(t)
-		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
@@ -259,7 +259,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger, logs := logging.NewObservedTestLogger(t)
-		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
@@ -277,7 +277,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger := logging.NewTestLogger(t)
-		_, _, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "config was malformed")
@@ -292,7 +292,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		defer cleanup()
 
 		logger := logging.NewTestLogger(t)
-		_, _, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg.ID, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsMalformedConfigError(err), test.ShouldBeFalse)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
@@ -364,7 +364,7 @@ func TestGetFromCloudGRPCProtoDecodeFailureIsMalformed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
-	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, false, logger, appConn)
+	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, false, logger, appConn, nil)
 	test.That(t, cfg, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
@@ -790,7 +790,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		_, appConn, prevCloudCfg := setup(t)
 
 		// checkForNewCert is false: this is one of the ~360 polls per hour that does not refetch.
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Before the fix this read the cert off disk and came back with staleCert. It must not be
@@ -805,7 +805,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		// Drive the watcher's loop by hand without ever storing to the cache -- i.e. reconfiguration
 		// never finishes. Any cert change here is a cloud-section diff that reconfigures again.
 		for range 5 {
-			gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+			gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
 			test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
@@ -820,7 +820,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		_, appConn, prevCloudCfg := setup(t)
 
 		// This is the once-an-hour poll: it must take what the cloud has now, not what it held.
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cloudCert)
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
@@ -832,7 +832,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		prevCloudCfg.TLSPrivateKey = ""
 
 		// checkForNewCert is false, but we have nothing to carry forward, so we must fetch.
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cloudCert)
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
@@ -845,7 +845,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		// checkForNewCert false.
 		prevCloudCfg.FQDN = "some-old-fqdn"
 
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, cloudCert)
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, cloudKey)
@@ -866,7 +866,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		breakCertEndpoint(t, fakeServer)
 
 		// A transient cert-endpoint failure must not cost us the config we just read.
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldEqual, heldCert)
 		test.That(t, gotCfg.Cloud.TLSPrivateKey, test.ShouldEqual, heldKey)
@@ -880,7 +880,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 
 		// Nothing to fall back to and signaling is secure, so error rather than handing back a
 		// config with no cert.
-		_, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn)
+		_, err := readFromCloud(ctx, robotPartID, prevCloudCfg, true, logger, appConn, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -888,7 +888,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		_, appConn, prevCloudCfg := setup(t)
 		prevCloudCfg.RefreshInterval = 42 * time.Second
 
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		// The cloud does not send these back, so they must survive from the previous config.
@@ -915,7 +915,7 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		fakeServer.StoreDeviceConfig(robotPartID, &pb.RobotConfig{Cloud: insecureProto}, &pb.CertificateResponse{})
 
-		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn)
+		gotCfg, err := readFromCloud(ctx, robotPartID, prevCloudCfg, false, logger, appConn, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCfg.Cloud.SignalingInsecure, test.ShouldBeTrue)
 		test.That(t, gotCfg.Cloud.TLSCertificate, test.ShouldBeEmpty)

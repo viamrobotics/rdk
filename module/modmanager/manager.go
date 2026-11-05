@@ -402,7 +402,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Activity("module", "start", "module", mod.cfg.Name)
-	mgr.setModuleStatusReady(mod.cfg.Name)
+	mgr.setModuleStatusReady(mod)
 
 	success = true
 	return nil
@@ -1068,7 +1068,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	// so activity observers can tell recovery from a module that stayed down
 	mod.logger.Activity("module", "start", "module", mod.cfg.Name, "reason", "restart")
-	mgr.setModuleStatusReady(mod.cfg.Name)
+	mgr.setModuleStatusReady(mod)
 	success = true
 	return nil
 }
@@ -1167,28 +1167,29 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 
 // SetModuleStatusPending sets a module's status to Pending
 func (mgr *Manager) SetModuleStatusPending(name string) {
-	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil)
+	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil, "")
 }
 
 func (mgr *Manager) setModuleStatusStarting(name string) {
-	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil)
+	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil, "")
 }
 
-func (mgr *Manager) setModuleStatusReady(name string) {
-	mgr.setModuleState(name, modulestatus.ModuleStateReady, nil)
+func (mgr *Manager) setModuleStatusReady(mod *module) {
+	mgr.setModuleState(mod.cfg.Name, modulestatus.ModuleStateReady, nil, mod.cfg.PackageVersion)
 }
 
 func (mgr *Manager) setModuleStatusClosing(name string) {
-	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil)
+	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil, "")
 }
 
 // SetModuleStatusUnhealthy sets a module's status to Unhealthy
 func (mgr *Manager) SetModuleStatusUnhealthy(name string, err error) {
-	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err)
+	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err, "")
 }
 
-// setModuleState is an internal setter that should never be called directly
-func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, err error) {
+// setModuleState is an internal setter that should never be called directly. version is only
+// recorded when entering the ready state.
+func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, err error, version string) {
 	mgr.moduleStatusMu.Lock()
 	status, ok := mgr.moduleStatusMap[moduleName]
 	if !ok {
@@ -1204,6 +1205,7 @@ func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, 
 		// This way, the last error will persist through intermediate states in a failure cycle
 		status.ConsecutiveFailures = 0
 		status.Error = nil
+		status.Version = version
 	}
 
 	mgr.moduleStatusMap[moduleName] = status
