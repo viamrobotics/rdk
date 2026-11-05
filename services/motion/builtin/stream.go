@@ -206,9 +206,6 @@ func (ms *builtIn) writeStreamDiagnostics(
 	return os.WriteFile(fn, bytes, 0o600)
 }
 
-// streamDiagnosticsMetadataTags returns the tag=<value> directory names for the configured metadata keys
-// present on ctx. Values come from the caller and become path components, so one with a path separator
-// is an error.
 func (ms *builtIn) streamDiagnosticsMetadataTags(ctx context.Context) ([]string, error) {
 	if ms.conf == nil {
 		return nil, nil
