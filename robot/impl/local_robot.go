@@ -2432,7 +2432,34 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Packages = append(result.Packages, r.packageManager.PackageStatuses()...)
 	result.Packages = append(result.Packages, r.localPackages.PackageStatuses()...)
 
+	result.MaintenanceStatus = r.evaluateMaintenanceStatusForReport(ctx)
+
 	return result, nil
+}
+
+// evaluateMaintenanceStatusForReport evaluates this robot's own maintenance config for the
+// purpose of reporting via MachineStatus. Returns nil when there's nothing to say (no config,
+// or still initializing) so callers can distinguish "no opinion" from an explicit decision.
+// A nil here means the subpart will treat this machine as "unknown" and allow reconfigure.
+func (r *localRobot) evaluateMaintenanceStatusForReport(ctx context.Context) *robot.MaintenanceStatus {
+	cfg := r.Config()
+	if cfg == nil || cfg.MaintenanceConfig == nil {
+		return nil
+	}
+	if r.initializing.Load() {
+		return nil
+	}
+	// Don't cascade: when this machine itself follows another part, we have no self-authoritative
+	// answer to report, so stay silent rather than probing on behalf of every status reader.
+	if cfg.MaintenanceConfig.FromPart != nil {
+		return nil
+	}
+	allowed, err := r.reconfigureAllowed(ctx, cfg.MaintenanceConfig)
+	status := &robot.MaintenanceStatus{Allowed: allowed}
+	if err != nil {
+		status.Reason = err.Error()
+	}
+	return status
 }
 
 // Version returns version information about the robot.
@@ -2446,6 +2473,10 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
 	if mCfg == nil {
 		return true, nil
+	}
+
+	if mCfg.FromPart != nil {
+		return r.reconfigureAllowedFromPart(ctx, mCfg.FromPart)
 	}
 
 	// If the sensor name cannot be parsed or found on the machine, return true (reconfigure
@@ -2466,6 +2497,58 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
 	}
 	return canReconfigure, nil
+}
+
+// reconfigureAllowedFromPart opens a short-lived sideband SDK connection to the part named
+// in from_part, reads the MaintenanceStatus field from its MachineStatus response, and
+// closes the connection. The sideband client is deliberately NOT added to the resource
+// graph so remote cycles are impossible.
+//
+// Semantics:
+//   - Probe fails to dial/call: reconfigure blocked (matches remote-sensor-offline behavior).
+//   - Response has no MaintenanceStatus (older main): treated as "unknown", reconfigure allowed.
+//   - Response says Allowed=false: reconfigure blocked with the main's reason.
+//
+// TODO(RSDK-14858): cache this connection as a long-lived client with reconnect semantics
+// instead of dialing per reconfigure.
+func (r *localRobot) reconfigureAllowedFromPart(ctx context.Context, ref *config.FromPartRef) (bool, error) {
+	if ref.Address == "" {
+		return false, errors.New("from_part address is required")
+	}
+
+	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	synthetic := config.Remote{
+		Name:    "maintenance-from-part",
+		Address: ref.Address,
+		Auth:    ref.Auth,
+	}
+	dialOpts := remoteDialOptions(synthetic, r.manager.opts)
+
+	mainClient, err := dialRobotClient(dialCtx, synthetic, r.logger.Sublogger("maintenance_from_part"), dialOpts...)
+	if err != nil {
+		return false, fmt.Errorf("failed to dial from_part %q: %w", ref.Address, err)
+	}
+	defer func() {
+		if err := mainClient.Close(ctx); err != nil {
+			r.logger.CDebugw(ctx, "closing from_part sideband client", "err", err)
+		}
+	}()
+
+	mStatus, err := mainClient.MachineStatus(dialCtx)
+	if err != nil {
+		return false, fmt.Errorf("MachineStatus probe to from_part %q failed: %w", ref.Address, err)
+	}
+	if mStatus.MaintenanceStatus == nil {
+		r.logger.CInfow(ctx, "from_part reported no MaintenanceStatus; treating as unknown and allowing reconfigure",
+			"address", ref.Address)
+		return true, nil
+	}
+	if !mStatus.MaintenanceStatus.Allowed {
+		return false, fmt.Errorf("reconfigure blocked by from_part %q: %s", ref.Address, mStatus.MaintenanceStatus.Reason)
+	}
+	return true, nil
 }
 
 func (r *localRobot) logReconfigureNotAllowed(ctx context.Context, mCfg *config.MaintenanceConfig, err error) {
