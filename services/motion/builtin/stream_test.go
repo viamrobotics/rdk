@@ -460,16 +460,31 @@ func TestTempStreamArmJointPositionsDiagnosticsFileMetadataTags(t *testing.T) {
 	dir := t.TempDir()
 	ms.conf = &Config{
 		StreamDiagnosticsFilePath:        dir,
-		StreamDiagnosticsMetadataTagKeys: []string{"pass-id", "absent", "unsafe", "other"},
+		StreamDiagnosticsMetadataTagKeys: []string{"pass-id", "absent", "other"},
 	}
 
-	ctx := metadata.Set(context.Background(), "pass-id", "pass123", "unsafe", "../escape", "other", "abc", "unlisted", "nope")
+	ctx := metadata.Set(context.Background(), "pass-id", "pass123", "other", "abc", "unlisted", "nope")
 	test.That(t, runShortStreamSession(ctx, t, ms), test.ShouldBeNil)
 
-	// Listed keys with a safe value become tag directories, in config order; absent keys, unsafe
-	// values and unlisted keys do not.
+	// Listed keys present in the metadata become tag directories, in config order; absent and
+	// unlisted keys do not.
 	loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/tag=pass123/tag=abc/stream-diagnostics-arm-*.json")
-	escaped, err := filepath.Glob(filepath.Join(filepath.Dir(dir), "escape*"))
+}
+
+func TestTempStreamArmJointPositionsRejectsUnsafeMetadataTagValue(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir, StreamDiagnosticsMetadataTagKeys: []string{"pass-id"}}
+
+	targets := make(chan []referenceframe.Input)
+	close(targets)
+	ctx := metadata.Set(context.Background(), "pass-id", "../escape")
+	err := ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), targets, ignoredResponses(t), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid request metadata")
+
+	entries, err := os.ReadDir(dir)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, escaped, test.ShouldBeEmpty)
+	test.That(t, entries, test.ShouldBeEmpty)
 }

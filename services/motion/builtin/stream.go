@@ -101,6 +101,10 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	if err := opts.Validate(); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}
+	metadataTags, err := ms.streamDiagnosticsMetadataTags(ctx)
+	if err != nil {
+		return fmt.Errorf("invalid request metadata: %w", err)
+	}
 
 	ms.mu.RLock()
 	r, ok := ms.components[armName]
@@ -146,7 +150,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		ms.logger.CWarnf(streamCtx, "arm streaming session for %q ended with error: %v", armName, err)
 	}
 	ms.logger.Infow("arm streaming session stats", "arm", armName, "options", opts, "stats", diag.Stats())
-	if werr := ms.writeStreamDiagnostics(ctx, armName, opts, diag, sessionStart, err); werr != nil {
+	if werr := ms.writeStreamDiagnostics(armName, opts, diag, sessionStart, metadataTags, err); werr != nil {
 		ms.logger.Warnf("couldn't write arm streaming diagnostics: %v", werr)
 	}
 	return err
@@ -163,7 +167,7 @@ type streamDiagnosticsFile struct {
 }
 
 func (ms *builtIn) writeStreamDiagnostics(
-	ctx context.Context, armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, sessionErr error,
+	armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, metadataTags []string, sessionErr error,
 ) error {
 	if ms.conf == nil || ms.conf.StreamDiagnosticsFilePath == "" {
 		return nil
@@ -190,19 +194,7 @@ func (ms *builtIn) writeStreamDiagnostics(
 		return err
 	}
 
-	dirParts := []string{ms.conf.StreamDiagnosticsFilePath, typeTag, "tag=" + armName}
-	for _, key := range ms.conf.StreamDiagnosticsMetadataTagKeys {
-		value, ok := metadata.Get(ctx, key)
-		if !ok || value == "" {
-			continue
-		}
-		// The value comes from the caller, so it must not be able to add path components.
-		if strings.ContainsAny(value, "/\\\x00") {
-			ms.logger.Warnf("not tagging arm streaming diagnostics with metadata key %q: value contains a path separator", key)
-			continue
-		}
-		dirParts = append(dirParts, "tag="+value)
-	}
+	dirParts := append([]string{ms.conf.StreamDiagnosticsFilePath, typeTag, "tag=" + armName}, metadataTags...)
 	dir := filepath.Join(dirParts...)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
@@ -212,6 +204,27 @@ func (ms *builtIn) writeStreamDiagnostics(
 
 	ms.logger.Infof("writing arm streaming diagnostics to %s", fn)
 	return os.WriteFile(fn, bytes, 0o600)
+}
+
+// streamDiagnosticsMetadataTags returns the tag=<value> directory names for the configured metadata keys
+// present on ctx. Values come from the caller and become path components, so one with a path separator
+// is an error.
+func (ms *builtIn) streamDiagnosticsMetadataTags(ctx context.Context) ([]string, error) {
+	if ms.conf == nil {
+		return nil, nil
+	}
+	var tags []string
+	for _, key := range ms.conf.StreamDiagnosticsMetadataTagKeys {
+		value, ok := metadata.Get(ctx, key)
+		if !ok || value == "" {
+			continue
+		}
+		if strings.ContainsAny(value, "/\\\x00") {
+			return nil, fmt.Errorf("value of metadata key %q contains a path separator", key)
+		}
+		tags = append(tags, "tag="+value)
+	}
+	return tags, nil
 }
 
 func (ms *builtIn) streamStatus(armName string) map[string]any {
