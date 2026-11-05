@@ -150,7 +150,6 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	return err
 }
 
-// streamDiagnosticsFile is the JSON document written when an arm-streaming session ends.
 type streamDiagnosticsFile struct {
 	Arm               string                                     `json:"arm"`
 	StartTime         time.Time                                  `json:"start_time"`
