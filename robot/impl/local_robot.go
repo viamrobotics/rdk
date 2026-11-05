@@ -720,7 +720,10 @@ func newWithResources(
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
-		for _, name := range r.manager.AllNonCollidingResourceNames() {
+		var found bool
+		var match resource.Name
+		names := r.manager.resourceNodeNames()
+		for _, name := range names {
 			if name.Name == res {
 				// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
 				return r.ResourceByName(resource.SimpleName(name.Name))
@@ -1016,7 +1019,7 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 ) (resource.Dependencies, map[resource.Name]int64) {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
-	allNames := r.manager.AllNonCollidingResourceNames()
+	allNames := r.manager.resourceNodeNames()
 	deps := make(resource.Dependencies, len(allNames))
 	snapshot := make(map[resource.Name]int64)
 	for _, n := range allNames {
@@ -1132,35 +1135,29 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 	// completeConfig.
 	r.lastWeakAndOptionalDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
+	// Build the dependency sets for the internal services from every advertised per-API name, so a composite
+	// contributes under each API it serves: allResources (every component/service) for the web service,
+	// internalResources (rdk-internal resources) to reconfigure, and frameSystemDeps (just components) for the frame system.
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
-	// frameSystemDeps gives the frame system every resource that serves a component API. For a composite that
-	// is the wrapper, so the frame system sees every API it serves and can resolve its kinematics even when it
-	// is configured under a service API.
 	frameSystemDeps := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.AllNonCollidingResourceNames() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}
-		// The api-less lookup returns the resource itself, which for a composite is the wrapper. res is it
-		// unwrapped to n's API.
-		nodeRes, err := r.resourceBySimpleName(n.Name)
+		res, err := r.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().CDebugw(ctx, "error finding resource during weak/optional dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
-		res := resource.SubresourceForAPI(nodeRes, n.API)
 		allResources[n] = res
 		if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
 			internalResources[n] = res
 		}
-		for _, api := range resource.APIsOf(nodeRes) {
-			if api.IsComponent() {
-				frameSystemDeps[n] = nodeRes
-				break
-			}
+		if n.API.IsComponent() {
+			frameSystemDeps[n] = res
 		}
 	}
 
@@ -1493,7 +1490,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		// model, else a geometry, else the bare frame config.
 		kinematic, modelFramer, shaped, refuse := framesystem.FrameContribution(rawRes)
 		if refuse {
-			// ResolveKinematic already logged this multi-kinematic composite during the frame-system reconfigure.
+			// The frame system already logged this multi-kinematic composite during its reconfigure.
 			continue
 		}
 		if kinematic != nil {

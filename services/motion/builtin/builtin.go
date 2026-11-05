@@ -206,8 +206,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	visionServices := make(map[string]vision.Service)
 	components := make(map[string]framesystem.InputEnabled)
 	for name, dep := range deps {
-		// For a composite, unwrap to the API's sub so the type switch sees the interface its wrapper hides.
-		switch sub := resource.SubresourceForAPI(dep, name.API).(type) {
+		switch sub := dep.(type) {
 		case framesystem.Service:
 			ms.fsService = sub
 		case movementsensor.MovementSensor:
@@ -216,11 +215,8 @@ func (ms *builtIn) BuiltInReconfigure(
 			slamServices[name.Name] = sub
 		case vision.Service:
 			visionServices[name.Name] = sub
-		default:
-			// Pass the whole dep so ResolveKinematic reads every API a composite serves, not just this one.
-			if kinematic := framesystem.ResolveKinematic(dep, ms.logger); kinematic != nil {
-				components[name.Name] = kinematic
-			}
+		case framesystem.InputEnabled:
+			components[name.Name] = sub
 		}
 	}
 	ms.movementSensors = movementSensors
