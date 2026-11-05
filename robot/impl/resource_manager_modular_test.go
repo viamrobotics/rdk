@@ -352,6 +352,7 @@ func TestModularResources(t *testing.T) {
 	t.Run("recovers dropped modular dependencies", func(t *testing.T) {
 		// Disable the background worker so the re-resolution pass is driven synchronously.
 		r, mod := setupTest(t, WithDisableCompleteConfigWorker())
+		activityLogs := logging.NewObservedActivityLogger(t, r.logger)
 		mod.validateRequiredDeps = []string{"nonmod"}
 
 		motorCfg := resource.Config{
@@ -367,10 +368,13 @@ func TestModularResources(t *testing.T) {
 			Components: []resource.Config{motorCfg, compCfg},
 		})
 
+		test.That(t, countActivityEvents(activityLogs, "resource_construct", "defer"), test.ShouldEqual, 1)
+
 		// Retry pass resolves the recovered dependency into a graph edge and builds.
 		test.That(t, r.updateRemotesAndRetryResourceConfigure(), test.ShouldBeTrue)
 		_, err := r.ResourceByName(compCfg.ResourceName())
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 2)
 
 		// The resource is built with "nonmod" as a dependency rather than the empty set it
 		// would have received had the build used the dropped dependencies.
@@ -379,6 +383,33 @@ func TestModularResources(t *testing.T) {
 		mod.mu.Unlock()
 		test.That(t, deps, test.ShouldHaveLength, 1)
 		test.That(t, deps[0], test.ShouldContainSubstring, "nonmod")
+	})
+
+	t.Run("modular validation failure emits fail activity", func(t *testing.T) {
+		r, mod := setupTest(t, WithDisableCompleteConfigWorker())
+		activityLogs := logging.NewObservedActivityLogger(t, r.logger)
+		mod.validateErr = errors.New("bad config")
+
+		compCfg := resource.Config{Name: "oneton", API: compAPI, Model: compModel, Attributes: utils.AttributeMap{"arg1": "one"}}
+		r.Reconfigure(context.Background(), &config.Config{
+			Components: []resource.Config{compCfg},
+		})
+
+		var stages []any
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["resource"] == compCfg.ResourceName().String() && fields["event"] == "fail" {
+				stages = append(stages, fields["stage"])
+			}
+		}
+		test.That(t, stages, test.ShouldResemble, []any{"validate"})
+
+		// Recover so teardown can remove the resource from the dummy module manager.
+		mod.mu.Lock()
+		mod.validateErr = nil
+		mod.mu.Unlock()
+		test.That(t, r.updateRemotesAndRetryResourceConfigure(), test.ShouldBeTrue)
+		test.That(t, countActivityEvents(activityLogs, "resource_construct", "complete"), test.ShouldEqual, 1)
 	})
 }
 
@@ -401,6 +432,7 @@ type dummyModMan struct {
 	// validateRequiredDeps is returned by ValidateConfig as the modular resource's required
 	// implicit dependencies. Defaults to nil to preserve existing test behavior.
 	validateRequiredDeps []string
+	validateErr          error
 }
 
 func (m *dummyModMan) AddResource(ctx context.Context, conf resource.Config, deps []string) (resource.Resource, error) {
@@ -467,7 +499,7 @@ func (m *dummyModMan) Provides(cfg resource.Config) bool {
 func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) ([]string, []string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.validateRequiredDeps, nil, nil
+	return m.validateRequiredDeps, nil, m.validateErr
 }
 
 func (m *dummyModMan) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
