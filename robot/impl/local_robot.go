@@ -1058,17 +1058,16 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
-		// A composite serves several APIs, so match the weak-dep matchers against each API it
-		// serves. Store the wrapper under each matched API name. A weak-dep consumer unwraps it to the API
-		// it wants with resource.SubresourceForAPI. An ordinary resource is its own only sub, so nothing
-		// changes.
+		// A composite serves several APIs, so match the weak-dep matchers against each API it serves and
+		// store that API's sub under its own name. Consumers get the unwrapped sub for the API they asked
+		// for and never see the composite. An ordinary resource is its own only sub, so nothing changes.
 		for apiName, sub := range resource.SubsByName(n, res) {
 			for _, matcher := range weakDepMatchers {
 				if matcher.IsMatch(sub) {
 					// Pop the remote name off since callers won't be expecting it when accessing it in the
 					// resource dependency map in a resource constructor.
 					popped := apiName.PopRemote()
-					deps[popped] = res
+					deps[popped] = sub
 					snapshot[popped] = node.UpdatedAt()
 					break
 				}
