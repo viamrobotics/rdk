@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.viam.com/rdk/components/arm"
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/streaming"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 const (
@@ -144,7 +146,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		ms.logger.CWarnf(streamCtx, "arm streaming session for %q ended with error: %v", armName, err)
 	}
 	ms.logger.Infow("arm streaming session stats", "arm", armName, "options", opts, "stats", diag.Stats())
-	if werr := ms.writeStreamDiagnostics(armName, opts, diag, sessionStart, err); werr != nil {
+	if werr := ms.writeStreamDiagnostics(ctx, armName, opts, diag, sessionStart, err); werr != nil {
 		ms.logger.Warnf("couldn't write arm streaming diagnostics: %v", werr)
 	}
 	return err
@@ -161,7 +163,7 @@ type streamDiagnosticsFile struct {
 }
 
 func (ms *builtIn) writeStreamDiagnostics(
-	armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, sessionErr error,
+	ctx context.Context, armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, sessionErr error,
 ) error {
 	if ms.conf == nil || ms.conf.StreamDiagnosticsFilePath == "" {
 		return nil
@@ -188,7 +190,20 @@ func (ms *builtIn) writeStreamDiagnostics(
 		return err
 	}
 
-	dir := filepath.Join(ms.conf.StreamDiagnosticsFilePath, typeTag, "tag="+armName)
+	dirParts := []string{ms.conf.StreamDiagnosticsFilePath, typeTag, "tag=" + armName}
+	for _, key := range ms.conf.StreamDiagnosticsMetadataTagKeys {
+		value, ok := metadata.Get(ctx, key)
+		if !ok || value == "" {
+			continue
+		}
+		// The value comes from the caller, so it must not be able to add path components.
+		if strings.ContainsAny(value, "/\\\x00") {
+			ms.logger.Warnf("not tagging arm streaming diagnostics with metadata key %q: value contains a path separator", key)
+			continue
+		}
+		dirParts = append(dirParts, "tag="+value)
+	}
+	dir := filepath.Join(dirParts...)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}

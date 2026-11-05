@@ -1006,3 +1006,12 @@ func TestArmMoveWithinObstacle(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
+
+func TestConfigValidateStreamDiagnosticsMetadataTagKeys(t *testing.T) {
+	_, _, err := (&Config{StreamDiagnosticsMetadataTagKeys: []string{"pass-id"}}).Validate("")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "stream_diagnostics_file_path")
+
+	_, _, err = (&Config{StreamDiagnosticsFilePath: "/tmp/x", StreamDiagnosticsMetadataTagKeys: []string{"pass-id"}}).Validate("")
+	test.That(t, err, test.ShouldBeNil)
+}

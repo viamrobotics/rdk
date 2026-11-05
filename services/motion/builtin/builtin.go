@@ -92,7 +92,8 @@ type Config struct {
 	LogPlannerErrors            bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
-	StreamDiagnosticsFilePath string `json:"stream_diagnostics_file_path"`
+	StreamDiagnosticsFilePath        string   `json:"stream_diagnostics_file_path"`
+	StreamDiagnosticsMetadataTagKeys []string `json:"stream_diagnostics_metadata_tag_keys"`
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
@@ -212,6 +213,10 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
+	if len(c.StreamDiagnosticsMetadataTagKeys) > 0 && c.StreamDiagnosticsFilePath == "" {
+		return nil, nil, errors.New("need a stream_diagnostics_file_path if you set stream_diagnostics_metadata_tag_keys")
 	}
 
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
