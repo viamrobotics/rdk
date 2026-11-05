@@ -161,9 +161,6 @@ type streamDiagnosticsFile struct {
 	LastWindowDetails diagnostics.SingleSessionLastWindowDetails `json:"last_window_details"`
 }
 
-// writeStreamDiagnostics writes the ended session's diagnostics under stream_diagnostics_file_path,
-// in tag=<type>/tag=<arm>/ subdirectories so data manager can infer tags when syncing the file.
-// It does nothing when stream_diagnostics_file_path is unset.
 func (ms *builtIn) writeStreamDiagnostics(
 	armName string, opts streaming.StreamOptions, diag *diagnostics.SingleSessionDiagnostics, start time.Time, sessionErr error,
 ) error {
