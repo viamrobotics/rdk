@@ -408,8 +408,19 @@ func TestTempStreamArmJointPositionsWritesDiagnosticsFile(t *testing.T) {
 	doc := loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/stream-diagnostics-arm-*.json")
 	test.That(t, doc.Arm, test.ShouldEqual, "arm")
 	test.That(t, doc.Error, test.ShouldBeEmpty)
-	test.That(t, doc.Stats.JointPositionTargetsReceived > 0, test.ShouldBeTrue)
-	test.That(t, doc.LastWindowDetails.ArmStreamOpen, test.ShouldNotBeEmpty)
+	test.That(t, doc.EndTime.After(doc.StartTime), test.ShouldBeTrue)
+	test.That(t, doc.Options.DiagnosticsWindowSecs, test.ShouldEqual, 60)
+	test.That(t, doc.Stats.JointPositionTargetsReceived, test.ShouldEqual, 6)
+	test.That(t, doc.Stats.JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 0)
+
+	details := doc.LastWindowDetails
+	test.That(t, details.JointPositionTargetReceived, test.ShouldHaveLength, 6)
+	test.That(t, details.TrajexExtends, test.ShouldHaveLength, 6)
+	test.That(t, details.SampledPVATs, test.ShouldNotBeEmpty)
+	test.That(t, details.TrajexSessionOpen, test.ShouldHaveLength, 1)
+	test.That(t, details.TrajexSessionClose, test.ShouldHaveLength, 1)
+	test.That(t, details.ArmStreamOpen, test.ShouldHaveLength, 1)
+	test.That(t, details.ArmStreamClose, test.ShouldHaveLength, 1)
 }
 
 func TestTempStreamArmJointPositionsWritesDiagnosticsFileOnError(t *testing.T) {
