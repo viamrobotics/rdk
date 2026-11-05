@@ -19,8 +19,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin/streaming"
-	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -363,57 +361,86 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestWriteStreamDiagnostics(t *testing.T) {
-	diag := diagnostics.New(time.Minute)
-	diag.RecordReceivedJointPositionTargetEvent()
-	start := time.Now().Add(-time.Second)
+// runShortStreamSession runs a session that streams a short ramp and then closes targets, and
+// returns the error the session ended with.
+func runShortStreamSession(t *testing.T, ms *builtIn) error {
+	t.Helper()
+	opts := streamTestOptions()
+	diagWindow := int32(60)
+	opts.DiagnosticsWindowSecs = &diagWindow
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(context.Background(), "arm", opts, targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
+	for i := 1; i <= 6; i++ {
+		targets <- []referenceframe.Input{float64(i) * 0.02, 0, 0, 0, 0, 0}
+	}
+	close(targets)
+	select {
+	case err := <-errCh:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatal("TempStreamArmJointPositions never returned")
+		return nil
+	}
+}
 
-	t.Run("unset path writes nothing", func(t *testing.T) {
-		// An empty path must not fall through to writing relative to the working directory.
-		dir := t.TempDir()
-		t.Chdir(dir)
-		ms := &builtIn{logger: logging.NewTestLogger(t), conf: &Config{}}
-		test.That(t, ms.writeStreamDiagnostics("arm", streaming.StreamOptions{}, diag, start, nil), test.ShouldBeNil)
-		ms.conf = nil
-		test.That(t, ms.writeStreamDiagnostics("arm", streaming.StreamOptions{}, diag, start, nil), test.ShouldBeNil)
-		entries, err := os.ReadDir(dir)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, entries, test.ShouldBeEmpty)
-	})
+// readOnlyDiagnosticsFile reads the one diagnostics file matching pattern under dir.
+func readOnlyDiagnosticsFile(t *testing.T, dir, pattern string) streamDiagnosticsFile {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(dir, pattern))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, files, test.ShouldHaveLength, 1)
+	bytes, err := os.ReadFile(files[0])
+	test.That(t, err, test.ShouldBeNil)
+	var doc streamDiagnosticsFile
+	test.That(t, json.Unmarshal(bytes, &doc), test.ShouldBeNil)
+	return doc
+}
 
-	t.Run("success", func(t *testing.T) {
-		dir := t.TempDir()
-		ms := &builtIn{logger: logging.NewTestLogger(t), conf: &Config{StreamDiagnosticsFilePath: dir}}
-		test.That(t, ms.writeStreamDiagnostics("arm", streaming.StreamOptions{}, diag, start, nil), test.ShouldBeNil)
+func TestTempStreamArmJointPositionsWritesDiagnosticsFile(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir}
 
-		files, err := filepath.Glob(filepath.Join(dir, "tag=arm-stream-diagnostics", "tag=arm", "stream-diagnostics-arm-*.json"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, files, test.ShouldHaveLength, 1)
-		bytes, err := os.ReadFile(files[0])
-		test.That(t, err, test.ShouldBeNil)
-		var doc map[string]any
-		test.That(t, json.Unmarshal(bytes, &doc), test.ShouldBeNil)
-		test.That(t, doc["arm"], test.ShouldEqual, "arm")
-		for _, key := range []string{"stats", "options", "last_window_details", "start_time", "end_time"} {
-			_, ok := doc[key]
-			test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, runShortStreamSession(t, ms), test.ShouldBeNil)
+
+	doc := readOnlyDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/stream-diagnostics-arm-*.json")
+	test.That(t, doc.Arm, test.ShouldEqual, "arm")
+	test.That(t, doc.Error, test.ShouldBeEmpty)
+	test.That(t, doc.Stats.JointPositionTargetsReceived > 0, test.ShouldBeTrue)
+	test.That(t, doc.LastWindowDetails.ArmStreamOpen, test.ShouldNotBeEmpty)
+}
+
+func TestTempStreamArmJointPositionsWritesDiagnosticsFileOnError(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir}
+
+	inj, ok := ms.components["arm"].(*inject.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	inj.MoveThroughJointPositionsStreamedFunc = func(
+		ctx context.Context,
+		batches <-chan []arm.TrajectoryPoint,
+		responses chan<- arm.Response,
+		extra map[string]interface{},
+	) error {
+		for range batches {
 		}
-		_, hasErr := doc["error"]
-		test.That(t, hasErr, test.ShouldBeFalse)
-	})
+		return errors.New("arm failed")
+	}
 
-	t.Run("error session gets the err tag", func(t *testing.T) {
-		dir := t.TempDir()
-		ms := &builtIn{logger: logging.NewTestLogger(t), conf: &Config{StreamDiagnosticsFilePath: dir}}
-		test.That(t, ms.writeStreamDiagnostics("arm", streaming.StreamOptions{}, diag, start, errors.New("boom")), test.ShouldBeNil)
+	sessionErr := runShortStreamSession(t, ms)
+	test.That(t, sessionErr, test.ShouldNotBeNil)
 
-		files, err := filepath.Glob(filepath.Join(dir, "tag=arm-stream-diagnostics-err", "tag=arm", "stream-diagnostics-arm-*-err.json"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, files, test.ShouldHaveLength, 1)
-		bytes, err := os.ReadFile(files[0])
-		test.That(t, err, test.ShouldBeNil)
-		var doc map[string]any
-		test.That(t, json.Unmarshal(bytes, &doc), test.ShouldBeNil)
-		test.That(t, doc["error"], test.ShouldEqual, "boom")
-	})
+	doc := readOnlyDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics-err/tag=arm/stream-diagnostics-arm-*-err.json")
+	test.That(t, doc.Error, test.ShouldEqual, sessionErr.Error())
+
+	successFiles, err := filepath.Glob(filepath.Join(dir, "tag=arm-stream-diagnostics", "*", "*.json"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, successFiles, test.ShouldBeEmpty)
 }
