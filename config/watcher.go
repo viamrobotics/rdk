@@ -25,32 +25,20 @@ type Watcher interface {
 	Close() error
 }
 
-// WatcherOption configures a Watcher.
-type WatcherOption func(*watcherOptions)
-
-type watcherOptions struct {
-	moduleVersions ModuleVersionsFunc
-}
-
-// WithModuleVersions reports the machine's registry module versions to the cloud on each config fetch.
-func WithModuleVersions(fn ModuleVersionsFunc) WatcherOption {
-	return func(o *watcherOptions) {
-		o.moduleVersions = fn
-	}
-}
-
-// NewWatcher returns an optimally selected Watcher based on the
-// given config.
-func NewWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn, opts ...WatcherOption) (Watcher, error) {
-	var o watcherOptions
-	for _, opt := range opts {
-		opt(&o)
-	}
+// NewWatcher returns an optimally selected Watcher based on the given config. A cloud watcher
+// reports moduleVersions, if non-nil, with each config fetch.
+func NewWatcher(
+	ctx context.Context,
+	config *Config,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+	moduleVersions ModuleVersionsFunc,
+) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {
-		return newCloudWatcher(ctx, config, logger, conn, o.moduleVersions), nil
+		return newCloudWatcher(ctx, config, logger, conn, moduleVersions), nil
 	}
 	if config.ConfigFilePath != "" {
 		return newFSWatcher(ctx, config.ConfigFilePath, logger, conn)

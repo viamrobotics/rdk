@@ -32,8 +32,8 @@ func applyModulePackageVersions(cfg *config.Config) {
 }
 
 // ModuleVersions reports the running versions of the registry modules in the most recently applied
-// config. It only reads in-memory state, so it is cheap enough to call on every cloud config fetch
-// and does not block on an in-progress reconfigure.
+// config. It reads in-memory state every cloud config fetch and does not block on an in-progress
+// reconfigure.
 func (r *localRobot) ModuleVersions() []*apppb.ModuleVersionInfo {
 	cfg, ok := r.mostRecentCfg.Load().(config.Config)
 	if !ok || len(cfg.Modules) == 0 {
