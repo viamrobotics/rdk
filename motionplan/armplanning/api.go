@@ -227,7 +227,7 @@ type PerGoalMeta struct {
 	ConstraintFailuresByType map[string]int
 }
 
-// PlanMeta is meta data about plan generation. All numberic values are summed over
+// PlanMeta is meta data about plan generation. All numeric values are summed over
 // `BacktrackCounter`. One can take divide the numeric values by `BacktrackCounter` to get an
 // average over each of the plan executions. When using `PlanMotionSequence`, there's still one
 // `PlanMeta` for each `PlanRequest`, but we aggregate numbers in a best-effort manner as we try
@@ -369,20 +369,29 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 
 // PlanMotionSequence plans a series of requests that are meant to run back to back. Only the first
 // request's StartState is used as given. Every later request starts from the configuration the
-// previous plan ended in, and its own StartState is used only for frames the previous plan did not
-// move. That covers the case where the frame system changes between requests.
+// previous plan ended in. The frame system, obstacles, constraints and planner options of each
+// request are its own, but the frame systems are expected to describe the same frames with degrees
+// of freedom.
 //
-// Requests are planned in order and independently of each other: each one is solved before the
-// next is looked at, with its own frame system, obstacles, constraints and planner options.
+// The StartState of every request after the first is mutated in place. Whatever the caller put
+// there is discarded, so there are no requirements on it. It is set to the end of the previous plan
+// just before the request is planned, and again each time the request is re-planned. Callers should
+// not rely on its value afterwards. As with PlanMotion, a nil PlannerOptions is also filled in.
+// Requests also accumulate internal state while backtracking, so they should not be reused for
+// another call.
 //
-// The requests are modified in place: every request after the first has its StartState replaced by
-// the chained start, set just before that request is planned. A request that was never reached
-// keeps the StartState it was given. As with PlanMotion, a nil PlannerOptions is also filled in.
+// If a request cannot be planned from where the previous plan ended, an earlier request is planned
+// again with the end configuration that led to the failure ruled out, and the sequence continues
+// from the new answer. Each start state of a request gets a few attempts before the search backs
+// up another request. The cost of that search grows exponentially with how far it has to back up.
 //
-// It returns one plan and one PlanMeta per request planned. If a request fails, the plans for the
-// earlier requests are returned along with a PlanMeta for the failed one, and the error says which
-// request it was. A request with ReturnPartialPlan set that only partially plans ends the sequence
-// early with its partial plan as the last entry and no error, as PlanMotion would report it.
+// PlanMotionSequence returns plans and metas, each with one entry per request. When it returns an
+// error or a partial plan, entries for the requests after the last good one are nil if never
+// planned, or hold whatever an abandoned attempt produced. A PlanMeta sums the numeric values over
+// every attempt at its request, and its BacktrackCounter says how many times the request was
+// re-planned. An error means no combination of solutions was found. A request with
+// ReturnPartialPlan set that only partially plans ends the sequence early with its partial plan and
+// no error, as PlanMotion would report it.
 func PlanMotionSequence(
 	ctx context.Context,
 	parentLogger logging.Logger,
@@ -390,6 +399,10 @@ func PlanMotionSequence(
 ) ([]motionplan.Plan, []*PlanMeta, error) {
 	ctx, span := trace.StartSpan(ctx, "PlanMotionSequence")
 	defer span.End()
+
+	for _, followupRequest := range requests[1:] {
+		followupRequest.StartState = nil
+	}
 
 	logger := parentLogger.Sublogger("mp")
 	plans := make([]motionplan.Plan, len(requests))
