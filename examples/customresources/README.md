@@ -75,3 +75,21 @@ This is a minimal version of a custom resource module, using the built-in Generi
   * This uses module.json
   * This automatically compiles the module itself first, which can be done manually with `make module`.
 * In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
+
+### simplecombomodule
+A simple composite, without colliding method names. The `simplecombo` model serves just `rdk:component:sensor` and `rdk:component:button`. Their methods (Readings, Push) don't collide, so one struct satisfies both interfaces with no per-API facades: `resource.Compose` wraps that single object as each API's sub-resource. Start here to see the composite machinery on its own, before complexcombomodule's colliding-method handling.
+
+#### Running
+* Same steps as the demos above (`make run-module`, then `make run-client` in a separate terminal).
+
+### complexcombomodule
+The complex counterpart, where the APIs' method names collide. The `combodevice` model serves `rdk:component:camera`, `rdk:component:movement_sensor`, and the custom `acme:component:gizmo` from one identity. Unlike simplecombo, camera and movement_sensor both declare a `Properties` method with *different* return types, so no single struct can satisfy both — each colliding method routes through its own per-API facade. The custom gizmo API rides along to show a composite spans built-in and module-defined APIs alike. A client demo in a sub-folder reaches the one `combo` resource under each API, using `resource.NamedFromProvider` / `resource.APIsOf` to list every API the single object serves.
+
+#### Running
+* Start the server `make run-module`
+  * This uses module.json
+  * This automatically compiles the module itself first, which can be done manually with `make module`.
+* In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
+
+#### Notes
+In module.json the composite is a single component entry declared under one of its APIs — camera here, which is *not* the canonical (sorted-first) API; `acme:component:gizmo` sorts first, so gizmo is canonical. The configured API need not be the canonical one. The server advertises the composite under every API the model is registered for, so the client sees one `combo` name under all three.
