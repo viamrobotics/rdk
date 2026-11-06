@@ -5,13 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	gobuild "go/build"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -229,7 +232,7 @@ func TestAddModel(t *testing.T) {
 
 		test.That(t, addGolangModelFile(dir, goModule), test.ShouldBeNil)
 
-		expectedPath := filepath.Join(dir, goModule.ModelSnake+".go")
+		expectedPath := filepath.Join(dir, goModelFileName(goModule.ModelSnake))
 		b, err := os.ReadFile(expectedPath)
 		test.That(t, err, test.ShouldBeNil)
 		content := string(b)
@@ -458,6 +461,54 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 		_, err = os.Stat("my-org_my-module_second-model.md")
 		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	})
+}
+
+func TestGoModelFileName(t *testing.T) {
+	cases := map[string]string{
+		"my_model":     "my_model.go",
+		"arm":          "arm.go",
+		"xarm":         "xarm.go",
+		"my_arm_board": "my_arm_board.go",
+		"my_arm":       "my_arm_model.go",
+		"ur5_arm64":    "ur5_arm64_model.go",
+		"my_linux":     "my_linux_model.go",
+		"my_linux_arm": "my_linux_arm_model.go",
+		"my_test":      "my_test_model.go",
+		"my_arm_test":  "my_arm_test_model.go",
+	}
+	for modelSnake, want := range cases {
+		test.That(t, goModelFileName(modelSnake), test.ShouldEqual, want)
+	}
+
+	t.Run("every name builds on every platform", func(t *testing.T) {
+		dir := t.TempDir()
+		names := slices.Collect(maps.Keys(goFileNameConstraints))
+		names = append(names, "test")
+		platforms := [][2]string{{"linux", "amd64"}, {"linux", "arm"}, {"darwin", "arm64"}, {"windows", "386"}, {"js", "wasm"}}
+		for _, name := range names {
+			fileName := goModelFileName("my_" + name)
+			test.That(t, os.WriteFile(filepath.Join(dir, fileName), []byte("package p\n"), 0o600), test.ShouldBeNil)
+			for _, p := range platforms {
+				ctx := gobuild.Default
+				ctx.GOOS, ctx.GOARCH = p[0], p[1]
+				match, err := ctx.MatchFile(dir, fileName)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, match, test.ShouldBeTrue)
+			}
+		}
+	})
+
+	t.Run("covers every platform the toolchain supports", func(t *testing.T) {
+		out, err := exec.CommandContext(t.Context(), "go", "tool", "dist", "list").Output()
+		if err != nil {
+			t.Skipf("go tool dist list unavailable: %v", err)
+		}
+		for _, platform := range strings.Fields(string(out)) {
+			goos, goarch, _ := strings.Cut(platform, "/")
+			test.That(t, goFileNameConstraints[goos], test.ShouldBeTrue)
+			test.That(t, goFileNameConstraints[goarch], test.ShouldBeTrue)
+		}
 	})
 }
 
