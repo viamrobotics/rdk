@@ -25,4 +25,5 @@ type Status struct {
 	LastUpdated         time.Time
 	Error               error
 	ConsecutiveFailures uint
+	Version             string
 }

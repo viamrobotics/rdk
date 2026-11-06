@@ -1794,6 +1794,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	//
 	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
 	r.applyLocalModuleVersions(newConfig)
+	applyModulePackageVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)

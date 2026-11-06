@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/a8m/envsubst"
 	"github.com/pkg/errors"
@@ -20,11 +21,13 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
 	"google.golang.org/grpc/codes"
+
 	// Register the gzip compressor so the config client advertises gzip in
 	// grpc-accept-encoding and can decode a gzip-compressed ConfigResponse. The
 	// server (app) opts in to actually compressing responses via SetSendCompressor.
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -46,7 +49,14 @@ const (
 	LocalPackagesSuffix = "-local"
 )
 
-func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
+// processStartedAt: when this viam-server process started; package vars initialize
+// before main runs. Uptime is measured from its monotonic reading
+var processStartedAt = time.Now()
+
+// ModuleVersionsFunc reports the running versions of the machine's registry modules.
+type ModuleVersionsFunc func() []*apppb.ModuleVersionInfo
+
+func getAgentInfo(logger logging.Logger, moduleVersions ModuleVersionsFunc) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -73,15 +83,20 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 
 	platform := fmt.Sprintf("%s/%s", runtime.GOOS, arch)
 
-	return &apppb.AgentInfo{
-		Host:         hostname,
-		Ips:          ips,
-		Os:           runtime.GOOS,
-		Version:      Version,
-		GitRevision:  GitRevision,
-		Platform:     &platform,
-		PlatformTags: readExtendedPlatformTags(logger, true),
-	}, nil
+	info := &apppb.AgentInfo{
+		Host:             hostname,
+		Ips:              ips,
+		Os:               runtime.GOOS,
+		Version:          Version,
+		GitRevision:      GitRevision,
+		Platform:         &platform,
+		PlatformTags:     readExtendedPlatformTags(logger, true),
+		ViamServerUptime: durationpb.New(time.Since(processStartedAt)),
+	}
+	if moduleVersions != nil {
+		info.ModuleVersions = moduleVersions()
+	}
+	return info, nil
 }
 
 // DefaultPackagesDir is the directory used to store packages locally: ~/.viam/packages.
@@ -197,8 +212,9 @@ func fetchAndProcessCloudConfig(
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
+	moduleVersions ModuleVersionsFunc,
 ) (cloudReadResult, error) {
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, machineID, shouldReadFromCache, logger, conn)
+	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, machineID, shouldReadFromCache, logger, conn, moduleVersions)
 	if err != nil {
 		return cloudReadResult{}, err
 	}
@@ -267,7 +283,8 @@ func firstReadFromCloud(
 	logger.Debug("reading first configuration from the cloud")
 	machineID := originalCloudCfg.ID
 
-	res, err := fetchAndProcessCloudConfig(ctx, machineID, true, logger, conn)
+	// No robot exists yet on startup, so there are no module versions to report.
+	res, err := fetchAndProcessCloudConfig(ctx, machineID, true, logger, conn, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -331,13 +348,14 @@ func readFromCloud(
 	checkForNewCert bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
+	moduleVersions ModuleVersionsFunc,
 ) (*Config, error) {
 	if prevCloudCfg == nil {
 		return nil, errors.New("expected prevCloudCfg to not be nil")
 	}
 	logger.Debug("reading configuration from the cloud")
 
-	res, err := fetchAndProcessCloudConfig(ctx, machineID, false, logger, conn)
+	res, err := fetchAndProcessCloudConfig(ctx, machineID, false, logger, conn, moduleVersions)
 	if err != nil {
 		return nil, err
 	}
@@ -801,10 +819,11 @@ func getFromCloudOrCache(
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
+	moduleVersions ModuleVersionsFunc,
 ) (*Config, bool, error) {
 	var cached bool
 
-	cfg, err := getFromCloudGRPC(ctx, machineID, shouldReadFromCache, logger, conn)
+	cfg, err := getFromCloudGRPC(ctx, machineID, shouldReadFromCache, logger, conn, moduleVersions)
 	if err != nil {
 		malformed := IsMalformedConfigError(err)
 		if shouldReadFromCache {
@@ -854,12 +873,13 @@ func getFromCloudGRPC(
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
+	moduleVersions ModuleVersionsFunc,
 ) (*Config, error) {
 	// Agent info is gathered before the timeout starts: it is local work -- on darwin it shells out
 	// to sw_vers -- while the timeout is there to bound the cloud round trip. That timeout is as
 	// short as a second when a cached config exists, so local work charged against it can leave no
 	// time for a request the cloud would have answered (RSDK-14774).
-	agentInfo, err := getAgentInfo(logger)
+	agentInfo, err := getAgentInfo(logger, moduleVersions)
 	if err != nil {
 		return nil, errors.WithMessage(err, "error getting agent info")
 	}

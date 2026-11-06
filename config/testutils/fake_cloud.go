@@ -35,6 +35,8 @@ type FakeCloudServer struct {
 
 	errConfigAndCerts error
 
+	lastAgentInfo *pb.AgentInfo
+
 	mu sync.Mutex
 }
 
@@ -154,6 +156,8 @@ func (s *FakeCloudServer) Config(ctx context.Context, req *pb.ConfigRequest) (*p
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	s.lastAgentInfo = req.GetAgentInfo()
+
 	if s.errConfigAndCerts != nil {
 		return nil, s.errConfigAndCerts
 	}
@@ -164,6 +168,13 @@ func (s *FakeCloudServer) Config(ctx context.Context, req *pb.ConfigRequest) (*p
 	}
 
 	return &pb.ConfigResponse{Config: d.cfg}, nil
+}
+
+// LastAgentInfo returns the agent info sent with the most recent config request.
+func (s *FakeCloudServer) LastAgentInfo() *pb.AgentInfo {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.lastAgentInfo
 }
 
 // Certificate impl.
