@@ -5520,9 +5520,9 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
-// TestMaintenanceConfigFromPart exercises the `from_part` path, where a subpart defers its
+// TestMaintenanceConfigFollowPart exercises the `follow_part` path, where a subpart defers its
 // reconfigure decision to another (main) part via a sideband SDK connection.
-func TestMaintenanceConfigFromPart(t *testing.T) {
+func TestMaintenanceConfigFollowPart(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -5556,14 +5556,14 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 		return addr
 	}
 
-	subpartFromPartCfg := func(addr string, comps []resource.Config) *config.Config {
+	subpartFollowPartCfg := func(addr string, comps []resource.Config) *config.Config {
 		return &config.Config{
 			// AllowInsecureCreds permits the sideband dial to downgrade to plain TCP against
 			// the in-process test main listener, which doesn't serve TLS. Prod configs don't
-			// set this; the from_part field itself has no insecure toggle.
+			// set this; the follow_part field itself has no insecure toggle.
 			AllowInsecureCreds: true,
 			MaintenanceConfig: &config.MaintenanceConfig{
-				FromPart: &config.FromPartRef{Address: addr},
+				FollowPart: &config.FollowPartRef{Address: addr},
 			},
 			Components: comps,
 		}
@@ -5575,8 +5575,8 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
 		})
 
-		r := setupLocalRobot(t, ctx, subpartFromPartCfg(addr, nil), logger)
-		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
 
 		got, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
@@ -5589,8 +5589,8 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet",
 		})
 
-		r := setupLocalRobot(t, ctx, subpartFromPartCfg(addr, nil), logger)
-		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
 
 		got, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, got, test.ShouldBeNil)
@@ -5602,8 +5602,8 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 		// subpart should treat that as "no opinion, proceed."
 		addr := startMain(t, nil)
 
-		r := setupLocalRobot(t, ctx, subpartFromPartCfg(addr, nil), logger)
-		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
 
 		got, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
@@ -5613,10 +5613,10 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 	t.Run("main unreachable → subpart reconfigure blocked", func(t *testing.T) {
 		// Pick an address nothing is listening on. (Port 1 is privileged, so it will fail
 		// fast without lingering DNS or routing.)
-		cfg := subpartFromPartCfg("127.0.0.1:1", nil)
+		cfg := subpartFollowPartCfg("127.0.0.1:1", nil)
 		r := setupLocalRobot(t, ctx, cfg, logger)
 
-		cfgWithReconfig := subpartFromPartCfg("127.0.0.1:1", sensor2)
+		cfgWithReconfig := subpartFollowPartCfg("127.0.0.1:1", sensor2)
 		r.Reconfigure(ctx, cfgWithReconfig)
 
 		got, err := r.ResourceByName(sensor.Named("sensor2"))
@@ -5624,7 +5624,7 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 	})
 
-	t.Run("borked from_part address self-heals on next config push", func(t *testing.T) {
+	t.Run("borked follow_part address self-heals on next config push", func(t *testing.T) {
 		// Subpart starts with a wrong address: every probe fails and reconfigure is blocked.
 		// Then a new config arrives with the correct address; the next reconfigure uses the
 		// NEW address (reconfigureAllowed receives newConfig.MaintenanceConfig) and succeeds.
@@ -5632,26 +5632,26 @@ func TestMaintenanceConfigFromPart(t *testing.T) {
 			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
 		})
 
-		badAddrCfg := subpartFromPartCfg("127.0.0.1:1", nil)
+		badAddrCfg := subpartFollowPartCfg("127.0.0.1:1", nil)
 		r := setupLocalRobot(t, ctx, badAddrCfg, logger)
 
 		// Confirm the bad address blocks reconfigure.
-		r.Reconfigure(ctx, subpartFromPartCfg("127.0.0.1:1", sensor2))
+		r.Reconfigure(ctx, subpartFollowPartCfg("127.0.0.1:1", sensor2))
 		got, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, got, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 
 		// Push a corrected config. The next reconfigure uses the new address.
-		r.Reconfigure(ctx, subpartFromPartCfg(addr, sensor2))
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
 		got, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldNotBeNil)
 	})
 
-	t.Run("from_part does not cascade: a main that itself follows another part reports nil MaintenanceStatus", func(t *testing.T) {
-		// A machine whose own maintenance is `from_part` must NOT probe on behalf of its
+	t.Run("follow_part does not cascade: a main that itself follows another part reports nil MaintenanceStatus", func(t *testing.T) {
+		// A machine whose own maintenance is `follow_part` must NOT probe on behalf of its
 		// status readers; MaintenanceStatus in its own MachineStatus should be nil.
-		cfg := subpartFromPartCfg("127.0.0.1:1", nil)
+		cfg := subpartFollowPartCfg("127.0.0.1:1", nil)
 		r := setupLocalRobot(t, ctx, cfg, logger)
 
 		status, err := r.MachineStatus(ctx)

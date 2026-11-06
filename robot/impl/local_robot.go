@@ -2451,7 +2451,7 @@ func (r *localRobot) evaluateMaintenanceStatusForReport(ctx context.Context) *ro
 	}
 	// Don't cascade: when this machine itself follows another part, we have no self-authoritative
 	// answer to report, so stay silent rather than probing on behalf of every status reader.
-	if cfg.MaintenanceConfig.FromPart != nil {
+	if cfg.MaintenanceConfig.FollowPart != nil {
 		return nil
 	}
 	allowed, err := r.reconfigureAllowed(ctx, cfg.MaintenanceConfig)
@@ -2475,8 +2475,8 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 		return true, nil
 	}
 
-	if mCfg.FromPart != nil {
-		return r.reconfigureAllowedFromPart(ctx, mCfg.FromPart)
+	if mCfg.FollowPart != nil {
+		return r.reconfigureAllowedFollowPart(ctx, mCfg.FollowPart)
 	}
 
 	// If the sensor name cannot be parsed or found on the machine, return true (reconfigure
@@ -2499,8 +2499,8 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	return canReconfigure, nil
 }
 
-// reconfigureAllowedFromPart opens a short-lived sideband SDK connection to the part named
-// in from_part, reads the MaintenanceStatus field from its MachineStatus response, and
+// reconfigureAllowedFollowPart opens a short-lived sideband SDK connection to the part named
+// in follow_part, reads the MaintenanceStatus field from its MachineStatus response, and
 // closes the connection. The sideband client is deliberately NOT added to the resource
 // graph so remote cycles are impossible.
 //
@@ -2511,42 +2511,42 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 //
 // TODO(RSDK-14858): cache this connection as a long-lived client with reconnect semantics
 // instead of dialing per reconfigure.
-func (r *localRobot) reconfigureAllowedFromPart(ctx context.Context, ref *config.FromPartRef) (bool, error) {
+func (r *localRobot) reconfigureAllowedFollowPart(ctx context.Context, ref *config.FollowPartRef) (bool, error) {
 	if ref.Address == "" {
-		return false, errors.New("from_part address is required")
+		return false, errors.New("follow_part address is required")
 	}
 
 	dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	synthetic := config.Remote{
-		Name:    "maintenance-from-part",
+		Name:    "maintenance-follow-part",
 		Address: ref.Address,
 		Auth:    ref.Auth,
 	}
 	dialOpts := remoteDialOptions(synthetic, r.manager.opts)
 
-	mainClient, err := dialRobotClient(dialCtx, synthetic, r.logger.Sublogger("maintenance_from_part"), dialOpts...)
+	mainClient, err := dialRobotClient(dialCtx, synthetic, r.logger.Sublogger("maintenance_follow_part"), dialOpts...)
 	if err != nil {
-		return false, fmt.Errorf("failed to dial from_part %q: %w", ref.Address, err)
+		return false, fmt.Errorf("failed to dial follow_part %q: %w", ref.Address, err)
 	}
 	defer func() {
 		if err := mainClient.Close(ctx); err != nil {
-			r.logger.CDebugw(ctx, "closing from_part sideband client", "err", err)
+			r.logger.CDebugw(ctx, "closing follow_part sideband client", "err", err)
 		}
 	}()
 
 	mStatus, err := mainClient.MachineStatus(dialCtx)
 	if err != nil {
-		return false, fmt.Errorf("MachineStatus probe to from_part %q failed: %w", ref.Address, err)
+		return false, fmt.Errorf("MachineStatus probe to follow_part %q failed: %w", ref.Address, err)
 	}
 	if mStatus.MaintenanceStatus == nil {
-		r.logger.CInfow(ctx, "from_part reported no MaintenanceStatus; treating as unknown and allowing reconfigure",
+		r.logger.CInfow(ctx, "follow_part reported no MaintenanceStatus; treating as unknown and allowing reconfigure",
 			"address", ref.Address)
 		return true, nil
 	}
 	if !mStatus.MaintenanceStatus.Allowed {
-		return false, fmt.Errorf("reconfigure blocked by from_part %q: %s", ref.Address, mStatus.MaintenanceStatus.Reason)
+		return false, fmt.Errorf("reconfigure blocked by follow_part %q: %s", ref.Address, mStatus.MaintenanceStatus.Reason)
 	}
 	return true, nil
 }
