@@ -70,8 +70,7 @@ type Module struct {
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
 
-	// PackageVersion is a registry module's package version, copied in-process from its
-	// PackageConfig. It is not serialized and does not participate in Equals.
+	// PackageVersion is an in-process copy of a registry module's package version. It is ignored by Equals.
 	PackageVersion string `json:"-"`
 }
 

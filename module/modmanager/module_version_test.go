@@ -54,7 +54,6 @@ func TestModuleStatusVersion(t *testing.T) {
 	test.That(t, s.Version, test.ShouldEqual, "1.1.0")
 	test.That(t, s.LastUpdated.After(firstReady), test.ShouldBeTrue)
 
-	// A version that fails to start never reaches ready, so it is never recorded.
 	t.Setenv("VIAM_TESTMODULE_PANIC", "1")
 	modCfg.PackageVersion = "1.2.0"
 	_, err = mgr.Reconfigure(ctx, modCfg)

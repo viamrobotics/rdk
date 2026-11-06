@@ -1187,8 +1187,7 @@ func (mgr *Manager) SetModuleStatusUnhealthy(name string, err error) {
 	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err, "")
 }
 
-// setModuleState is an internal setter that should never be called directly. version is only
-// recorded when entering the ready state.
+// setModuleState is an internal setter
 func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, err error, version string) {
 	mgr.moduleStatusMu.Lock()
 	status, ok := mgr.moduleStatusMap[moduleName]

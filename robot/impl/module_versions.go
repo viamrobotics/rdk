@@ -44,7 +44,7 @@ func (r *localRobot) ModuleVersions() []*apppb.ModuleVersionInfo {
 }
 
 // moduleVersionInfos builds one entry per reportable registry module from the configured modules
-// and the current module statuses. running_for is measured against now.
+// and the current module statuses.
 func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, now time.Time) []*apppb.ModuleVersionInfo {
 	byName := make(map[string]modulestatus.Status, len(statuses))
 	for _, s := range statuses {

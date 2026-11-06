@@ -25,8 +25,8 @@ type Watcher interface {
 	Close() error
 }
 
-// NewWatcher returns an optimally selected Watcher based on the given config. A cloud watcher
-// reports moduleVersions, if non-nil, with each config fetch.
+// NewWatcher returns an optimally selected Watcher based on the
+// given config.
 func NewWatcher(
 	ctx context.Context,
 	config *Config,
