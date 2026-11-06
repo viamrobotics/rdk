@@ -1,0 +1,60 @@
+name: CLA Gate
+
+# Posts the required `cla/gate` commit status: success when every PR committer is a viamrobotics
+# member, otherwise a copy of cla-assistant.io's `license/cla`. Dispatch backfills all open PRs.
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cla-gate-${{ github.event.pull_request.head.sha || github.event.sha || 'backfill' }}
+  cancel-in-progress: false
+
+jobs:
+  cla-gate:
+    if: >-
+      github.repository_owner == 'viamrobotics' &&
+      (github.event_name != 'status' || github.event.context == 'license/cla')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      # Checks out main, never PR code: this job holds a members token and statuses: write.
+      - name: Check out CLA gate script
+        # actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          sparse-checkout: etc/cla-gate.js
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # GITHUB_TOKEN only sees public org members; the CI app has "Members: read".
+      - name: Mint org members token
+        id: app-token
+        # actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          app-id: ${{ secrets.CI_GITHUB_APP_ID }}
+          private-key: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          permission-members: read
+
+      - name: Post cla/gate status
+        # actions/github-script@v9.0.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        env:
+          ORG_TOKEN: ${{ steps.app-token.outputs.token }}
+          TRUSTED_BOTS: ${{ vars.TRUSTED_BOTS }}  # comma-separated logins, shared with pr-labeler.yml
+        with:
+          script: |
+            const run = require('./etc/cla-gate.js');
+            await run({ github, context, core, orgClient: getOctokit(process.env.ORG_TOKEN) });
