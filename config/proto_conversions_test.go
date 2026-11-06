@@ -1195,10 +1195,10 @@ func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
 	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
 }
 
-func TestMaintenanceConfigToProtoFromPart(t *testing.T) {
+func TestMaintenanceConfigToProtoFollowPart(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	testMaintenanceConfig := MaintenanceConfig{
-		FromPart: &FromPartRef{
+		FollowPart: &FollowPartRef{
 			Address: "main.example.viam.cloud",
 			Auth: RemoteAuth{
 				Entity: "entity-123",
@@ -1212,8 +1212,8 @@ func TestMaintenanceConfigToProtoFromPart(t *testing.T) {
 
 	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, proto.GetFromPart().GetAddress(), test.ShouldEqual, "main.example.viam.cloud")
-	test.That(t, proto.GetFromPart().GetAuth().GetEntity(), test.ShouldEqual, "entity-123")
+	test.That(t, proto.GetFollowPart().GetAddress(), test.ShouldEqual, "main.example.viam.cloud")
+	test.That(t, proto.GetFollowPart().GetAuth().GetEntity(), test.ShouldEqual, "entity-123")
 
 	out, err := MaintenanceConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
