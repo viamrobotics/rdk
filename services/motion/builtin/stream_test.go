@@ -4,6 +4,10 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 // newStreamTestService builds a minimal builtIn wired to a single injected arm
@@ -355,4 +360,131 @@ func TestTempStreamArmJointPositionsAbort(t *testing.T) {
 	close(newTargets)
 	err = ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), newTargets, ignoredResponses(t), nil)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func runShortStreamSession(ctx context.Context, t *testing.T, ms *builtIn) error {
+	t.Helper()
+	opts := streamTestOptions()
+	diagWindow := int32(60)
+	opts.DiagnosticsWindowSecs = &diagWindow
+	targets := make(chan []referenceframe.Input)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- ms.TempStreamArmJointPositions(ctx, "arm", opts, targets, ignoredResponses(t), nil)
+	}()
+	waitForSession(t, ms, "arm")
+	for i := 1; i <= 6; i++ {
+		targets <- []referenceframe.Input{float64(i) * 0.02, 0, 0, 0, 0, 0}
+	}
+	close(targets)
+	select {
+	case err := <-errCh:
+		return err
+	case <-time.After(10 * time.Second):
+		t.Fatal("TempStreamArmJointPositions never returned")
+		return nil
+	}
+}
+
+func loadDiagnosticsFile(t *testing.T, dir, pattern string) streamDiagnosticsFile {
+	t.Helper()
+	files, err := filepath.Glob(filepath.Join(dir, pattern))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, files, test.ShouldHaveLength, 1)
+	bytes, err := os.ReadFile(files[0])
+	test.That(t, err, test.ShouldBeNil)
+	var doc streamDiagnosticsFile
+	test.That(t, json.Unmarshal(bytes, &doc), test.ShouldBeNil)
+	return doc
+}
+
+func TestTempStreamArmJointPositionsWritesDiagnosticsFile(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir}
+
+	test.That(t, runShortStreamSession(context.Background(), t, ms), test.ShouldBeNil)
+
+	doc := loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/stream-diagnostics-arm-*.json")
+	test.That(t, doc.Arm, test.ShouldEqual, "arm")
+	test.That(t, doc.Error, test.ShouldBeEmpty)
+	test.That(t, doc.EndTime.After(doc.StartTime), test.ShouldBeTrue)
+	test.That(t, doc.Options.DiagnosticsWindowSecs, test.ShouldEqual, 60)
+	test.That(t, doc.Stats.JointPositionTargetsReceived, test.ShouldEqual, 6)
+	test.That(t, doc.Stats.JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 0)
+
+	details := doc.LastWindowDetails
+	test.That(t, details.JointPositionTargetReceived, test.ShouldHaveLength, 6)
+	test.That(t, details.TrajexExtends, test.ShouldHaveLength, 6)
+	test.That(t, details.SampledPVATs, test.ShouldNotBeEmpty)
+	test.That(t, details.TrajexSessionOpen, test.ShouldHaveLength, 1)
+	test.That(t, details.TrajexSessionClose, test.ShouldHaveLength, 1)
+	test.That(t, details.ArmStreamOpen, test.ShouldHaveLength, 1)
+	test.That(t, details.ArmStreamClose, test.ShouldHaveLength, 1)
+}
+
+func TestTempStreamArmJointPositionsWritesDiagnosticsFileOnError(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir}
+
+	inj, ok := ms.components["arm"].(*inject.Arm)
+	test.That(t, ok, test.ShouldBeTrue)
+	inj.MoveThroughJointPositionsStreamedFunc = func(
+		ctx context.Context,
+		batches <-chan []arm.TrajectoryPoint,
+		responses chan<- arm.Response,
+		extra map[string]interface{},
+	) error {
+		for range batches {
+		}
+		return errors.New("arm failed")
+	}
+
+	sessionErr := runShortStreamSession(context.Background(), t, ms)
+	test.That(t, sessionErr, test.ShouldNotBeNil)
+
+	doc := loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics-err/tag=arm/stream-diagnostics-arm-*-err.json")
+	test.That(t, doc.Error, test.ShouldEqual, sessionErr.Error())
+
+	successFiles, err := filepath.Glob(filepath.Join(dir, "tag=arm-stream-diagnostics", "*", "*.json"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, successFiles, test.ShouldBeEmpty)
+}
+
+func TestTempStreamArmJointPositionsDiagnosticsFileMetadataTags(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{
+		StreamDiagnosticsFilePath:                    dir,
+		StreamDiagnosticsMetadataKeysToUseAsFileTags: []string{"pass-id", "absent", "other"},
+	}
+
+	ctx := metadata.Set(context.Background(), "pass-id", "pass123", "other", "abc", "unlisted", "nope")
+	test.That(t, runShortStreamSession(ctx, t, ms), test.ShouldBeNil)
+
+	// Listed keys present in the metadata become tag directories, in config order; absent and
+	// unlisted keys do not.
+	loadDiagnosticsFile(t, dir, "tag=arm-stream-diagnostics/tag=arm/tag=pass123/tag=abc/stream-diagnostics-arm-*.json")
+}
+
+func TestTempStreamArmJointPositionsRejectsUnsafeMetadataTagValue(t *testing.T) {
+	ms, _ := newStreamTestService(t)
+	defer func() { test.That(t, ms.Close(context.Background()), test.ShouldBeNil) }()
+	dir := t.TempDir()
+	ms.conf = &Config{StreamDiagnosticsFilePath: dir, StreamDiagnosticsMetadataKeysToUseAsFileTags: []string{"pass-id"}}
+
+	targets := make(chan []referenceframe.Input)
+	close(targets)
+	ctx := metadata.Set(context.Background(), "pass-id", "../escape")
+	err := ms.TempStreamArmJointPositions(ctx, "arm", streamTestOptions(), targets, ignoredResponses(t), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid request metadata")
+
+	entries, err := os.ReadDir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, entries, test.ShouldBeEmpty)
 }
