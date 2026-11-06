@@ -90,6 +90,11 @@ type GoModuleTmpl struct {
 	ObjName           string
 	Imports           string
 	Functions         string
+	// ReturnType is the constructor's result type, such as resource.Resource or motor.Motor.
+	ReturnType string
+	// CaptureSlots wraps the API-specific regions in markers so the inline bundle can
+	// split them from the shared shell. viam module generate leaves this false.
+	CaptureSlots bool
 }
 
 // CppRenderedFiles holds the rendered output for each C++ file produced during module generation.

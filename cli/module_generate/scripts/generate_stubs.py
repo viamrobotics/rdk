@@ -1,11 +1,28 @@
 import ast
+import atexit
+import json
 import os
+import shutil
+import site
 import subprocess
 import sys
 import tempfile
 import time
 from importlib import import_module
 from typing import List, Set, Union
+
+
+def sdk_requirement(extra: str = "") -> str:
+    """Pip requirement for viam-sdk.
+
+    VIAM_PYTHON_SDK_VERSION pins the install to the same version written into
+    requirements.txt. Unset, the laptop CLI keeps installing the unpinned SDK.
+    """
+    version = os.environ.get("VIAM_PYTHON_SDK_VERSION", "").strip()
+    name = "viam-sdk" if extra == "" else f"viam-sdk[{extra}]"
+    if version:
+        return f"{name}=={version}"
+    return name
 
 
 def return_attribute(value: str, attr: str) -> ast.Attribute:
@@ -114,12 +131,192 @@ def return_subclass(
     return "\n".join(["    " + line for line in ast.unparse(stmt).splitlines()])
 
 
+def wrap_do_command_region(methods_text: str) -> str:
+    """Wrap each do_command body in inline-example comments. Other methods stay plain."""
+    lines = methods_text.splitlines(keepends=True)
+    out: List[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        stripped = line.lstrip()
+        if not (
+            stripped.startswith("async def do_command(")
+            or stripped.startswith("def do_command(")
+        ):
+            out.append(line)
+            index += 1
+            continue
+        indent = line[: len(line) - len(stripped)]
+        out.append(line)
+        index += 1
+        while index < len(lines) and not out[-1].rstrip().endswith(":"):
+            out.append(lines[index])
+            index += 1
+        body: List[str] = []
+        while index < len(lines):
+            nxt = lines[index]
+            if nxt.strip() == "":
+                break
+            if len(nxt) - len(nxt.lstrip()) <= len(indent):
+                break
+            body.append(nxt)
+            index += 1
+        body_indent = indent + "    "
+        out.append(f"{body_indent}# inline-example:do-command\n")
+        out.extend(body)
+        out.append(f"{body_indent}# inline-example:do-command-end\n")
+    return "".join(out)
+
+
+def resource_import_line(
+    resource_type: str, resource_subtype: str, resource_name: str
+) -> str:
+    """Named import of the base class. A star import leaves ``Generic`` unbound once removed."""
+    return (
+        f"from viam.{resource_type}s.{resource_subtype} import {resource_name}"
+    )
+
+
+def with_resource_import(
+    imports_text: str, resource_type: str, resource_subtype: str, resource_name: str
+) -> str:
+    """Put the base-class import in the imports slot when there is one."""
+    line = resource_import_line(resource_type, resource_subtype, resource_name)
+    if line in imports_text.splitlines():
+        return imports_text
+    marker = "/*inline-slot:imports*/"
+    if marker in imports_text:
+        return imports_text.replace(marker, f"{marker}\n{line}", 1)
+    if imports_text.strip() == "":
+        return line
+    return f"{line}\n{imports_text}"
+
+
+def render_resource_file(
+    imports_text: str,
+    resource_type: str,
+    resource_subtype: str,
+    model_name_pascal: str,
+    resource_name: str,
+    namespace: str,
+    mod_name: str,
+    model_name: str,
+    subclasses_text: str,
+    methods_text: str,
+    slots: bool,
+) -> str:
+    """Render one Python model file. slots adds the inline-bundle example regions."""
+    imports_text = with_resource_import(
+        imports_text, resource_type, resource_subtype, resource_name
+    )
+    example_imports = ""
+    example_fields = ""
+    init_body = "        return super().new(config, dependencies)"
+    validate_body = "        return [], []"
+    class_warning = ""
+    if slots:
+        # The inline editor shows this above the class. viam module generate does not.
+        class_warning = (
+            "# IMPORTANT: Do not change the class name or the MODEL triplet below.\n"
+            "# The platform uses these auto-generated values to identify your module.\n"
+            "# Changing them will break your inline module.\n"
+        )
+        example_imports = "# inline-example:imports\n# inline-example:imports-end\n"
+        # The blank line after the fields region stays outside the markers, so a
+        # filled field list is still separated from ``new``.
+        example_fields = (
+            "    # inline-example:fields\n    # inline-example:fields-end\n\n"
+        )
+        init_body = (
+            "        # inline-example:init\n"
+            "        return super().new(config, dependencies)\n"
+            "        # inline-example:init-end"
+        )
+        validate_body = (
+            "        # inline-example:validate\n"
+            "        return [], []\n"
+            "        # inline-example:validate-end"
+        )
+        methods_text = wrap_do_command_region(methods_text)
+    resource_file = """from typing import ClassVar, Mapping, Sequence, Tuple
+from typing_extensions import Self
+from viam.proto.app.robot import ComponentConfig
+from viam.proto.common import ResourceName
+from viam.resource.base import ResourceBase
+from viam.resource.easy_resource import EasyResource
+from viam.resource.types import Model, ModelFamily
+{0}
+{10}
+{14}class {3}({4}, EasyResource):
+    # To enable debug-level logging, either run viam-server with the --debug option,
+    # or configure your resource/machine to display debug logs.
+    MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
+
+{13}    @classmethod
+    def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
+        \"\"\"This method creates a new instance of this {4} {1}.
+        The default implementation sets the name from the `config` parameter.
+
+        Args:
+            config (ComponentConfig): The configuration for this resource
+            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both required and optional)
+
+        Returns:
+            Self: The resource
+        \"\"\"
+{11}
+
+    @classmethod
+    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
+        \"\"\"This method allows you to validate the configuration object received from the machine,
+        as well as to return any required dependencies or optional dependencies based on that `config`.
+
+        Args:
+            config (ComponentConfig): The configuration for this resource
+
+        Returns:
+            Tuple[Sequence[str], Sequence[str]]: A tuple where the
+                first element is a list of required dependencies and the
+                second element is a list of optional dependencies
+        \"\"\"
+{12}
+
+{8}
+{9}
+""".format(
+        imports_text,
+        resource_type,
+        resource_subtype,
+        model_name_pascal,
+        resource_name,
+        namespace,
+        mod_name,
+        model_name,
+        subclasses_text,
+        methods_text,
+        example_imports,
+        init_body,
+        validate_body,
+        example_fields,
+        class_warning,
+    )
+    if slots:
+        old_class = f"class {model_name_pascal}({resource_name}, EasyResource):"
+        new_class = (
+            f"class {model_name_pascal}(/*inline-slot:bases*/{resource_name}, "
+            "EasyResource/*inline-slot:bases-end*/):"
+        )
+        resource_file = resource_file.replace(old_class, new_class, 1)
+    return resource_file
+
+
 def main(
     resource_type: str,
     resource_subtype: str,
     namespace: str,
     mod_name: str,
     model_name: str,
+    slots: bool = False,
 ) -> str:
     from slugify import slugify
 
@@ -208,56 +405,15 @@ def main(
     model_name_pascal = "".join(
         [word.capitalize() for word in slugify(model_name).split("-")]
     )
-    resource_file = '''
-from typing import ClassVar, Mapping, Sequence, Tuple
-from typing_extensions import Self
-from viam.proto.app.robot import ComponentConfig
-from viam.proto.common import ResourceName
-from viam.resource.base import ResourceBase
-from viam.resource.easy_resource import EasyResource
-from viam.resource.types import Model, ModelFamily
-{0}
-from viam.{1}s.{2} import *
-
-
-class {3}({4}, EasyResource):
-    # To enable debug-level logging, either run viam-server with the --debug option,
-    # or configure your resource/machine to display debug logs.
-    MODEL: ClassVar[Model] = Model(ModelFamily("{5}", "{6}"), "{7}")
-
-    @classmethod
-    def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
-        """This method creates a new instance of this {4} {1}.
-        The default implementation sets the name from the `config` parameter.
-
-        Args:
-            config (ComponentConfig): The configuration for this resource
-            dependencies (Mapping[ResourceName, ResourceBase]): The dependencies (both required and optional)
-
-        Returns:
-            Self: The resource
-        """
-        return super().new(config, dependencies)
-
-    @classmethod
-    def validate_config(cls, config: ComponentConfig) -> Tuple[Sequence[str], Sequence[str]]:
-        """This method allows you to validate the configuration object received from the machine,
-        as well as to return any required dependencies or optional dependencies based on that `config`.
-
-        Args:
-            config (ComponentConfig): The configuration for this resource
-
-        Returns:
-            Tuple[Sequence[str], Sequence[str]]: A tuple where the
-                first element is a list of required dependencies and the
-                second element is a list of optional dependencies
-        """
-        return [], []
-
-{8}
-{9}
-'''.format(
-        "\n".join(list(set(imports))),
+    imports_text = "\n".join(list(set(imports)))
+    subclasses_text = "\n\n".join([subclass for subclass in subclasses])
+    methods_text = "\n\n".join([f"{method}" for method in abstract_methods])
+    if slots:
+        imports_text = f"/*inline-slot:imports*/\n{imports_text}\n/*inline-slot:imports-end*/"
+        subclasses_text = f"/*inline-slot:methods*/\n{subclasses_text}"
+        methods_text = f"{methods_text}\n/*inline-slot:methods-end*/"
+    resource_file = render_resource_file(
+        imports_text,
         resource_type,
         resource_subtype,
         model_name_pascal,
@@ -265,9 +421,12 @@ class {3}({4}, EasyResource):
         namespace,
         mod_name,
         model_name,
-        "\n\n".join([subclass for subclass in subclasses]),
-        "\n\n".join([f"{method}" for method in abstract_methods]),
+        subclasses_text,
+        methods_text,
+        slots,
     )
+    if slots:
+        return resource_file
     with tempfile.NamedTemporaryFile(mode="w+", suffix=".py", delete=False) as f:
         f_name = f.name
         f.write(resource_file)
@@ -299,7 +458,20 @@ class {3}({4}, EasyResource):
     return resource_file
 
 
-def install_requirements(packages: List[str], attempts: int = 3) -> None:
+def pip_install_command(packages: List[str], target: str = "") -> List[str]:
+    """Pip command for packages. A target dir keeps the bundle install off the active env."""
+    command = [sys.executable, "-m", "pip", "install"]
+    if target:
+        # --isolated ignores a pip.conf `user = true`, which cannot combine with --target.
+        command.extend(
+            ["--isolated", "--disable-pip-version-check", "--target", target]
+        )
+    return command + packages
+
+
+def install_requirements(
+    packages: List[str], attempts: int = 3, target: str = ""
+) -> None:
     """Install the packages this script imports.
 
     PyPI drops requests often enough that a single failed install regularly
@@ -308,7 +480,7 @@ def install_requirements(packages: List[str], attempts: int = 3) -> None:
     """
     for attempt in range(1, attempts + 1):
         res = subprocess.run(
-            [sys.executable, "-m", "pip", "install"] + packages,
+            pip_install_command(packages, target),
             capture_output=True,
             text=True,
         )
@@ -322,8 +494,64 @@ def install_requirements(packages: List[str], attempts: int = 3) -> None:
         time.sleep(attempt * 2)
 
 
+def run_bundle(version: str) -> None:
+    """Install one SDK version, then print a JSON list of slotted model files.
+
+    stdin is a list of {resource_type, resource_subtype, namespace, module_name, model_name}.
+    """
+    os.environ["VIAM_PYTHON_SDK_VERSION"] = version
+    items = json.load(sys.stdin)
+    # Install into a temp dir. The active interpreter may be a conda env whose
+    # site-packages is not writable, and an older viam already installed there
+    # must not shadow the pinned SDK.
+    target = tempfile.mkdtemp(prefix="inline-python-deps-")
+    atexit.register(shutil.rmtree, target, True)
+    install_requirements(
+        [
+            sdk_requirement("mlmodel"),
+            "typing-extensions",
+            "ruff",
+            "python-slugify",
+            "numpy",
+        ],
+        target=target,
+    )
+    sys.path.insert(0, target)
+    site.addsitedir(target)
+    rendered = []
+    for item in items:
+        try:
+            generated = main(
+                item["resource_type"],
+                item["resource_subtype"],
+                item["namespace"],
+                item["module_name"],
+                item["model_name"],
+                slots=True,
+            )
+        except ModuleNotFoundError as exc:
+            # The installed SDK can lag a resource the CLI already lists. Skip
+            # that API instead of failing the rest of the catalog.
+            print(
+                f"skipping {item['resource_subtype']} {item['resource_type']}: {exc}",
+                file=sys.stderr,
+            )
+            continue
+        rendered.append(
+            {
+                "resource_type": item["resource_type"],
+                "resource_subtype": item["resource_subtype"],
+                "file": generated,
+            }
+        )
+    json.dump(rendered, sys.stdout)
+
+
 if __name__ == "__main__":
-    packages = ["viam-sdk", "typing-extensions", "ruff", "python-slugify"]
+    if len(sys.argv) > 1 and sys.argv[1] == "--bundle":
+        run_bundle(sys.argv[2])
+        sys.exit(0)
+    packages = [sdk_requirement(), "typing-extensions", "ruff", "python-slugify"]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
     install_requirements(packages)
