@@ -56,6 +56,10 @@ type InputEnabled interface {
 // the resource itself when it implements that interface; for a composite each is resolved across the
 // several APIs it serves. refuse is true for a composite serving two distinct kinematic subs, which the
 // caller omits from the frame system.
+//
+// Deciding refuse needs the live resource. A caller that can't run this while a resource is unavailable
+// must omit anything refusable here with a broader config-only check instead, so a live refusal is also
+// omitted when unavailable (see modelMayBeKinematic in robot/impl).
 func FrameContribution(res resource.Resource) (kinematic InputEnabled, model ModelFramer, shaped resource.Shaped, refuse bool) {
 	// A composite is one physical device, so model and shaped take the first sub providing each. Two distinct
 	// kinematic subs are unsupported (refused) since they can't share one frame's inputs.
