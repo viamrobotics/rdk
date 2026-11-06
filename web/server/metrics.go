@@ -6,9 +6,11 @@ import (
 	"net/url"
 	"os"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/sdk/instrumentation"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 
@@ -62,10 +64,25 @@ func setupMetricsExport(
 	provider := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter)),
 		sdkmetric.WithResource(res),
+		sdkmetric.WithView(metricViews()...),
 	)
 	otel.SetMeterProvider(provider)
 	logger.Infow("Exporting OTLP metrics", "endpoint", u.Redacted(), "env", envName)
 	return provider.Shutdown, nil
+}
+
+// metricViews drops otelgrpc's rpc.server.duration, which duplicates
+// web.RequestDurationMetric for Viam APIs. Only Viam API requests have server latency recorded.
+func metricViews() []sdkmetric.View {
+	return []sdkmetric.View{
+		sdkmetric.NewView(
+			sdkmetric.Instrument{
+				Name:  "rpc.server.duration",
+				Scope: instrumentation.Scope{Name: otelgrpc.ScopeName},
+			},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationDrop{}},
+		),
+	}
 }
 
 func otlpMetricsEndpoint() (envName, endpoint string) {
