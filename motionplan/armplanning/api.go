@@ -371,7 +371,8 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // request's StartState is used as given. Every later request starts from the configuration the
 // previous plan ended in. The frame system, obstacles, constraints and planner options of each
 // request are its own, but the frame systems are expected to describe the same frames with degrees
-// of freedom.
+// of freedom. Frames without degrees of freedom may differ from one request to the next, so an
+// object can be attached in one request and gone in the next.
 //
 // The StartState of every request after the first is mutated in place. Whatever the caller put
 // there is discarded, so there are no requirements on it. It is set to the end of the previous plan
@@ -389,7 +390,8 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // error or a partial plan, entries for the requests after the last good one are nil if never
 // planned, or hold whatever an abandoned attempt produced. A PlanMeta sums the numeric values over
 // every attempt at its request, and its BacktrackCounter says how many times the request was
-// re-planned. An error means no combination of solutions was found. A request with
+// re-planned. An error means no combination of solutions was found, or ctx was done before one was;
+// the latter wraps ctx.Err(). A request with
 // ReturnPartialPlan set that only partially plans ends the sequence early with its partial plan and
 // no error, as PlanMotion would report it.
 func PlanMotionSequence(
@@ -410,6 +412,12 @@ func PlanMotionSequence(
 
 	// requestIdx is managed by the success/failure of individual plan solve attempts.
 	for requestIdx := 0; requestIdx < len(requests); {
+		// A done context fails every attempt immediately, and each failure would otherwise be taken
+		// as a reason to backtrack, walking the rest of the search tree for nothing.
+		if err := ctx.Err(); err != nil {
+			return plans, metas, fmt.Errorf("sequence stopped at plan %v/%v: %w", requestIdx+1, len(requests), err)
+		}
+
 		request := requests[requestIdx]
 		if request.rejectedSolutions == nil {
 			request.rejectedSolutions = make(map[*PlanState][]referenceframe.FrameSystemInputs)
@@ -417,7 +425,12 @@ func PlanMotionSequence(
 
 		if requestIdx > 0 && request.StartState == nil {
 			priorTraj := plans[requestIdx-1].Trajectory()
-			request.StartState = NewPlanState(nil, priorTraj[len(priorTraj)-1])
+			start, err := carryOverConfiguration(priorTraj[len(priorTraj)-1], request.FrameSystem)
+			if err != nil {
+				return plans, metas, fmt.Errorf("plan %v/%v cannot start where plan %v ended: %w",
+					requestIdx+1, len(requests), requestIdx, err)
+			}
+			request.StartState = NewPlanState(nil, start)
 		}
 		parentLogger.Info("Working on request:", requestIdx, "Substituted start state:", request.StartState.Configuration())
 
@@ -443,29 +456,37 @@ func PlanMotionSequence(
 			continue
 		}
 
+		// The error is not returned, so this is the only record of why the request could not plan.
+		logger.Infof("Plan %v/%v failed: %v", requestIdx+1, len(requests), err)
+
 		// We'll try solving each plan request up to 3 times for each unique start state.
 		const backtrackBranchFactor = 3
+		// deadEnd is the request whose start state is being given up on. It walks back with
+		// requestIdx, so that backtracking several requests clears every start state along the way
+		// and each of those requests later starts from the new end of the one before it.
+		deadEnd := request
 		for {
+			if requestIdx == 0 {
+				// The first request's StartState is the caller's and is never discarded.
+				first := requests[0]
+				return plans, metas, fmt.Errorf("Failed to solve the first plan. Rejected solutions before giving up: %v",
+					len(first.rejectedSolutions[first.StartState]))
+			}
+
 			// If we errored on some request using a solution from some prior request, let's re-solve
 			// the earlier request in a way that forces a new answer -> start state.
 			//
 			// If we've rejected a bunch of solutions from the prior request, let's backtrack a step
 			// further.
-			rejectedSolution := request.StartState.Configuration()
+			rejectedSolution := deadEnd.StartState.Configuration()
 
 			// Playing tricks to make the map lookup work on PlanState pointers. As opposed to using
 			// a logical value that represents the "exact" slice of float64 inputs. Nil this out
 			// only when we've given up on using the StartState value for all future guesses.
-			request.StartState = nil
+			deadEnd.StartState = nil
 
 			// Side-effect for the outer loop.
 			requestIdx--
-			if requestIdx < 0 {
-				return plans, metas, fmt.Errorf("Failed to solve the first plan. Rejected solutions before giving up: %v",
-					len(request.rejectedSolutions[request.StartState]))
-			}
-
-			// Just reusing the variable for convenience. It's always reset on loop entry anyways.
 			priorRequest := requests[requestIdx]
 
 			// Force a follow-up solve of the request to avoid a solution that we've determined is a
@@ -481,11 +502,42 @@ func PlanMotionSequence(
 			}
 
 			logger.Infof("Backtracking further. Hit maximum retries from start state. Plan: %v StartState: %v",
-				requestIdx, priorRequest.StartState)
+				requestIdx, priorRequest.StartState.Configuration())
+			deadEnd = priorRequest
 		}
 	}
 
 	return plans, metas, nil
+}
+
+// carryOverConfiguration is the start configuration, in the frame system fs, of a plan that begins
+// where the previous one ended. Frames without DoF may come and go between requests, e.g. an object
+// that is attached while carried and gone once released, so only fs's own frames are kept and its
+// static frames need no carried-over value. A frame that moves in fs must have one.
+func carryOverConfiguration(
+	prevEnd referenceframe.FrameSystemInputs, fs *referenceframe.FrameSystem,
+) (referenceframe.FrameSystemInputs, error) {
+	start := make(referenceframe.FrameSystemInputs)
+	for _, name := range fs.FrameNames() {
+		frame := fs.Frame(name)
+		if frame == nil {
+			continue
+		}
+		dof := len(frame.DoF())
+
+		inputs, ok := prevEnd[name]
+		if !ok {
+			if dof > 0 {
+				return nil, fmt.Errorf("frame %q has %d DoF but the previous plan has no configuration for it", name, dof)
+			}
+			inputs = []referenceframe.Input{}
+		}
+		if len(inputs) != dof {
+			return nil, fmt.Errorf("frame %q ended the previous plan with %d inputs but takes %d", name, len(inputs), dof)
+		}
+		start[name] = inputs
+	}
+	return start, nil
 }
 
 // resetMeshCaches walks the robot link and world obstacle geometries reachable

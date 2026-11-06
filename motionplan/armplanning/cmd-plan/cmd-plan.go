@@ -6,12 +6,15 @@
 //	cmd-plan plan.json                     # the original single-request behavior
 //	cmd-plan plan1.json plan2.json         # replay both exactly as recorded
 //	cmd-plan capture/                      # replay every .json in capture/, alphabetically
-//	cmd-plan -chain plan1.json plan2.json  # plan2 starts where plan1's plan ended
+//	cmd-plan -chain plan1.json plan2.json  # plan both as one sequence, plan2 starting where plan1 ends
+//	cmd-plan -chain -sequence-timeout 5m capture/  # give up on the sequence after 5 minutes
 //	cmd-plan -fs-override limits.json plan1.json plan2.json  # both against edited DoF limits
 //
 // Replaying as recorded asks whether each plan still solves on its own. Chaining asks whether the
 // robot could actually have run them back to back, which is the question when a captured sequence
-// worked step by step but drifted somewhere along the way.
+// worked step by step but drifted somewhere along the way. A chained run plans through
+// armplanning.PlanMotionSequence, so when a plan cannot start from where the previous one ended,
+// the earlier plan is re-planned to end somewhere else rather than the run failing outright.
 package main
 
 import (
@@ -77,6 +80,7 @@ type runOptions struct {
 	tryManySeeds            int
 	noViz                   bool
 	chain                   bool
+	sequenceTimeout         time.Duration
 }
 
 // runner replays the sequence of plan requests named on the command line.
@@ -101,8 +105,8 @@ type step struct {
 	file     string
 	req      *armplanning.PlanRequest
 	origPlan motionplan.Plan
-	// recordedStart is the start state the request file recorded, kept only when chaining replaced
-	// it with where the previous plan ended.
+	// recordedStart is the start state the request file recorded, kept only for chained steps after
+	// the first, whose start is replaced with where the previous plan ended.
 	recordedStart referenceframe.FrameSystemInputs
 }
 
@@ -126,6 +130,8 @@ type stepResult struct {
 	// div is how the plan compares to the response recorded in its file. Nil when the file had no
 	// recorded response or the step produced no plan.
 	div *divergence
+	// backtracks is how many times a chained run re-planned this step, PlanMeta.BacktrackCounter.
+	backtracks int
 }
 
 func realMain() error {
@@ -156,7 +162,11 @@ func realMain() error {
 	quiet := flag.Bool("quiet", false, "quiet")
 	noViz := flag.Bool("no-viz", false, "skip rendering the plan; useful for benchmarking success rate and planning speed")
 	chain := flag.Bool("chain", false,
-		"plan each request from the configuration the previous plan ended in, rather than from its own recorded start state")
+		"plan the requests as one sequence with PlanMotionSequence: each starts from the configuration the previous plan "+
+			"ended in rather than its own recorded start state, and earlier plans are re-planned when a later one cannot chain")
+	sequenceTimeout := flag.Duration("sequence-timeout", 0,
+		"with -chain, give up on the whole sequence after this long, e.g. 5m. Backtracking out of a request that cannot "+
+			"plan from any start can otherwise take exponentially long. 0 means no limit")
 	fsOverrideFile := flag.String("fs-override", "",
 		"json file of frame system overrides to apply to every request, e.g. tighter DoF limits. See override.go for the schema")
 
@@ -169,6 +179,19 @@ func realMain() error {
 	files, err := collectRequestFiles(flag.Args())
 	if err != nil {
 		return err
+	}
+
+	if *sequenceTimeout < 0 {
+		return errors.New("-sequence-timeout cannot be negative")
+	}
+	if *sequenceTimeout > 0 && !*chain {
+		return errors.New("-sequence-timeout only applies with -chain")
+	}
+
+	if *chain && len(files) > 1 && *tryManySeeds > 1 {
+		// Re-planning one step of a sequence in isolation would reuse the rejected solutions
+		// PlanMotionSequence accumulated on the request while backtracking.
+		return errors.New("-try-many-seeds cannot be combined with -chain over several requests")
 	}
 
 	if *cpu != "" {
@@ -272,6 +295,7 @@ func realMain() error {
 			tryManySeeds:            *tryManySeeds,
 			noViz:                   *noViz,
 			chain:                   *chain,
+			sequenceTimeout:         *sequenceTimeout,
 		},
 		override: override,
 		logger:   logger,
@@ -284,7 +308,7 @@ func realMain() error {
 	if !r.single {
 		mode := "as recorded"
 		if r.opts.chain {
-			mode = "chained, each plan starting where the previous one ended"
+			mode = "as one chained sequence, each plan starting where the previous one ended"
 		}
 		logger.Infof("replaying %d plan requests %s", len(files), mode)
 	}
@@ -295,53 +319,22 @@ func realMain() error {
 	// waypoints for everything that did plan have been written.
 	var failure error
 	var notRun []string
+	// sequenceErr is why PlanMotionSequence found no chain of solutions, which the summary reports
+	// against the sequence as a whole rather than any one plan.
+	var sequenceErr error
 
-	// carried is the configuration the previous plan ended in. Only ever populated in chained mode.
-	var carried referenceframe.FrameSystemInputs
-
-	for i, file := range files {
-		req, origPlan, err := r.loadRequest(file)
+	if r.opts.chain && (!r.single || r.opts.sequenceTimeout > 0) {
+		results, notRun, sequenceErr, err = r.planSequence(ctx, files)
 		if err != nil {
 			return err
 		}
-
-		var recordedStart referenceframe.FrameSystemInputs
-		if carried != nil {
-			recordedStart = req.StartState.Configuration()
-
-			if err := chainStartState(req, carried, logger); err != nil {
-				return err
-			}
+		if sequenceErr != nil {
+			failure = fmt.Errorf("chained sequence of %d plans: %w", len(files), sequenceErr)
 		}
-
-		res, err := r.planOne(ctx, &step{
-			idx: i, total: len(files), file: file, req: req, origPlan: origPlan, recordedStart: recordedStart,
-		})
+	} else {
+		results, notRun, failure, err = r.planEach(ctx, files)
 		if err != nil {
 			return err
-		}
-		results = append(results, res)
-
-		if res.err != nil {
-			failure = fmt.Errorf("plan %d/%d %s: %w", i+1, len(files), file, res.err)
-			notRun = files[i+1:]
-			break
-		}
-
-		if res.plan == nil {
-			// Interactive mode consumed a planning failure. There is no end state to chain from,
-			// and replaying the rest of a sequence past a failure isn't what the user asked for.
-			break
-		}
-
-		if r.opts.chain {
-			if res.meta != nil && res.meta.PartialError != nil {
-				logger.Warnf("plan %d/%d is partial (%v); the next request starts from where it stopped",
-					i+1, len(files), res.meta.PartialError)
-			}
-			if carried = endConfiguration(res.plan); carried == nil {
-				return fmt.Errorf("cannot chain from %s: its plan has an empty trajectory", file)
-			}
 		}
 	}
 
@@ -351,7 +344,7 @@ func realMain() error {
 	metricsExporter.Stop()
 
 	if !r.single {
-		printSummary(r.mylog, results, notRun, time.Since(r.start))
+		printSummary(r.mylog, results, notRun, sequenceErr, time.Since(r.start))
 	}
 
 	if *waypointsFile != "" {
@@ -369,6 +362,104 @@ func realMain() error {
 	}
 
 	return failure
+}
+
+// planEach plans every request on its own, from the start state it recorded, stopping at the first
+// one that fails. failure is that planning error; err is anything that stops the run outright.
+func (r *runner) planEach(ctx context.Context, files []string) (
+	results []*stepResult, notRun []string, failure, err error,
+) {
+	for i, file := range files {
+		req, origPlan, err := r.loadRequest(file)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		res, err := r.planOne(ctx, &step{idx: i, total: len(files), file: file, req: req, origPlan: origPlan})
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		results = append(results, res)
+
+		if res.err != nil {
+			return results, files[i+1:], fmt.Errorf("plan %d/%d %s: %w", i+1, len(files), file, res.err), nil
+		}
+
+		if res.plan == nil {
+			// Interactive mode consumed a planning failure, and replaying the rest of a sequence
+			// past a failure isn't what the user asked for.
+			break
+		}
+	}
+
+	return results, nil, nil, nil
+}
+
+// planSequence plans every request as one sequence through armplanning.PlanMotionSequence, then
+// reports, renders and executes each resulting plan in order.
+//
+// sequenceErr is set when no chain of solutions was found. The plans PlanMotionSequence returns
+// alongside it are abandoned attempts that do not join up, so none are kept.
+func (r *runner) planSequence(ctx context.Context, files []string) (
+	results []*stepResult, notRun []string, sequenceErr, err error,
+) {
+	steps := make([]*step, len(files))
+	requests := make([]*armplanning.PlanRequest, len(files))
+	for i, file := range files {
+		req, origPlan, err := r.loadRequest(file)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+
+		s := &step{idx: i, total: len(files), file: file, req: req, origPlan: origPlan}
+		if i > 0 {
+			// PlanMotionSequence discards every start state after the first.
+			s.recordedStart = req.StartState.Configuration()
+		}
+		steps[i], requests[i] = s, req
+	}
+
+	r.logger.Infof("starting motion planning for a sequence of %d requests", len(requests))
+	// Only the planning is bounded. Rendering and executing the plans afterwards keep ctx.
+	planCtx := ctx
+	if r.opts.sequenceTimeout > 0 {
+		var cancel context.CancelFunc
+		planCtx, cancel = context.WithTimeout(ctx, r.opts.sequenceTimeout)
+		defer cancel()
+	}
+	plans, metas, sequenceErr := armplanning.PlanMotionSequence(planCtx, r.mpLogger, requests)
+
+	if sequenceErr != nil {
+		for i, s := range steps {
+			res := &stepResult{file: s.file, goals: len(s.req.Goals), hasRecording: s.origPlan != nil}
+			if metas[i] != nil {
+				res.meta, res.duration, res.backtracks = metas[i], metas[i].Duration, metas[i].BacktrackCounter
+			}
+			results = append(results, res)
+		}
+		return results, nil, sequenceErr, nil
+	}
+
+	for i, s := range steps {
+		if plans[i] == nil {
+			// An earlier request returned a partial plan, which ends the sequence there.
+			return results, files[i:], nil, nil
+		}
+
+		r.mylog.Printf("\n===== plan %d/%d: %s =====", i+1, len(steps), s.file)
+		res, err := r.finishStep(ctx, s, plans[i], metas[i], nil, metas[i].Duration)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		res.backtracks = metas[i].BacktrackCounter
+		results = append(results, res)
+
+		if metas[i].Partial {
+			r.logger.Warnf("plan %d/%d is partial (%v), which ends the sequence", i+1, len(steps), metas[i].PartialError)
+		}
+	}
+
+	return results, nil, nil, nil
 }
 
 // collectRequestFiles resolves the positional arguments into the sequence of requests to replay,
@@ -460,12 +551,26 @@ func (r *runner) planOne(ctx context.Context, s *step) (*stepResult, error) {
 
 	planStart := time.Now()
 	plan, meta, planErr := armplanning.PlanMotion(ctx, r.mpLogger, req)
+
+	return r.finishStep(ctx, s, plan, meta, planErr, time.Since(planStart))
+}
+
+// finishStep reports on a step that has been planned, and renders and executes it if asked to.
+func (r *runner) finishStep(
+	ctx context.Context,
+	s *step,
+	plan motionplan.Plan,
+	meta *armplanning.PlanMeta,
+	planErr error,
+	duration time.Duration,
+) (*stepResult, error) {
+	req := s.req
 	res := &stepResult{
 		file:     s.file,
 		goals:    len(req.Goals),
 		plan:     plan,
 		meta:     meta,
-		duration: time.Since(planStart),
+		duration: duration,
 	}
 
 	res.hasRecording = s.origPlan != nil
@@ -677,8 +782,36 @@ func (r *runner) reportPlan(
 // printSummary reports only what a sequence run has to say about its recorded responses: which
 // plans diverged from them, and, if the run stopped on a planning failure, which plan that was and
 // whether its request file recorded a solution. Callers skip it when a single request was given.
-func printSummary(mylog *log.Logger, results []*stepResult, notRun []string, wallClock time.Duration) {
+//
+// sequenceErr is why a chained run found no chain of solutions at all. It replaces the per-plan
+// comparison, since no plan from such a run is kept.
+func printSummary(mylog *log.Logger, results []*stepResult, notRun []string, sequenceErr error, wallClock time.Duration) {
 	mylog.Printf("\n===== sequence summary: %d plan(s) in %v =====", len(results), wallClock.Truncate(time.Millisecond))
+
+	for idx, res := range results {
+		if res.backtracks > 0 {
+			mylog.Printf("  plan %d (%s) took %d attempts while backtracking to find a sequence that chains",
+				idx+1, filepath.Base(res.file), res.backtracks+1)
+		}
+	}
+
+	if sequenceErr != nil {
+		if errors.Is(sequenceErr, context.DeadlineExceeded) {
+			mylog.Printf("  FAILED: -sequence-timeout ran out before a chain of solutions joined all %d plans: %v",
+				len(results), sequenceErr)
+		} else {
+			mylog.Printf("  FAILED: no chain of solutions joins all %d plans: %v", len(results), sequenceErr)
+		}
+		for idx, res := range results {
+			if res.meta == nil {
+				mylog.Printf("    plan %d (%s) was never attempted", idx+1, filepath.Base(res.file))
+				continue
+			}
+			mylog.Printf("    plan %d (%s): %d attempt(s), %v planning", idx+1, filepath.Base(res.file),
+				res.backtracks+1, res.duration.Truncate(time.Millisecond))
+		}
+		return
+	}
 
 	matched, unrecorded, diverged, first := 0, 0, 0, 0
 	var failed *stepResult
@@ -734,74 +867,6 @@ func printSummary(mylog *log.Logger, results []*stepResult, notRun []string, wal
 	if len(notRun) > 0 {
 		mylog.Printf("  %d later plan(s) not run", len(notRun))
 	}
-}
-
-// endConfiguration is the configuration a plan leaves the robot in, or nil if the plan is empty.
-func endConfiguration(plan motionplan.Plan) referenceframe.FrameSystemInputs {
-	traj := plan.Trajectory()
-	if len(traj) == 0 {
-		return nil
-	}
-	return traj[len(traj)-1]
-}
-
-// chainStartState replaces req's recorded start state with the configuration the previous plan
-// ended in, which is what -chain does.
-//
-// Only the configuration carries over. Each request keeps its own frame system, obstacles and
-// goals, so a chained replay answers "could the robot have run these plans back to back" rather
-// than re-planning the whole sequence as one motion. Frames the previous plan didn't cover keep
-// whatever the request recorded for them, and every such divergence is logged: a chain that
-// silently starts somewhere other than where the last one stopped is worse than no chain at all.
-func chainStartState(req *armplanning.PlanRequest, prevEnd referenceframe.FrameSystemInputs, logger logging.Logger) error {
-	merged := referenceframe.FrameSystemInputs{}
-	for name, inputs := range req.StartState.Configuration() {
-		merged[name] = slices.Clone(inputs)
-	}
-
-	for _, name := range sortedFrameNames(prevEnd) {
-		inputs := prevEnd[name]
-		if len(inputs) == 0 {
-			// A frame that cannot move has nothing to carry over.
-			continue
-		}
-
-		frame := req.FrameSystem.Frame(name)
-		if frame == nil {
-			logger.Warnf("chain: dropping the end configuration of frame %q, absent from the next request's frame system", name)
-			continue
-		}
-		if len(frame.DoF()) != len(inputs) {
-			return fmt.Errorf("chain: frame %q ended the previous plan with %d inputs but takes %d",
-				name, len(inputs), len(frame.DoF()))
-		}
-
-		for i, limit := range frame.DoF() {
-			if inputs[i] < limit.Min || inputs[i] > limit.Max {
-				// Tightening a limit with -fs-override, or two requests captured against
-				// different limits, can leave the robot parked outside the bounds it lands in.
-				// The planner can still move it back inside, so say so and carry on.
-				logger.Warnf("chain: frame %q joint %d carries over as %0.4f, outside its limit [%0.4f, %0.4f]",
-					name, i, inputs[i], limit.Min, limit.Max)
-			}
-		}
-
-		merged[name] = slices.Clone(inputs)
-	}
-
-	for _, name := range sortedFrameNames(merged) {
-		if len(merged[name]) == 0 {
-			continue
-		}
-		if _, carried := prevEnd[name]; !carried {
-			logger.Warnf("chain: frame %q keeps the start configuration recorded in the request, "+
-				"the previous plan did not cover it", name)
-		}
-	}
-
-	req.StartState = armplanning.NewPlanState(nil, merged)
-
-	return nil
 }
 
 // sortedFrameNames keeps the warnings emitted while walking a configuration in a stable order.
