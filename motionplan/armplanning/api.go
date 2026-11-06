@@ -457,18 +457,18 @@ func PlanMotionSequence(
 
 			// Force a follow-up solve of the request to avoid a solution that we've determined is a
 			// deadend.
-			priorRequest.rejectedSolutions[priorRequest.StartState] =
-				append(priorRequest.rejectedSolutions[priorRequest.StartState], rejectedSolution)
-
+			priorRequest.rejectedSolutions[priorRequest.StartState] = append(
+				priorRequest.rejectedSolutions[priorRequest.StartState], rejectedSolution,
+			)
 			if len(priorRequest.rejectedSolutions[priorRequest.StartState]) < backtrackBranchFactor {
 				// If the start state for this plan has only been tried a few times, give it another
 				// shot. Continue back onto the outer-loop.
 				logger.Infof("Backtracking. Adding rejected solution. Rerunning plan: %v", requestIdx)
 				break
-			} else {
-				logger.Infof("Backtracking further. Hit maximum retries from start state. Plan: %v StartState: %v",
-					requestIdx, priorRequest.StartState)
 			}
+
+			logger.Infof("Backtracking further. Hit maximum retries from start state. Plan: %v StartState: %v",
+				requestIdx, priorRequest.StartState)
 		}
 	}
 
