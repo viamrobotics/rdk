@@ -39,13 +39,7 @@ func (r *localRobot) ModuleVersions() []*apppb.ModuleVersionInfo {
 	if !ok || len(cfg.Modules) == 0 {
 		return nil
 	}
-	r.manager.modManagerLock.Lock()
-	modManager := r.manager.moduleManager
-	r.manager.modManagerLock.Unlock()
-	if modManager == nil {
-		return nil
-	}
-	return moduleVersionInfos(cfg.Modules, modManager.Status())
+	return moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status())
 }
 
 // moduleVersionInfos builds one entry per reportable registry module from the configured modules
