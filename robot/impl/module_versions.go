@@ -2,9 +2,10 @@ package robotimpl
 
 import (
 	"strings"
+	"time"
 
 	apppb "go.viam.com/api/app/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/config"
 	modulestatus "go.viam.com/rdk/module/status"
@@ -39,12 +40,12 @@ func (r *localRobot) ModuleVersions() []*apppb.ModuleVersionInfo {
 	if !ok || len(cfg.Modules) == 0 {
 		return nil
 	}
-	return moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status())
+	return moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status(), time.Now())
 }
 
 // moduleVersionInfos builds one entry per reportable registry module from the configured modules
-// and the current module statuses.
-func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status) []*apppb.ModuleVersionInfo {
+// and the current module statuses. running_for is measured against now.
+func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, now time.Time) []*apppb.ModuleVersionInfo {
 	byName := make(map[string]modulestatus.Status, len(statuses))
 	for _, s := range statuses {
 		byName[s.Name] = s
@@ -59,7 +60,7 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status) []
 		s, ok := byName[mod.Name]
 		if ok && s.State == modulestatus.ModuleStateReady && s.Version != "" && !strings.HasPrefix(s.Version, reloadVersionPrefix) {
 			info.RunningVersion = s.Version
-			info.RunningSince = timestamppb.New(s.LastUpdated)
+			info.RunningFor = durationpb.New(now.Sub(s.LastUpdated))
 		}
 		infos = append(infos, info)
 	}

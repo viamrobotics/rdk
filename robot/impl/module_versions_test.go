@@ -6,7 +6,7 @@ import (
 
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/config"
 	modulestatus "go.viam.com/rdk/module/status"
@@ -32,7 +32,8 @@ func TestApplyModulePackageVersions(t *testing.T) {
 }
 
 func TestModuleVersionInfos(t *testing.T) {
-	readyAt := time.Now().Add(-time.Hour).UTC()
+	now := time.Now()
+	readyAt := now.Add(-time.Hour)
 
 	registry := func(name, version string) config.Module {
 		return config.Module{Name: name, Type: config.ModuleTypeRegistry, ModuleID: "viam:" + name, PackageVersion: version}
@@ -41,20 +42,21 @@ func TestModuleVersionInfos(t *testing.T) {
 		return modulestatus.Status{Name: name, State: state, LastUpdated: readyAt, Version: version}
 	}
 
-	t.Run("ready module reports running version and since", func(t *testing.T) {
+	t.Run("ready module reports running version and duration", func(t *testing.T) {
 		infos := moduleVersionInfos(
 			[]config.Module{registry("cam", "1.0.0")},
 			[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "1.0.0")},
+			now,
 		)
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 			ModuleId:       "viam:cam",
 			RunningVersion: "1.0.0",
-			RunningSince:   timestamppb.New(readyAt),
+			RunningFor:     durationpb.New(time.Hour),
 		})
 	})
 
-	t.Run("module that is not running reports empty version and unset since", func(t *testing.T) {
+	t.Run("module that is not running reports empty version and unset duration", func(t *testing.T) {
 		for _, state := range []modulestatus.State{
 			modulestatus.ModuleStateUnknown,
 			modulestatus.ModuleStatePending,
@@ -65,12 +67,13 @@ func TestModuleVersionInfos(t *testing.T) {
 			infos := moduleVersionInfos(
 				[]config.Module{registry("cam", "1.0.0")},
 				[]modulestatus.Status{status("cam", state, "1.0.0")},
+				now,
 			)
 			test.That(t, infos, test.ShouldHaveLength, 1)
 			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam"})
 		}
 
-		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, nil)
+		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, nil, now)
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam"})
 	})
@@ -79,6 +82,7 @@ func TestModuleVersionInfos(t *testing.T) {
 		infos := moduleVersionInfos(
 			[]config.Module{registry("cam", "2.0.0")},
 			[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "1.0.0")},
+			now,
 		)
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0].RunningVersion, test.ShouldEqual, "1.0.0")
@@ -100,6 +104,7 @@ func TestModuleVersionInfos(t *testing.T) {
 				status("source-reload", modulestatus.ModuleStateReady, "reload-source-part-123"),
 				status("cam", modulestatus.ModuleStateReady, "1.0.0"),
 			},
+			now,
 		)
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0].ModuleId, test.ShouldEqual, "viam:cam")
@@ -109,6 +114,7 @@ func TestModuleVersionInfos(t *testing.T) {
 		infos := moduleVersionInfos(
 			[]config.Module{registry("cam", "1.0.0")},
 			[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "reload-part-123-abc")},
+			now,
 		)
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam"})

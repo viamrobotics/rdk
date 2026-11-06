@@ -25,7 +25,5 @@ type Status struct {
 	LastUpdated         time.Time
 	Error               error
 	ConsecutiveFailures uint
-	// Version is the package version the module most recently reached ready with. It is not
-	// cleared when the module leaves ready, so check State before treating it as running.
-	Version string
+	Version             string
 }

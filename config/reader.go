@@ -21,12 +21,13 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
 	"google.golang.org/grpc/codes"
+
 	// Register the gzip compressor so the config client advertises gzip in
 	// grpc-accept-encoding and can decode a gzip-compressed ConfigResponse. The
 	// server (app) opts in to actually compressing responses via SetSendCompressor.
 	_ "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -48,12 +49,11 @@ const (
 	LocalPackagesSuffix = "-local"
 )
 
-// processStartedAt approximates when this viam-server process started; package vars initialize
-// before main runs.
+// processStartedAt: when this viam-server process started; package vars initialize
+// before main runs. Uptime is measured from its monotonic reading
 var processStartedAt = time.Now()
 
-// ModuleVersionsFunc reports the running versions of the machine's registry modules. It is called
-// on every cloud config fetch, so it must be cheap and must not block on reconfiguration.
+// ModuleVersionsFunc reports the running versions of the machine's registry modules.
 type ModuleVersionsFunc func() []*apppb.ModuleVersionInfo
 
 func getAgentInfo(logger logging.Logger, moduleVersions ModuleVersionsFunc) (*apppb.AgentInfo, error) {
@@ -84,14 +84,14 @@ func getAgentInfo(logger logging.Logger, moduleVersions ModuleVersionsFunc) (*ap
 	platform := fmt.Sprintf("%s/%s", runtime.GOOS, arch)
 
 	info := &apppb.AgentInfo{
-		Host:                hostname,
-		Ips:                 ips,
-		Os:                  runtime.GOOS,
-		Version:             Version,
-		GitRevision:         GitRevision,
-		Platform:            &platform,
-		PlatformTags:        readExtendedPlatformTags(logger, true),
-		ViamServerStartedAt: timestamppb.New(processStartedAt),
+		Host:             hostname,
+		Ips:              ips,
+		Os:               runtime.GOOS,
+		Version:          Version,
+		GitRevision:      GitRevision,
+		Platform:         &platform,
+		PlatformTags:     readExtendedPlatformTags(logger, true),
+		ViamServerUptime: durationpb.New(time.Since(processStartedAt)),
 	}
 	if moduleVersions != nil {
 		info.ModuleVersions = moduleVersions()
