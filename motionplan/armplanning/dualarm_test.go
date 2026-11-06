@@ -99,107 +99,138 @@ func TestDualarmSharedBarMultiFrameGoal(t *testing.T) {
 		primErr, folErr, coincideErr)
 }
 
-// TestDualarmSharedFramesConstraint: same setup, but now the plan request
-// carries a SharedFrames constraint tying the two grip frames together. The
-// goal metric alone doesn't enforce rigidity along the trajectory — the
-// SharedFrames check inside addTopoConstraints is what should force RRT to
-// hold the shared-tool invariant at every intermediate step.
-func TestDualarmSharedFramesConstraint(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	fsPath := filepath.Join("testdata", "dualarm", "frame_system.json")
-	fsBytes, err := os.ReadFile(fsPath)
+// loadDualarmFixture loads the two-UR20 shared-bar frame system and a start
+// state where both grip frames coincide.
+func loadDualarmFixture(t *testing.T) (*frame.FrameSystem, frame.FrameSystemInputs) {
+	t.Helper()
+	fsBytes, err := os.ReadFile(filepath.Join("testdata", "dualarm", "frame_system.json"))
 	test.That(t, err, test.ShouldBeNil)
 	var fs frame.FrameSystem
 	test.That(t, json.Unmarshal(fsBytes, &fs), test.ShouldBeNil)
-
-	inpPath := filepath.Join("testdata", "dualarm", "frame_system_inputs.json")
-	inpBytes, err := os.ReadFile(inpPath)
+	inpBytes, err := os.ReadFile(filepath.Join("testdata", "dualarm", "frame_system_inputs.json"))
 	test.That(t, err, test.ShouldBeNil)
 	var startInputs frame.FrameSystemInputs
 	test.That(t, json.Unmarshal(inpBytes, &startInputs), test.ShouldBeNil)
+	return &fs, startInputs
+}
 
-	startLin := startInputs.ToLinearInputs()
-	primaryPIF := frame.NewPoseInFrame("compliance_origin", spatialmath.NewZeroPose())
-	followerPIF := frame.NewPoseInFrame("compliance_origin_arm2", spatialmath.NewZeroPose())
-	primaryStartRes, err := fs.Transform(startLin, primaryPIF, frame.World)
+func barPose(t *testing.T, fs *frame.FrameSystem, in *frame.LinearInputs, name string) spatialmath.Pose {
+	t.Helper()
+	tf, err := fs.Transform(in, frame.NewZeroPoseInFrame(name), frame.World)
 	test.That(t, err, test.ShouldBeNil)
-	followerStartRes, err := fs.Transform(startLin, followerPIF, frame.World)
-	test.That(t, err, test.ShouldBeNil)
-	primaryStart := primaryStartRes.(*frame.PoseInFrame).Pose()
-	followerStart := followerStartRes.(*frame.PoseInFrame).Pose()
-	startSep := primaryStart.Point().Sub(followerStart.Point()).Norm()
-	t.Logf("start sep: %.2fmm", startSep)
+	return tf.(*frame.PoseInFrame).Pose()
+}
 
-	// Tolerance must accommodate the real start separation (frame_system_inputs
-	// snapshot is from a hardware pose where the grip frames aren't perfectly
-	// coincident). 50mm/8° is slack but still tight enough to catch a planner
-	// that lets the arms drift apart mid-trajectory.
-	const posTolMM = 50.0
-	const oriTolDeg = 8.0
-
-	targetPt := r3.Vector{
-		X: primaryStart.Point().X - 150,
-		Y: primaryStart.Point().Y + 200,
-		Z: primaryStart.Point().Z + 80,
+// maxBarDrift joint-interpolates between consecutive trajectory steps, as the
+// arms execute them, and returns the worst disagreement between the two grip
+// frames. Checking only the waypoints misses drift between them.
+func maxBarDrift(t *testing.T, fs *frame.FrameSystem, traj motionplan.Trajectory) (sepMM, oriDeg float64) {
+	t.Helper()
+	const maxJointStepRad = 0.005
+	for i := 0; i+1 < len(traj); i++ {
+		a, b := traj[i], traj[i+1]
+		maxDelta := 0.0
+		for name, av := range a {
+			for j := range av {
+				maxDelta = math.Max(maxDelta, math.Abs(b[name][j]-av[j]))
+			}
+		}
+		steps := max(1, int(math.Ceil(maxDelta/maxJointStepRad)))
+		for s := 0; s <= steps; s++ {
+			frac := float64(s) / float64(steps)
+			mid := frame.FrameSystemInputs{}
+			for name, av := range a {
+				in := make([]frame.Input, len(av))
+				for j := range av {
+					in[j] = av[j] + (b[name][j]-av[j])*frac
+				}
+				mid[name] = in
+			}
+			lin := mid.ToLinearInputs()
+			p := barPose(t, fs, lin, "compliance_origin")
+			f := barPose(t, fs, lin, "compliance_origin_arm2")
+			sepMM = math.Max(sepMM, p.Point().Sub(f.Point()).Norm())
+			oriDeg = math.Max(oriDeg,
+				math.Abs(spatialmath.OrientationBetween(p.Orientation(), f.Orientation()).AxisAngles().Theta)*180.0/math.Pi)
+		}
 	}
-	targetPose := spatialmath.NewPose(targetPt, primaryStart.Orientation())
+	return sepMM, oriDeg
+}
 
-	goal := &PlanState{poses: frame.FrameSystemPoses{
-		"compliance_origin":      frame.NewPoseInFrame(frame.World, targetPose),
-		"compliance_origin_arm2": frame.NewPoseInFrame(frame.World, targetPose),
+// Rigid-bar tolerances: 0.15° at the bar midpoint is ~2mm at grips 750mm away.
+const (
+	dualarmPosTolMM  = 2.0
+	dualarmOriTolDeg = 0.15
+)
+
+func dualarmSharedFrames() *motionplan.Constraints {
+	return &motionplan.Constraints{
+		SharedFrames: []motionplan.SharedFramesConstraint{{
+			Frames:                   []string{"compliance_origin", "compliance_origin_arm2"},
+			PositionToleranceMM:      dualarmPosTolMM,
+			OrientationToleranceDegs: dualarmOriTolDeg,
+		}},
+	}
+}
+
+func dualarmBarGoal(p spatialmath.Pose) *PlanState {
+	return &PlanState{poses: frame.FrameSystemPoses{
+		"compliance_origin":      frame.NewPoseInFrame(frame.World, p),
+		"compliance_origin_arm2": frame.NewPoseInFrame(frame.World, p),
 	}}
+}
 
-	req := &PlanRequest{
-		FrameSystem: &fs,
-		Goals:       []*PlanState{goal},
-		StartState:  &PlanState{structuredConfiguration: startInputs},
-		Constraints: &motionplan.Constraints{
-			SharedFrames: []motionplan.SharedFramesConstraint{{
-				Frames:                   []string{"compliance_origin", "compliance_origin_arm2"},
-				PositionToleranceMM:      posTolMM,
-				OrientationToleranceDegs: oriTolDeg,
-			}},
-		},
+// TestDualarmSharedFramesConstraint: a short bar move with a SharedFrames
+// constraint must keep the two grip frames together along the executed path,
+// not just at the waypoints.
+func TestDualarmSharedFramesConstraint(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs, startInputs := loadDualarmFixture(t)
+	start := barPose(t, fs, startInputs.ToLinearInputs(), "compliance_origin")
+
+	target := spatialmath.NewPose(start.Point().Add(r3.Vector{X: -150, Y: -200, Z: 80}), start.Orientation())
+	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
+		FrameSystem:    fs,
+		Goals:          []*PlanState{dualarmBarGoal(target)},
+		StartState:     &PlanState{structuredConfiguration: startInputs},
+		Constraints:    dualarmSharedFrames(),
 		PlannerOptions: NewBasicPlannerOptions(),
-	}
-
-	plan, meta, err := PlanMotion(context.Background(), logger, req)
-	if err != nil {
-		t.Logf("PlanMotion error: %v", err)
-	}
-	if meta != nil {
-		t.Logf("meta duration: %v", meta.Duration)
-	}
+	})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, plan, test.ShouldNotBeNil)
 
-	traj := plan.Trajectory()
-	maxSep := 0.0
-	maxOriDeg := 0.0
-	for i, step := range traj {
-		lin := step.ToLinearInputs()
-		p, err := fs.Transform(lin, primaryPIF, frame.World)
-		test.That(t, err, test.ShouldBeNil)
-		f, err := fs.Transform(lin, followerPIF, frame.World)
-		test.That(t, err, test.ShouldBeNil)
-		pPose := p.(*frame.PoseInFrame).Pose()
-		fPose := f.(*frame.PoseInFrame).Pose()
-		sep := pPose.Point().Sub(fPose.Point()).Norm()
-		oriDiff := spatialmath.OrientationBetween(pPose.Orientation(), fPose.Orientation())
-		oriDeg := math.Abs(oriDiff.AxisAngles().Theta) * 180.0 / math.Pi
-		if sep > maxSep {
-			maxSep = sep
-		}
-		if oriDeg > maxOriDeg {
-			maxOriDeg = oriDeg
-		}
-		if sep > posTolMM || oriDeg > oriTolDeg {
-			t.Logf("step %d: sep=%.2fmm ori=%.2f° (over tol)", i, sep, oriDeg)
-		}
+	sepMM, oriDeg := maxBarDrift(t, fs, plan.Trajectory())
+	t.Logf("%d steps, max grip separation %.2fmm, max orientation %.3f°", len(plan.Trajectory()), sepMM, oriDeg)
+	test.That(t, sepMM, test.ShouldBeLessThanOrEqualTo, dualarmPosTolMM)
+	test.That(t, oriDeg, test.ShouldBeLessThanOrEqualTo, dualarmOriTolDeg)
+}
+
+// TestDualarmSharedFramesLongMoveWaypoints: a ~1m bar move split into
+// straight-line waypoints plans quickly and stays rigid. A single long goal is
+// where cBiRRT on the rigid-bar manifold times out.
+func TestDualarmSharedFramesLongMoveWaypoints(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	fs, startInputs := loadDualarmFixture(t)
+	start := barPose(t, fs, startInputs.ToLinearInputs(), "compliance_origin")
+
+	end := spatialmath.NewPose(start.Point().Add(r3.Vector{X: -950, Y: -50, Z: 60}), start.Orientation())
+	const nWaypoints = 10
+	var goals []*PlanState
+	for i := 1; i <= nWaypoints; i++ {
+		goals = append(goals, dualarmBarGoal(spatialmath.Interpolate(start, end, float64(i)/nWaypoints)))
 	}
-	t.Logf("max separation across %d steps: %.2fmm (tol %.1fmm), max ori %.2f° (tol %.1f°)",
-		len(traj), maxSep, posTolMM, maxOriDeg, oriTolDeg)
-	test.That(t, maxSep, test.ShouldBeLessThanOrEqualTo, posTolMM)
-	test.That(t, maxOriDeg, test.ShouldBeLessThanOrEqualTo, oriTolDeg)
+	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
+		FrameSystem:    fs,
+		Goals:          goals,
+		StartState:     &PlanState{structuredConfiguration: startInputs},
+		Constraints:    dualarmSharedFrames(),
+		PlannerOptions: NewBasicPlannerOptions(),
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	sepMM, oriDeg := maxBarDrift(t, fs, plan.Trajectory())
+	t.Logf("%d steps, max grip separation %.2fmm, max orientation %.3f°", len(plan.Trajectory()), sepMM, oriDeg)
+	test.That(t, sepMM, test.ShouldBeLessThanOrEqualTo, dualarmPosTolMM)
+	test.That(t, oriDeg, test.ShouldBeLessThanOrEqualTo, dualarmOriTolDeg)
+	final := barPose(t, fs, plan.Trajectory()[len(plan.Trajectory())-1].ToLinearInputs(), "compliance_origin")
+	test.That(t, final.Point().Sub(end.Point()).Norm(), test.ShouldBeLessThan, 1.0)
 }
