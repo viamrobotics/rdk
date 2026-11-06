@@ -247,6 +247,7 @@ func New(r robot.LocalRobot, logger logging.Logger, opts ...Option) Service {
 		requestCounter:     RequestCounter{logger: logger},
 	}
 	webSvc.requestCounter.ensureLimit()
+	webSvc.requestCounter.initMetrics()
 	return webSvc
 }
 
