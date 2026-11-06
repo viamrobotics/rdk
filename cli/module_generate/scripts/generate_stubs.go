@@ -18,15 +18,13 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"golang.org/x/tools/go/ast/astutil"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 )
 
 //go:embed tmpl-module
 var goTmpl string
-
-// typePrefixes lists possible prefixes before function parameter and return types.
-var typePrefixes = []string{"*", "[]*", "[]", "chan "}
 
 // CreateGetClientCodeRequest creates a request to get the client code of the specified resource type.
 var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
@@ -244,6 +242,8 @@ func setGoModuleTemplate(
 		return nil, errors.Wrap(err, "failed to parse client code")
 	}
 
+	helpers, helperFields := findHelperConstructors(node)
+
 	var imports []string
 	for _, imp := range node.Imports {
 		path := imp.Path.Value
@@ -261,7 +261,7 @@ func setGoModuleTemplate(
 		if typeSpec, ok := n.(*ast.TypeSpec); ok {
 			if _, ok := typeSpec.Type.(*ast.StructType); ok {
 				if strings.Contains(typeSpec.Name.Name, "Client") {
-					functions = append(functions, formatStruct(typeSpec, module.ModuleCamel+module.ModelPascal))
+					functions = append(functions, formatStruct(typeSpec, module.ModuleCamel+module.ModelPascal, helperFields))
 				}
 			}
 		}
@@ -276,7 +276,11 @@ func setGoModuleTemplate(
 				if docGroup, ok := docMap[name]; ok && docGroup != nil {
 					doc = docGroup.Text()
 				}
-				functions = append(functions, formatEmptyFunctionWithDoc(doc, receiver, name, args, returns))
+				body := formatNotImplementedBody(returns)
+				if h, ok := helpers[name]; ok && receiver == module.ModuleCamel+module.ModelPascal {
+					body = h.body(receiver)
+				}
+				functions = append(functions, formatFunctionWithDoc(doc, receiver, name, args, returns, body))
 			}
 		}
 		return true
@@ -299,47 +303,128 @@ func setGoModuleTemplate(
 	return &goTmplInputs, nil
 }
 
-// formatType formats typeExpr as readable string with correct attribution if applicable.
+// formatType formats typeExpr as a readable string. Types declared in the resource's own package
+// are unqualified in client.go, so every exported identifier that is not already package-qualified
+// gets the resource package prefix, at any depth (e.g. <-chan []Point).
 func formatType(typeExpr ast.Expr, resourceSubtype string) string {
-	var buf bytes.Buffer
-	err := printer.Fprint(&buf, token.NewFileSet(), typeExpr)
-	if err != nil {
-		return fmt.Sprintf("Error formatting type: %v", err)
-	}
-	typeString := buf.String()
 	if resourceSubtype == "switch" {
 		resourceSubtype = "sw"
 	}
+	qualified := astutil.Apply(typeExpr, func(c *astutil.Cursor) bool {
+		switch n := c.Node().(type) {
+		case *ast.SelectorExpr:
+			return false
+		case *ast.Ident:
+			// Names of func-typed params and results are not types.
+			if n.IsExported() && c.Name() != "Names" {
+				c.Replace(&ast.SelectorExpr{X: ast.NewIdent(resourceSubtype), Sel: ast.NewIdent(n.Name)})
+			}
+		}
+		return true
+	}, nil)
 
-	// checkUpper adds "<resourceSubtype>." to the type if type is capitalized after prefix.
-	checkUpper := func(str, prefix string) string {
-		prefixLen := len(prefix)
-		if unicode.IsUpper(rune(str[prefixLen])) {
-			return fmt.Sprintf("%s%s.%s", prefix, resourceSubtype, str[prefixLen:])
-		}
-		return str
+	var buf bytes.Buffer
+	if err := printer.Fprint(&buf, token.NewFileSet(), qualified); err != nil {
+		return fmt.Sprintf("Error formatting type: %v", err)
 	}
-	for _, prefix := range typePrefixes {
-		if strings.HasPrefix(typeString, prefix) {
-			return checkUpper(typeString, prefix)
-		}
-	}
-	if strings.HasPrefix(typeString, "map[") {
-		endStr := strings.Index(typeString, "]")
-		keyType := strings.TrimSpace(typeString[4:endStr])
-		valueType := strings.TrimSpace(typeString[endStr+1:])
-		if unicode.IsUpper(rune(keyType[0])) {
-			keyType = checkUpper(keyType, "")
-		}
-		if unicode.IsUpper(rune(valueType[0])) {
-			valueType = checkUpper(valueType, "")
-		}
-		return fmt.Sprintf("map[%s]%s", keyType, valueType)
-	}
-	return checkUpper(typeString, "")
+	return buf.String()
 }
 
-func formatStruct(typeSpec *ast.TypeSpec, modelType string) string {
+// helperConstructor is a client method that returns a sub-resource helper struct, such as
+// board's AnalogByName returning &analogClient{...}.
+type helperConstructor struct {
+	typeName string
+	// fields are the struct fields set from the method's parameters, as "field: param".
+	fields    []string
+	extraNils int
+}
+
+// body returns a stub body that builds the helper around the model, which keeps the helper type
+// and its method stubs reachable.
+func (h helperConstructor) body(modelType string) string {
+	fields := append([]string{modelType + ": s"}, h.fields...)
+	return fmt.Sprintf("\treturn &%s{%s}%s", h.typeName, strings.Join(fields, ", "), strings.Repeat(", nil", h.extraNils))
+}
+
+// findHelperConstructors finds client methods whose body is a single `return &fooClient{...}, nil`,
+// keyed by method name. It also returns, per helper type, the fields those constructors set from
+// method parameters. Other fields are copied from client state the generated model does not have,
+// so formatStruct drops them.
+func findHelperConstructors(node *ast.File) (map[string]helperConstructor, map[string]map[string]bool) {
+	helpers := map[string]helperConstructor{}
+	fields := map[string]map[string]bool{}
+	for _, decl := range node.Decls {
+		funcDecl, ok := decl.(*ast.FuncDecl)
+		if !ok || funcDecl.Recv == nil || funcDecl.Body == nil || len(funcDecl.Body.List) != 1 {
+			continue
+		}
+		ret, ok := funcDecl.Body.List[0].(*ast.ReturnStmt)
+		if !ok || len(ret.Results) == 0 {
+			continue
+		}
+		unary, ok := ret.Results[0].(*ast.UnaryExpr)
+		if !ok || unary.Op != token.AND {
+			continue
+		}
+		lit, ok := unary.X.(*ast.CompositeLit)
+		if !ok {
+			continue
+		}
+		typeIdent, ok := lit.Type.(*ast.Ident)
+		if !ok || !strings.Contains(typeIdent.Name, "Client") {
+			continue
+		}
+		restNil := true
+		for _, r := range ret.Results[1:] {
+			if ident, ok := r.(*ast.Ident); !ok || ident.Name != "nil" {
+				restNil = false
+			}
+		}
+		if !restNil {
+			continue
+		}
+
+		params := map[string]bool{}
+		for _, p := range funcDecl.Type.Params.List {
+			for _, n := range p.Names {
+				params[n.Name] = true
+			}
+		}
+		h := helperConstructor{typeName: typeIdent.Name, extraNils: len(ret.Results) - 1}
+		if fields[h.typeName] == nil {
+			fields[h.typeName] = map[string]bool{}
+		}
+		for _, elt := range lit.Elts {
+			kv, ok := elt.(*ast.KeyValueExpr)
+			if !ok {
+				continue
+			}
+			key, keyOK := kv.Key.(*ast.Ident)
+			val, valOK := kv.Value.(*ast.Ident)
+			if keyOK && valOK && params[val.Name] {
+				h.fields = append(h.fields, key.Name+": "+val.Name)
+				fields[h.typeName][key.Name] = true
+			}
+		}
+		helpers[funcDecl.Name.Name] = h
+	}
+	return helpers, fields
+}
+
+// formatStruct formats a helper struct from client.go, embedding the model in place of the client.
+// For a helper that a constructor builds, only the fields that constructor sets are kept.
+func formatStruct(typeSpec *ast.TypeSpec, modelType string, helperFields map[string]map[string]bool) string {
+	if kept, ok := helperFields[typeSpec.Name.Name]; ok {
+		if st, ok := typeSpec.Type.(*ast.StructType); ok {
+			var list []*ast.Field
+			for _, f := range st.Fields.List {
+				if len(f.Names) == 0 || kept[f.Names[0].Name] {
+					list = append(list, f)
+				}
+			}
+			st.Fields.List = list
+		}
+	}
 	var buf bytes.Buffer
 	err := printer.Fprint(&buf, token.NewFileSet(), typeSpec)
 	if err != nil {
@@ -363,10 +448,6 @@ func parseFunctionSignature(
 	if !unicode.IsUpper(rune(funcName[0])) {
 		return name, receiver, args, returns
 	}
-	if funcName == "Close" || funcName == "Name" || funcName == "Reconfigure" {
-		return name, receiver, args, returns
-	}
-
 	// Receiver
 	receiver = modelType
 	if funcDecl.Recv != nil && len(funcDecl.Recv.List) > 0 {
@@ -378,6 +459,12 @@ func parseFunctionSignature(
 				}
 			}
 		}
+	}
+
+	// The module template already defines these on the model. Helper types still need them,
+	// e.g. board.DigitalInterrupt requires Name() string.
+	if receiver == modelType && (funcName == "Close" || funcName == "Name" || funcName == "Reconfigure") {
+		return "", "", "", nil
 	}
 
 	// Parameters
@@ -436,7 +523,12 @@ func zeroValueForType(typ string, suffix int) (string, bool) {
 		if strings.HasPrefix(typ, "*") ||
 			strings.HasPrefix(typ, "[]") ||
 			strings.HasPrefix(typ, "map[") ||
-			strings.HasPrefix(typ, "func(") {
+			strings.HasPrefix(typ, "func(") ||
+			strings.HasPrefix(typ, "chan ") ||
+			strings.HasPrefix(typ, "chan<- ") ||
+			strings.HasPrefix(typ, "<-chan ") ||
+			strings.HasPrefix(typ, "interface{") ||
+			typ == "any" {
 			return "nil", false
 		}
 		// otherwise, generate a variable name like "myTypeRetVal"
@@ -469,14 +561,14 @@ func varNameFromType(typ string) string {
 }
 
 // formatNotImplementedBody generates the Go function body for an unimplemented stub.
-// It returns zero values and a "not implemented" error according to the function's return types.
+// It returns zero values and errUnimplemented according to the function's return types.
 func formatNotImplementedBody(returns []string) string {
 	switch len(returns) {
 	case 0:
 		return "\t// not implemented"
 	case 1:
 		if returns[0] == "error" {
-			return "\treturn fmt.Errorf(\"not implemented\")"
+			return "\treturn errUnimplemented"
 		}
 		returnVar, needsVar := zeroValueForType(returns[0], 1)
 		if needsVar {
@@ -492,7 +584,7 @@ func formatNotImplementedBody(returns []string) string {
 			typeCount[r]++
 			returnVar, needsVar := zeroValueForType(r, typeCount[r])
 			if r == "error" {
-				vals[i] = "fmt.Errorf(\"not implemented\")"
+				vals[i] = "errUnimplemented"
 			} else {
 				if needsVar {
 					vars = append(vars, fmt.Sprintf("\tvar %s %s\n", returnVar, r))
@@ -517,10 +609,10 @@ func formatEmptyFunction(receiver, funcName, args string, returns []string) stri
 	return fmt.Sprintf("func (s *%s) %s(%s)%s {\n%s\n}\n\n", receiver, funcName, args, returnDef, body)
 }
 
-// formatEmptyFunctionWithDoc does the same as formatEmptyFunction but adds doc comment if the component interface has one.
-func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string) string {
+// formatFunctionWithDoc generates a method with the given body, preceded by the component
+// interface's doc comment if it has one.
+func formatFunctionWithDoc(doc, receiver, funcName, args string, returns []string, body string) string {
 	returnDef := formatReturnDef(returns)
-	body := formatNotImplementedBody(returns)
 
 	var docComment string
 	if doc != "" {
