@@ -266,12 +266,18 @@ func (psc *PlanSegmentContext) CheckPath(
 	return err
 }
 
-// topoProjectionMetric returns a metric scoring how far a configuration's
-// orientations stray beyond the request's orientation-constraint band, used to
-// gradient-descend configurations back onto the constraint manifold. Returns
-// nil when the request carries no orientation constraints.
+// topoProjectionMetric returns a metric scoring how far a configuration
+// strays from the request's topological constraints (orientation band plus
+// shared-frames rigidity), used to gradient-descend configurations back onto
+// the manifold. Returns nil when the request carries no such constraints.
 func (psc *PlanSegmentContext) topoProjectionMetric() motionplan.StateFSMetric {
-	if psc.pc.request.Constraints == nil || len(psc.pc.request.Constraints.OrientationConstraint) == 0 {
+	var oriCs []motionplan.OrientationConstraint
+	var sharedFrames []motionplan.SharedFramesConstraint
+	if psc.pc.request.Constraints != nil {
+		oriCs = psc.pc.request.Constraints.OrientationConstraint
+		sharedFrames = psc.pc.request.Constraints.SharedFrames
+	}
+	if len(oriCs) == 0 && len(sharedFrames) == 0 {
 		return nil
 	}
 	// Precompute per-frame evaluators - the endpoint orientation conversions
@@ -282,10 +288,34 @@ func (psc *PlanSegmentContext) topoProjectionMetric() motionplan.StateFSMetric {
 		if g.Parent() != referenceframe.World || s.Parent() != referenceframe.World {
 			panic(fmt.Errorf("mismatch frame %v %v", g.Parent(), s.Parent()))
 		}
-		for _, c := range psc.pc.request.Constraints.OrientationConstraint {
+		for _, c := range oriCs {
 			evals[f] = append(evals[f],
 				motionplan.NewOrientationConstraintEval(c, s.Pose().Orientation(), g.Pose().Orientation()))
 		}
+	}
+	// Precompute shared-frames tolerances (squared mm, radians) so nlopt's
+	// inner loop doesn't redo the deg→rad or squaring per sample.
+	type sfcSpec struct {
+		frames   []string
+		posSqTol float64
+		oriTol   float64
+	}
+	var sfcSpecs []sfcSpec
+	const degToRad = math.Pi / 180.0
+	for _, sfc := range sharedFrames {
+		posTol := sfc.PositionToleranceMM
+		if posTol <= 0 {
+			posTol = motionplan.DefaultSharedFramesPositionToleranceMM
+		}
+		oriTolRad := sfc.OrientationToleranceDegs * degToRad
+		if oriTolRad <= 0 {
+			oriTolRad = motionplan.DefaultSharedFramesOrientationToleranceDegs * degToRad
+		}
+		sfcSpecs = append(sfcSpecs, sfcSpec{
+			frames:   append([]string{}, sfc.Frames...),
+			posSqTol: posTol * posTol,
+			oriTol:   oriTolRad,
+		})
 	}
 
 	return func(state *motionplan.StateFS) float64 {
@@ -302,6 +332,32 @@ func (psc *PlanSegmentContext) topoProjectionMetric() motionplan.StateFSMetric {
 			o := dq.Orientation()
 			for _, e := range evals[f] {
 				score += e.Score(o)
+			}
+		}
+		// Shared-frames: score only the excess over tolerance (squared) so the
+		// gradient pulls off-manifold samples toward the manifold without
+		// fighting valid samples that already satisfy rigidity.
+		for _, spec := range sfcSpecs {
+			refDQ, err := state.FS.TransformToDQ(state.Configuration, spec.frames[0], referenceframe.World)
+			if err != nil {
+				panic(err)
+			}
+			refPt := refDQ.Point()
+			refOri := refDQ.Orientation()
+			for _, name := range spec.frames[1:] {
+				dq, err := state.FS.TransformToDQ(state.Configuration, name, referenceframe.World)
+				if err != nil {
+					panic(err)
+				}
+				posSq := dq.Point().Sub(refPt).Norm2()
+				if posSq > spec.posSqTol {
+					score += posSq - spec.posSqTol
+				}
+				theta := math.Abs(spatialmath.OrientationBetween(refOri, dq.Orientation()).AxisAngles().Theta)
+				if theta > spec.oriTol {
+					delta := theta - spec.oriTol
+					score += delta * delta
+				}
 			}
 		}
 		return score

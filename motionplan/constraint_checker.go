@@ -152,10 +152,10 @@ func (c *ConstraintChecker) addTopoConstraints(
 ) error {
 	if len(constraints.LinearConstraint) == 0 &&
 		len(constraints.PseudolinearConstraint) == 0 &&
-		len(constraints.OrientationConstraint) == 0 {
+		len(constraints.OrientationConstraint) == 0 &&
+		len(constraints.SharedFrames) == 0 {
 		return nil
 	}
-
 	fromPoses := referenceframe.FrameSystemPoses{}
 	for f, b := range fromPosesBad {
 		g := toPoses[f]
@@ -223,6 +223,11 @@ func (c *ConstraintChecker) addTopoConstraints(
 		return nil
 	}
 
+	for _, sfc := range constraints.SharedFrames {
+		if err := c.AddSharedFramesConstraint(fs, sfc); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
