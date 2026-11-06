@@ -217,6 +217,8 @@ func (ms *builtIn) BuiltInReconfigure(
 			visionServices[name.Name] = sub
 		case framesystem.InputEnabled:
 			components[name.Name] = sub
+		default:
+			// anything else is intentionally ignored
 		}
 	}
 	ms.movementSensors = movementSensors
