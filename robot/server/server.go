@@ -640,6 +640,13 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		}
 	}
 
+	if mStatus.MaintenanceStatus != nil {
+		result.MaintenanceStatus = &pb.MaintenanceStatus{
+			Allowed: mStatus.MaintenanceStatus.Allowed,
+			Reason:  mStatus.MaintenanceStatus.Reason,
+		}
+	}
+
 	return &result, nil
 }
 
