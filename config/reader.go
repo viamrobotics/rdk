@@ -590,6 +590,21 @@ func ProcessLocalConfigForTesting(unprocessedConfig *Config, logger logging.Logg
 	return processConfig(unprocessedConfig, false, logger)
 }
 
+// resolveAssociatedName fills in a missing associated-config name from the owning resource's config name,
+// but keeps a user-specified API so a composite's data-capture method can be pinned to a specific served
+// API when several of them implement the same method name (a single-owner method already auto-resolves
+// via captureAPIForMethod).
+func resolveAssociatedName(oldName resource.Name, resName *resource.Name) resource.Name {
+	if resName == nil {
+		return oldName
+	}
+	newName := *resName
+	if oldName.API.Validate() == nil {
+		newName.API = oldName.API
+	}
+	return newName
+}
+
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
 // If any part of this function errors, the function will exit and no part of the new config will be returned
 // until it is corrected.
@@ -699,11 +714,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				// associated resource configs for local resources might be missing the resource name,
 				// which can be inferred from its resource config.
 				converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
-					newName := oldName
-					if resName != nil {
-						newName = *resName
-					}
-					return newName
+					return resolveAssociatedName(oldName, resName)
 				})
 				associatedCfgs[subIdx].ConvertedAttributes = converted
 
