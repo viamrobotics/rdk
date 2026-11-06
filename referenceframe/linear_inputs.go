@@ -118,6 +118,17 @@ func (lis *LinearInputsSchema) GetLimits() []Limit {
 	return ret
 }
 
+// GetRevolute reports, in the same linearized order as GetLimits, whether each input is a revolute
+// joint angle.
+func (lis *LinearInputsSchema) GetRevolute() []bool {
+	ret := make([]bool, 0, len(lis.metas))
+	for _, meta := range lis.metas {
+		ret = append(ret, RevoluteDoF(meta.frame)...)
+	}
+
+	return ret
+}
+
 // Jog returns a value that's one "jog" away from its current value. Where a jog is a fraction
 // (`percentJog`) of the total range of the input.
 func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float64) float64 {
