@@ -1160,10 +1160,10 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			continue
 		}
 		allResources[n] = res
-		if n.API.Type.Namespace == resource.APINamespaceRDKInternal {
+		switch {
+		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
-		}
-		if n.API.IsComponent() {
+		case n.API.IsComponent():
 			frameSystemDeps[n] = res
 		}
 	}
@@ -1406,12 +1406,10 @@ func isKinematicSubtype(subtype string) bool {
 	return subtype == arm.SubtypeName || subtype == gantry.SubtypeName || subtype == gripper.SubtypeName
 }
 
-// modelMayBeKinematic reports whether a config's own API or any API its model serves is a kinematic subtype.
+// modelMayBeKinematic reports whether any API the config is served under is a kinematic subtype. It is the
+// config-only guard FrameContribution's doc refers to for omitting a refusable resource while unavailable.
 func modelMayBeKinematic(resConfig resource.Config) bool {
-	if isKinematicSubtype(resConfig.ResourceName().API.SubtypeName) {
-		return true
-	}
-	for _, api := range resource.APIsForModel(resConfig.Model) {
+	for _, api := range resource.APIsForConfig(resConfig) {
 		if isKinematicSubtype(api.SubtypeName) {
 			return true
 		}
@@ -1435,8 +1433,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// composite configured under a service API still contributes a frame when one of its subs is
 	// kinematic; the body finds that sub across every API the resource serves, so the configured kind does
 	// not matter.
-	framedConfigs := append(append([]resource.Config{}, cfg.Components...), cfg.Services...)
-	for _, resConfig := range framedConfigs {
+	for _, resConfig := range append(append([]resource.Config{}, cfg.Components...), cfg.Services...) {
 		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}

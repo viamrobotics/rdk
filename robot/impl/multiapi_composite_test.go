@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/framesystem"
 	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -634,6 +635,43 @@ func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestFrameContributionRefusalImpliesUnavailableOmit ties FrameContribution's live refusal to the
+// unavailable-omit guard in getLocalFrameSystemParts. The guard can't run FrameContribution on a
+// resource that's down, so it approximates refusal from config via modelMayBeKinematic. That stays
+// correct only while every resource FrameContribution refuses is one the guard would also omit; this
+// asserts that invariant.
+func TestFrameContributionRefusalImpliesUnavailableOmit(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	var sawRefuse bool
+	for _, tc := range []struct {
+		reg  string
+		apis []resource.API
+	}{
+		{"fs-refuse-multikin", []resource.API{gripper.API, servo.API}}, // two kinematic subs: refused
+		{"fs-refuse-onekin", []resource.API{button.API, gripper.API}},  // one kinematic sub
+		{"fs-refuse-nonkin", []resource.API{button.API, sensor.API}},   // no kinematic sub
+	} {
+		t.Run(tc.reg, func(t *testing.T) {
+			model := registerComboFacadeModel(t, tc.reg, tc.apis, nil, nil)
+			cfg := resource.Config{Name: "combo", API: tc.apis[0], Model: model}
+			r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{cfg}}, logger)
+
+			res, err := r.(*localRobot).resourceBySimpleName("combo")
+			test.That(t, err, test.ShouldBeNil)
+
+			if _, _, _, refuse := framesystem.FrameContribution(res); refuse {
+				sawRefuse = true
+				// FrameContribution refused this available resource, so the unavailable path must omit the
+				// same resource or the two disagree. modelMayBeKinematic is that guard.
+				test.That(t, modelMayBeKinematic(cfg), test.ShouldBeTrue)
+			}
+		})
+	}
+	test.That(t, sawRefuse, test.ShouldBeTrue)
 }
 
 // TestCompositeInFrameSystemNonCanonicalKinematic checks that a composite gets a model frame from its
