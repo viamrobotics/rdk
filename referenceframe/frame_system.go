@@ -391,6 +391,181 @@ func (sfs *FrameSystem) FrameNames() []string {
 	return sfs.cachedBFSNames
 }
 
+// Parts rebuilds the FrameSystemParts that would reconstruct this FrameSystem
+// via NewFrameSystem. Frames installed as a <name>_origin / <name> mount pair
+// are recovered together; a frame installed directly via AddFrame is treated
+// as its own mount. Flattened internals and the world frame are omitted.
+//
+// Not a bit-exact inverse of NewFrameSystem: an inline AddFrame frame round-trips
+// as a Part, so the rebuilt FS gains one extra <name>_origin frame per inline.
+// A 0-DoF Model whose geometries were overridden by a user-supplied mount geometry
+// loses its Model identity on round-trip (comes back as a plain static Part).
+func (sfs *FrameSystem) Parts() ([]*FrameSystemPart, error) {
+	parts := make([]*FrameSystemPart, 0)
+	for _, name := range sfs.FrameNames() {
+		if name == World {
+			continue
+		}
+		// Only skip a mount frame "X_origin" when its paired thing frame "X" also
+		// exists. Otherwise treat it as a user-named Part (e.g. "table_origin").
+		if base, ok := strings.CutSuffix(name, "_origin"); ok {
+			if _, paired := sfs.frames[base]; paired {
+				continue
+			}
+		}
+		thingFrame, ok := sfs.frames[name]
+		if !ok {
+			return nil, NewFrameMissingError(name)
+		}
+
+		var (
+			linkInFrame *LinkInFrame
+			err         error
+		)
+		if mountFrame, ok := sfs.frames[name+"_origin"]; ok {
+			parentName, ok := sfs.parents[name+"_origin"]
+			if !ok {
+				return nil, NewParentFrameNilError(name + "_origin")
+			}
+			linkInFrame, err = extractPairedLinkInFrame(mountFrame, thingFrame, name, parentName)
+		} else {
+			parentName, ok := sfs.parents[name]
+			if !ok {
+				return nil, NewParentFrameNilError(name)
+			}
+			linkInFrame, err = extractInlineLinkInFrame(thingFrame, name, parentName)
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "part %q", name)
+		}
+		parts = append(parts, &FrameSystemPart{
+			FrameConfig: linkInFrame,
+			ModelFrame:  extractPartModel(thingFrame),
+		})
+	}
+	return parts, nil
+}
+
+// extractPairedLinkInFrame reads a Part's mount pose and geometry from the
+// `X_origin` + `X` frame pair the FS installs for each configured Part.
+// Handles two kinds of runtime mutation:
+//   - Mount swap: the `X_origin` tail-geometry mount is replaced with a plain
+//     static (e.g. a module rotating a hinged part). Handled in
+//     extractMountFrameData.
+//   - Thing-frame swap: the zero-pose `X` thing frame is replaced with a plain
+//     static carrying a pose and possibly a geometry (e.g. a module freezing a
+//     gantry at a specific position). Handled here by combining the two poses
+//     and compensating any geometry for the extra transform.
+func extractPairedLinkInFrame(mountFrame, thingFrame Frame, name, parent string) (*LinkInFrame, error) {
+	mountPose, geom, err := extractMountFrameData(mountFrame)
+	if err != nil {
+		return nil, err
+	}
+
+	thingStatic, isPlain := thingFrame.(*staticFrame)
+	thingHasPose := isPlain && !spatial.PoseAlmostEqual(thingStatic.transform, spatial.NewZeroPose())
+	thingHasGeoms := isPlain && len(thingStatic.geometries) > 0
+	if !thingHasPose && !thingHasGeoms {
+		return NewLinkInFrame(parent, mountPose, name, geom), nil
+	}
+
+	// Combine mount and thing poses so the rebuilt mount lands children at the
+	// same world position (parent ∘ mountPose ∘ thingPose).
+	combinedPose := spatial.Compose(mountPose, thingStatic.transform)
+
+	if len(thingStatic.geometries) > 1 {
+		return nil, fmt.Errorf("thing frame has %d geometries, Part holds one", len(thingStatic.geometries))
+	}
+	if geom != nil && thingHasGeoms {
+		return nil, fmt.Errorf("mount and thing frames both carry geometries, Part holds one")
+	}
+
+	// The rebuilt mount sits at combinedPose, which has thingPose composed on
+	// top of what extractMountFrameData already normalized. Pre-apply the
+	// inverse of thingPose to whichever side carries the geometry so the
+	// rebuild's tail-geometry re-application cancels and the world position
+	// matches the original.
+	if thingHasGeoms {
+		geom = thingStatic.geometries[0].Transform(spatial.PoseInverse(thingStatic.transform))
+	} else if geom != nil {
+		geom = geom.Transform(spatial.PoseInverse(thingStatic.transform))
+	}
+
+	return NewLinkInFrame(parent, combinedPose, name, geom), nil
+}
+
+// extractMountFrameData pulls a pose and optional single geometry from a mount
+// frame, normalized so a rebuild at the returned pose places the geometry at
+// the same world position as the original. A plain staticFrame indicates a
+// module swapped the tail-geometry mount out (e.g. rotating a hinged part),
+// storing its geometry in parent-local coords — pre-apply the inverse of the
+// mount transform to cancel the tail-geometry re-application on rebuild.
+func extractMountFrameData(mountFrame Frame) (spatial.Pose, spatial.Geometry, error) {
+	var pose spatial.Pose
+	var geoms []spatial.Geometry
+	var needsInverse bool
+	switch tf := mountFrame.(type) {
+	case *tailGeometryStaticFrame:
+		pose, geoms = tf.transform, tf.geometries
+	case *staticFrame:
+		pose, geoms, needsInverse = tf.transform, tf.geometries, true
+	default:
+		return nil, nil, fmt.Errorf("mount frame has unexpected type %T", mountFrame)
+	}
+	if len(geoms) > 1 {
+		return nil, nil, fmt.Errorf("mount frame has %d geometries, Part holds one", len(geoms))
+	}
+	var geom spatial.Geometry
+	if len(geoms) == 1 {
+		geom = geoms[0]
+		if needsInverse {
+			geom = geom.Transform(spatial.PoseInverse(pose))
+		}
+	}
+	return pose, geom, nil
+}
+
+// extractInlineLinkInFrame treats a directly-added frame as its own mount. A
+// Model has no mount pose of its own, so it sits at identity relative to its
+// parent. Any other Frame implementation (rotational, translational, ...) has
+// no LinkInFrame representation and cannot round-trip through Parts().
+func extractInlineLinkInFrame(frame Frame, name, parent string) (*LinkInFrame, error) {
+	switch f := frame.(type) {
+	case *staticFrame:
+		if len(f.geometries) > 1 {
+			return nil, fmt.Errorf("inline frame has %d geometries, LinkInFrame holds one", len(f.geometries))
+		}
+		var geom spatial.Geometry
+		if len(f.geometries) == 1 {
+			// On rebuild the mount's tailGeometryStaticFrame will re-apply f.transform
+			// to this geom. Pre-apply its inverse so the net effect is identity.
+			geom = f.geometries[0].Transform(spatial.PoseInverse(f.transform))
+		}
+		return NewLinkInFrame(parent, f.transform, name, geom), nil
+	default:
+		if _, ok := f.(Model); ok {
+			return NewLinkInFrame(parent, spatial.NewZeroPose(), name, nil), nil
+		}
+		return nil, fmt.Errorf("inline frame %q has unsupported type %T", name, f)
+	}
+}
+
+// extractPartModel unwraps the namedFrame wrapper addPartToFS applies when a
+// Model's internal name differs from the Part name, so the returned Model
+// carries its original name.
+func extractPartModel(thingFrame Frame) Model {
+	if nf, ok := thingFrame.(*namedFrame); ok {
+		if m, ok := nf.Frame.(Model); ok {
+			return m
+		}
+		return nil
+	}
+	if m, ok := thingFrame.(Model); ok {
+		return m
+	}
+	return nil
+}
+
 // AddFrame sets an already defined Frame into the system. If the frame is (or
 // wraps) a SimpleModel, its internal kinematic frames are flattened into the
 // FS under the namespaced convention "<frame.Name()>:<internalName>".
