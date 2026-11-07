@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -765,17 +766,20 @@ type reloadModuleArgs struct {
 	File string
 }
 
-func (c *viamClient) createGitArchive(repoPath string) (string, error) {
-	var err error
+func (c *viamClient) createGitArchive(ctx context.Context, repoPath string) (archivePath string, err error) {
 	repoPath, err = filepath.Abs(repoPath)
 	if err != nil {
 		return "", err
 	}
 	viamReloadArchive := ".VIAM_RELOAD_ARCHIVE.tar.gz"
-	archivePath := filepath.Join(repoPath, viamReloadArchive)
+	archivePath = filepath.Join(repoPath, viamReloadArchive)
 
 	// Remove existing archive if it exists
 	if err := os.Remove(archivePath); err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+	metadata := readModuleSourceMetadata(ctx, repoPath)
+	if err := ctx.Err(); err != nil {
 		return "", err
 	}
 
@@ -828,12 +832,14 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 			return err
 		}
 
-		// Skip directories and check if file should be ignored
-		if info.IsDir() {
-			// Skip .git directory
-			if info.Name() == ".git" {
+		// A linked worktree has a .git file; neither form belongs in an upload.
+		if info.Name() == ".git" || relPath == moduleSourceMetadataFile {
+			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.IsDir() {
 			if c.shouldIgnore(relPath, matcher, true) {
 				return filepath.SkipDir
 			}
@@ -880,6 +886,20 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to process filesystem files")
+	}
+	content, err := json.Marshal(metadata)
+	if err != nil {
+		return "", err
+	}
+	if err := tarWriter.WriteHeader(&tar.Header{
+		Name: moduleSourceMetadataFile,
+		Mode: 0o644,
+		Size: int64(len(content)),
+	}); err != nil {
+		return "", err
+	}
+	if _, err := tarWriter.Write(content); err != nil {
+		return "", err
 	}
 
 	return archivePath, nil
@@ -1155,7 +1175,7 @@ func (c *viamClient) moduleBuildStartFromSource(
 	if err := pm.Start("archive"); err != nil {
 		return "", err
 	}
-	archivePath, err := c.createGitArchive(sourcePath)
+	archivePath, err := c.createGitArchive(ctx, sourcePath)
 	if err != nil {
 		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...")  //nolint:errcheck
@@ -1378,7 +1398,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("archive"); err != nil {
 		return nil, err
 	}
-	archivePath, err := c.createGitArchive(args.Path)
+	archivePath, err := c.createGitArchive(ctx, args.Path)
 	if err != nil {
 		_ = pm.FailWithMessage("archive", "Archive creation failed") //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...")  //nolint:errcheck

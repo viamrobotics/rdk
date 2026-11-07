@@ -51,6 +51,31 @@ viam completion fish > ~/.config/fish/completions/viam.fish
 viam completion pwsh | Out-String | Invoke-Expression
 ```
 
+### Source upload metadata
+
+`viam module reload` and `viam module build start --from-source` include a
+generated `.viam-source.json` at the root of the uploaded source archive:
+
+```json
+{"git":{"revision":"0123456789abcdef0123456789abcdef01234567","modified":false}}
+```
+
+Build scripts can read this file to embed the source revision and dirty state
+without uploading `.git`. `revision` is the full Git HEAD hash. `modified`
+includes staged, unstaged and untracked changes under the source directory,
+following Git's ignore rules. The generated metadata and upload archive are
+excluded from that status check. Git worktrees and source subdirectories are
+supported. Avoid editing the source while it is being archived.
+
+If Git is unavailable, the directory is not a repository, or it has no commit,
+the record is `{"git":null}`; the upload still proceeds. Treat this as unknown
+provenance, not a clean build. This is uploader-provided metadata, not an
+attestation or an automatic binary stamp.
+
+The filename is reserved in source uploads: the CLI replaces any existing entry
+in the archive with freshly collected metadata, without changing that file in
+your checkout. With `--workdir`, the file remains at the source archive root.
+
 ### Development
 Building (you must [install go](https://go.dev/doc/install) first):
 ```sh
