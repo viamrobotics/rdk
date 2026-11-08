@@ -50,8 +50,9 @@ func (c *Capture) buildEffectiveCollectors(
 	defaultKeys := map[string]struct{}{}
 
 	// 1. iterate through all resources with data capture configured, apply sensor reading overrides.
-	for res, defaultCollectorConfigsByResource := range c.defaultCollectorConfigs {
-		for _, defaultCfg := range defaultCollectorConfigsByResource {
+	for res, resolvedCollectors := range c.defaultCollectorConfigs {
+		for _, resolved := range resolvedCollectors {
+			defaultCfg := resolved.Config
 			key := DataCaptureConfigKey(defaultCfg.Name.ShortName(), defaultCfg.Method)
 			defaultKeys[key] = struct{}{}
 
@@ -62,7 +63,8 @@ func (c *Capture) buildEffectiveCollectors(
 			if result == nil {
 				continue
 			}
-			effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
+			// Reuse the metadata resolved at config time; the override only changes freq/tags, not the key.
+			effectiveCollectors[resolved.Metadata] = effectiveCollectorConfig{res, *result, key}
 		}
 	}
 
@@ -73,22 +75,16 @@ func (c *Capture) buildEffectiveCollectors(
 			continue
 		}
 
-		res, owningAPI, ok := c.shouldAutoEnable(override)
+		resolved, res, ok := c.shouldAutoEnable(override)
 		if !ok {
 			continue
 		}
 
-		// create a fresh data capture config pinned to the method's owning API.
-		result := applyOverride(datamanager.DataCaptureConfig{
-			Name:             res.Name().AsAPI(owningAPI).PopRemote(),
-			Method:           override.MethodName,
-			CaptureDirectory: c.captureDir,
-			Tags:             c.defaultTags,
-		}, override)
+		result := applyOverride(resolved.Config, override)
 		if result == nil {
 			continue
 		}
-		effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
+		effectiveCollectors[resolved.Metadata] = effectiveCollectorConfig{res, *result, key}
 	}
 
 	return effectiveCollectors
@@ -203,24 +199,31 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 // data capture is not configured on the machine config for that resource/method pair. It returns the
 // resource that owns the method, its owning API (for a composite, the API that implements it), and whether
 // it resolved.
-func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, resource.API, bool) {
-	res, api, ok := owningResourceForAutoEnable(c.deps, override.ResourceName, override.MethodName)
-	if !ok {
-		c.logger.Warnw("capture control sensor referenced unknown resource",
-			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, resource.API{}, false
+func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (ResolvedCollector, resource.Resource, bool) {
+	// The sensor reading carries no API, so leave the name unpinned and let ResolveCollector infer the owner.
+	resolved, res, err := ResolveCollector(c.deps, datamanager.DataCaptureConfig{
+		Name:             resource.NewName(resource.API{}, override.ResourceName),
+		Method:           override.MethodName,
+		CaptureDirectory: c.captureDir,
+		Tags:             c.defaultTags,
+	})
+	if err != nil {
+		c.logger.Warnw("capture control sensor cannot enable capture for resource/method",
+			"resource", override.ResourceName, "method", override.MethodName, "error", err)
+		return ResolvedCollector{}, nil, false
 	}
 
+	api := resolved.Metadata.MethodMetadata.API
 	if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: override.MethodName}) == nil {
 		c.logger.Warnw("capture control sensor referenced unknown method for resource",
 			"resource", override.ResourceName, "method", override.MethodName, "api", api)
-		return nil, resource.API{}, false
+		return ResolvedCollector{}, nil, false
 	}
 
 	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(api.String(), override.MethodName)]; needsParams {
 		c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
 			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, resource.API{}, false
+		return ResolvedCollector{}, nil, false
 	}
-	return res, api, true
+	return resolved, res, true
 }

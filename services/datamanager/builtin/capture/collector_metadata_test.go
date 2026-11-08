@@ -43,6 +43,12 @@ func TestCollectorMetadata(t *testing.T) {
 	})
 }
 
+// resolvedCollector builds a ResolvedCollector the way ResolveCollector does, for tests that construct
+// CollectorConfigsByResource directly without going through resolution.
+func resolvedCollector(cfg datamanager.DataCaptureConfig) ResolvedCollector {
+	return ResolvedCollector{Metadata: newCollectorMetadata(cfg), Config: cfg}
+}
+
 var (
 	capAlphaAPI = resource.APINamespaceRDK.WithComponentType("capalpha")
 	capBetaAPI  = resource.APINamespaceRDK.WithComponentType("capbeta")
@@ -131,14 +137,12 @@ func TestNewCollectorsTagsCompositeUnderOwningAPI(t *testing.T) {
 	}
 
 	// Resolution (upstream of newCollectors) picks the movement_sensor sub that owns Readings.
-	owningRes, owningAPI, err := OwningResource(deps, cfg)
+	resolved, owningRes, err := ResolveCollector(deps, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, owningRes, test.ShouldEqual, msSub)
-	// Pin the config to the owning API, as resolution does upstream of newCollectors.
-	cfg.Name = cfg.Name.AsAPI(owningAPI)
 
-	c := newTestCapture(t, CollectorConfigsByResource{owningRes: {cfg}}, nil, deps, nil)
-	got := c.newCollectors(CollectorConfigsByResource{owningRes: {cfg}}, Config{CaptureDir: captureDir}, nil)
+	c := newTestCapture(t, CollectorConfigsByResource{owningRes: {resolved}}, nil, deps, nil)
+	got := c.newCollectors(CollectorConfigsByResource{owningRes: {resolved}}, Config{CaptureDir: captureDir}, nil)
 	test.That(t, len(got), test.ShouldEqual, 1)
 
 	// The collector constructor received the movement_sensor sub, tagged + laid out under that API.
@@ -195,15 +199,15 @@ func TestNewCollectorsPinnedAPIDisambiguatesCollidingMethod(t *testing.T) {
 	}
 
 	// A pinned name resolves to that owner's sub, even though the method is served by both APIs.
-	subAlpha, _, err := OwningResource(deps, cfgAlpha)
+	resolvedAlpha, subAlpha, err := ResolveCollector(deps, cfgAlpha)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, subAlpha, test.ShouldEqual, alphaSub)
-	subBeta, _, err := OwningResource(deps, cfgBeta)
+	resolvedBeta, subBeta, err := ResolveCollector(deps, cfgBeta)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, subBeta, test.ShouldEqual, betaSub)
 
 	c := newTestCapture(t, nil, nil, deps, nil)
-	got := c.newCollectors(CollectorConfigsByResource{subAlpha: {cfgAlpha}, subBeta: {cfgBeta}}, Config{CaptureDir: captureDir}, nil)
+	got := c.newCollectors(CollectorConfigsByResource{subAlpha: {resolvedAlpha}, subBeta: {resolvedBeta}}, Config{CaptureDir: captureDir}, nil)
 
 	// Two distinct collectors, each tagged and laid out under the API its name pinned.
 	test.That(t, len(got), test.ShouldEqual, 2)
@@ -232,14 +236,33 @@ func TestNewCollectorsAmbiguousCollidingMethodErrors(t *testing.T) {
 		Name: resource.NewName(capCamAPI, "combo"), Method: "Shared",
 	}
 
-	_, _, err := OwningResource(deps, cfg)
+	_, _, err := ResolveCollector(deps, cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple APIs")
 }
 
-// TestOwningResourceRejectsUnservedAPI checks that pinning a capture config name to an API the composite does not
+// TestResolveCollectorRejectsUnservedPinSingleAPI checks that a single-API resource whose config pins an API
+// it doesn't serve is rejected. Resolution would otherwise ignore the bad pin and fall back to the one served
+// API, letting it slip through and fail later with a confusing missing-collector error.
+func TestResolveCollectorRejectsUnservedPinSingleAPI(t *testing.T) {
+	registerCaptureAPIResolutionCollectors()
+
+	// Resource serves only alpha; the config pins beta, which it does not serve.
+	alphaSub := &fakeResource{name: resource.NewName(capAlphaAPI, "combo")}
+	deps := resource.Dependencies{alphaSub.Name(): alphaSub}
+
+	cfg := datamanager.DataCaptureConfig{
+		Name: resource.NewName(capBetaAPI, "combo"), Method: "Shared",
+	}
+
+	_, _, err := ResolveCollector(deps, cfg)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "does not serve")
+}
+
+// TestResolveCollectorRejectsUnservedAPI checks that pinning a capture config name to an API the composite does not
 // serve fails with a clear "does not serve" error rather than a bare resource-not-found from the lookup.
-func TestOwningResourceRejectsUnservedAPI(t *testing.T) {
+func TestResolveCollectorRejectsUnservedAPI(t *testing.T) {
 	registerCaptureAPIResolutionCollectors()
 
 	// Composite serves alpha + beta (both own "Shared"); the config pins camera, which it does not serve.
@@ -250,7 +273,7 @@ func TestOwningResourceRejectsUnservedAPI(t *testing.T) {
 	cfg := datamanager.DataCaptureConfig{
 		Name: resource.NewName(capCamAPI, "combo"), Method: "Shared",
 	}
-	_, _, err := OwningResource(deps, cfg)
+	_, _, err := ResolveCollector(deps, cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not serve")
 }

@@ -151,7 +151,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		// --- machine config path: defaults present, sensor either matches or doesn't override. ---
 		{
 			name:             "no-op when effective config is unchanged",
-			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {resolvedCollector(fakeCfg)}},
 			existingDCConfig: &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
@@ -161,7 +161,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		},
 		{
 			name:             "disables collector on zero frequency",
-			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {resolvedCollector(fakeCfg)}},
 			existingDCConfig: &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(0), nil),
@@ -171,7 +171,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		},
 		{
 			name:             "disables collector on near-zero frequency",
-			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {resolvedCollector(fakeCfg)}},
 			existingDCConfig: &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1e-7), nil),
@@ -184,7 +184,7 @@ func TestSetCaptureConfig(t *testing.T) {
 			// (nil input). The override-derived collector should be closed and a fresh one
 			// built at the default freq=1.
 			name:           "reverts to default config on nil input",
-			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			defaultConfigs: CollectorConfigsByResource{fakeRes: {resolvedCollector(fakeCfg)}},
 			existingDCConfig: &datamanager.DataCaptureConfig{
 				Name: fakeCfg.Name, Method: fakeCfg.Method, CaptureFrequencyHz: 5.0,
 			},
@@ -194,7 +194,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		},
 		{
 			name:             "service-level tags are overridden by capture config tags",
-			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {resolvedCollector(fakeCfg)}},
 			existingDCConfig: &fakeCfg,
 			defaultTags:      []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
@@ -206,7 +206,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		},
 		{
 			name:             "sensor-driven rebuild of static collector preserves service-level tags",
-			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {resolvedCollector(fakeCfg)}},
 			existingDCConfig: &fakeCfgWithServiceTag,
 			defaultTags:      []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
@@ -323,7 +323,7 @@ func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 	}
 	c.Reconfigure(context.Background(),
 		nil,
-		CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+		CollectorConfigsByResource{fakeRes: []ResolvedCollector{resolvedCollector(fakeCfg)}},
 		nil,
 		Config{MaximumCaptureFileSizeBytes: 256 * 1024, CaptureDir: t.TempDir()},
 	)
@@ -404,7 +404,7 @@ func TestMaxCaptureFileSize(t *testing.T) {
 			for _, maxSize := range tc.maxSizeChanges {
 				c.Reconfigure(context.Background(),
 					nil,
-					CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+					CollectorConfigsByResource{fakeRes: []ResolvedCollector{resolvedCollector(fakeCfg)}},
 					nil,
 					Config{MaximumCaptureFileSizeBytes: maxSize, CaptureDir: captureDir},
 				)

@@ -51,45 +51,40 @@ func apisByShortName(deps resource.Dependencies) map[string][]resource.API {
 	return byName
 }
 
-// OwningResource resolves the resource and API that own cfg's capture method. For a composite it picks the
-// API that implements the method; for an ordinary resource it is the resource's own API. It errors if the
-// method cannot be resolved to one API, or the resolved resource is missing from deps.
-func OwningResource(deps resource.Dependencies, cfg datamanager.DataCaptureConfig) (resource.Resource, resource.API, error) {
+// ResolvedCollector pairs a collector's resolved identity (metadata) with its config. ResolveCollector is
+// its only producer, so resolution and keying happen once and downstream sites reuse the metadata.
+type ResolvedCollector struct {
+	Metadata collectorMetadata
+	Config   datamanager.DataCaptureConfig
+}
+
+// ResolveCollector resolves the resource serving cfg's capture method and returns it alongside a
+// ResolvedCollector (the collector's metadata plus cfg pinned to the owning API). For a composite it picks
+// the API that implements the method; for an ordinary resource it is the resource's own API. It errors if
+// the method cannot be resolved to one API, or the resolved resource is missing from deps.
+func ResolveCollector(deps resource.Dependencies, cfg datamanager.DataCaptureConfig) (ResolvedCollector, resource.Resource, error) {
 	apis := apisByShortName(deps)[cfg.Name.ShortName()]
-	owningAPI := captureAPIForMethod(apis, cfg.Method, cfg.Name.API)
-	// The owning API must be one the resource serves; if not, the config pinned an API it doesn't have.
-	if len(apis) > 0 && !slices.Contains(apis, owningAPI) {
-		return nil, resource.API{}, errors.Errorf("capture config for %q names API %q, which it does not serve (serves %v)",
-			cfg.Name.ShortName(), owningAPI, apis)
+	// A pinned API must be one the resource serves; otherwise resolution silently drops the pin and the
+	// collector build fails later with a confusing missing-collector error.
+	if cfg.Name.API.Validate() == nil && len(apis) > 0 && !slices.Contains(apis, cfg.Name.API) {
+		return ResolvedCollector{}, nil, errors.Errorf("capture config for %q pins API %q, which it does not serve (serves %v)",
+			cfg.Name.ShortName(), cfg.Name.API, apis)
 	}
+	owningAPI := captureAPIForMethod(apis, cfg.Method, cfg.Name.API)
 	// The resolved API doesn't collect this method, which for a composite means it isn't owned by exactly
 	// one of the composite's APIs — report whether several own it (pin one) or none do.
 	if data.CollectorLookup(data.MethodMetadata{API: owningAPI, MethodName: cfg.Method}) == nil {
 		if err := unresolvedCaptureMethodError(apis, cfg); err != nil {
-			return nil, resource.API{}, err
+			return ResolvedCollector{}, nil, err
 		}
 	}
 	sub, err := deps.Lookup(resource.NewName(owningAPI, cfg.Name.ShortName()))
 	if err != nil {
-		return nil, resource.API{}, err
+		return ResolvedCollector{}, nil, err
 	}
-	return sub, owningAPI, nil
-}
-
-// owningResourceForAutoEnable resolves the owning resource and API for a (shortName, method) the control
-// sensor named, where no configured API is available (so the canonical API is the fallback). Returns the
-// resource, its owning API, and whether it resolved.
-func owningResourceForAutoEnable(deps resource.Dependencies, shortName, method string) (resource.Resource, resource.API, bool) {
-	apis := apisByShortName(deps)[shortName]
-	if len(apis) == 0 {
-		return nil, resource.API{}, false
-	}
-	owningAPI := captureAPIForMethod(apis, method, apis[0])
-	sub, err := deps.Lookup(resource.NewName(owningAPI, shortName))
-	if err != nil {
-		return nil, resource.API{}, false
-	}
-	return sub, owningAPI, true
+	// Pin the config to the resolved owning API so the metadata and every downstream key use it.
+	cfg.Name = cfg.Name.AsAPI(owningAPI)
+	return ResolvedCollector{Metadata: newCollectorMetadata(cfg), Config: cfg}, sub, nil
 }
 
 // captureAPIForMethod resolves which of a resource's APIs owns a capture method, so its data is tagged

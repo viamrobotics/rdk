@@ -148,8 +148,9 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 		return
 	}
 
-	// infer name from first index in CaptureMethods
+	// Key by the resource's simple name so a pinned API in the capture config name can't make the key stale.
 	name := ac.CaptureMethods[0].Name
+	name.API = resource.API{}
 	captureMethodCopies := make([]DataCaptureConfig, 0, len(ac.CaptureMethods))
 	for _, method := range ac.CaptureMethods {
 		methodCopy := method

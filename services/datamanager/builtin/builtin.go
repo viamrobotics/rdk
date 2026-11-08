@@ -527,14 +527,12 @@ func lookupCollectorConfigsByResource(
 		for _, collectorConfig := range assocCfg.CaptureMethods {
 			// we need to set the CaptureDirectory to that in the data manager config
 			collectorConfig.CaptureDirectory = captureDir
-			res, owningAPI, err := capture.OwningResource(deps, collectorConfig)
+			resolved, res, err := capture.ResolveCollector(deps, collectorConfig)
 			if err != nil {
 				logger.Warnw("datamanager failed to resolve capture resource from config", "error", err)
 				continue
 			}
-			// Pin the config to the resolved owning API so downstream keys the collector under it.
-			collectorConfig.Name = collectorConfig.Name.AsAPI(owningAPI)
-			collectorConfigsByResource[res] = append(collectorConfigsByResource[res], collectorConfig)
+			collectorConfigsByResource[res] = append(collectorConfigsByResource[res], resolved)
 		}
 	}
 	return collectorConfigsByResource, nil

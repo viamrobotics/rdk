@@ -93,9 +93,10 @@ type captureMongo struct {
 
 type (
 	collectors map[collectorMetadata]*collectorAndConfig
-	// CollectorConfigsByResource describes the data capture configuration of the
-	// resources/mathod pairs which data capture should capture data from.
-	CollectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig
+	// CollectorConfigsByResource describes the data capture configuration of the resource/method pairs data
+	// capture should capture from. Each carries metadata produced once by ResolveCollector, so no later path
+	// re-resolves or re-keys from a raw config.
+	CollectorConfigsByResource map[resource.Resource][]ResolvedCollector
 )
 
 // Parameters stored for each collector.
@@ -133,9 +134,10 @@ func (c *Capture) newCollectors(
 ) collectors {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
-	for res, cfgs := range collectorConfigsByResource {
-		for _, cfg := range cfgs {
-			md := newCollectorMetadata(cfg)
+	for res, resolvedCollectors := range collectorConfigsByResource {
+		for _, resolved := range resolvedCollectors {
+			md := resolved.Metadata
+			cfg := resolved.Config
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
@@ -360,22 +362,20 @@ func (c *Capture) buildCollector(
 		return nil, err
 	}
 
-	// Get collector constructor for the owning API and method.
+	// Get collector constructor for the component API and method.
 	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
 	if collectorConstructor == nil {
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
-	captureAPI := md.MethodMetadata.API
-
-	targetDir := targetDir(collectorConfig.CaptureDirectory, captureAPI, collectorConfig)
+	targetDir := targetDir(collectorConfig.CaptureDirectory, collectorConfig)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
 	}
 	// Build metadata.
 	captureMetadata, dataType := data.BuildCaptureMetadata(
-		captureAPI,
+		collectorConfig.Name.API,
 		collectorConfig.Name.ShortName(),
 		collectorConfig.Method,
 		collectorConfig.AdditionalParams,
@@ -389,7 +389,7 @@ func (c *Capture) buildCollector(
 		MongoCollection: collection,
 		DataType:        dataType,
 		ComponentName:   collectorConfig.Name.ShortName(),
-		ComponentType:   captureAPI.String(),
+		ComponentType:   collectorConfig.Name.API.String(),
 		FrameSystem:     c.frameSystem,
 		MethodName:      collectorConfig.Method,
 		Interval:        interval,
@@ -427,9 +427,9 @@ func collectorConfigDescription(
 	)
 }
 
-func targetDir(captureDir string, api resource.API, collectorConfig datamanager.DataCaptureConfig) string {
+func targetDir(captureDir string, collectorConfig datamanager.DataCaptureConfig) string {
 	return data.CaptureFilePathWithReplacedReservedChars(
-		filepath.Join(captureDir, api.String(),
+		filepath.Join(captureDir, collectorConfig.Name.API.String(),
 			collectorConfig.Name.ShortName(), collectorConfig.Method),
 	)
 }

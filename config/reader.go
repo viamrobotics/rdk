@@ -571,10 +571,8 @@ func ProcessLocalConfigForTesting(unprocessedConfig *Config, logger logging.Logg
 	return processConfig(unprocessedConfig, false, logger)
 }
 
-// resolveAssociatedName fills in a missing associated-config name from the owning resource's config name,
-// but keeps a user-specified API so a composite's data-capture method can be pinned to a specific served
-// API when several of them implement the same method name (a single-owner method already auto-resolves
-// via captureAPIForMethod).
+// resolveAssociatedName fills a missing associated-config name from the owning resource's config, but keeps a
+// user-specified API so a composite capture method can be pinned when several served APIs share a method name.
 func resolveAssociatedName(oldName resource.Name, resName *resource.Name) resource.Name {
 	if resName == nil {
 		return oldName
