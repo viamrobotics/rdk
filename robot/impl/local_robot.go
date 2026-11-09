@@ -1849,7 +1849,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
 		// Determine which package manager owns this module's package and transition it to first-run state.
-		pkgMgr, pkgName := r.packageManagerForModule(mod)
+		pkgMgr, pkgName := r.packageManagerForModule(mod, newConfig.Packages)
 		pkgMgr.SetPackageState(pkgName, packages.PackageStateFirstRun, "")
 
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
@@ -2332,15 +2332,34 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 
 // packageManagerForModule returns the package manager responsible for a module's package
 // and the package name to use when updating state. Local tarball modules are managed by
-// localPackages; registry modules are managed by packageManager.
-func (r *localRobot) packageManagerForModule(mod config.Module) (packages.ManagerSyncer, packages.PackageName) {
+// localPackages; registry modules are managed by packageManager. Local modules
+// get a no-op manager.
+func (r *localRobot) packageManagerForModule(
+	mod config.Module, pkgs []config.PackageConfig,
+) (packages.ManagerSyncer, packages.PackageName) {
 	if mod.NeedsSyntheticPackage() {
 		pkg, err := mod.SyntheticPackage()
 		if err == nil {
 			return r.localPackages, packages.PackageName(pkg.Name)
 		}
 	}
-	return r.packageManager, packages.PackageName(mod.Name)
+	if mod.Type != config.ModuleTypeRegistry {
+		return packages.NewNoopManager(), ""
+	}
+	// Registry module and package names differ, so match on the package directory that the
+	// ExePath's ${packages.module.<name>} placeholder resolved to.
+	for _, pkg := range pkgs {
+		if pkg.Type != config.PackageTypeModule {
+			continue
+		}
+		dir := pkg.LocalDataDirectory(config.DefaultPackagesDir())
+		if mod.ExePath == dir || strings.HasPrefix(mod.ExePath, dir+string(filepath.Separator)) {
+			return r.packageManager, packages.PackageName(pkg.Name)
+		}
+	}
+	r.logger.Warnw("no package found for registry module; its package state will not be reported",
+		"module", mod.Name, "exe_path", mod.ExePath)
+	return packages.NewNoopManager(), ""
 }
 
 // MachineStatus returns the current status of the robot.
