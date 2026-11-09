@@ -251,7 +251,7 @@ func (li *LinearInputs) Get(frameName string) []Input {
 		}
 	}
 
-	return nil
+	return []Input{}
 }
 
 // Keys returns an iterator over the keys. This is analogous to ranging over the keys of a map.
