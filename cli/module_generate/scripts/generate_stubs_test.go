@@ -95,7 +95,7 @@ func TestPythonStubImportsSameFileTypes(t *testing.T) {
 	_, filename, _, ok := runtime.Caller(0)
 	test.That(t, ok, test.ShouldBeTrue)
 	script := filepath.Join(filepath.Dir(filename), "generate_stubs.py")
-	out, err := exec.Command("python3", script, "--self-test").CombinedOutput()
+	out, err := exec.CommandContext(t.Context(), "python3", script, "--self-test").CombinedOutput()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, string(out), test.ShouldBeEmpty)
 }
