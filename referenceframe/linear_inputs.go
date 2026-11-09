@@ -43,7 +43,7 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 	// nlopt. Lest we risk changing inputs for frames that we don't have a known start position
 	// for. We cannot properly do collision detection for those frames.
 	for _, frameName := range fs.FrameNames() {
-		if li.Get(frameName) != nil {
+		if len(li.Get(frameName)) > 0 {
 			continue
 		}
 
@@ -288,24 +288,6 @@ func (li *LinearInputs) String() string {
 	}
 
 	return fmt.Sprint(ret)
-}
-
-// GetFrameInputs returns the inputs corresponding to the given frame within the LinearInputs
-// object. This method returns an error if the frame has non-zero DoF and the frame name does not
-// exist.
-func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
-	// RSDK-14891: Omit 0-DoF frames to surface cases where caller's are not taking care with what
-	// frames they are iterating over.
-	if len(frame.DoF()) == 0 {
-		return nil, nil
-	}
-
-	ret := li.Get(frame.Name())
-	if ret == nil {
-		return nil, fmt.Errorf("no inputs for frame %s with dof: %d", frame.Name(), len(frame.DoF()))
-	}
-
-	return ret, nil
 }
 
 // ComputePoses computes the poses for each frame in a framesystem in frame of World, using the

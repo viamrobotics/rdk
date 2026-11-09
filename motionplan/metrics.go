@@ -157,7 +157,7 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 func FSConfigurationDistance(segment *SegmentFS) float64 {
 	score := 0.
 	for frame, cfg := range segment.StartConfiguration.Items() {
-		if endCfg := segment.EndConfiguration.Get(frame); endCfg != nil && len(cfg) == len(endCfg) {
+		if endCfg := segment.EndConfiguration.Get(frame); len(cfg) == len(endCfg) {
 			for i, val := range cfg {
 				score += math.Abs(val - endCfg[i])
 			}
@@ -170,7 +170,7 @@ func FSConfigurationDistance(segment *SegmentFS) float64 {
 func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	score := 0.
 	for frame, cfg := range segment.StartConfiguration.Items() {
-		if endCfg := segment.EndConfiguration.Get(frame); endCfg != nil && len(cfg) == len(endCfg) {
+		if endCfg := segment.EndConfiguration.Get(frame); len(cfg) == len(endCfg) {
 			score += referenceframe.InputsL2Distance(cfg, endCfg)
 		}
 	}
