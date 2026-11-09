@@ -29,3 +29,5 @@ jobs:
           slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
           channel: ${{ inputs.channel }}
           name: 'Workflow Status'
+          # The default of 30 can miss a failed job in main.yml (37 jobs), so the post reads "Success".
+          jobs_to_fetch: '50'
