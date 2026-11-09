@@ -671,7 +671,9 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		s.rootLogger.Warnw("Failed to set up OTLP metrics export", "err", metricsErr)
 	}
 	defer func() {
-		utils.UncheckedError(shutdownMetrics(context.Background()))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		utils.UncheckedError(shutdownMetrics(ctx))
 	}()
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
