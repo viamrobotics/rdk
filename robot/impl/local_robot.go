@@ -2332,7 +2332,7 @@ func (r *localRobot) Shutdown(ctx context.Context) error {
 
 // packageManagerForModule returns the package manager responsible for a module's package
 // and the package name to use when updating state. Local tarball modules are managed by
-// localPackages; registry modules are managed by packageManager. Modules without a package
+// localPackages; registry modules are managed by packageManager. Local modules
 // get a no-op manager.
 func (r *localRobot) packageManagerForModule(
 	mod config.Module, pkgs []config.PackageConfig,
