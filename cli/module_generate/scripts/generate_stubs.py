@@ -116,7 +116,13 @@ def return_subclass(
             ):
                 nodes_to_remove.append(cstmt)
             elif isinstance(cstmt, ast.AnnAssign):
-                nodes.add(cstmt.target.id)
+                if isinstance(cstmt.target, ast.Name):
+                    nodes.add(cstmt.target.id)
+                nodes_to_remove.append(cstmt)
+            elif isinstance(cstmt, ast.Assign):
+                for target in cstmt.targets:
+                    if isinstance(target, ast.Name):
+                        nodes.add(target.id)
                 nodes_to_remove.append(cstmt)
             elif isinstance(cstmt, ast.ClassDef):
                 parse_subclass(resource_name, cstmt, stmt.bases[0].id)
@@ -310,6 +316,163 @@ from viam.resource.types import Model, ModelFamily
     return resource_file
 
 
+def annotation_names(node: ast.AST) -> Set[str]:
+    """Names a type annotation mentions. Attribute access counts the root only."""
+    if node is None:
+        return set()
+    if isinstance(node, ast.Name):
+        return {node.id}
+    if isinstance(node, ast.Attribute):
+        return annotation_names(node.value)
+    if isinstance(node, ast.Subscript):
+        return annotation_names(node.value) | annotation_names(node.slice)
+    if isinstance(node, (ast.Tuple, ast.List)):
+        found: Set[str] = set()
+        for elt in node.elts:
+            found |= annotation_names(elt)
+        return found
+    if isinstance(node, ast.BinOp):
+        return annotation_names(node.left) | annotation_names(node.right)
+    return set()
+
+
+def signature_names(func: ast.AST) -> Set[str]:
+    if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return set()
+    found: Set[str] = set()
+    args = [*func.args.posonlyargs, *func.args.args, *func.args.kwonlyargs]
+    for arg in args:
+        found |= annotation_names(arg.annotation)
+    found |= annotation_names(func.returns)
+    return found
+
+
+def module_level_type_names(tree: ast.AST, resource_name: str) -> Set[str]:
+    """Classes and aliases defined beside the resource, not on it.
+
+    ``TickStream`` and ``CaptureAllResult`` live in the SDK file. The stub
+    copies methods out of that file, so those names have to be imported or
+    pyflakes reports them as undefined.
+    """
+    names: Set[str] = set()
+    for stmt in tree.body:
+        if isinstance(stmt, ast.ClassDef):
+            if stmt.name != resource_name:
+                names.add(stmt.name)
+            continue
+        if isinstance(stmt, ast.Assign):
+            for target in stmt.targets:
+                if isinstance(target, ast.Name):
+                    names.add(target.id)
+        elif isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+            names.add(stmt.target.id)
+    return names
+
+
+def names_bound_by_import(line: str) -> Set[str]:
+    text = line.strip()
+    if text.startswith("import "):
+        body = text[len("import ") :]
+    elif text.startswith("from ") and " import " in text:
+        body = text.split(" import ", 1)[1]
+    else:
+        return set()
+    bound: Set[str] = set()
+    for part in body.split(","):
+        pieces = part.split()
+        if not pieces or pieces[0] in {"*", "("}:
+            continue
+        bound.add(pieces[-1] if "as" in pieces else pieces[0].split(".")[0])
+    return bound
+
+
+def same_file_stub(
+    source: str, resource_name: str, module_name: str
+) -> tuple:
+    """Imports, nested classes, and methods copied from one SDK module file.
+
+    A class attribute such as ``AudioIn.AudioStream`` is qualified. A name
+    defined next to the class, such as ``TickStream`` or ``Control``, is
+    imported from this module.
+    """
+    tree = ast.parse(source)
+    imports: List[str] = []
+    subclasses: List[str] = []
+    abstract_methods: List[str] = []
+    nodes: Set[str] = set()
+    modules_to_ignore = [
+        "abc",
+        "component_base",
+        "service_base",
+        "viam.resource.types",
+    ]
+    module_types = module_level_type_names(tree, resource_name)
+    referenced: Set[str] = set()
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Import):
+            for imp in stmt.names:
+                if imp.name in modules_to_ignore:
+                    continue
+                imports.append(
+                    f"import {imp.name} as {imp.asname}"
+                    if imp.asname
+                    else f"import {imp.name}"
+                )
+        elif isinstance(stmt, ast.ImportFrom):
+            abs_module = (
+                resolve_import_module(module_name, stmt.level, stmt.module)
+                if stmt.level > 0
+                else stmt.module
+            )
+            if abs_module and abs_module not in modules_to_ignore:
+                i_strings = ", ".join(
+                    [
+                        (
+                            f"{imp.name} as {imp.asname}"
+                            if imp.asname is not None
+                            else imp.name
+                        )
+                        for imp in stmt.names
+                    ]
+                )
+                imports.append(f"from {abs_module} import {i_strings}")
+        elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
+            for cstmt in stmt.body:
+                if isinstance(cstmt, ast.ClassDef):
+                    nodes.add(cstmt.name)
+                elif isinstance(cstmt, ast.AnnAssign) and isinstance(
+                    cstmt.target, ast.Name
+                ):
+                    nodes.add(cstmt.target.id)
+                elif isinstance(cstmt, ast.Assign):
+                    for target in cstmt.targets:
+                        if isinstance(target, ast.Name):
+                            nodes.add(target.id)
+            for cstmt in stmt.body:
+                if isinstance(cstmt, ast.ClassDef) and is_abstract_class(cstmt):
+                    subclasses.append(return_subclass(resource_name, cstmt))
+                    for node in ast.walk(cstmt):
+                        referenced |= signature_names(node)
+                elif isinstance(cstmt, ast.AsyncFunctionDef):
+                    replace_async_func(resource_name, cstmt, nodes)
+                    referenced |= signature_names(cstmt)
+                    indented_code = "\n".join(
+                        ["    " + line for line in ast.unparse(cstmt).splitlines()]
+                    )
+                    abstract_methods.append(indented_code)
+    bound: Set[str] = set()
+    for line in imports:
+        bound |= names_bound_by_import(line)
+    missing = sorted(
+        name
+        for name in referenced
+        if name in module_types and name not in bound
+    )
+    if missing:
+        imports.append(f"from {module_name} import {', '.join(missing)}")
+    return imports, subclasses, abstract_methods
+
+
 def main(
     resource_type: str,
     resource_subtype: str,
@@ -327,59 +490,10 @@ def main(
         "".join(word.capitalize() for word in resource_subtype.split("_")),
     )
 
-    imports, subclasses, abstract_methods = [], [], []
-    nodes = set()
-    modules_to_ignore = [
-        "abc",
-        "component_base",
-        "service_base",
-        "viam.resource.types",
-    ]
     with open(module.__file__, "r") as f:
-        tree = ast.parse(f.read())
-        for stmt in tree.body:
-            if isinstance(stmt, ast.Import):
-                for imp in stmt.names:
-                    if imp.name in modules_to_ignore:
-                        continue
-                    imports.append(
-                        f"import {imp.name} as {imp.asname}"
-                        if imp.asname
-                        else f"import {imp.name}"
-                    )
-            elif isinstance(stmt, ast.ImportFrom):
-                abs_module = (
-                    resolve_import_module(module_name, stmt.level, stmt.module)
-                    if stmt.level > 0
-                    else stmt.module
-                )
-                if abs_module and abs_module not in modules_to_ignore:
-                    i_strings = ", ".join(
-                        [
-                            (
-                                f"{imp.name} as {imp.asname}"
-                                if imp.asname is not None
-                                else imp.name
-                            )
-                            for imp in stmt.names
-                        ]
-                    )
-                    imports.append(f"from {abs_module} import {i_strings}")
-            elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
-                for cstmt in stmt.body:
-                    if isinstance(cstmt, ast.ClassDef):
-                        nodes.add(cstmt.name)
-                    elif isinstance(cstmt, ast.AnnAssign):
-                        nodes.add(cstmt.target.id)
-                for cstmt in stmt.body:
-                    if isinstance(cstmt, ast.ClassDef) and is_abstract_class(cstmt):
-                        subclasses.append(return_subclass(resource_name, cstmt))
-                    elif isinstance(cstmt, ast.AsyncFunctionDef):
-                        replace_async_func(resource_name, cstmt, nodes)
-                        indented_code = "\n".join(
-                            ["    " + line for line in ast.unparse(cstmt).splitlines()]
-                        )
-                        abstract_methods.append(indented_code)
+        imports, subclasses, abstract_methods = same_file_stub(
+            f.read(), resource_name, module_name
+        )
 
     type_module = import_module(f"viam.{resource_type}s.{resource_type}_base")
     with open(type_module.__file__, "r") as f:
@@ -547,7 +661,84 @@ def run_bundle(version: str) -> None:
     json.dump(rendered, sys.stdout)
 
 
+def _assert_same_file_types() -> None:
+    """Method signatures keep class attributes and import sibling types."""
+    source = """
+import abc
+from typing import Dict, List
+
+class Control:
+    pass
+
+class Event:
+    pass
+
+TickStream = dict
+
+class CaptureAllResult:
+    pass
+
+class AudioIn:
+    AudioStream = dict
+
+    async def get_audio(self) -> AudioStream:
+        raise NotImplementedError()
+
+class Board:
+    async def stream_ticks(self) -> TickStream:
+        raise NotImplementedError()
+
+class Controller:
+    async def get_controls(self) -> List[Control]:
+        raise NotImplementedError()
+
+    async def get_events(self) -> Dict[Control, Event]:
+        raise NotImplementedError()
+
+class Vision:
+    async def capture_all_from_camera(self) -> CaptureAllResult:
+        raise NotImplementedError()
+"""
+    _, _, audio_methods = same_file_stub(
+        source, "AudioIn", "viam.components.audio_in.audio_in"
+    )
+    audio = "\n".join(audio_methods)
+    if "AudioIn.AudioStream" not in audio or re_bare("AudioStream", audio):
+        raise SystemExit("AudioStream should be qualified as AudioIn.AudioStream")
+
+    board_imports, _, board_methods = same_file_stub(
+        source, "Board", "viam.components.board.board"
+    )
+    if "from viam.components.board.board import TickStream" not in board_imports:
+        raise SystemExit(f"board imports: {board_imports}")
+    if "TickStream" not in "\n".join(board_methods):
+        raise SystemExit("board method dropped TickStream")
+
+    input_imports, _, _ = same_file_stub(
+        source, "Controller", "viam.components.input.input"
+    )
+    input_import = "from viam.components.input.input import Control, Event"
+    if input_import not in input_imports:
+        raise SystemExit(f"input imports: {input_imports}")
+
+    vision_imports, _, _ = same_file_stub(
+        source, "Vision", "viam.services.vision.vision"
+    )
+    vision_import = "from viam.services.vision.vision import CaptureAllResult"
+    if vision_import not in vision_imports:
+        raise SystemExit(f"vision imports: {vision_imports}")
+
+
+def re_bare(name: str, text: str) -> bool:
+    import re
+
+    return re.search(rf"(?<!\.)\b{name}\b", text) is not None
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--self-test":
+        _assert_same_file_types()
+        sys.exit(0)
     if len(sys.argv) > 1 and sys.argv[1] == "--bundle":
         run_bundle(sys.argv[2])
         sys.exit(0)

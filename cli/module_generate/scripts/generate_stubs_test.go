@@ -3,7 +3,9 @@ package scripts
 import (
 	"fmt"
 	"go/ast"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -29,6 +31,18 @@ func TestGenerateStubs(t *testing.T) {
 			test.That(t, paramType, test.ShouldEqual, fmt.Sprintf("%s%s.%s", prefix, subtype, testTypeUpper))
 		}
 	})
+}
+
+func TestPythonStubImportsSameFileTypes(t *testing.T) {
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 is not installed")
+	}
+	_, filename, _, ok := runtime.Caller(0)
+	test.That(t, ok, test.ShouldBeTrue)
+	script := filepath.Join(filepath.Dir(filename), "generate_stubs.py")
+	out, err := exec.Command("python3", script, "--self-test").CombinedOutput()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(out), test.ShouldBeEmpty)
 }
 
 func TestRenderGoTemplatesWithSlotsIgnoresCRLFTemplate(t *testing.T) {
