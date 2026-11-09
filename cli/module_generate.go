@@ -1870,16 +1870,24 @@ func readViamGenInfo(dir string) (*modulegen.ModuleInputs, error) {
 	return &info, nil
 }
 
+// goModelFileName returns the Go file name for a model. The _model suffix keeps the name from
+// ending in a Go OS or architecture name, or in _test, which Go reads as a build constraint or a test
+// file: my_arm.go would only compile for GOARCH=arm. Every model gets it, so file names stay uniform.
+func goModelFileName(modelSnake string) string {
+	return modelSnake + "_model.go"
+}
+
 // addGolangModelFile generates a Go source file with method stubs for the new model.
-// It writes to <model_snake>.go in dir (the module root).
+// It writes to the file goModelFileName picks, in dir (the module root).
 func addGolangModelFile(dir string, module modulegen.ModuleInputs) error {
 	out, err := gen.RenderGoTemplates(module, true)
 	if err != nil {
 		return errors.Wrap(err, "generator script encountered an error")
 	}
-	modelFilePath := filepath.Join(dir, module.ModelSnake+".go")
+	modelFilePath := filepath.Join(dir, goModelFileName(module.ModelSnake))
+	// Never overwrite a file already in the module, such as one the user wrote by hand.
 	//nolint:gosec
-	modelFile, err := os.Create(modelFilePath)
+	modelFile, err := os.OpenFile(modelFilePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		return errors.Wrap(err, "unable to create model file")
 	}

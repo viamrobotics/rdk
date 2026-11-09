@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	gobuild "go/build"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -229,7 +230,7 @@ func TestAddModel(t *testing.T) {
 
 		test.That(t, addGolangModelFile(dir, goModule), test.ShouldBeNil)
 
-		expectedPath := filepath.Join(dir, goModule.ModelSnake+".go")
+		expectedPath := filepath.Join(dir, goModelFileName(goModule.ModelSnake))
 		b, err := os.ReadFile(expectedPath)
 		test.That(t, err, test.ShouldBeNil)
 		content := string(b)
@@ -459,6 +460,27 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 		_, err = os.Stat("my-org_my-module_second-model.md")
 		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 	})
+}
+
+func TestGoModelFileName(t *testing.T) {
+	test.That(t, goModelFileName("my_model"), test.ShouldEqual, "my_model_model.go")
+	test.That(t, goModelFileName("my_arm"), test.ShouldEqual, "my_arm_model.go")
+
+	// Model names ending in an OS, an architecture or "test" would otherwise be build-constrained.
+	dir := t.TempDir()
+	platforms := [][2]string{{"linux", "amd64"}, {"linux", "arm"}, {"darwin", "arm64"}, {"windows", "386"}, {"js", "wasm"}}
+	for _, modelSnake := range []string{"my_sensor", "my_arm", "ur5_arm64", "my_linux", "my_linux_arm", "my_wasm", "my_test"} {
+		fileName := goModelFileName(modelSnake)
+		test.That(t, os.WriteFile(filepath.Join(dir, fileName), []byte("package p\n"), 0o600), test.ShouldBeNil)
+		test.That(t, fileName, test.ShouldNotEndWith, "_test.go")
+		for _, p := range platforms {
+			ctx := gobuild.Default
+			ctx.GOOS, ctx.GOARCH = p[0], p[1]
+			match, err := ctx.MatchFile(dir, fileName)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, match, test.ShouldBeTrue)
+		}
+	}
 }
 
 func TestGenerateModuleAction(t *testing.T) {
