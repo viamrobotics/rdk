@@ -1,19 +1,13 @@
 // Posts the required `cla/gate` commit status for .github/workflows/cla-gate.yml, through actions/github-script.
 
-function memberChecker(orgClient, org) {
-  const cache = new Map();
-  return (login) => {
-    if (!cache.has(login)) {
-      cache.set(login, orgClient.rest.orgs.checkMembershipForUser({ org, username: login }).then(
-        (res) => res.status === 204,
-        (err) => {
-          if (err.status === 404) return false;
-          throw err;
-        },
-      ));
-    }
-    return cache.get(login);
-  };
+async function isMember(orgClient, org, login) {
+  try {
+    const res = await orgClient.rest.orgs.checkMembershipForUser({ org, username: login });
+    return res.status === 204;
+  } catch (err) {
+    if (err.status === 404) return false;
+    throw err;
+  }
 }
 
 async function findPulls(github, context) {
@@ -39,7 +33,7 @@ async function findOutsiders(github, repo, pr, isTrusted) {
 async function gateStatus(github, repo, pr, isTrusted) {
   const outsiders = await findOutsiders(github, repo, pr, isTrusted);
   if (outsiders.length === 0) {
-    return { state: 'success', description: 'All committers are viamrobotics members' };
+    return { state: 'success', description: 'All committers are viamrobotics members or trusted bots' };
   }
   const { data } = await github.rest.repos.getCombinedStatusForRef({ ...repo, ref: pr.head.sha, per_page: 100 });
   const cla = data.statuses.find((s) => s.context === 'license/cla');
@@ -52,13 +46,20 @@ async function gateStatus(github, repo, pr, isTrusted) {
 
 module.exports = async ({ github, context, core, orgClient }) => {
   const repo = context.repo;
+  const dryRun = process.env.DRY_RUN === 'true';
   const trustedBots = (process.env.TRUSTED_BOTS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-  const isMember = memberChecker(orgClient, repo.owner);
   // Bots are honored only on same-repo PRs, matching pr-labeler.yml.
-  const isTrusted = (login, isFork) => (!isFork && trustedBots.includes(login)) || isMember(login);
+  const isTrusted = (login, isFork) => (!isFork && trustedBots.includes(login)) || isMember(orgClient, repo.owner, login);
+  let failures = 0;
   for (const pr of await findPulls(github, context)) {
-    const status = await gateStatus(github, repo, pr, isTrusted);
-    await github.rest.repos.createCommitStatus({ ...repo, sha: pr.head.sha, context: 'cla/gate', ...status });
-    core.info(`#${pr.number} ${pr.head.sha}: ${status.state} (${status.description})`);
+    try {
+      const status = await gateStatus(github, repo, pr, isTrusted);
+      if (!dryRun) await github.rest.repos.createCommitStatus({ ...repo, sha: pr.head.sha, context: 'cla/gate', ...status });
+      core.info(`${dryRun ? '[dry run] ' : ''}#${pr.number} ${pr.head.sha}: ${status.state} (${status.description})`);
+    } catch (err) {
+      failures++;
+      core.error(`#${pr.number} ${pr.head.sha}: ${err.message}`);
+    }
   }
+  if (failures > 0) core.setFailed(`${failures} PR(s) got no cla/gate status`);
 };

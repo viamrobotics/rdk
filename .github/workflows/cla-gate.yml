@@ -1,7 +1,7 @@
 name: CLA Gate
 
-# Posts the required `cla/gate` commit status: success when every PR committer is a viamrobotics
-# member, otherwise a copy of cla-assistant.io's `license/cla`. Dispatch backfills all open PRs.
+# Posts the required `cla/gate` commit status: success when the PR author and every committer are
+# viamrobotics members or trusted bots, otherwise a copy of `license/cla`. Dispatch backfills open PRs.
 
 on:
   pull_request_target:
@@ -9,12 +9,18 @@ on:
     types: [opened, synchronize, reopened]
   status:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log each PR's cla/gate status without posting it
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: cla-gate-${{ github.event.pull_request.head.sha || github.event.sha || 'backfill' }}
+  # Other status contexts get a group of their own, so their skipped runs never displace a queued gate run.
+  group: cla-gate-${{ github.event.pull_request.head.sha || (github.event.context == 'license/cla' && github.event.sha) || github.run_id }}
   cancel-in-progress: false
 
 jobs:
@@ -28,7 +34,7 @@ jobs:
       pull-requests: read
       statuses: write
     steps:
-      # Checks out main, never PR code: this job holds a members token and statuses: write.
+      # Never checks out PR code: this job holds a members token and statuses: write.
       - name: Check out CLA gate script
         # actions/checkout@v7.0.1
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -54,6 +60,7 @@ jobs:
         env:
           ORG_TOKEN: ${{ steps.app-token.outputs.token }}
           TRUSTED_BOTS: ${{ vars.TRUSTED_BOTS }}  # comma-separated logins, shared with pr-labeler.yml
+          DRY_RUN: ${{ inputs.dry_run }}
         with:
           script: |
             const run = require('./etc/cla-gate.js');
