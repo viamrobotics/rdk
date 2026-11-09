@@ -80,7 +80,7 @@ type runOptions struct {
 	chain                   bool
 	batch                   bool
 	noPartialPlans          bool
-	sequenceOpts            []armplanning.SequenceOption
+	sequenceOpts            *armplanning.SequenceOptions
 }
 
 // runner replays the sequence of plan requests named on the command line.
@@ -189,9 +189,9 @@ func realMain() error {
 	if *backtrackBranchFactor > 0 && !*batch {
 		return errors.New("-backtrack-branch-factor only applies with -batch")
 	}
-	var sequenceOpts []armplanning.SequenceOption
+	sequenceOpts := armplanning.NewDefaultSequenceOptions()
 	if *backtrackBranchFactor > 0 {
-		sequenceOpts = append(sequenceOpts, armplanning.WithBacktrackBranchFactor(*backtrackBranchFactor))
+		sequenceOpts.BacktrackBranchFactor = *backtrackBranchFactor
 	}
 
 	files, err := collectRequestFiles(flag.Args())
@@ -457,7 +457,7 @@ func (r *runner) runBatch(ctx context.Context, files []string) (*sequenceOutcome
 	}
 
 	r.logger.Infof("planning %d requests as one sequence", len(requests))
-	plans, metas, err := armplanning.PlanMotionSequence(ctx, r.mpLogger, requests, r.opts.sequenceOpts...)
+	plans, metas, err := armplanning.PlanMotionSequence(ctx, r.mpLogger, requests, r.opts.sequenceOpts)
 	if err != nil {
 		r.mylog.Printf("\nFAILED: no sequence of plans found for the %d requests: %v", len(requests), err)
 

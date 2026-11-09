@@ -42,15 +42,15 @@ func unplannableThirdRequest(t *testing.T) []*PlanRequest {
 func TestPlanMotionSequenceBacktrackBranchFactor(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
-		opts     []SequenceOption
+		opts     *SequenceOptions
 		expected [3]int
 	}{
 		{name: "default", expected: [3]int{2, 8, 8}},
-		{name: "five", opts: []SequenceOption{WithBacktrackBranchFactor(5)}, expected: [3]int{4, 24, 24}},
+		{name: "five", opts: &SequenceOptions{BacktrackBranchFactor: 5}, expected: [3]int{4, 24, 24}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, metas, err := PlanMotionSequence(context.Background(), logging.NewTestLogger(t), unplannableThirdRequest(t),
-				tc.opts...)
+				tc.opts)
 			test.That(t, err, test.ShouldNotBeNil)
 			for i, backtracks := range tc.expected {
 				test.That(t, metas[i].BacktrackCounter, test.ShouldEqual, backtracks)
