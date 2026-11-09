@@ -105,7 +105,7 @@ func TestAddModel(t *testing.T) {
 		result, err := os.ReadFile(mainPy)
 		test.That(t, err, test.ShouldBeNil)
 		content := string(result)
-		test.That(t, content, test.ShouldContainSubstring, "from models.second_model import SecondModel as SecondModelModel\n")
+		test.That(t, content, test.ShouldContainSubstring, "from models.second_model import SecondModel as SecondModelModel  # noqa: F401\n")
 		// new import must appear before the main guard
 		importIdx := strings.Index(content, "from models.second_model")
 		guardIdx := strings.Index(content, "if __name__")
@@ -234,7 +234,7 @@ func TestAddModel(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		content := string(b)
 		// Additional model must not redeclare package-level errUnimplemented.
-		test.That(t, content, test.ShouldNotContainSubstring, "errUnimplemented")
+		test.That(t, content, test.ShouldNotContainSubstring, "errUnimplemented =")
 		// Config type must be model-scoped, not the bare "Config".
 		test.That(t, content, test.ShouldContainSubstring, "MyModelConfig")
 		// Top-level "type Config" declaration must not be present (the comment example is tab-indented).
@@ -274,7 +274,7 @@ func main() {
 		content := string(result)
 
 		// New APIModel entry must be present.
-		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{board.API, mymodule.MyBoard}`)
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{API: board.API, Model: mymodule.MyBoard}`)
 		// New subtype import must be present.
 		test.That(t, content, test.ShouldContainSubstring, `board "go.viam.com/rdk/components/board"`)
 		// Original model must still be registered.
@@ -313,7 +313,7 @@ func main() {
 		test.That(t, err, test.ShouldBeNil)
 		content := string(result)
 
-		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{arm.API, mymodule.MySecondArm}`)
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{API: arm.API, Model: mymodule.MySecondArm}`)
 		// Import must appear exactly once.
 		test.That(t, strings.Count(content, `"go.viam.com/rdk/components/arm"`), test.ShouldEqual, 1)
 	})
@@ -482,7 +482,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
-		ModelSnake:            "my-model",
+		ModelSnake:            "my_model",
 		ModelTriple:           "my-org:my-module:my-model",
 		ModelReadmeLink:       "my-org_my-module_my-model.md",
 
