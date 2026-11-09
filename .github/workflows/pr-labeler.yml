@@ -57,7 +57,8 @@ jobs:
 
       - name: Add Unsafe PR Comment
         if: steps.check-membership.outputs.result != 'true'
-        uses: marocchino/sticky-pull-request-comment@v2
+        # marocchino/sticky-pull-request-comment@v3.0.5
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88
         with:
           recreate: true
           message: For security reasons, this PR must be labeled with `safe to test` in order for tests to run.
