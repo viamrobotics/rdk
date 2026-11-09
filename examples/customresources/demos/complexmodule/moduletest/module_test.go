@@ -322,11 +322,25 @@ func isRetryableConnErr(err error) bool {
 	return false
 }
 
+const (
+	// connectTimeout bounds the whole wait for a machine to report itself running. A machine stays
+	// in an initializing state until its modules have started, and a module start that normally
+	// takes well under a second has been seen to take over 30 on a loaded CI runner, so the budget
+	// has to clear that by a wide margin - viam-server itself waits five minutes for a module.
+	connectTimeout = 90 * time.Second
+	// connectAttemptTimeout bounds one client.New call. In tests client.New polls machine status
+	// for as long as its context allows, so an attempt has to be able to sit through a slow module
+	// start: ending it early throws away a working connection and redoes the WebRTC handshake,
+	// which both restarts the wait and adds load to the machine being waited on. Capping an
+	// attempt below the overall budget still leaves room to retry one that gets wedged.
+	connectAttemptTimeout = 30 * time.Second
+)
+
 func connect(port int, logger logging.Logger) (robot.Robot, error) {
-	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
+	connectCtx, cancelConn := context.WithTimeout(context.Background(), connectTimeout)
 	defer cancelConn()
 	for {
-		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Second*2)
+		dialCtx, dialCancel := context.WithTimeout(connectCtx, connectAttemptTimeout)
 		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
 			client.WithDialOptions(rpc.WithForceDirectGRPC()),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
@@ -337,7 +351,7 @@ func connect(port int, logger logging.Logger) (robot.Robot, error) {
 		}
 		select {
 		case <-connectCtx.Done():
-			return nil, connectCtx.Err()
+			return nil, fmt.Errorf("machine never reported running within %v: %w", connectTimeout, err)
 		default:
 		}
 	}
