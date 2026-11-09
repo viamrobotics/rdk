@@ -33,7 +33,7 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // Passing nil or an empty map reverts all collectors to their default machine configs.
 //
 // Overrides may target resource/method pairs that are not in the static config. When that happens,
-// the owning sub for the method is resolved from c.deps and a collector is built from the sensor
+// the owning resource for the method is resolved from c.deps and a collector is built from the sensor
 // reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios) cannot be
 // enabled this way.
 func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager.CaptureConfigReading) {

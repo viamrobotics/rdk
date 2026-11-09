@@ -38,19 +38,6 @@ func newCollectorMetadata(c datamanager.DataCaptureConfig) collectorMetadata {
 	}
 }
 
-// apisByShortName groups dependency names by short name, giving the set of APIs each resource serves,
-// canonical-first. A composite appears under one short name with several APIs; an ordinary resource has one.
-func apisByShortName(deps resource.Dependencies) map[string][]resource.API {
-	byName := map[string][]resource.API{}
-	for name := range deps {
-		byName[name.ShortName()] = append(byName[name.ShortName()], name.API)
-	}
-	for _, apis := range byName {
-		resource.SortAPIs(apis)
-	}
-	return byName
-}
-
 // ResolvedCollector pairs a collector's resolved identity (metadata) with its config. ResolveCollector is
 // its only producer, so resolution and keying happen once and downstream sites reuse the metadata.
 type ResolvedCollector struct {
@@ -85,6 +72,19 @@ func ResolveCollector(deps resource.Dependencies, cfg datamanager.DataCaptureCon
 	// Pin the config to the resolved owning API so the metadata and every downstream key use it.
 	cfg.Name = cfg.Name.AsAPI(owningAPI)
 	return ResolvedCollector{Metadata: newCollectorMetadata(cfg), Config: cfg}, sub, nil
+}
+
+// apisByShortName groups dependency names by short name, giving the set of APIs each resource serves,
+// canonical-first. A composite appears under one short name with several APIs; an ordinary resource has one.
+func apisByShortName(deps resource.Dependencies) map[string][]resource.API {
+	byName := map[string][]resource.API{}
+	for name := range deps {
+		byName[name.ShortName()] = append(byName[name.ShortName()], name.API)
+	}
+	for _, apis := range byName {
+		resource.SortAPIs(apis)
+	}
+	return byName
 }
 
 // captureAPIForMethod resolves which of a resource's APIs owns a capture method, so its data is tagged
