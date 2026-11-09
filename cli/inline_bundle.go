@@ -154,7 +154,8 @@ func findSDKRoot(start string) (string, error) {
 // exactCheckoutTag is the tag pointing at HEAD, when there is exactly one.
 // Tests replace it. A shallow clone of a tag still reports that tag.
 var exactCheckoutTag = func(ctx context.Context, dir string) (string, bool) {
-	cmd := exec.CommandContext(ctx, "git", "-C", dir, "describe", "--tags", "--exact-match")
+	cmd := exec.CommandContext(ctx, "git", "describe", "--tags", "--exact-match")
+	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
 		return "", false
