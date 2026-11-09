@@ -369,9 +369,9 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 
 // PlanMotionSequence plans a series of requests that are meant to run back to back. Only the first
 // request's StartState is used as given. Every later request starts from the configuration the
-// previous plan ended in. The frame system, obstacles, constraints and planner options of each
-// request are its own, but the frame systems are expected to describe the same frames with degrees
-// of freedom.
+// previous plan ended in, for the frames that have degrees of freedom. The frame system, obstacles,
+// constraints and planner options of each request are its own, but the frame systems are expected
+// to describe the same frames with degrees of freedom.
 //
 // The StartState of every request after the first is mutated in place. Whatever the caller put
 // there is discarded, so there are no requirements on it. It is set to the end of the previous plan
@@ -466,14 +466,14 @@ func PlanMotionSequence(
 			}
 
 			// Just reusing the variable for convenience. It's always reset on loop entry anyways.
-			priorRequest := requests[requestIdx]
+			request = requests[requestIdx]
 
 			// Force a follow-up solve of the request to avoid a solution that we've determined is a
 			// deadend.
-			priorRequest.rejectedSolutions[priorRequest.StartState] = append(
-				priorRequest.rejectedSolutions[priorRequest.StartState], rejectedSolution,
+			request.rejectedSolutions[request.StartState] = append(
+				request.rejectedSolutions[request.StartState], rejectedSolution,
 			)
-			if len(priorRequest.rejectedSolutions[priorRequest.StartState]) < backtrackBranchFactor {
+			if len(request.rejectedSolutions[request.StartState]) < backtrackBranchFactor {
 				// If the start state for this plan has only been tried a few times, give it another
 				// shot. Continue back onto the outer-loop.
 				logger.Infof("Backtracking. Adding rejected solution. Rerunning plan: %v", requestIdx)
@@ -481,7 +481,7 @@ func PlanMotionSequence(
 			}
 
 			logger.Infof("Backtracking further. Hit maximum retries from start state. Plan: %v StartState: %v",
-				requestIdx, priorRequest.StartState)
+				requestIdx, request.StartState)
 		}
 	}
 

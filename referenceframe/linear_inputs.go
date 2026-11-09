@@ -48,6 +48,12 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 		}
 
 		frame := fs.Frame(frameName)
+		// RSDK-14891: Omit 0-DoF frames to surface cases where caller's are not taking care with
+		// what frames they are iterating over.
+		if len(frame.DoF()) == 0 {
+			continue
+		}
+
 		offset := len(li.inputs)
 
 		newMeta := linearInputMeta{
@@ -204,6 +210,12 @@ func (li *LinearInputs) GetLinearizedInputs() []Input {
 // ignore the request if an overwrite has a different DoF than the original. That is considered
 // programmer error.
 func (li *LinearInputs) Put(frameName string, inputs []Input) {
+	// RSDK-14891: Omit 0-DoF frames to surface cases where caller's are not taking care with what
+	// frames they are iterating over.
+	if len(inputs) == 0 {
+		return
+	}
+
 	for _, meta := range li.schema.metas {
 		if meta.frameName != frameName {
 			continue
@@ -282,6 +294,8 @@ func (li *LinearInputs) String() string {
 // object. This method returns an error if the frame has non-zero DoF and the frame name does not
 // exist.
 func (li *LinearInputs) GetFrameInputs(frame Frame) ([]Input, error) {
+	// RSDK-14891: Omit 0-DoF frames to surface cases where caller's are not taking care with what
+	// frames they are iterating over.
 	if len(frame.DoF()) == 0 {
 		return nil, nil
 	}
