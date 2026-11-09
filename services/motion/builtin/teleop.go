@@ -316,12 +316,17 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 	errs := make([]error, len(perComponent))
 	idx := 0
 	for name, inputs := range perComponent {
-		ie, ok := ms.components[name]
+		res, ok := ms.components[name]
 		if !ok {
 			// The planner included this component but it has since left the motion
 			// service (e.g. a concurrent reconfigure). Skip it but make the gap visible
 			// instead of silently moving only some arms.
 			tp.logger.CWarnf(ctx, "teleop executor: component %q in trajectory is not known to the motion service; skipping", name)
+			continue
+		}
+		ie, ok := res.(framesystem.InputEnabled)
+		if !ok {
+			tp.logger.CWarnf(ctx, "teleop executor: component %q in trajectory is not input-enabled; skipping", name)
 			continue
 		}
 

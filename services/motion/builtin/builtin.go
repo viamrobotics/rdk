@@ -246,7 +246,7 @@ type builtIn struct {
 	movementSensors map[string]movementsensor.MovementSensor
 	slamServices    map[string]slam.Service
 	visionServices  map[string]vision.Service
-	components      map[string]framesystem.InputEnabled
+	components      map[string]resource.Resource
 	logger          logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
@@ -303,7 +303,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
-	components := make(map[string]framesystem.InputEnabled)
+	components := make(map[string]resource.Resource)
 	for name, dep := range deps {
 		switch sub := dep.(type) {
 		case framesystem.Service:
@@ -314,10 +314,8 @@ func (ms *builtIn) BuiltInReconfigure(
 			slamServices[name.Name] = sub
 		case vision.Service:
 			visionServices[name.Name] = sub
-		case framesystem.InputEnabled:
-			components[name.Name] = sub
 		default:
-			// anything else is intentionally ignored
+			components[name.Name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
@@ -749,9 +747,13 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					continue
 				}
 
-				ie, ok := ms.components[name]
+				res, ok := ms.components[name]
 				if !ok {
 					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
+				}
+				ie, ok := res.(framesystem.InputEnabled)
+				if !ok {
+					return fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
 				}
 				curr, err := ie.CurrentInputs(ctx)
 				if err != nil {
@@ -814,9 +816,13 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			ie, ok := ms.components[name]
+			res, ok := ms.components[name]
 			if !ok {
 				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
+			}
+			ie, ok := res.(framesystem.InputEnabled)
+			if !ok {
+				return fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
 			}
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
