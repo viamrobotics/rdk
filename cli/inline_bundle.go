@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -80,9 +81,9 @@ var runCommand = func(ctx context.Context, dir, name string, args ...string) err
 	return nil
 }
 
-// InlineBundleAction builds the inline-module catalogs for the checked-out RDK
-// tag and writes them under --out. Go stubs come from that checkout. go get and
-// go mod tidy run once, here, against the triggering tag.
+// InlineBundleAction builds the inline-module catalogs for one RDK tag and
+// writes them under --out. Go stubs come from that tag. go get and go mod tidy
+// run once, here, against the same tag.
 func InlineBundleAction(ctx context.Context, cmd *cli.Command, args inlineBundleArgs) error {
 	out := args.Out
 	if out == "" {
@@ -96,11 +97,15 @@ func InlineBundleAction(ctx context.Context, cmd *cli.Command, args inlineBundle
 	if err != nil {
 		return err
 	}
+	goRoot, err := goSDKRoot(ctx, root, goVersion)
+	if err != nil {
+		return err
+	}
 	pythonVersion, err := resolvePythonVersion(ctx)
 	if err != nil {
 		return err
 	}
-	goBundle, err := buildGoBundle(ctx, root, goVersion)
+	goBundle, err := buildGoBundle(ctx, goRoot, goVersion)
 	if err != nil {
 		return err
 	}
@@ -144,6 +149,99 @@ func findSDKRoot(start string) (string, error) {
 		}
 		dir = parent
 	}
+}
+
+// exactCheckoutTag is the tag pointing at HEAD, when there is exactly one.
+// Tests replace it. A shallow clone of a tag still reports that tag.
+var exactCheckoutTag = func(ctx context.Context, dir string) (string, bool) {
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "describe", "--tags", "--exact-match")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	tag := strings.TrimSpace(string(out))
+	if !strings.HasPrefix(tag, "v") {
+		return "", false
+	}
+	return tag, true
+}
+
+// lookupModuleDir downloads go.viam.com/rdk at version and returns its module
+// cache directory. Tests replace it.
+var lookupModuleDir = downloadRDKModule
+
+// goSDKRoot is the tree whose Go APIs are copied into the catalog.
+//
+// The tag job is checked out at the tag it publishes, and the module proxy may
+// not have that tag yet, so the checkout is the source. Any other checkout
+// downloads the requested tag. Copying APIs from a newer tree and then
+// requiring the older module makes go mod tidy select a newer RDK, because the
+// newer tree imports packages the old module does not contain.
+func goSDKRoot(ctx context.Context, checkout, version string) (string, error) {
+	if tag, ok := exactCheckoutTag(ctx, checkout); ok && tag == version {
+		return checkout, nil
+	}
+	dir, err := lookupModuleDir(ctx, version)
+	if err != nil {
+		return "", errors.Wrapf(err, "this checkout is not %s", version)
+	}
+	return dir, nil
+}
+
+func downloadRDKModule(ctx context.Context, version string) (string, error) {
+	dir, err := os.MkdirTemp("", "inline-rdk-src")
+	if err != nil {
+		return "", err
+	}
+	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(dir) })
+	// The download runs in its own module. Running it inside this repo would
+	// treat go.viam.com/rdk as the main module and refuse the version query.
+	goMod := "module inlinepin\n\ngo 1.25\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644); err != nil { //nolint:gosec
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, "go", "mod", "download", "-json", "go.viam.com/rdk@"+version) //nolint:gosec
+	cmd.Dir = dir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		detail := strings.TrimSpace(stderr.String())
+		if detail == "" {
+			detail = strings.TrimSpace(string(out))
+		}
+		return "", errors.Wrapf(err, "go mod download go.viam.com/rdk@%s: %s", version, detail)
+	}
+	return moduleDirFromDownload(out, version)
+}
+
+func moduleDirFromDownload(out []byte, version string) (string, error) {
+	dec := json.NewDecoder(bytes.NewReader(out))
+	for {
+		var info struct {
+			Path    string
+			Version string
+			Dir     string
+			Error   string
+		}
+		if err := dec.Decode(&info); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return "", errors.Wrap(err, "cannot read go mod download output")
+		}
+		if info.Path != "go.viam.com/rdk" || info.Version != version {
+			continue
+		}
+		if info.Error != "" {
+			return "", errors.New(info.Error)
+		}
+		if info.Dir == "" {
+			return "", errors.Errorf("go mod download go.viam.com/rdk@%s returned no directory", version)
+		}
+		return info.Dir, nil
+	}
+	return "", errors.Errorf("go mod download did not return go.viam.com/rdk@%s", version)
 }
 
 func resolveGoVersion(ctx context.Context) (string, error) {
@@ -596,7 +694,14 @@ func pinGoModule(ctx context.Context, goVersion string, paths []string) (string,
 		return "", "", err
 	}
 	if !goModRequires(string(modBytes), "go.viam.com/rdk", goVersion) {
-		return "", "", errors.Errorf("go.mod does not require go.viam.com/rdk %s", goVersion)
+		resolved := requiredVersion(string(modBytes), "go.viam.com/rdk")
+		if resolved == "" {
+			resolved = "no version"
+		}
+		return "", "", errors.Errorf(
+			"go mod tidy resolved go.viam.com/rdk %s instead of %s; the stubs import a package that %s does not contain",
+			resolved, goVersion, goVersion,
+		)
 	}
 	return string(modBytes), string(sumBytes), nil
 }
@@ -604,16 +709,21 @@ func pinGoModule(ctx context.Context, goVersion string, paths []string) (string,
 // goModRequires reports whether mod requires modulePath at version.
 // go mod tidy rewrites a single require line into a parenthesized block, so both forms count.
 func goModRequires(mod, modulePath, version string) bool {
+	return requiredVersion(mod, modulePath) == version
+}
+
+// requiredVersion is the version modulePath is required at, or empty.
+func requiredVersion(mod, modulePath string) string {
 	for _, line := range strings.Split(mod, "\n") {
 		fields := strings.Fields(line)
-		if len(fields) >= 3 && fields[0] == "require" && fields[1] == modulePath && fields[2] == version {
-			return true
+		if len(fields) >= 3 && fields[0] == "require" && fields[1] == modulePath {
+			return fields[2]
 		}
-		if len(fields) >= 2 && fields[0] == modulePath && fields[1] == version {
-			return true
+		if len(fields) >= 2 && fields[0] == modulePath {
+			return fields[1]
 		}
 	}
-	return false
+	return ""
 }
 
 func renderLanguageFiles(module modulegen.ModuleInputs) (map[string]string, error) {

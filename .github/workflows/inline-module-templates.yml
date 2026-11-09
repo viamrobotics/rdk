@@ -2,9 +2,10 @@ name: Inline module templates
 
 # On each RDK version tag, generate Go from that checkout and Python from the
 # current Python SDK, then upsert both languages into the staging and production
-# buckets the app reads. A laptop can still upload a one-off catalog straight
-# to sdk_module_templates_staging. This job overwrites both buckets so a tag
-# leaves them on the same catalogs.
+# buckets the app reads. A laptop can publish the same pins by setting
+# GITHUB_REF_NAME and VIAM_INLINE_PYTHON_VERSION. Go stubs then come from that
+# tag's module, not from the branch, so go mod tidy still requires the tag.
+# This job overwrites both buckets so a tag leaves them on the same catalogs.
 #
 # Each catalog.json is one object. Uploading the same key replaces that object
 # in a single write, so a failed step leaves the previous object in place.

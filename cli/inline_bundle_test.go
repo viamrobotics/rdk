@@ -52,6 +52,72 @@ func TestRewritePlaceholdersRemovesGeneratorNames(t *testing.T) {
 	assertNoGeneratorNames(t, rewritten, pairs)
 }
 
+func TestGoSDKRootUsesTheCheckoutWhenItIsThatTag(t *testing.T) {
+	previousTag := exactCheckoutTag
+	previousLookup := lookupModuleDir
+	exactCheckoutTag = func(context.Context, string) (string, bool) { return "v1.8.0", true }
+	lookupModuleDir = func(context.Context, string) (string, error) {
+		t.Fatal("downloaded a module for the checkout that is already that tag")
+		return "", nil
+	}
+	t.Cleanup(func() {
+		exactCheckoutTag = previousTag
+		lookupModuleDir = previousLookup
+	})
+
+	root, err := goSDKRoot(t.Context(), "/checkout", "v1.8.0")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, root, test.ShouldEqual, "/checkout")
+}
+
+func TestGoSDKRootDownloadsATagTheCheckoutIsNot(t *testing.T) {
+	previousTag := exactCheckoutTag
+	previousLookup := lookupModuleDir
+	exactCheckoutTag = func(context.Context, string) (string, bool) { return "", false }
+	lookupModuleDir = func(_ context.Context, version string) (string, error) {
+		test.That(t, version, test.ShouldEqual, "v1.8.0")
+		return "/modcache/rdk@v1.8.0", nil
+	}
+	t.Cleanup(func() {
+		exactCheckoutTag = previousTag
+		lookupModuleDir = previousLookup
+	})
+
+	root, err := goSDKRoot(t.Context(), "/checkout", "v1.8.0")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, root, test.ShouldEqual, "/modcache/rdk@v1.8.0")
+}
+
+func TestModuleDirFromDownload(t *testing.T) {
+	dir, err := moduleDirFromDownload([]byte(`{"Path":"go.viam.com/rdk","Version":"v1.8.0","Dir":"/modcache/rdk@v1.8.0"}`+"\n"), "v1.8.0")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, dir, test.ShouldEqual, "/modcache/rdk@v1.8.0")
+
+	_, err = moduleDirFromDownload([]byte(`{"Path":"go.viam.com/rdk","Version":"v1.8.0","Error":"not found"}`+"\n"), "v1.8.0")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+}
+
+func TestPinGoModuleReportsTheVersionTidySelected(t *testing.T) {
+	previous := runCommand
+	runCommand = func(_ context.Context, dir, _ string, args ...string) error {
+		if len(args) > 0 && args[0] == "mod" {
+			block := "module inlinemodule\n\ngo 1.26.10\n\nrequire go.viam.com/rdk v1.15.0\n"
+			if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(block), 0o644); err != nil {
+				return err
+			}
+			return os.WriteFile(filepath.Join(dir, "go.sum"), []byte("go.viam.com/rdk v1.15.0 h1:abc\n"), 0o644)
+		}
+		return nil
+	}
+	t.Cleanup(func() { runCommand = previous })
+
+	_, _, err := pinGoModule(t.Context(), "v1.8.0", []string{"go.viam.com/rdk/vision/detection3d"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "v1.15.0")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "v1.8.0")
+}
+
 func TestGoBundleUsesLocalStubsAndPinsTheTag(t *testing.T) {
 	root := rdkRoot(t)
 	const tag = "v1.2.3"
