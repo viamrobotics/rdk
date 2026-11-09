@@ -1,0 +1,32 @@
+{
+  "name": "spinner",
+  "links": [
+    {
+      "id": "base",
+      "pose": {
+        "translation": {
+          "z": 100
+        },
+        "euler_angles": {}
+      }
+    },
+    {
+      "id": "tip",
+      "parent": "spin",
+      "pose": {
+        "translation": {}
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "spin",
+      "parent": "base",
+      "type": "JOINT_TYPE_CONTINUOUS",
+      "axis": {
+        "z": 1
+      },
+      "limits": {}
+    }
+  ]
+}
