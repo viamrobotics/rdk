@@ -80,6 +80,7 @@ type runOptions struct {
 	chain                   bool
 	batch                   bool
 	noPartialPlans          bool
+	sequenceOpts            []armplanning.SequenceOption
 }
 
 // runner replays the sequence of plan requests named on the command line.
@@ -166,6 +167,9 @@ func realMain() error {
 	noPartialPlans := flag.Bool("no-partial-plans", false,
 		"clear return_partial_plan on every request, so a request that only partly plans fails instead. Under -batch a "+
 			"partial plan ends the sequence, whereas a failure lets PlanMotionSequence backtrack")
+	backtrackBranchFactor := flag.Int("backtrack-branch-factor", 0,
+		"with -batch, how many endings of a request to try from one start state before backtracking further; "+
+			"0 keeps PlanMotionSequence's default")
 	fsOverrideFile := flag.String("fs-override", "",
 		"json file of frame system overrides to apply to every request, e.g. tighter DoF limits. See override.go for the schema")
 
@@ -177,6 +181,17 @@ func realMain() error {
 
 	if *batch {
 		*chain = true
+	}
+
+	if *backtrackBranchFactor < 0 {
+		return errors.New("-backtrack-branch-factor cannot be negative")
+	}
+	if *backtrackBranchFactor > 0 && !*batch {
+		return errors.New("-backtrack-branch-factor only applies with -batch")
+	}
+	var sequenceOpts []armplanning.SequenceOption
+	if *backtrackBranchFactor > 0 {
+		sequenceOpts = append(sequenceOpts, armplanning.WithBacktrackBranchFactor(*backtrackBranchFactor))
 	}
 
 	files, err := collectRequestFiles(flag.Args())
@@ -287,6 +302,7 @@ func realMain() error {
 			chain:                   *chain,
 			batch:                   *batch,
 			noPartialPlans:          *noPartialPlans,
+			sequenceOpts:            sequenceOpts,
 		},
 		override: override,
 		logger:   logger,
@@ -441,7 +457,7 @@ func (r *runner) runBatch(ctx context.Context, files []string) (*sequenceOutcome
 	}
 
 	r.logger.Infof("planning %d requests as one sequence", len(requests))
-	plans, metas, err := armplanning.PlanMotionSequence(ctx, r.mpLogger, requests)
+	plans, metas, err := armplanning.PlanMotionSequence(ctx, r.mpLogger, requests, r.opts.sequenceOpts...)
 	if err != nil {
 		r.mylog.Printf("\nFAILED: no sequence of plans found for the %d requests: %v", len(requests), err)
 
