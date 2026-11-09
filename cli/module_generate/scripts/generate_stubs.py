@@ -369,6 +369,36 @@ def module_level_type_names(tree: ast.AST, resource_name: str) -> Set[str]:
     return names
 
 
+def imports_without(lines: List[str], reserved: Set[str]) -> List[str]:
+    """Drop names the scaffold header already binds, keeping the rest of the line."""
+    kept: List[str] = []
+    for line in lines:
+        text = line.strip()
+        if text.startswith("import "):
+            module = ""
+            body = text[len("import ") :]
+            kind = "import"
+        elif text.startswith("from ") and " import " in text:
+            module, body = text.split(" import ", 1)
+            kind = "from"
+        else:
+            kept.append(line)
+            continue
+        parts = []
+        for part in body.split(","):
+            part = part.strip()
+            if part == "" or names_bound_by_import(f"from m import {part}") & reserved:
+                continue
+            parts.append(part)
+        if not parts:
+            continue
+        if kind == "import":
+            kept.append("import " + ", ".join(parts))
+        else:
+            kept.append(f"{module} import {', '.join(parts)}")
+    return kept
+
+
 def names_bound_by_import(line: str) -> Set[str]:
     text = line.strip()
     if text.startswith("import "):
@@ -483,17 +513,38 @@ def main(
 ) -> str:
     from slugify import slugify
 
-    module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
+    # Python SDK package names mostly match the subtype, but not always.
+    package = {"world_state_store": "worldstatestore"}.get(
+        resource_subtype, resource_subtype
+    )
+    module_name = f"viam.{resource_type}s.{package}.{package}"
     module = import_module(module_name)
     resource_name = {"input": "Controller", "slam": "SLAM", "mlmodel": "MLModel"}.get(
         resource_subtype,
         "".join(word.capitalize() for word in resource_subtype.split("_")),
     )
 
+    # Names the scaffold header imports itself. Copying one again from the SDK
+    # file (arm imports collections.abc.Mapping) is a redefinition. Slot mode does
+    # not run ruff, so the filter has to happen here.
+    scaffold_names = {
+        "ClassVar",
+        "Mapping",
+        "Sequence",
+        "Tuple",
+        "Self",
+        "ComponentConfig",
+        "ResourceName",
+        "ResourceBase",
+        "EasyResource",
+        "Model",
+        "ModelFamily",
+    }
     with open(module.__file__, "r") as f:
         imports, subclasses, abstract_methods = same_file_stub(
             f.read(), resource_name, module_name
         )
+    imports = imports_without(imports, scaffold_names)
 
     type_module = import_module(f"viam.{resource_type}s.{resource_type}_base")
     with open(type_module.__file__, "r") as f:
@@ -526,10 +577,11 @@ def main(
         imports_text = f"/*inline-slot:imports*/\n{imports_text}\n/*inline-slot:imports-end*/"
         subclasses_text = f"/*inline-slot:methods*/\n{subclasses_text}"
         methods_text = f"{methods_text}\n/*inline-slot:methods-end*/"
+    # package, not the resource subtype: world_state_store lives in worldstatestore.
     resource_file = render_resource_file(
         imports_text,
         resource_type,
-        resource_subtype,
+        package,
         model_name_pascal,
         resource_name,
         namespace,
@@ -546,15 +598,15 @@ def main(
         f.write(resource_file)
     try:
         try:
-            subprocess.check_call(
-                [sys.executable, "-m", "ruff", "format", "--quiet", f_name]
-            )
+            # --isolated so the output matches the module's own ruff config rather than
+            # whatever ruff config surrounds the directory the CLI runs in.
             subprocess.check_call(
                 [
                     sys.executable,
                     "-m",
                     "ruff",
                     "check",
+                    "--isolated",
                     "--select",
                     "F401,F811,I",
                     "--fix",
@@ -562,6 +614,9 @@ def main(
                     "--quiet",
                     f_name,
                 ]
+            )
+            subprocess.check_call(
+                [sys.executable, "-m", "ruff", "format", "--isolated", "--quiet", f_name]
             )
             with open(f_name, "r") as f:
                 resource_file = f.read()
@@ -742,9 +797,14 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--bundle":
         run_bundle(sys.argv[2])
         sys.exit(0)
-    packages = [sdk_requirement(), "typing-extensions", "ruff", "python-slugify"]
+    packages = [
+        sdk_requirement("mlmodel" if sys.argv[2] == "mlmodel" else ""),
+        "typing-extensions",
+        "ruff",
+        "python-slugify",
+    ]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
     install_requirements(packages)
     result = main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
-    print(result)
+    print(result, end="")

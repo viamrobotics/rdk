@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gripper"
+	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -148,6 +149,40 @@ func TestServer(t *testing.T) {
 		resp, err := gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{})
+
+		// a gripper without Geometries still answers from its model and inputs
+		prevGeometries := injectGripper2.GeometriesFunc
+		t.Cleanup(func() {
+			injectGripper2.GeometriesFunc = prevGeometries
+			injectGripper2.KinematicsFunc = nil
+			injectGripper2.CurrentInputsFunc = nil
+		})
+		injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+			return nil, rdkgrpc.UnimplementedError
+		}
+		injectGripper2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+			box, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), r3.Vector{X: 1, Y: 1, Z: 1}, "jaw")
+			if err != nil {
+				return nil, err
+			}
+			return gripper.MakeModel(testGripperName2, []spatialmath.Geometry{box})
+		}
+		injectGripper2.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
+			return []referenceframe.Input{}, nil
+		}
+		resp, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetGeometries(), test.ShouldHaveLength, 1)
+		test.That(t, resp.GetGeometries()[0].GetCenter().GetX(), test.ShouldEqual, 1)
+		test.That(t, resp.GetGeometries()[0].GetLabel(), test.ShouldEqual, testGripperName2+":jaw")
+
+		// any other error from Geometries comes back as is
+		errBroken := errors.New("broken")
+		injectGripper2.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+			return nil, errBroken
+		}
+		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
+		test.That(t, err, test.ShouldBeError, errBroken)
 	})
 
 	t.Run("GetCurrentInputs", func(t *testing.T) {

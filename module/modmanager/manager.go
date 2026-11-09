@@ -832,8 +832,8 @@ func (mgr *Manager) execPathAlreadyExists(conf *config.Module) (bool, string) {
 }
 
 // CleanModuleDataDirectory removes unexpected folders and files from the robot's module data directory.
-// Modules removed from the robot config (even temporarily) will get pruned here.
-func (mgr *Manager) CleanModuleDataDirectory() error {
+// Directories are kept for modules in confs or still running; modules removed from config (even temporarily) are pruned.
+func (mgr *Manager) CleanModuleDataDirectory(confs []config.Module) error {
 	if mgr.moduleDataParentDir == "" {
 		return errors.New("cannot clean a root level module data directory")
 	}
@@ -843,6 +843,13 @@ func (mgr *Manager) CleanModuleDataDirectory() error {
 	}
 	// Absolute path to all dirs that should exist
 	expectedDirs := make(map[string]bool)
+	for _, conf := range confs {
+		// Skip names that fail SafeJoinDir; add() rejects them, so they never have a data dir.
+		if dir, err := rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name); err == nil {
+			expectedDirs[dir] = true
+		}
+	}
+	// Also keep dirs of running modules whose removal didn't finish, so we don't delete files out from under a live process.
 	mgr.modules.Range(func(_ string, m *module) bool {
 		expectedDirs[m.dataDir] = true
 		return true

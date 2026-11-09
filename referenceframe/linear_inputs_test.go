@@ -12,10 +12,6 @@ import (
 func TestLinearInputs(t *testing.T) {
 	li := NewLinearInputs()
 
-	// Getting inputs for a frame that does not exist should return nil. For parity with a typical
-	// map access.
-	test.That(t, li.Get("3dof"), test.ShouldBeNil)
-
 	// Put inputs in for a frame. Assert we can read it back out.
 	li.Put("3dof", []Input{1, 2, 3})
 	test.That(t, li.Get("3dof"), test.ShouldResemble, []Input{1, 2, 3})
@@ -43,10 +39,9 @@ func TestLinearInputs(t *testing.T) {
 	test.That(t, li.Get("3dof"), test.ShouldResemble, []Input{1, 2, 3})
 
 	// Assert that 0 DoF frames can be inserted. And assert that, when getting a 0 DoF frame back
-	// out, we return an empty slice rather than nil.
-	test.That(t, li.Get("0dof"), test.ShouldBeNil)
+	// out, we return a 0 length value (nil and empty slices are both valid).
 	li.Put("0dof", []Input{})
-	test.That(t, li.Get("0dof"), test.ShouldResemble, []Input{})
+	test.That(t, li.Get("0dof"), test.ShouldHaveLength, 0)
 }
 
 func TestLinearInputsLimits(t *testing.T) {

@@ -22,7 +22,11 @@ import (
 type planManager struct {
 	pc      *PlanContext
 	request *PlanRequest
-	logger  logging.Logger
+
+	// Just a conduit between higher level code and the PlanSegmentContext that actually reads the
+	// values and rejects IK solutions.
+	rejectedSolutions []referenceframe.FrameSystemInputs
+	logger            logging.Logger
 }
 
 func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
@@ -30,11 +34,21 @@ func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanReq
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{
+
+	ret := &planManager{
 		pc:      pc,
 		logger:  logger,
 		request: request,
-	}, nil
+	}
+
+	// When called from PlanMotionSequence, we may build up state of solutions to `request` that
+	// fail as start states for subsequent plan requests. We thread that information through here to
+	// ultimately filter out IK solutions.
+	if request.rejectedSolutions != nil {
+		ret.rejectedSolutions = request.rejectedSolutions[request.StartState]
+	}
+
+	return ret, nil
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
@@ -152,6 +166,11 @@ func (pm *planManager) planToDirectJoints(
 		}
 	}
 
+	// Everything was pinned - skip NewPlanSegmentContext, which rejects an empty goal map.
+	if len(goalPoses) == 0 {
+		return nil, nil
+	}
+
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
@@ -212,6 +231,7 @@ func (pm *planManager) planSingleGoal(
 	if err != nil {
 		return nil, err
 	}
+	psc.rejectedSolutions = pm.rejectedSolutions
 
 	for x := range goal {
 		pm.logger.Debugf("start (%s) from %v", x, psc.startPoses[x])

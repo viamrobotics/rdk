@@ -143,6 +143,7 @@ func installPackage(
 		}
 	}()
 
+	unpackStart := time.Now()
 	// unzip archive.
 	err = unpackFile(ctx, logger, dstPath, tmpDataPath)
 	if err != nil {
@@ -165,6 +166,7 @@ func installPackage(
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return fmt.Errorf("failed to unzip archive, please try a different version: %w", err)
 	}
+	logger.Debugf("Package %s:%s decompression and extraction complete after %v", p.Package, p.Version, time.Since(unpackStart))
 
 	renameDest := p.LocalDataDirectory(packagesDir)
 	if runtime.GOOS == "windows" {

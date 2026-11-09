@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -662,4 +663,119 @@ func TestEarlyExitWhenLinearConstraintOutcomeLooksBleak(t *testing.T) {
 	_, _, err = PlanMotion(context.Background(), logger, req)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual, "linear with cbirrt not allowed and no direct solutions found")
+}
+
+// registerSingleNodeRoadmap puts a roadmap with exactly one configuration into the process's
+// roadmap registry, as if an earlier plan had learned it. IK seeding only uses a roadmap that is
+// already registered and built. The roadmap is keyed for the given request's first goal.
+//
+// MOTION_ROADMAP_CACHE_DIR is cleared so nothing is loaded from or saved to disk. What the planner
+// harvests into the roadmap lives in memory until ClearRoadmapCache.
+func registerSingleNodeRoadmap(t *testing.T, logger logging.Logger, request *PlanRequest, configuration []float64) *roadmap {
+	t.Helper()
+
+	t.Setenv("MOTION_ROADMAP_CACHE_DIR", "")
+
+	ctx := context.Background()
+	planContext, err := NewPlanContext(ctx, logger, request, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+
+	goal, err := request.Goals[0].ComputePoses(ctx, request.FrameSystem)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(goal), test.ShouldEqual, 1)
+
+	segmentContext, err := NewPlanSegmentContext(ctx, planContext, request.StartState.LinearConfiguration(), goal)
+	test.That(t, err, test.ShouldBeNil)
+
+	frames := movingFrameNamesWithDoF(segmentContext)
+	sort.Strings(frames)
+	test.That(t, frames, test.ShouldResemble, []string{"arm"})
+
+	var goalFrame string
+	var goalPoint [3]float64
+	for frameName, pose := range goal {
+		goalFrame = frameName
+		point := pose.Pose().Point()
+		goalPoint = [3]float64{point.X, point.Y, point.Z}
+	}
+
+	key := roadmapKeyFor(segmentContext, frames)
+	singleNode := &roadmap{
+		frames:    frames,
+		dims:      []int{len(configuration)},
+		goalFrame: goalFrame,
+		flat:      [][]float64{configuration},
+		neighbors: [][]int{{}},
+		eePos:     [][3]float64{goalPoint},
+		key:       key,
+	}
+	// getRoadmap would otherwise build or load a roadmap the first time it is asked for this key.
+	singleNode.buildOnce.Do(func() {})
+	singleNode.built.Store(true)
+	roadmapRegistry.Store(key, singleNode)
+
+	return singleNode
+}
+
+// TestPlanMotionSequenceSucceedsDespitePoisonedCache plans two recorded requests from a robot
+// opening a fridge: "035", which moves the gripper to the handle, and "036", a linear move that
+// follows it.
+//
+// The roadmap holds a single configuration: the one "035" was recorded ending in. With it
+// registered, "035" succeeds but ends in a joint family that is a dead end for "036", because
+// joint 2 is nearly at its lower limit. Without it, "035" takes a family that works. This test
+// asserts that we can backtrack from the failure of "036" and find that other answer.
+func TestPlanMotionSequenceSucceedsDespitePoisonedCache(t *testing.T) {
+	// The arm's joint 3 tells the two families apart. These are the values 035 ends at in each.
+	const (
+		poisonedJoint3 = 4.6324
+		workingJoint3  = 1.3445
+	)
+
+	ClearRoadmapCache()
+
+	logger := logging.NewTestLogger(t)
+
+	var requests []*PlanRequest
+	for _, file := range []string{"data/capp-fridge-open-035.json", "data/capp-fridge-move-036.json"} {
+		request, err := ReadRequestFromFile(file)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, PrepSmartSeed(request.FrameSystem, logger), test.ShouldBeNil)
+
+		requests = append(requests, request)
+	}
+
+	// "036" starts wherever "035" ends.
+	requests[1].StartState = nil
+
+	registerSingleNodeRoadmap(t, logger, requests[0], []float64{
+		-0.992999659809725, -1.2022321151487678, -3.6860351229031787, 4.632364891547901, 1.9934586075229215, 1.3777452467564468,
+	})
+
+	plans, metas, err := PlanMotionSequence(context.Background(), logger, requests)
+
+	// The key decision is where 035 ends, which is where 036 was started from: PlanMotionSequence
+	// sets each later request's StartState in place. This is logged before asserting so it shows up
+	// when 036 fails.
+	if len(plans) > 0 {
+		fridgeMoveJoint3 := requests[1].StartState.Configuration()["arm"][3]
+		family := "some other family"
+		if math.Abs(fridgeMoveJoint3-poisonedJoint3) < 0.1 {
+			family = "the poisoned family"
+		} else if math.Abs(fridgeMoveJoint3-workingJoint3) < 0.1 {
+			family = "a known working family"
+		}
+
+		t.Logf("036 starts in %s: arm joint 3 = %.4f (poisoned value %.4f)", family, fridgeMoveJoint3, poisonedJoint3)
+	}
+
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plans), test.ShouldEqual, len(requests))
+	test.That(t, len(metas), test.ShouldEqual, len(requests))
+
+	numBacktracks := 0
+	for _, meta := range metas {
+		numBacktracks += meta.BacktrackCounter
+	}
+	test.That(t, numBacktracks, test.ShouldBeGreaterThanOrEqualTo, 1)
 }

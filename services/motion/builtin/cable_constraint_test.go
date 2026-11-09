@@ -14,6 +14,8 @@ import (
 )
 
 func TestApplyCableConstraintDefaults(t *testing.T) {
+	const defaultIsToLeaveDisabled = true
+
 	on, off := true, false
 	conf := &Config{
 		CableConstraint:         &on,
@@ -50,9 +52,14 @@ func TestApplyCableConstraintDefaults(t *testing.T) {
 	})
 
 	t.Run("an unset config guesses from cameras on arms", func(t *testing.T) {
-		opts := optsFor(&Config{}, map[string]interface{}{}, []string{"arm1"})
-		test.That(t, opts.CableConstraint, test.ShouldBeTrue)
-		test.That(t, opts.CableConstraintFrames, test.ShouldResemble, []string{"arm1"})
+		if defaultIsToLeaveDisabled {
+			opts := optsFor(&Config{}, map[string]interface{}{}, []string{"arm1"})
+			test.That(t, opts.CableConstraint, test.ShouldBeFalse)
+		} else {
+			opts := optsFor(&Config{}, map[string]interface{}{}, []string{"arm1"})
+			test.That(t, opts.CableConstraint, test.ShouldBeTrue)
+			test.That(t, opts.CableConstraintFrames, test.ShouldResemble, []string{"arm1"})
+		}
 	})
 
 	t.Run("config or request set to false disables the guess", func(t *testing.T) {
@@ -63,6 +70,10 @@ func TestApplyCableConstraintDefaults(t *testing.T) {
 	})
 
 	t.Run("config frames scope an explicit enable and override the guess", func(t *testing.T) {
+		if defaultIsToLeaveDisabled {
+			t.Skip("Disabled by default")
+		}
+
 		scoped := &Config{CableConstraint: &on, CableConstraintFrames: []string{"arm2"}}
 		opts := optsFor(scoped, map[string]interface{}{}, nil)
 		test.That(t, opts.CableConstraintFrames, test.ShouldResemble, []string{"arm2"})
@@ -73,6 +84,10 @@ func TestApplyCableConstraintDefaults(t *testing.T) {
 	})
 
 	t.Run("a non-positive max twist fails once the guess enables the constraint", func(t *testing.T) {
+		if defaultIsToLeaveDisabled {
+			t.Skip("Disabled by default")
+		}
+
 		extra := map[string]interface{}{"max_cable_twist_degs": 0.}
 		opts, err := armplanning.NewPlannerOptionsFromExtra(extra)
 		test.That(t, err, test.ShouldBeNil)

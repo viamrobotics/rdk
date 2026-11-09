@@ -92,6 +92,12 @@ type Config struct {
 	LogPlannerErrors            bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
+	// StreamDiagnosticsFilePath is the directory each arm-streaming session writes its diagnostics file under when it ends.
+	StreamDiagnosticsFilePath string `json:"stream_diagnostics_file_path"`
+	// StreamDiagnosticsMetadataKeysToUseAsFileTags names request metadata keys whose values become tag=<value>
+	// directories on the diagnostics file.
+	StreamDiagnosticsMetadataKeysToUseAsFileTags []string `json:"stream_diagnostics_metadata_keys_to_use_as_file_tags"`
+
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
@@ -134,6 +140,10 @@ func (c *Config) applyCableConstraintDefaults(
 	}
 	if _, ok := extra["cable_constraint"]; !ok {
 		switch {
+		// Dan: Disable cable constraints by default. In its current incarnation it affected too
+		// many existing machines.
+		case c.CableConstraint == nil:
+			return nil
 		case c.CableConstraint != nil:
 			opts.CableConstraint = *c.CableConstraint
 		case len(cameraArms) > 0:
@@ -210,6 +220,10 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
+	if len(c.StreamDiagnosticsMetadataKeysToUseAsFileTags) > 0 && c.StreamDiagnosticsFilePath == "" {
+		return nil, nil, errors.New("need a stream_diagnostics_file_path if you set stream_diagnostics_metadata_keys_to_use_as_file_tags")
 	}
 
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.

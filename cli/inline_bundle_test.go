@@ -179,17 +179,19 @@ func TestGoBundleUsesLocalStubsAndPinsTheTag(t *testing.T) {
 	generic := bundle.StubSections["rdk:service:generic"]
 	test.That(t, generic.API, test.ShouldEqual, "rdk:service:generic")
 	test.That(t, generic.ReturnType, test.ShouldEqual, "resource.Resource")
-	// client.go imports that the stub never calls are gone, and the shell's
-	// errors.New / fmt.Errorf imports are present. Arm and vision keep an
+	// client.go imports that the stub never calls are gone. The shell defines
+	// errUnimplemented with errors.New, so that import stays. Method bodies
+	// return errUnimplemented and do not import fmt. Arm and vision keep an
 	// import when a method signature still names that package.
 	for _, api := range []string{"rdk:service:generic", "rdk:component:motor"} {
 		imports := bundle.StubSections[api].Imports
 		test.That(t, imports, test.ShouldNotContainSubstring, "commonpb")
 		test.That(t, imports, test.ShouldNotContainSubstring, "protoutils")
-		test.That(t, imports, test.ShouldContainSubstring, "\t\"fmt\"\n")
+		test.That(t, imports, test.ShouldContainSubstring, "\t\"errors\"\n")
+		test.That(t, imports, test.ShouldNotContainSubstring, "\t\"fmt\"\n")
 	}
-	test.That(t, bundle.StubSections["rdk:component:arm"].Imports, test.ShouldContainSubstring, "\t\"fmt\"\n")
-	test.That(t, bundle.StubSections["rdk:service:vision"].Imports, test.ShouldContainSubstring, "\t\"fmt\"\n")
+	test.That(t, bundle.StubSections["rdk:component:arm"].Imports, test.ShouldNotContainSubstring, "\t\"fmt\"\n")
+	test.That(t, bundle.StubSections["rdk:service:vision"].Imports, test.ShouldNotContainSubstring, "\t\"fmt\"\n")
 	test.That(t, generic.Imports, test.ShouldContainSubstring, "\t\"errors\"\n")
 	test.That(t, strings.Count(bundle.StubSections["rdk:component:arm"].Imports, "\t\"errors\"\n"), test.ShouldEqual, 1)
 	test.That(t, bundle.StubSections["rdk:service:vision"].Imports, test.ShouldContainSubstring, "\t\"github.com/pkg/errors\"\n")
@@ -286,7 +288,7 @@ func TestSlottedGoRenderHasExampleRegions(t *testing.T) {
 	test.That(t, shell, test.ShouldNotContainSubstring, "inline-example:do-command")
 	test.That(t, shell, test.ShouldNotContainSubstring, "/*inline-slot:")
 	test.That(t, section.Methods, test.ShouldContainSubstring, "// inline-example:do-command")
-	test.That(t, section.Methods, test.ShouldContainSubstring, "return nil, fmt.Errorf(\"not implemented\")")
+	test.That(t, section.Methods, test.ShouldContainSubstring, "return nil, errUnimplemented")
 	test.That(t, section.Methods, test.ShouldNotContainSubstring, "\n func ")
 	test.That(t, section.Imports, test.ShouldNotEqual, "")
 	test.That(t, shell, test.ShouldContainSubstring, "${inline_imports}")

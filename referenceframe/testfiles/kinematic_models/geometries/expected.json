@@ -1,0 +1,82 @@
+{
+  "name": "geometries",
+  "links": [
+    {
+      "id": "base",
+      "parent": "world",
+      "collision": [
+        {
+          "center": {
+            "x": 10,
+            "o_z": 1
+          },
+          "box": {
+            "dims_mm": {
+              "x": 20,
+              "y": 30,
+              "z": 40
+            }
+          },
+          "label": "box"
+        },
+        {
+          "center": {
+            "y": 10,
+            "o_z": 1
+          },
+          "sphere": {
+            "radius_mm": 15
+          },
+          "label": "sphere"
+        },
+        {
+          "center": {
+            "z": 10,
+            "o_x": 1,
+            "theta": 90
+          },
+          "capsule": {
+            "radius_mm": 5,
+            "length_mm": 50
+          },
+          "label": "capsule"
+        },
+        {
+          "center": {
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "ply",
+            "mesh": "cGx5CmZvcm1hdCBhc2NpaSAxLjAKZWxlbWVudCB2ZXJ0ZXggMwpwcm9wZXJ0eSBmbG9hdCB4CnByb3BlcnR5IGZsb2F0IHkKcHJvcGVydHkgZmxvYXQgegplbGVtZW50IGZhY2UgMQpwcm9wZXJ0eSBsaXN0IHVjaGFyIGludCB2ZXJ0ZXhfaW5kaWNlcwplbmRfaGVhZGVyCjAgMCAwCjEgMCAwCjAgMSAwCjMgMCAxIDIK"
+          },
+          "label": "mesh"
+        }
+      ],
+      "visual": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "box": {
+            "dims_mm": {
+              "x": 22,
+              "y": 32,
+              "z": 42
+            }
+          },
+          "label": "shell"
+        },
+        {
+          "center": {
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "glb",
+            "mesh": "Z2xURiB2aXN1YWwgYnl0ZXM="
+          },
+          "label": "skin"
+        }
+      ]
+    }
+  ]
+}
