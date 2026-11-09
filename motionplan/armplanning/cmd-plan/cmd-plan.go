@@ -79,6 +79,7 @@ type runOptions struct {
 	noViz                   bool
 	chain                   bool
 	batch                   bool
+	noPartialPlans          bool
 }
 
 // runner replays the sequence of plan requests named on the command line.
@@ -162,6 +163,9 @@ func realMain() error {
 	batch := flag.Bool("batch", false,
 		"implies -chain. Plan every request in one armplanning.PlanMotionSequence call, which backtracks into "+
 			"earlier requests when a later one cannot be planned")
+	noPartialPlans := flag.Bool("no-partial-plans", false,
+		"clear return_partial_plan on every request, so a request that only partly plans fails instead. Under -batch a "+
+			"partial plan ends the sequence, whereas a failure lets PlanMotionSequence backtrack")
 	fsOverrideFile := flag.String("fs-override", "",
 		"json file of frame system overrides to apply to every request, e.g. tighter DoF limits. See override.go for the schema")
 
@@ -282,6 +286,7 @@ func realMain() error {
 			noViz:                   *noViz,
 			chain:                   *chain,
 			batch:                   *batch,
+			noPartialPlans:          *noPartialPlans,
 		},
 		override: override,
 		logger:   logger,
@@ -516,8 +521,8 @@ func collectRequestFiles(args []string) ([]string, error) {
 }
 
 // loadRequest reads one request off disk and applies everything that is a property of the run
-// rather than of the recorded request: the pseudolinear constraints, the seed and the frame system
-// override.
+// rather than of the recorded request: the pseudolinear constraints, the seed, partial plans and the
+// frame system override.
 func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.Plan, error) {
 	r.logger.Infof("reading plan from %s", file)
 	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(file)
@@ -533,6 +538,11 @@ func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.
 
 	if r.opts.seed >= 0 {
 		req.PlannerOptions.RandomSeed = r.opts.seed
+	}
+
+	if r.opts.noPartialPlans && req.PlannerOptions.ReturnPartialPlan {
+		req.PlannerOptions.ReturnPartialPlan = false
+		r.logger.Infof("-no-partial-plans: cleared return_partial_plan on %s", filepath.Base(file))
 	}
 
 	if r.override != nil {
