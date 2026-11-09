@@ -1870,32 +1870,11 @@ func readViamGenInfo(dir string) (*modulegen.ModuleInputs, error) {
 	return &info, nil
 }
 
-// goFileNameConstraints are the OS and architecture names that Go reads as a build constraint when
-// they end a file name, as listed in the toolchain's internal/syslist. A file named my_arm.go only
-// compiles for GOARCH=arm, and my_linux.go only for GOOS=linux.
-var goFileNameConstraints = map[string]bool{
-	"aix": true, "android": true, "darwin": true, "dragonfly": true, "freebsd": true, "hurd": true,
-	"illumos": true, "ios": true, "js": true, "linux": true, "nacl": true, "netbsd": true,
-	"openbsd": true, "plan9": true, "solaris": true, "wasip1": true, "windows": true, "zos": true,
-
-	"386": true, "amd64": true, "amd64p32": true, "arm": true, "armbe": true, "arm64": true,
-	"arm64be": true, "loong64": true, "mips": true, "mipsle": true, "mips64": true, "mips64le": true,
-	"mips64p32": true, "mips64p32le": true, "ppc": true, "ppc64": true, "ppc64le": true,
-	"riscv": true, "riscv64": true, "s390": true, "s390x": true, "sparc": true, "sparc64": true,
-	"wasm": true,
-}
-
-// goModelFileName returns the Go file name for a model, <model_snake>.go, with a _model suffix
-// when that name would keep the file out of a normal build: a trailing _test makes it a test file,
-// and a trailing OS or architecture name makes it build for that platform only. Go ignores the
-// part before the first underscore, so "arm.go" is unconstrained.
+// goModelFileName returns the Go file name for a model. The _model suffix keeps the name from
+// ending in a Go OS or architecture name, or in _test, which Go reads as a build constraint or a test
+// file: my_arm.go would only compile for GOARCH=arm. Every model gets it, so file names stay uniform.
 func goModelFileName(modelSnake string) string {
-	parts := strings.Split(modelSnake, "_")
-	last := parts[len(parts)-1]
-	if len(parts) > 1 && (last == "test" || goFileNameConstraints[last]) {
-		return modelSnake + "_model.go"
-	}
-	return modelSnake + ".go"
+	return modelSnake + "_model.go"
 }
 
 // addGolangModelFile generates a Go source file with method stubs for the new model.
@@ -1906,7 +1885,7 @@ func addGolangModelFile(dir string, module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "generator script encountered an error")
 	}
 	modelFilePath := filepath.Join(dir, goModelFileName(module.ModelSnake))
-	// Two model names can map to one file (my-arm and my-arm-model), so never overwrite one.
+	// Never overwrite a file already in the module, such as one the user wrote by hand.
 	//nolint:gosec
 	modelFile, err := os.OpenFile(modelFilePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
