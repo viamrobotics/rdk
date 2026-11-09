@@ -18,7 +18,7 @@ import (
 )
 
 func TestNloptFixedJoint(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -60,7 +60,7 @@ func TestNloptFixedJoint(t *testing.T) {
 }
 
 func TestCreateNloptSolver(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger := logging.NewInMemoryLogger(t)
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 

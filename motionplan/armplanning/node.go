@@ -388,13 +388,6 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 		solutionIsUnique := false
 		for frameName, rejectedFrameConfig := range rejectedSol {
 			frameVal := step.Get(frameName)
-			if frameVal == nil {
-				// This is expected to come from a `rejectedFrameConfig` that contains 0-DoF
-				// frames. Such as from the start state of a plan request. Where `step` is expected
-				// to only contain frames with at least one DoF.
-				continue
-			}
-
 			// This returns the maximum difference between all of the joints. The DoF of both frames
 			// are expected to be the same size. If they are not, the function returns infinity.q
 			if referenceframe.InputsLinfDistance(frameVal, rejectedFrameConfig) > 0.01 {
