@@ -169,7 +169,7 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
   </link>
 </robot>`)
 
-		_, err := buildMeshMapFromURDF(urdfData, testfilesDir)
+		_, err := buildMeshMapFromURDF(urdfData, testfilesDir, "")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to load mesh file")
 	})
@@ -192,7 +192,7 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
   </link>
 </robot>`)
 
-		_, err = buildMeshMapFromURDF(urdfData, testfilesDir)
+		_, err = buildMeshMapFromURDF(urdfData, testfilesDir, "")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported mesh file type")
 	})
@@ -206,7 +206,7 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 	// Load URDF, build mesh map, and parse model once for all tests
 	xmlData, err := os.ReadFile(urdfPath)
 	test.That(t, err, test.ShouldBeNil)
-	meshMap, err := buildMeshMapFromURDF(xmlData, testfilesDir)
+	meshMap, err := buildMeshMapFromURDF(xmlData, testfilesDir, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	modelConfig, err := UnmarshalModelXML(xmlData, "ur20", meshMap, nil)
@@ -227,10 +227,13 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 
 	t.Run("round-trip through RPC", func(t *testing.T) {
 		protoResp := KinematicModelToProtobuf(model)
+		//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 		test.That(t, protoResp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+		//nolint:staticcheck // SA1019: MeshesByUrdfFilepath stays until clients read KinematicModel.
 		test.That(t, len(protoResp.MeshesByUrdfFilepath), test.ShouldEqual, 7)
 
 		for _, meshFile := range expectedMeshes {
+			//nolint:staticcheck // SA1019: MeshesByUrdfFilepath stays until clients read KinematicModel.
 			mesh := protoResp.MeshesByUrdfFilepath[meshFile]
 			test.That(t, mesh.ContentType, test.ShouldEqual, "stl")
 			test.That(t, len(mesh.Mesh), test.ShouldBeGreaterThan, 1000)

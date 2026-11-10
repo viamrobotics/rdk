@@ -90,41 +90,63 @@ func newUserPermsAuthorizer(userPerms []config.UserPermission, logger logging.Lo
 	}
 
 	for _, userPerm := range userPerms {
-		user := userPerm.User
-		var key rdkgrpc.Identity
-		switch user.Type {
-		case config.UserTypeAPIKeyID:
-			key = rdkgrpc.Identity{Entity: user.ID}
-		case config.UserTypeAppUserID:
-			key = rdkgrpc.Identity{AppUserID: user.ID}
-		case config.UserTypeDefault:
-			if ra.defaultPerms != nil {
-				ra.logger.Error(
-					"multiple user_permissions entries for default user; fully restricting default user until collision is fixed",
-				)
-				// An empty permSet fully restricts.
-				ra.defaultPerms = permSet{}
+		users := userPerm.Users
+		// Users supersedes User: an entry setting both grants only to the Users it lists.
+		// An entry setting neither falls through to assign, which warns and skips it.
+		if len(users) == 0 {
+			users = []config.User{userPerm.User}
+		}
+		// Built once and shared by every user the entry names. A permSet is only read
+		// after construction, so a grouped entry costs one map, not one per user.
+		perms := buildPermSet(userPerm.Permissions)
+		named := make(map[config.User]struct{}, len(users))
+		for _, user := range users {
+			// A user named twice within one entry is not a collision, only a redundancy.
+			if _, duplicate := named[user]; duplicate {
 				continue
 			}
-			ra.defaultPerms = buildPermSet(userPerm.Permissions)
-			continue
-		default:
-			ra.logger.Warnw("unknown user type in user_permissions; ignoring user",
-				"type", user.Type, "id", user.ID)
-			continue
+			named[user] = struct{}{}
+			ra.assign(user, perms)
 		}
-		if _, seen := ra.identityPerms[key]; seen {
-			ra.logger.Errorw(
-				"multiple user_permissions entries for user; fully restricting user until collision is fixed",
-				"type", user.Type, "id", user.ID,
-			)
-			// An empty permSet fully restricts.
-			ra.identityPerms[key] = permSet{}
-			continue
-		}
-		ra.identityPerms[key] = buildPermSet(userPerm.Permissions)
 	}
 	return ra
+}
+
+// assign grants perms to one user. A user may be named by only one entry, so a user
+// named by a second is left fully restricted until the collision is fixed.
+func (ra *userPermsAuthorizer) assign(user config.User, perms permSet) {
+	var key rdkgrpc.Identity
+	switch user.Type {
+	case config.UserTypeAPIKeyID:
+		key = rdkgrpc.Identity{Entity: user.ID}
+	case config.UserTypeAppUserID:
+		key = rdkgrpc.Identity{AppUserID: user.ID}
+	case config.UserTypeDefault:
+		if ra.defaultPerms != nil {
+			ra.logger.Error(
+				"multiple user_permissions entries for default user; fully restricting default user until collision is fixed",
+			)
+			// An empty permSet fully restricts.
+			ra.defaultPerms = permSet{}
+			return
+		}
+		ra.defaultPerms = perms
+		return
+	default:
+		ra.logger.Warnw("unknown user type in user_permissions; ignoring user",
+			"type", user.Type, "id", user.ID)
+		return
+	}
+	if _, seen := ra.identityPerms[key]; seen {
+		ra.logger.Errorw(
+			"multiple user_permissions entries for user; fully restricting user until collision is fixed",
+			"type", user.Type, "id", user.ID,
+		)
+		// An empty permSet fully restricts.
+		ra.identityPerms[key] = permSet{}
+		return
+	}
+	ra.identityPerms[key] = perms
 }
 
 // permsFor returns the permissions of the given identity, or nil if the identity is

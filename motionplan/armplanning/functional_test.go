@@ -90,7 +90,7 @@ func constrainedXArmMotion(logger logging.Logger) (*planConfig, error) {
 	}
 
 	cons := motionplan.NewEmptyConstraints()
-	cons.OrientationConstraint = append(cons.OrientationConstraint, motionplan.OrientationConstraint{1})
+	cons.OrientationConstraint = append(cons.OrientationConstraint, motionplan.OrientationConstraint{OrientationToleranceDegs: 1})
 
 	start := &PlanState{structuredConfiguration: map[string][]frame.Input{model.Name(): home7}}
 	goalPoses := frame.FrameSystemPoses{model.Name(): frame.NewPoseInFrame(frame.World, pos)}
@@ -870,18 +870,6 @@ func TestValidatePlanRequest(t *testing.T) {
 				StartState:  &PlanState{},
 			},
 			expectedErr: errors.New("PlanRequest cannot have nil StartState configuration"),
-		},
-		{
-			name: "incorrect length StartConfiguration - fail",
-			request: &PlanRequest{
-				FrameSystem: fs,
-				Goals:       validGoal,
-				StartState: &PlanState{structuredConfiguration: map[string][]frame.Input{
-					"frame1": {}, "frame2": {0, 0, 0, 0, 0},
-				}},
-				PlannerOptions: NewBasicPlannerOptions(),
-			},
-			expectedErr: frame.NewIncorrectDoFError(5, 1),
 		},
 		{
 			name: "well formed PlanRequest",

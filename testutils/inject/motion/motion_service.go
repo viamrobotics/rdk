@@ -47,6 +47,14 @@ type MotionService struct {
 		ctx context.Context,
 		req motion.PlanHistoryReq,
 	) ([]motion.PlanWithStatus, error)
+	TempStreamArmJointPositionsFunc func(
+		ctx context.Context,
+		armName string,
+		opts motion.TempStreamOptions,
+		targets <-chan []referenceframe.Input,
+		responses chan<- motion.TempStreamResponse,
+		extra map[string]interface{},
+	) error
 	DoCommandFunc func(
 		ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error,
@@ -137,6 +145,21 @@ func (mgs *MotionService) PlanHistory(
 		return mgs.Service.PlanHistory(ctx, req)
 	}
 	return mgs.PlanHistoryFunc(ctx, req)
+}
+
+// TempStreamArmJointPositions calls the injected TempStreamArmJointPositions or the real variant.
+func (mgs *MotionService) TempStreamArmJointPositions(
+	ctx context.Context,
+	armName string,
+	opts motion.TempStreamOptions,
+	targets <-chan []referenceframe.Input,
+	responses chan<- motion.TempStreamResponse,
+	extra map[string]interface{},
+) error {
+	if mgs.TempStreamArmJointPositionsFunc == nil {
+		return mgs.Service.TempStreamArmJointPositions(ctx, armName, opts, targets, responses, extra)
+	}
+	return mgs.TempStreamArmJointPositionsFunc(ctx, armName, opts, targets, responses, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

@@ -4,7 +4,7 @@
 set -euxo pipefail
 
 # GO_VERSION tracks the `go` directive in go.mod.
-GO_VERSION=1.25.9
+GO_VERSION=1.26.10
 NLOPT_VERSION=2.11.0
 CMAKE_VERSION=4.3.4
 # x264 stable branch. Built from source: focal's prebuilt libx264.a references
@@ -62,7 +62,8 @@ rm -rf "/tmp/nlopt-${NLOPT_VERSION}" /tmp/nlopt-build
 # x264 into /usr/local: headers + shared + PIC static + pkg-config.
 # armhf targets armv6l (no NEON); drop asm so it doesn't emit NEON and crash there.
 case "$deb_arch" in armhf) x264_asm=--disable-asm ;; *) x264_asm= ;; esac
-curl -fsSL "https://code.videolan.org/videolan/x264/-/archive/${X264_COMMIT}/x264-${X264_COMMIT}.tar.gz" \
+# GitHub mirror: code.videolan.org serves archive URLs a bot-challenge page with HTTP 200.
+curl -fsSL "https://github.com/mirror/x264/archive/${X264_COMMIT}.tar.gz" \
     | tar -C /tmp -xz
 (
     cd "/tmp/x264-${X264_COMMIT}"

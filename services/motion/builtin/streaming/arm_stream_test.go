@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
 func testPVAT(trajectoryTime time.Duration) pvat {
@@ -21,7 +23,7 @@ func testPVAT(trajectoryTime time.Duration) pvat {
 func TestArmStreamSend(t *testing.T) {
 	inj, rec := newFakeStreamingArm()
 	ctx := context.Background()
-	s := newArmStream(ctx, inj, nil)
+	s := newArmStream(ctx, inj, diagnostics.New(0))
 
 	// Empty PVAT list: nothing sent, wall clock not anchored.
 	test.That(t, s.send(ctx, nil), test.ShouldBeNil)
@@ -63,7 +65,7 @@ func TestArmStreamSend(t *testing.T) {
 func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
 	inj, _ := newFakeStreamingArm()
 	ctx := context.Background()
-	s := newArmStream(ctx, inj, nil)
+	s := newArmStream(ctx, inj, diagnostics.New(0))
 	defer s.close()
 
 	test.That(t, s.currentEstimatedRunwayInArm(), test.ShouldEqual, time.Duration(0))

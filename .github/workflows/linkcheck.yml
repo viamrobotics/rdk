@@ -7,8 +7,8 @@
 name: run-htmltest
 on:
   schedule:
-    # 10am UTC on Mondays
-    - cron: "0 10 * * 1"
+    # 10:47 UTC on Mondays
+    - cron: "47 10 * * 1"
 jobs:
   htmltest:
     runs-on: ubuntu-large
@@ -54,7 +54,7 @@ jobs:
         uses: atlassian/gajira-login@v3
         env:
           JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
       - name: Create Jira ticket
         if: failure()
@@ -70,3 +70,12 @@ jobs:
       - name: Log created Jira issue
         if: failure()
         run: echo "Issue ${{ steps.create.outputs.issue }} was created"
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [htmltest]
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit

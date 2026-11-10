@@ -61,7 +61,9 @@ func TestActivityNeverDeduplicated(t *testing.T) {
 	test.That(t, len(activityLogs.All()), test.ShouldEqual, n)
 }
 
-func TestActivityIgnoresLoggerLevel(t *testing.T) {
+func TestActivityIgnoresEmittingLoggerLevel(t *testing.T) {
+	// Gating is on <root>.activity's level, not the emitting logger's, so raising a
+	// component's level does not hide its lifecycle events.
 	logger, _ := NewObservedTestLogger(t)
 	logger.SetLevel(ERROR)
 	activityLogs := NewObservedActivityLogger(t, logger)
@@ -69,6 +71,44 @@ func TestActivityIgnoresLoggerLevel(t *testing.T) {
 	logger.Activity("reconfigure", "start")
 
 	test.That(t, len(activityLogs.All()), test.ShouldEqual, 1)
+}
+
+func TestActivityRespectsActivityLoggerLevel(t *testing.T) {
+	logger, _, registry := NewObservedTestLoggerWithRegistry(t, "rdk")
+	activityLogs := NewObservedActivityLogger(t, logger)
+
+	// Activity emits at INFO, so anything above it silences the feed.
+	registry.Update([]LoggerPatternConfig{{Pattern: "rdk.activity", Level: "ERROR"}}, logger)
+	logger.Activity("reconfigure", "start")
+	test.That(t, activityLogs.Len(), test.ShouldEqual, 0)
+
+	// Dropping the pattern returns the activity logger to the root's level.
+	registry.Update(nil, logger)
+	logger.Activity("reconfigure", "complete")
+	test.That(t, activityLogs.Len(), test.ShouldEqual, 1)
+}
+
+func TestActivityLevelAppliesToLazilyCreatedLogger(t *testing.T) {
+	// The activity logger is created on first use, so a pattern configured beforehand
+	// has to reach it through getOrRegister rather than Update.
+	logger, _, registry := NewObservedTestLoggerWithRegistry(t, "rdk")
+	registry.Update([]LoggerPatternConfig{{Pattern: "rdk.activity", Level: "ERROR"}}, logger)
+
+	activityLogs := NewObservedActivityLogger(t, logger)
+	logger.Activity("reconfigure", "start")
+
+	test.That(t, activityLogs.Len(), test.ShouldEqual, 0)
+}
+
+func TestActivityLevelFollowsWildcardPattern(t *testing.T) {
+	// The activity logger is an ordinary registered logger, so broad patterns reach it.
+	logger, _, registry := NewObservedTestLoggerWithRegistry(t, "rdk")
+	activityLogs := NewObservedActivityLogger(t, logger)
+
+	registry.Update([]LoggerPatternConfig{{Pattern: "rdk.*", Level: "ERROR"}}, logger)
+	logger.Activity("reconfigure", "start")
+
+	test.That(t, activityLogs.Len(), test.ShouldEqual, 0)
 }
 
 func TestActivityCallerAttribution(t *testing.T) {
@@ -112,7 +152,10 @@ func TestActivityLoggerReceivesLaterAppenders(t *testing.T) {
 }
 
 func TestActivityNoSinks(t *testing.T) {
-	// An activity logger with no appenders must drop events without error.
-	logger := NewLogger("test")
+	// An activity logger with no appenders must drop events without error. NewLogger
+	// would supply a stdout appender for the activity logger to inherit, so this needs
+	// the blank constructor to reach the empty-sink path.
+	logger := NewBlankLogger("test")
+
 	logger.Activity("reconfigure", "start")
 }

@@ -7,7 +7,9 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -21,6 +23,50 @@ import (
 
 // testTarPath points to a tarball that tests can use.
 const testTarPath = "test_package.tar.gz"
+
+// TestReplaceDirErrorRealPin checks, on Windows, that a process holding a package directory as its
+// working directory makes os.RemoveAll fail with ERROR_SHARING_VIOLATION and describeReplaceDirError
+// returns the held-open error. Skipped elsewhere, since only Windows locks a directory that is a
+// live process's working directory.
+func TestReplaceDirErrorRealPin(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("windows-only: only Windows locks a directory that is a live process's working directory")
+	}
+
+	dir := filepath.Join(t.TempDir(), "synthetic-viam_rustdesk-server_from_reload-0_0_0")
+	test.That(t, os.MkdirAll(dir, 0o755), test.ShouldBeNil)
+
+	// A child that idles for a while, holding dir as its working directory (the leaked-child shape).
+	ctx, cancel := context.WithCancel(context.Background())
+	child := exec.CommandContext(ctx, "ping.exe", "-n", "60", "127.0.0.1")
+	child.Dir = dir
+	test.That(t, child.Start(), test.ShouldBeNil)
+	t.Cleanup(func() {
+		cancel() // kills the child
+		_, _ = child.Process.Wait()
+		time.Sleep(200 * time.Millisecond) // let Windows release the handle before TempDir cleanup
+	})
+
+	// Poll until the pin takes effect (removal fails); recreate if we won the race before the child did.
+	var err error
+	for i := 0; i < 50; i++ {
+		if err = os.RemoveAll(dir); err != nil {
+			break
+		}
+		_ = os.MkdirAll(dir, 0o755)
+		time.Sleep(100 * time.Millisecond)
+	}
+	test.That(t, err, test.ShouldNotBeNil)
+	t.Logf("os.RemoveAll error: %v", err)
+
+	// The real pin must be ERROR_SHARING_VIOLATION so the held-open branch fires.
+	test.That(t, errors.Is(err, errWindowsSharingViolation), test.ShouldBeTrue)
+
+	got := describeReplaceDirError(dir, err).Error()
+	t.Logf("resulting message: %s", got)
+	test.That(t, got, test.ShouldContainSubstring, "it is held open by another process")
+	test.That(t, got, test.ShouldContainSubstring, "current working directory")
+}
 
 func TestNewLocalManagerSkipsPackageDirsInTests(t *testing.T) {
 	tmp := t.TempDir()

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -21,7 +22,11 @@ import (
 type planManager struct {
 	pc      *PlanContext
 	request *PlanRequest
-	logger  logging.Logger
+
+	// Just a conduit between higher level code and the PlanSegmentContext that actually reads the
+	// values and rejects IK solutions.
+	rejectedSolutions []referenceframe.FrameSystemInputs
+	logger            logging.Logger
 }
 
 func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
@@ -29,11 +34,21 @@ func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanReq
 	if err != nil {
 		return nil, err
 	}
-	return &planManager{
+
+	ret := &planManager{
 		pc:      pc,
 		logger:  logger,
 		request: request,
-	}, nil
+	}
+
+	// When called from PlanMotionSequence, we may build up state of solutions to `request` that
+	// fail as start states for subsequent plan requests. We thread that information through here to
+	// ultimately filter out IK solutions.
+	if request.rejectedSolutions != nil {
+		ret.rejectedSolutions = request.rejectedSolutions[request.StartState]
+	}
+
+	return ret, nil
 }
 
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
@@ -140,6 +155,22 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
+	// Remove actuator frames where there was an explicit configuration goal, but the actuator was
+	// already in that configuration. We treat that frame as "pinned". This results in the motion
+	// chains omitting the "pinned" acuator. Hiding those degrees of freedom when dropping into
+	// cbirrt.
+	for goalFrame := range goalPoses {
+		goalConfig, exists := goal.structuredConfiguration[goalFrame]
+		if exists && slices.Equal(goalConfig, start.Get(goalFrame)) {
+			delete(goalPoses, goalFrame)
+		}
+	}
+
+	// Everything was pinned - skip NewPlanSegmentContext, which rejects an empty goal map.
+	if len(goalPoses) == 0 {
+		return nil, nil
+	}
+
 	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
@@ -178,7 +209,11 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	return finalSteps.steps, nil
+	// extractPath always includes the start node as steps[0] (it walks the
+	// startMap parent chain to its root). The caller's trajectory already
+	// ends at that same configuration, so drop it here to avoid a duplicate
+	// waypoint.
+	return finalSteps.steps[1:], nil
 }
 
 func (pm *planManager) planSingleGoal(
@@ -196,6 +231,7 @@ func (pm *planManager) planSingleGoal(
 	if err != nil {
 		return nil, err
 	}
+	psc.rejectedSolutions = pm.rejectedSolutions
 
 	for x := range goal {
 		pm.logger.Debugf("start (%s) from %v", x, psc.startPoses[x])
@@ -262,10 +298,9 @@ func (pm *planManager) planSingleGoal(
 		if eeDelta >= 0 && eeDelta < 50 && lc <= 50 && reconfigL2 > reconfigWallRad {
 			pm.logger.Warnf("goal is %0.1fmm of end-effector motion but the nearest valid goal configuration is "+
 				"%0.2f rad (joint-space L2) away; a linear constraint of %0.0fmm likely cannot accommodate that "+
-				"reconfiguration. Planning one search round only. Consider relaxing the constraint for this step "+
-				"or approaching in a different joint configuration.",
+				"reconfiguration. Giving up.",
 				eeDelta, reconfigL2, lc)
-			allowRelaunch = false
+			return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 		}
 	}
 
@@ -286,15 +321,21 @@ func (pm *planManager) planSingleGoal(
 	// such a request is explainable from the log.
 	if c := pm.request.Constraints; c != nil && len(c.OrientationConstraint) > 0 {
 		tol := math.Inf(1)
+		ignoreTheta := false
 		for _, oc := range c.OrientationConstraint {
-			if oc.OrientationToleranceDegs > 0 {
-				tol = min(tol, oc.OrientationToleranceDegs)
+			if oc.OrientationToleranceDegs > 0 && oc.OrientationToleranceDegs < tol {
+				tol = oc.OrientationToleranceDegs
+				ignoreTheta = oc.IgnoreTheta
 			}
+		}
+		reorientDist := motionplan.OrientDist
+		if ignoreTheta {
+			reorientDist = motionplan.OrientVecDist
 		}
 		maxReorient := 0.0
 		for f, g := range psc.goal {
 			if s, ok := psc.startPoses[f]; ok {
-				maxReorient = max(maxReorient, motionplan.OrientDist(s.Pose().Orientation(), g.Pose().Orientation()))
+				maxReorient = max(maxReorient, reorientDist(s.Pose().Orientation(), g.Pose().Orientation()))
 			}
 		}
 		if maxReorient > tol {

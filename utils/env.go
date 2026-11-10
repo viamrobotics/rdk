@@ -205,24 +205,30 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 }
 
 // LogViamEnvVariables logs the list of viam environment variables in [os.Environ] along with the env passed in.
+// The value of [APIKeyEnvVar] is masked whether it comes from [os.Environ] or envVars.
 func LogViamEnvVariables(msg string, envVars map[string]string, logger logging.Logger) {
 	var env []string
 	for _, v := range os.Environ() {
 		if !strings.HasPrefix(v, ViamEnvVarPrefix) {
 			continue
 		}
-		env = append(env, v)
+		key, val, _ := strings.Cut(v, "=")
+		env = append(env, maskedEnvEntry(key, val))
 	}
 	for key, val := range envVars {
-		// mask the secret
-		if key == APIKeyEnvVar {
-			val = "XXXXXXXXXX"
-		}
-		env = append(env, key+"="+val)
+		env = append(env, maskedEnvEntry(key, val))
 	}
 	if len(env) != 0 {
 		logger.Infow(msg, "environment", env)
 	}
+}
+
+func maskedEnvEntry(key, val string) string {
+	// Windows env var names are case-insensitive, so os.Getenv(APIKeyEnvVar) also reads VIAM_Api_Key.
+	if strings.EqualFold(key, APIKeyEnvVar) {
+		val = "XXXXXXXXXX"
+	}
+	return key + "=" + val
 }
 
 // GetenvInt gets a variable from the environment, and returns as int, if can't, then uses default.

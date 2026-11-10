@@ -106,14 +106,14 @@ type Gantry interface {
 	resource.Actuator
 	framesystem.InputEnabled
 
-	// Position returns the position in meters.
+	// Position returns the position in millimeters.
 	Position(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
-	// MoveToPosition is in meters.
+	// MoveToPosition is in millimeters.
 	// This will block until done or a new operation cancels this one.
 	MoveToPosition(ctx context.Context, positionsMm, speedsMmPerSec []float64, extra map[string]interface{}) error
 
-	// Lengths is the length of gantries in meters.
+	// Lengths is the length of gantries in millimeters.
 	Lengths(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 
 	// Home runs the homing sequence of the gantry and returns true once completed.

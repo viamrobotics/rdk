@@ -122,14 +122,12 @@ func TestEncoder(t *testing.T) {
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
-		// Give the tick time to propagate to encoder
-		// Warning: theres a race condition if the tick has not been processed
-		// by the encoder worker
-		time.Sleep(50 * time.Millisecond)
-
-		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, 1)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, ticks, test.ShouldEqual, 1)
+		})
 	})
 
 	// Taking off directional awareness makes encoder tick forward.
@@ -158,14 +156,12 @@ func TestEncoder(t *testing.T) {
 		err = ii.Tick(context.Background(), true, uint64(time.Now().UnixNano()))
 		test.That(t, err, test.ShouldBeNil)
 
-		// Give the tick time to propagate to encoder
-		// Warning: theres a race condition if the tick has not been processed
-		// by the encoder worker
-		time.Sleep(50 * time.Millisecond)
-
-		ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ticks, test.ShouldEqual, 0)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			ticks, _, err := enc.Position(context.Background(), encoder.PositionTypeUnspecified, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, ticks, test.ShouldEqual, 0)
+		})
 	})
 
 	t.Run("reset position", func(t *testing.T) {

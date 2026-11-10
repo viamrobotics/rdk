@@ -380,6 +380,10 @@ func AssociatedResourceConfigFromProto(proto *pb.ResourceLevelServiceConfig) (re
 
 // FrameConfigToProto converts Frame to the proto equivalent.
 func FrameConfigToProto(frame referenceframe.LinkConfig) (*pb.Frame, error) {
+	// the message carries one geometry, so refusing here beats sending a frame that lost some
+	if len(frame.Geometries) > 0 {
+		return nil, errors.Errorf("frame lists %d geometries beyond the first and the Frame message carries one", len(frame.Geometries))
+	}
 	pose, err := frame.Pose()
 	if err != nil {
 		return nil, err
@@ -751,13 +755,26 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 	return &auth, nil
 }
 
+// userToProto converts User to the proto equivalent.
+func userToProto(user User, _ int) *pb.User {
+	return &pb.User{
+		Type: user.Type,
+		Id:   user.ID,
+	}
+}
+
+// userFromProto creates User from the proto equivalent.
+func userFromProto(proto *pb.User, _ int) User {
+	return User{
+		Type: proto.GetType(),
+		ID:   proto.GetId(),
+	}
+}
+
 // userPermissionToProto converts UserPermission to the proto equivalent.
 func userPermissionToProto(up UserPermission, _ int) *pb.UserPermission {
-	return &pb.UserPermission{
-		User: &pb.User{
-			Type: up.User.Type,
-			Id:   up.User.ID,
-		},
+	converted := &pb.UserPermission{
+		User: userToProto(up.User, 0),
 		Permissions: lo.Map(up.Permissions, func(perm Permission, _ int) *pb.Permission {
 			return &pb.Permission{
 				Resources:      perm.Resources,
@@ -765,15 +782,18 @@ func userPermissionToProto(up UserPermission, _ int) *pb.UserPermission {
 			}
 		}),
 	}
+	// Guarded so an entry that only sets User round-trips to exactly itself; lo.Map
+	// would turn a nil Users into an empty slice.
+	if len(up.Users) > 0 {
+		converted.Users = lo.Map(up.Users, userToProto)
+	}
+	return converted
 }
 
 // userPermissionFromProto creates UserPermission from the proto equivalent.
 func userPermissionFromProto(proto *pb.UserPermission, _ int) UserPermission {
-	return UserPermission{
-		User: User{
-			Type: proto.GetUser().GetType(),
-			ID:   proto.GetUser().GetId(),
-		},
+	converted := UserPermission{
+		User: userFromProto(proto.GetUser(), 0),
 		Permissions: lo.Map(proto.GetPermissions(), func(perm *pb.Permission, _ int) Permission {
 			return Permission{
 				Resources:      perm.GetResources(),
@@ -781,6 +801,10 @@ func userPermissionFromProto(proto *pb.UserPermission, _ int) UserPermission {
 			}
 		}),
 	}
+	if len(proto.GetUsers()) > 0 {
+		converted.Users = lo.Map(proto.GetUsers(), userFromProto)
+	}
+	return converted
 }
 
 // CloudConfigToProto converts Cloud to the proto equivalent.
@@ -1059,8 +1083,32 @@ func PackageTypeToProto(t PackageType) (*packagespb.PackageType, error) {
 		return packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP.Enum(), nil
 	case PackageTypeArchive:
 		return packagespb.PackageType_PACKAGE_TYPE_ARCHIVE.Enum(), nil
+	case PackageTypeUnspecified:
+		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), nil
+	case PackageTypeMlTraining:
+		return packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING.Enum(), nil
 	default:
 		return packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED.Enum(), errors.Errorf("unknown package type %q", t)
+	}
+}
+
+// PackageTypeFromProto converts a protobuf package type to its config equivalent.
+func PackageTypeFromProto(t packagespb.PackageType) (PackageType, error) {
+	switch t {
+	case packagespb.PackageType_PACKAGE_TYPE_ML_MODEL:
+		return PackageTypeMlModel, nil
+	case packagespb.PackageType_PACKAGE_TYPE_MODULE:
+		return PackageTypeModule, nil
+	case packagespb.PackageType_PACKAGE_TYPE_SLAM_MAP:
+		return PackageTypeSlamMap, nil
+	case packagespb.PackageType_PACKAGE_TYPE_ARCHIVE:
+		return PackageTypeArchive, nil
+	case packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED:
+		return PackageTypeUnspecified, nil
+	case packagespb.PackageType_PACKAGE_TYPE_ML_TRAINING:
+		return PackageTypeMlTraining, nil
+	default:
+		return "", errors.Errorf("unknown package type %q", t)
 	}
 }
 

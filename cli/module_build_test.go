@@ -220,6 +220,53 @@ func TestStartBuild(t *testing.T) {
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 }
 
+func TestStartBuildManifestPath(t *testing.T) {
+	origGitHub := githubRefExists
+	githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+		return true, nil
+	}
+	t.Cleanup(func() { githubRefExists = origGitHub })
+
+	absManifest := createTestManifest(t, "", map[string]any{"module_id": "test:abs"})
+	repoDir := t.TempDir()
+	t.Chdir(repoDir)
+	createTestManifest(t, filepath.Join(repoDir, "meta.json"), map[string]any{"module_id": "test:root"})
+	test.That(t, os.Mkdir(filepath.Join(repoDir, "sub"), 0o750), test.ShouldBeNil)
+	createTestManifest(t, filepath.Join(repoDir, "sub", "meta.json"), map[string]any{"module_id": "test:sub"})
+
+	for _, tc := range []struct {
+		name         string
+		module       string
+		workdir      string
+		wantModuleID string
+	}{
+		{"relative module with default workdir", "./meta.json", ".", "test:root"},
+		{"relative module resolves against workdir", "./meta.json", "sub", "test:sub"},
+		{"absolute module with default workdir", absManifest, ".", "test:abs"},
+		{"absolute module ignores workdir", absManifest, "sub", "test:abs"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotModuleID string
+			cCtx, ac, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
+				StartBuildFunc: func(
+					ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption,
+				) (*v1.StartBuildResponse, error) {
+					gotModuleID = in.GetModuleId()
+					return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
+				},
+			}, map[string]any{
+				moduleFlagPath: tc.module,
+				// always pass workdir: setup only registers the flags it's given, which would leave it "" instead of the real default "."
+				moduleBuildFlagWorkdir: tc.workdir,
+				generalFlagVersion:     "1.2.3",
+			}, "token")
+			_, err := ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gotModuleID, test.ShouldEqual, tc.wantModuleID)
+		})
+	}
+}
+
 // fakeSourceUploadBuildStream is an in-memory test double for the
 // buildpb.BuildService_StartSourceUploadBuildClient streaming RPC. It records
 // every Send call so tests can assert on the request shape, and returns a

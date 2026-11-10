@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/spatialmath"
@@ -117,10 +118,13 @@ func (pF *PoseInFrame) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// LinkInFrame is a PoseInFrame plus a Geometry.
+// LinkInFrame is a PoseInFrame plus a Geometry, along with the optional identity and metadata
+// carried by a Transform protobuf message.
 type LinkInFrame struct {
 	*PoseInFrame
 	geometry spatialmath.Geometry
+	uuid     []byte
+	metadata map[string]interface{}
 }
 
 // NewLinkInFrame generates a new LinkInFrame.
@@ -146,6 +150,26 @@ func (lF *LinkInFrame) SetGeometry(geom spatialmath.Geometry) {
 // Geometry returns the Geometry of the LinkInFrame.
 func (lF *LinkInFrame) Geometry() spatialmath.Geometry {
 	return lF.geometry
+}
+
+// UUID returns the identifier of the LinkInFrame, or nil if none was set.
+func (lF *LinkInFrame) UUID() []byte {
+	return lF.uuid
+}
+
+// SetUUID sets an identifier that lets consumers correlate this LinkInFrame across calls.
+func (lF *LinkInFrame) SetUUID(uuid []byte) {
+	lF.uuid = uuid
+}
+
+// Metadata returns the metadata of the LinkInFrame, or nil if none was set.
+func (lF *LinkInFrame) Metadata() map[string]interface{} {
+	return lF.metadata
+}
+
+// SetMetadata sets arbitrary metadata, such as color or opacity, on the LinkInFrame.
+func (lF *LinkInFrame) SetMetadata(metadata map[string]interface{}) {
+	lF.metadata = metadata
 }
 
 // ToStaticFrame converts a LinkInFrame into a staticFrame with a new name.
@@ -204,9 +228,18 @@ func LinkInFrameToTransformProtobuf(framedLink *LinkInFrame) (*commonpb.Transfor
 	tform := &commonpb.Transform{
 		ReferenceFrame:      framedLink.name,
 		PoseInObserverFrame: PoseInFrameToProtobuf(framedLink.PoseInFrame),
+		Uuid:                framedLink.uuid,
 	}
 	if framedLink.geometry != nil {
 		tform.PhysicalObject = framedLink.geometry.ToProtobuf()
+	}
+	// Metadata is an optional message, so a nil map stays unset rather than becoming an empty struct.
+	if framedLink.metadata != nil {
+		md, err := protoutils.StructToStructPb(framedLink.metadata)
+		if err != nil {
+			return nil, err
+		}
+		tform.Metadata = md
 	}
 	return tform, nil
 }
@@ -232,7 +265,12 @@ func LinkInFrameFromTransformProtobuf(proto *commonpb.Transform) (*LinkInFrame, 
 			return nil, err
 		}
 	}
-	return NewLinkInFrame(parentFrame, pose, frameName, geometry), nil
+	link := NewLinkInFrame(parentFrame, pose, frameName, geometry)
+	link.uuid = proto.GetUuid()
+	if proto.Metadata != nil {
+		link.metadata = proto.Metadata.AsMap()
+	}
+	return link, nil
 }
 
 // LinkInFramesToTransformsProtobuf converts a slice of LinkInFrame structs to a slice of Transform protobuf messages.

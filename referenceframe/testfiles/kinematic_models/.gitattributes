@@ -1,0 +1,4 @@
+# The runner compares the mesh bytes a model loads against expected.json, so a checkout must not
+# rewrite the line endings of the text based mesh formats.
+*.ply -text
+*.glb -text

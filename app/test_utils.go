@@ -63,6 +63,8 @@ func modelFrameworkToProto(framework ModelFramework) mltrainingpb.ModelFramework
 		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_PYTORCH
 	case ModelFrameworkONNX:
 		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_ONNX
+	case ModelFrameworkRegistry:
+		return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_REGISTRY
 	}
 	return mltrainingpb.ModelFramework_MODEL_FRAMEWORK_UNSPECIFIED
 }

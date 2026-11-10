@@ -432,15 +432,15 @@ func TestLimitMethods(t *testing.T) {
 	test.That(t, isMultipleOfPi(.1), test.ShouldBeFalse)
 	test.That(t, isMultipleOfPi(10), test.ShouldBeFalse)
 
-	// test IsRotational
-	test.That(t, (&Limit{Min: -math.Pi, Max: math.Pi}).IsRotational(), test.ShouldBeTrue)
-	test.That(t, (&Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}).IsRotational(), test.ShouldBeTrue)
-	test.That(t, (&Limit{Min: -4 * math.Pi, Max: 4 * math.Pi}).IsRotational(), test.ShouldBeTrue)
-	test.That(t, (&Limit{Min: 0, Max: 10}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
-	test.That(t, (&Limit{Min: 0, Max: math.Pi}).IsRotational(), test.ShouldBeTrue)                           // multiple of pi, 0 in range
-	test.That(t, (&Limit{Min: math.Pi, Max: 2 * math.Pi}).IsRotational(), test.ShouldBeFalse)                // 0 not in range
-	test.That(t, (&Limit{Min: -1, Max: 1}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
-	test.That(t, (&Limit{Min: -6.265732014659642, Max: 6.26573201465964}).IsRotational(), test.ShouldBeTrue) // xarm limits ≈ -2pi to 2pi
+	// test limitLooksRevolute
+	test.That(t, limitLooksRevolute(Limit{Min: -math.Pi, Max: math.Pi}), test.ShouldBeTrue)
+	test.That(t, limitLooksRevolute(Limit{Min: -2 * math.Pi, Max: 2 * math.Pi}), test.ShouldBeTrue)
+	test.That(t, limitLooksRevolute(Limit{Min: -4 * math.Pi, Max: 4 * math.Pi}), test.ShouldBeTrue)
+	test.That(t, limitLooksRevolute(Limit{Min: 0, Max: 10}), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, limitLooksRevolute(Limit{Min: 0, Max: math.Pi}), test.ShouldBeTrue)                           // multiple of pi, 0 in range
+	test.That(t, limitLooksRevolute(Limit{Min: math.Pi, Max: 2 * math.Pi}), test.ShouldBeFalse)                // 0 not in range
+	test.That(t, limitLooksRevolute(Limit{Min: -1, Max: 1}), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, limitLooksRevolute(Limit{Min: -6.265732014659642, Max: 6.26573201465964}), test.ShouldBeTrue) // xarm limits ≈ -2pi to 2pi
 
 	l = Limit{Min: -4 * math.Pi, Max: 4 * math.Pi}
 	_, _, c = l.GoodLimits()
@@ -457,4 +457,31 @@ func TestLimitMethods(t *testing.T) {
 	l = Limit{Min: math.Inf(-1), Max: math.Inf(1)}
 	d = l.Jog(0, .25)
 	test.That(t, d, test.ShouldAlmostEqual, rangeLimit/2, 1)
+}
+
+func TestRevoluteDoF(t *testing.T) {
+	// ±352°: a revolute joint whose limits alone do not look revolute.
+	limit := Limit{Min: -6.1435589670200397, Max: 6.1435589670200397}
+	test.That(t, limitLooksRevolute(limit), test.ShouldBeFalse)
+
+	rot, err := NewRotationalFrame("rot", spatial.R4AA{RZ: 1}, limit)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, RevoluteDoF(rot), test.ShouldResemble, []bool{true})
+	test.That(t, RevoluteDoF(NewNamedFrame(rot, "renamed")), test.ShouldResemble, []bool{true})
+
+	trans, err := NewTranslationalFrame("trans", r3.Vector{X: 1}, Limit{Min: -2 * math.Pi, Max: 2 * math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, RevoluteDoF(trans), test.ShouldResemble, []bool{false})
+
+	ur5e, err := ParseModelJSONFile(rdkutils.ResolveFile("referenceframe/testfiles/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, RevoluteDoF(ur5e), test.ShouldResemble, []bool{true, true, true, true, true, true})
+
+	gantry, err := ParseModelJSONFile(rdkutils.ResolveFile("referenceframe/testfiles/example_gantry.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	revolute := RevoluteDoF(gantry)
+	test.That(t, len(revolute), test.ShouldEqual, len(gantry.DoF()))
+	for _, r := range revolute {
+		test.That(t, r, test.ShouldBeFalse)
+	}
 }

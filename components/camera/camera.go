@@ -95,6 +95,9 @@ type Properties struct {
 	ExtrinsicParams  *ExtrinsicParams
 	MimeTypes        []string
 	FrameRate        float32
+	// DefaultReferenceFrame names the frame that NextPointCloud points are expressed in.
+	// Empty means unknown; the frame is not guaranteed to exist in the frame system.
+	DefaultReferenceFrame string
 }
 
 // PointToPixel projects a 3D point to a 2D pixel coordinate.

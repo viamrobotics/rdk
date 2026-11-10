@@ -315,7 +315,7 @@ func (wb *wheeledBase) runAllGoFor(ctx context.Context, leftRPM, leftRotations, 
 		}
 		// Log the context canceled error as a warning.
 		// This can happen when the UI is closed or something went wrong during the operation.
-		wb.logger.Warnf("Context cancelled during GoFor ", err)
+		wb.logger.Warnf("Context cancelled during GoFor: %v", err)
 	}
 	return nil
 }

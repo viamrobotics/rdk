@@ -93,6 +93,7 @@ func NewTabularCaptureResult(ts Timestamps, i interface{}) (CaptureResult, error
 	if err != nil {
 		return res, err
 	}
+	rprotoutils.RecordMessageSize(rprotoutils.SiteTabularCapture, fmt.Sprintf("%T", i), readings)
 
 	return CaptureResult{
 		Timestamps: ts,

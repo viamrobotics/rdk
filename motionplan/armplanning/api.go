@@ -4,6 +4,7 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -49,7 +50,8 @@ type PlanRequest struct {
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
 
-	myTestOptions testOptions
+	rejectedSolutions map[*PlanState][]referenceframe.FrameSystemInputs
+	myTestOptions     testOptions
 }
 
 // GetWorldState is a backwards compatibility helper that turns the ObstaclesInWorldFrame back into
@@ -225,7 +227,11 @@ type PerGoalMeta struct {
 	ConstraintFailuresByType map[string]int
 }
 
-// PlanMeta is meta data about plan generation.
+// PlanMeta is meta data about plan generation. All numeric values are summed over
+// `BacktrackCounter`. One can take divide the numeric values by `BacktrackCounter` to get an
+// average over each of the plan executions. When using `PlanMotionSequence`, there's still one
+// `PlanMeta` for each `PlanRequest`, but we aggregate numbers in a best-effort manner as we try
+// solving plans from different start states.
 type PlanMeta struct {
 	// Duration is how long the plan took to generate.
 	Duration time.Duration
@@ -269,9 +275,36 @@ type PlanMeta struct {
 	// PerGoal holds diagnostic data indexed by initRRTSolutions invocation order. Each top-level
 	// goal, sub-goal, and planning split produces one entry.
 	PerGoal []PerGoalMeta
+
+	// BacktrackCounter is incremented each time `PlanMotionSequence` re-attempts the corresponding
+	// PlanRequest in hopes for a better end result.
+	BacktrackCounter int
 }
 
-// PlanMotion plans a motion from a provided plan request.
+// Merge will sum all of the numeric members of `PlanMeta`. Non-numeric members will be overwritten.
+func (pm *PlanMeta) Merge(other PlanMeta) *PlanMeta {
+	if pm == nil {
+		return &other
+	}
+
+	pm.Duration += other.Duration
+	pm.GoalsProcessed += other.GoalsProcessed
+	pm.GoalsCBIRRTSolved += other.GoalsCBIRRTSolved
+	pm.GoalsNudgeSolved += other.GoalsNudgeSolved
+	pm.GoalsRoadmapSolved += other.GoalsRoadmapSolved
+	pm.SubgoalsProcessed += other.SubgoalsProcessed
+	pm.BacktrackCounter += other.BacktrackCounter
+
+	pm.Partial = other.Partial
+	pm.PartialError = other.PartialError
+	pm.SubgoalsPerGoal = other.SubgoalsPerGoal
+	pm.CollectSolutionDiagnostics = other.CollectSolutionDiagnostics
+	pm.PerGoal = other.PerGoal
+
+	return pm
+}
+
+// PlanMotion plans a motion from a provided plan request. PlanMeta is always a valid pointer.
 func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
 	logger := parentLogger.Sublogger("mp")
 
@@ -332,6 +365,127 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	}
 
 	return t, meta, nil
+}
+
+// PlanMotionSequence plans a series of requests that are meant to run back to back. Only the first
+// request's StartState is used as given. Every later request starts from the configuration the
+// previous plan ended in, for the frames that have degrees of freedom. The frame system, obstacles,
+// constraints and planner options of each request are its own, but the frame systems are expected
+// to describe the same frames with degrees of freedom.
+//
+// The StartState of every request after the first is mutated in place. Whatever the caller put
+// there is discarded, so there are no requirements on it. It is set to the end of the previous plan
+// just before the request is planned, and again each time the request is re-planned. Callers should
+// not rely on its value afterwards. As with PlanMotion, a nil PlannerOptions is also filled in.
+// Requests also accumulate internal state while backtracking, so they should not be reused for
+// another call.
+//
+// If a request cannot be planned from where the previous plan ended, an earlier request is planned
+// again with the end configuration that led to the failure ruled out, and the sequence continues
+// from the new answer. Each start state of a request gets a few attempts before the search backs
+// up another request. The cost of that search grows exponentially with how far it has to back up.
+//
+// PlanMotionSequence returns plans and metas, each with one entry per request. When it returns an
+// error or a partial plan, entries for the requests after the last good one are nil if never
+// planned, or hold whatever an abandoned attempt produced. A PlanMeta sums the numeric values over
+// every attempt at its request, and its BacktrackCounter says how many times the request was
+// re-planned. An error means no combination of solutions was found. A request with
+// ReturnPartialPlan set that only partially plans ends the sequence early with its partial plan and
+// no error, as PlanMotion would report it.
+func PlanMotionSequence(
+	ctx context.Context,
+	parentLogger logging.Logger,
+	requests []*PlanRequest,
+) ([]motionplan.Plan, []*PlanMeta, error) {
+	ctx, span := trace.StartSpan(ctx, "PlanMotionSequence")
+	defer span.End()
+
+	for _, followupRequest := range requests[1:] {
+		followupRequest.StartState = nil
+	}
+
+	logger := parentLogger.Sublogger("mp")
+	plans := make([]motionplan.Plan, len(requests))
+	metas := make([]*PlanMeta, len(requests))
+
+	// requestIdx is managed by the success/failure of individual plan solve attempts.
+	for requestIdx := 0; requestIdx < len(requests); {
+		request := requests[requestIdx]
+		if request.rejectedSolutions == nil {
+			request.rejectedSolutions = make(map[*PlanState][]referenceframe.FrameSystemInputs)
+		}
+
+		if requestIdx > 0 && request.StartState == nil {
+			priorTraj := plans[requestIdx-1].Trajectory()
+			request.StartState = NewPlanState(nil, priorTraj[len(priorTraj)-1])
+		}
+		parentLogger.Info("Working on request:", requestIdx, "Substituted start state:", request.StartState.Configuration())
+
+		plan, meta, err := PlanMotion(ctx, logger, request)
+		if metas[requestIdx] != nil {
+			// This was a backtracked execution. Increment the counter
+			metas[requestIdx].BacktrackCounter++
+		}
+
+		// metas[requestIdx] will always be non-nil at this point.
+		metas[requestIdx] = metas[requestIdx].Merge(*meta)
+		if err == nil {
+			plans[requestIdx] = plan
+			if meta.Partial {
+				logger.Warnf("Unintended use of PlanMotionSequence. Plan request only partially planned. Stopping here. Plan: %v/%v",
+					requestIdx+1, len(requests))
+				return plans, metas, nil
+			}
+
+			// We have a (so far) working solution. Move onto the next request that follows from
+			// this solution.
+			requestIdx++
+			continue
+		}
+
+		// We'll try solving each plan request up to 3 times for each unique start state.
+		const backtrackBranchFactor = 3
+		for {
+			// If we errored on some request using a solution from some prior request, let's re-solve
+			// the earlier request in a way that forces a new answer -> start state.
+			//
+			// If we've rejected a bunch of solutions from the prior request, let's backtrack a step
+			// further.
+			rejectedSolution := request.StartState.Configuration()
+
+			// Playing tricks to make the map lookup work on PlanState pointers. As opposed to using
+			// a logical value that represents the "exact" slice of float64 inputs. Nil this out
+			// only when we've given up on using the StartState value for all future guesses.
+			request.StartState = nil
+
+			// Side-effect for the outer loop.
+			requestIdx--
+			if requestIdx < 0 {
+				return plans, metas, fmt.Errorf("Failed to solve the first plan. Rejected solutions before giving up: %v",
+					len(request.rejectedSolutions[request.StartState]))
+			}
+
+			// Just reusing the variable for convenience. It's always reset on loop entry anyways.
+			request = requests[requestIdx]
+
+			// Force a follow-up solve of the request to avoid a solution that we've determined is a
+			// deadend.
+			request.rejectedSolutions[request.StartState] = append(
+				request.rejectedSolutions[request.StartState], rejectedSolution,
+			)
+			if len(request.rejectedSolutions[request.StartState]) < backtrackBranchFactor {
+				// If the start state for this plan has only been tried a few times, give it another
+				// shot. Continue back onto the outer-loop.
+				logger.Infof("Backtracking. Adding rejected solution. Rerunning plan: %v", requestIdx)
+				break
+			}
+
+			logger.Infof("Backtracking further. Hit maximum retries from start state. Plan: %v StartState: %v",
+				requestIdx, request.StartState)
+		}
+	}
+
+	return plans, metas, nil
 }
 
 // resetMeshCaches walks the robot link and world obstacle geometries reachable

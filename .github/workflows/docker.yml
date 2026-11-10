@@ -6,7 +6,7 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 6 * * *' # Once a day at 6AM UTC (1AM/EST, 2AM/EDT)
+    - cron: '23 6 * * *' # Once a day at 06:23 UTC (1:23AM/EST, 2:23AM/EDT)
   workflow_dispatch:
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
@@ -78,6 +78,12 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+    # Keep the default `platforms: all`: binfmt skips archs the host runs natively, so armhf
+    # builds use QEMU only on arm64 hosts without AArch32.
+    - name: Set up QEMU
+      if: matrix.platform == 'linux/arm/v7'
+      # docker/setup-qemu-action@v4.4.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1
     - uses: docker/setup-buildx-action@v3
     - name: Check out code
       uses: actions/checkout@v4
@@ -98,3 +104,12 @@ jobs:
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
+
+  slack-workflow-status:
+    name: Post Workflow Status To Slack
+    needs: [docker-cache, test]
+    if: failure()
+    permissions:
+      actions: read
+    uses: ./.github/workflows/slack-failure.yml
+    secrets: inherit

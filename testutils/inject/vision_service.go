@@ -8,6 +8,7 @@ import (
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/rdk/vision/viscapture"
 )
@@ -29,6 +30,7 @@ type VisionService struct {
 		n int, extra map[string]interface{}) (classification.Classifications, error)
 	// segmentation functions
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
+	GetDetections3DFunc      func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*detection3d.Detection, error)
 	GetPropertiesFunc        func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error)
 	CaptureAllFromCameraFunc func(ctx context.Context,
 		cameraName string,
@@ -98,6 +100,17 @@ func (vs *VisionService) GetObjectPointClouds(
 		return vs.Service.GetObjectPointClouds(ctx, cameraName, extra)
 	}
 	return vs.GetObjectPointCloudsFunc(ctx, cameraName, extra)
+}
+
+// GetDetections3D calls the injected GetDetections3D or the real variant.
+func (vs *VisionService) GetDetections3D(
+	ctx context.Context,
+	cameraName string, extra map[string]interface{},
+) ([]*detection3d.Detection, error) {
+	if vs.GetDetections3DFunc == nil {
+		return vs.Service.GetDetections3D(ctx, cameraName, extra)
+	}
+	return vs.GetDetections3DFunc(ctx, cameraName, extra)
 }
 
 // GetProperties calls the injected GetProperties or the real variant.

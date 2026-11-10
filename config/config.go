@@ -513,6 +513,11 @@ func (conf *Remote) validate(path string) error {
 		if conf.Frame.Parent == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
+		// as for a component, pb.Frame carries one geometry
+		if len(conf.Frame.Geometries) > 0 {
+			return resource.NewConfigValidationError(path,
+				errors.New("frame.geometries is not supported in a machine config, a frame holds one geometry under frame.geometry"))
+		}
 	}
 
 	if conf.Secret != "" {
@@ -934,13 +939,17 @@ const (
 	UserTypeDefault = "default"
 )
 
-// A UserPermission describes a User and the permissions granted to that user. If
-// no UserPermissions are configured, all users are unrestricted. If any are, users
+// A UserPermission describes the Users a set of permissions is granted to. If no
+// UserPermissions are configured, all users are unrestricted. If any are, users
 // are allowed only the methods their UserPermission (or the default user's, if
 // they have none) explicitly grants.
 type UserPermission struct {
-	// User is the User this UserPermission applies to. A User can only be listed
-	// in a single UserPermission for a set of UserPermissions.
+	// Users are the Users this UserPermission applies to. A User can only be listed
+	// in a single UserPermission for a set of UserPermissions, counting both Users
+	// and User.
+	Users []User `json:"users,omitempty"`
+	// User is a single User this UserPermission applies to. Superseded by Users,
+	// which takes precedence when set.
 	User        User         `json:"user"`
 	Permissions []Permission `json:"permissions"`
 }
@@ -1175,6 +1184,10 @@ const (
 	PackageTypeSlamMap PackageType = "slam_map"
 	// PackageTypeArchive represents a generic archive.
 	PackageTypeArchive PackageType = "archive"
+	// PackageTypeUnspecified is the zero value for package type.
+	PackageTypeUnspecified PackageType = ""
+	// PackageTypeMlTraining is ML training
+	PackageTypeMlTraining PackageType = "ml_training"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.

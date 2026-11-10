@@ -247,8 +247,11 @@ func TestModManagerFunctions(t *testing.T) {
 			oldAddr := mod.addr
 			oldClient := mod.client
 
-			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			test.That(t, err, test.ShouldBeNil)
 			err = mod.dial()
+			test.That(t, err, test.ShouldBeNil)
+			err = mod.checkReady(ctx, parentAddr)
 			test.That(t, err, test.ShouldBeNil)
 
 			if mode == "unix" {
@@ -423,7 +426,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 			t.Log("test empty dir for CleanModuleDataDirectory")
 			mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
 
 			t.Log("test CleanModuleDataDirectory")
@@ -438,7 +441,7 @@ func TestModManagerFunctions(t *testing.T) {
 				modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID},
 			)
 			// check that premature clean is okay
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, err, test.ShouldBeNil)
 			// create a module and add it to the modmanager
 			modCfg = config.Module{
@@ -456,7 +459,7 @@ func TestModManagerFunctions(t *testing.T) {
 			err = os.MkdirAll(litterDataDir, os.ModePerm)
 			test.That(t, err, test.ShouldBeNil)
 			// clean
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, err, test.ShouldBeNil)
 			// check that the module directory still exists
 			_, err = os.Stat(moduleDataDir)
@@ -468,7 +471,7 @@ func TestModManagerFunctions(t *testing.T) {
 			_, err = mgr.Remove("simple-module")
 			test.That(t, err, test.ShouldBeNil)
 			// clean
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, err, test.ShouldBeNil)
 			_, err = os.Stat(expectedDataDir)
 			test.That(t, err, test.ShouldBeError)
@@ -1082,7 +1085,7 @@ func TestModuleMisc(t *testing.T) {
 			ViamHomeDir:  testViamHomeDir,
 		})
 		// Test that cleaning the data directory before it has been created does not produce log messages
-		err := mgr.CleanModuleDataDirectory()
+		err := mgr.CleanModuleDataDirectory(nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
 
@@ -1122,11 +1125,42 @@ func TestModuleMisc(t *testing.T) {
 		_, err = mgr.Remove("test-module")
 		test.That(t, err, test.ShouldBeNil)
 		// test that the data directory is cleaned up
-		err = mgr.CleanModuleDataDirectory()
+		err = mgr.CleanModuleDataDirectory(nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
 		_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
+	})
+	t.Run("data directory survives failed reconfigure", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		viamHomeDir := t.TempDir()
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeDir,
+			RobotCloudID: "a-b-c-d",
+		})
+		modCfg := modCfg
+		test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+		robotDataDir := filepath.Join(viamHomeDir, parentModuleDataFolderName, "a-b-c-d")
+		dataFile := filepath.Join(robotDataDir, modCfg.Name, "state.json")
+		test.That(t, os.WriteFile(dataFile, []byte("state"), 0o600), test.ShouldBeNil)
+		litterDir := filepath.Join(robotDataDir, "litter")
+		test.That(t, os.MkdirAll(litterDir, 0o750), test.ShouldBeNil)
+
+		// Reconfigure to a process that never responds to the ready request.
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
+		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+		_, err := mgr.Reconfigure(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, mgr.Configs(), test.ShouldBeEmpty)
+
+		test.That(t, mgr.CleanModuleDataDirectory([]config.Module{modCfg}), test.ShouldBeNil)
+		contents, err := os.ReadFile(dataFile)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(contents), test.ShouldEqual, "state")
+		_, err = os.Stat(litterDir)
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("module working directory", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
@@ -1655,6 +1689,13 @@ func TestFTDCAfterModuleCrash(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}
+	if runtime.GOARCH == "arm" {
+		// Flaky under qemu-emulated 32-bit arm: FTDC samples module process stats on a 1s
+		// background interval while the module is repeatedly killed and restarted. Emulated
+		// userspace runs several times slower, widening the window in which the sampler queries a
+		// stale/dead PID and reads ElapsedTimeSecs == 0, failing the ShouldBeGreaterThan assertion.
+		t.Skip(t.Name(), "flaky under qemu-emulated 32-bit arm due to FTDC sampling timing")
+	}
 
 	logger := logging.NewTestLogger(t)
 	modCfgs := []config.Module{
@@ -1925,4 +1966,56 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+}
+
+func TestHangModuleSIGQUIT(t *testing.T) {
+	// Verifies that a Golang module gets SIGQUIT and dumps its goroutines.
+	if runtime.GOOS == "windows" {
+		t.Skip("unix-only feature")
+	}
+
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule_hang")
+
+	// Use a "blank" logger and just observe logs from it. The test will otherwise produce a
+	// long stack trace in test output.
+	observerCore, logs := observer.New(zapcore.DebugLevel)
+	logger := logging.NewBlankLogger(t.Name())
+	logger.AddAppender(observerCore)
+
+	parentAddr := setupSocketWithRobot(t)
+
+	ctx := context.Background()
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+
+	modCfg := config.Module{
+		Name:    "hang-module",
+		ExePath: modPath,
+	}
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	_, err := mgr.Remove("hang-module")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Prove the goroutine whole dump arrived by waiting for markers that land at different
+	// points in the output:
+	//   - "testmodule_hang: ignoring"            escalation reached our SIGTERM handler
+	//   - "goroutine "                           runtime started the dump
+	//   - "main.hangingGoroutine"                user-code frames landed (not just runtime)
+	//   - "Stopped module did not exit cleanly"  pexec logs this after cmd.Wait() returns
+	//                                            i.e. the goroutine dump has finished
+	markers := []string{
+		"testmodule_hang: ignoring",
+		"goroutine ",
+		"main.hangingGoroutine",
+		"Stopped module did not exit cleanly",
+	}
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		for _, m := range markers {
+			test.That(tb, logs.FilterMessageSnippet(m).Len(), test.ShouldBeGreaterThan, 0)
+		}
+	})
+
+	// Each of the three hangingGoroutine goroutines should appear in the dump.
+	test.That(t, logs.FilterMessageSnippet("main.hangingGoroutine").Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 3)
 }

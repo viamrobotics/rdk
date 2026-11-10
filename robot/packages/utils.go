@@ -143,6 +143,7 @@ func installPackage(
 		}
 	}()
 
+	unpackStart := time.Now()
 	// unzip archive.
 	err = unpackFile(ctx, logger, dstPath, tmpDataPath)
 	if err != nil {
@@ -165,13 +166,18 @@ func installPackage(
 		utils.UncheckedError(cleanup(packagesDir, p))
 		return fmt.Errorf("failed to unzip archive, please try a different version: %w", err)
 	}
+	logger.Debugf("Package %s:%s decompression and extraction complete after %v", p.Package, p.Version, time.Since(unpackStart))
 
 	renameDest := p.LocalDataDirectory(packagesDir)
 	if runtime.GOOS == "windows" {
 		if _, err := os.Stat(renameDest); err == nil {
 			logger.Debug("package rename destination exists, deleting")
+			// Windows can't rename onto an existing directory, so delete it first. If that fails,
+			// return here rather than falling through to os.Rename, which would only fail again with
+			// a misleading "Access is denied".
 			if err := os.RemoveAll(renameDest); err != nil {
-				logger.Warnf("ignoring error from removing rename dest %s", err)
+				utils.UncheckedError(cleanup(packagesDir, p))
+				return describeReplaceDirError(renameDest, err)
 			}
 		}
 	}
@@ -196,6 +202,25 @@ func installPackage(
 	}
 
 	return nil
+}
+
+// ERROR_SHARING_VIOLATION is the Windows error os.RemoveAll returns when the directory is in use by
+// another process. Declared as syscall.Errno so errors.Is matches directly (no string parsing).
+const errWindowsSharingViolation = syscall.Errno(32)
+
+// describeReplaceDirError explains why removing the existing package directory at path failed. An
+// ERROR_SHARING_VIOLATION means a process is holding the directory open; any other error stays
+// neutral rather than asserting a cause we can't confirm.
+func describeReplaceDirError(path string, err error) error {
+	if errors.Is(err, errWindowsSharingViolation) {
+		return errw.Wrapf(err,
+			"cannot replace module package directory %s: it is held open by another process. If it's "+
+				"the directory itself (not a file inside it), a subprocess likely spawned by the module "+
+				"is using it as its current working directory, and it will recur on every restart until "+
+				"that process exits", path)
+	}
+	return errw.Wrapf(err,
+		"cannot replace module package directory %s: could not remove the existing copy", path)
 }
 
 func cleanup(packagesDir string, p config.PackageConfig) error {

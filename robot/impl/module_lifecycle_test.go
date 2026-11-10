@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -1009,7 +1010,70 @@ func TestModuleAndResourceRemoval(t *testing.T) {
 	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
 }
 
+func TestModuleDataSurvivesFailedReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define model, as importing it can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithViamHomeDir(t.TempDir()), WithDisableCompleteConfigWorker())
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := h.DoCommand(ctx, map[string]any{
+		"command":  "write_data_file",
+		"filename": "state.json",
+		"contents": "state",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	dataFile, ok := resp["fullpath"].(string)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Reconfigure the module to a process that never responds to the ready request.
+	t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "100ms")
+	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+	r.Reconfigure(ctx, &cfg)
+	test.That(t, getModuleStatus(t, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+
+	contents, err := os.ReadFile(dataFile)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(contents), test.ShouldEqual, "state")
+
+	cfg = config.Config{}
+	r.Reconfigure(ctx, &cfg)
+	_, err = os.Stat(dataFile)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
 func TestModuleStatus(t *testing.T) {
+	if runtime.GOARCH == "arm" {
+		// Skipped on qemu-emulated 32-bit arm, where userspace runs several times slower and two
+		// of this test's timing assumptions break down:
+		//   - It sets a 500ms module startup timeout; a healthy module's cold start can exceed
+		//     that under emulation and be wrongly reported unhealthy.
+		//   - It expects a status timestamp to fall between two wall-clock reads taken around an
+		//     async Reconfigure; the update can instead land after the second read.
+		t.Skip(t.Name(), "flaky under qemu-emulated 32-bit arm due to timing-sensitive assertions")
+	}
+
 	ctx := context.Background()
 
 	logger, _ := logging.NewObservedTestLogger(t)
@@ -1017,7 +1081,7 @@ func TestModuleStatus(t *testing.T) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
 
-	// duration for "slow" operations in this test
+	// startup timeout used only to make fakemodule, which never starts, fail fast
 	slowTime := "500ms"
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -1088,19 +1152,27 @@ func TestModuleStatus(t *testing.T) {
 
 	test.That(t, p(getModuleStatus(t, r, "blocked").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 
-	// remove the start block from testMod, and add fakemodule, a module that will never finish starting
-	// this time, set the startup timeout to be very short so that we can observe fakemodule failing
-	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
+	// remove the start block from testMod and let it start with the default startup timeout.
+	// The short timeout set below is process-wide, so a good module cold starting under it
+	// would flake on a loaded or slow machine.
 	cfg.Modules = []config.Module{
 		{
 			Name:    "mod",
 			ExePath: testPath,
 		},
-		{
-			Name:    "fake",
-			ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
-		},
 	}
+
+	r.Reconfigure(ctx, cfg)
+	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
+	// add fakemodule, a module that will never finish starting. This time, set the startup
+	// timeout to be very short so that we can observe fakemodule failing. The already running
+	// testMod is not part of this diff, so it is unaffected by the short timeout.
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
+	cfg.Modules = append(cfg.Modules, config.Module{
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+	})
 
 	r.Reconfigure(ctx, cfg)
 
@@ -1156,14 +1228,13 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer ln.Close()
 
-	// clear the bad env so the module can start successfully
+	// clear the bad env so the module can start successfully. Restore the default startup
+	// timeout so this cold start is not raced by the short fakemodule timeout.
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "")
 	cfg.Modules = []config.Module{{
 		Name:        "mod",
 		ExePath:     testPath,
 		Environment: map[string]string{"VIAM_TESTMODULE_BLOCK_CLOSE": ln.Addr().String()},
-	}, {
-		Name:    "fake",
-		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	}}
 	r.Reconfigure(ctx, cfg)
 
@@ -1172,6 +1243,14 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 	test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 0)
 	test.That(t, s.Error, test.ShouldBeNil)
+
+	// bring fakemodule back under the short timeout so it remains tracked while never starting
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", slowTime)
+	cfg.Modules = append(cfg.Modules, config.Module{
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+	})
+	r.Reconfigure(ctx, cfg)
 
 	// reconfigure to a config without testmodule
 	cfg.Modules = []config.Module{{

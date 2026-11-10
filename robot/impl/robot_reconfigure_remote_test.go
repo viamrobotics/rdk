@@ -148,6 +148,7 @@ func TestRemoteRobotsGold(t *testing.T) {
 		verifyReachableResourceNames(tb, r,
 			[]resource.Name{
 				arm.Named("arm1"),
+				arm.Named("arm2"),
 				arm.Named("foo:fooremoteArm"),
 			},
 		)
@@ -295,9 +296,10 @@ func TestInferRemoteRobotDependencyConnectAtStartup(t *testing.T) {
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 
 	// wait for local_robot to detect that the remote is now offline
+	// arm1 depends on the remote but stays reachable.
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		verifyReachableResourceNames(tb, r,
-			[]resource.Name{},
+			[]resource.Name{arm.Named("arm1")},
 		)
 	})
 
@@ -374,9 +376,10 @@ func TestInferRemoteRobotDependencyConnectAfterStartup(t *testing.T) {
 	test.That(t, foo.Close(context.Background()), test.ShouldBeNil)
 
 	// wait for local_robot to detect that the remote is now offline
+	// arm1 depends on the remote but stays reachable.
 	testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
 		verifyReachableResourceNames(tb, r,
-			[]resource.Name{},
+			[]resource.Name{arm.Named("arm1")},
 		)
 	})
 }

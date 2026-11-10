@@ -103,34 +103,30 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	geoPose, err := nav.Location(context.Background(), nil)
+	pos, err := nav.GetPosition(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
-	logger.Infof("denali service reports its location as %0.8f, %0.8f", geoPose.Location().Lat(), geoPose.Location().Lng())
+	logger.Infof("denali service reports its location as %0.8f, %0.8f",
+		pos.GeoPose.Location.Lat(), pos.GeoPose.Location.Lng())
 
-	err = nav.AddWaypoint(context.Background(), geo.NewPoint(55.1, 22.2), nil)
+	heading := 0.0
+	_, err = nav.AddLocation(context.Background(), navigation.AddLocationReq{
+		Name: "a",
+		Position: &navigation.Position{GeoPose: &navigation.GeoPose{
+			Location: geo.NewPoint(55.1, 22.2),
+			Heading:  &heading,
+		}},
+	})
 	if err != nil {
 		logger.Fatal(err)
 	}
-	err = nav.AddWaypoint(context.Background(), geo.NewPoint(10.77, 17.88), nil)
+	locs, err := nav.ListLocations(context.Background(), nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
-	err = nav.AddWaypoint(context.Background(), geo.NewPoint(42.0, 42.0), nil)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	waypoints, err := nav.Waypoints(context.Background(), nil)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	logger.Info("denali waypoints stored")
-	for _, w := range waypoints {
-		logger.Infof("%.8f %.8f", w.Lat, w.Long)
-	}
+	logger.Infof("denali stored %d locations", len(locs))
 
 	logger.Info("---- Testing base1 (base) -----")
 	mybase, err := base.FromProvider(robot, "base1")

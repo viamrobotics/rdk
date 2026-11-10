@@ -22,6 +22,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
+	packagespb "go.viam.com/api/app/packages/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -43,6 +44,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
@@ -65,6 +67,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
@@ -138,6 +141,29 @@ func (ms *mockRPCSubtypesImplemented) GetMachineStatus(
 	ctx context.Context, req *pb.GetMachineStatusRequest,
 ) (*pb.GetMachineStatusResponse, error) {
 	return &pb.GetMachineStatusResponse{State: pb.GetMachineStatusResponse_STATE_RUNNING}, nil
+}
+
+type packageStatusServer struct {
+	pb.UnimplementedRobotServiceServer
+	response *pb.GetMachineStatusResponse
+}
+
+func (s *packageStatusServer) ResourceNames(
+	context.Context, *pb.ResourceNamesRequest,
+) (*pb.ResourceNamesResponse, error) {
+	return &pb.ResourceNamesResponse{}, nil
+}
+
+func (s *packageStatusServer) ResourceRPCSubtypes(
+	context.Context, *pb.ResourceRPCSubtypesRequest,
+) (*pb.ResourceRPCSubtypesResponse, error) {
+	return &pb.ResourceRPCSubtypesResponse{}, nil
+}
+
+func (s *packageStatusServer) GetMachineStatus(
+	context.Context, *pb.GetMachineStatusRequest,
+) (*pb.GetMachineStatusResponse, error) {
+	return s.response, nil
 }
 
 var resourceFunc1 = func(*pb.ResourceNamesRequest) (*pb.ResourceNamesResponse, error) {
@@ -728,6 +754,63 @@ func TestStatusClient(t *testing.T) {
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestMachineState(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	listener := gotestutils.ReserveRandomListener(t)
+	gServer := grpc.NewServer()
+	injectRobot := &inject.Robot{}
+
+	var mu sync.Mutex
+	state := robot.StateInitializing
+	var machineStatusErr error
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.MachineStatusFunc = func(context.Context) (robot.MachineStatus, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return robot.MachineStatus{State: state}, machineStatusErr
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	// WithDoNotWaitForRunning lets us connect while the machine still reports StateInitializing.
+	client, err := New(context.Background(), listener.Addr().String(), logger,
+		WithDoNotWaitForRunning())
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, client.Close(context.Background()), test.ShouldBeNil) }()
+
+	// The cached state comes from the initial refresh and is a non-blocking read.
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateInitializing)
+
+	// A transient (non-Unimplemented) GetMachineStatus failure caches StateUnknown, so the parent's
+	// gate defers removal rather than risking a spurious teardown.
+	mu.Lock()
+	machineStatusErr = status.Error(codes.Unavailable, "transient")
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateUnknown)
+
+	// While not yet running, a refresh re-polls the state; a remote too old to implement
+	// GetMachineStatus is reported as running.
+	mu.Lock()
+	machineStatusErr = status.Error(codes.Unimplemented, "not implemented")
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateRunning)
+
+	// Once running, we stop re-polling: flipping the server back to initializing without a reconnect
+	// leaves the cached state running.
+	mu.Lock()
+	machineStatusErr = nil
+	state = robot.StateInitializing
+	mu.Unlock()
+	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
+	test.That(t, client.MachineState(), test.ShouldEqual, robot.StateRunning)
 }
 
 func TestClientRefresh(t *testing.T) {
@@ -2457,6 +2540,44 @@ func TestMachineStatus(t *testing.T) {
 			0,
 		},
 		{
+			"reachability and remote",
+			robot.MachineStatus{
+				Config: config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         arm.Named("local"),
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityReachable,
+						},
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         resource.Name{API: arm.API, Name: "shadowed", Remote: "r1"},
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityShadowedByLocal,
+						},
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         resource.Name{API: arm.API, Name: "ambiguous", Remote: "r2"},
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityAmbiguousRemote,
+						},
+					},
+					{
+						NodeStatus: resource.NodeStatus{
+							Name:         resource.Name{API: arm.API, Name: "gone", Remote: "r3"},
+							State:        resource.NodeStateReady,
+							Reachability: resource.ReachabilityRemoteDisconnected,
+						},
+					},
+				},
+				State: robot.StateRunning,
+			},
+			0,
+		},
+		{
 			// errors persist through intermediate states, so a non-unhealthy module
 			// can carry an error; it must survive the server/client round-trip.
 			"module with error in non-unhealthy state",
@@ -2473,6 +2594,64 @@ func TestMachineStatus(t *testing.T) {
 					},
 				},
 				State: robot.StateRunning,
+			},
+			0,
+		},
+		{
+			"package statuses",
+			robot.MachineStatus{
+				Config:    config.Revision{Revision: "rev1"},
+				Resources: []resource.Status{},
+				State:     robot.StateRunning,
+				Packages: []packages.PackageStatus{
+					{
+						Name:            "downloading-module",
+						Type:            config.PackageTypeModule,
+						State:           packages.PackageStateDownloading,
+						LastUpdated:     time.Unix(1700000000, 0).UTC(),
+						Version:         "1.2.3",
+						BytesDownloaded: 1024,
+						TotalBytes:      4096,
+					},
+					{
+						Name:        "loading-model",
+						Type:        config.PackageTypeMlModel,
+						State:       packages.PackageStateLoading,
+						LastUpdated: time.Unix(1700000001, 0).UTC(),
+						Version:     "2026-10-22",
+					},
+					{
+						Name:        "first-run-module",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateFirstRun,
+						LastUpdated: time.Unix(1700000002, 0).UTC(),
+						Version:     "4.5.6",
+					},
+					{
+						Name:            "ready-map",
+						Type:            config.PackageTypeSlamMap,
+						State:           packages.PackageStateReady,
+						LastUpdated:     time.Unix(1700000003, 0).UTC(),
+						Version:         "7.8.9",
+						BytesDownloaded: 8192,
+						TotalBytes:      8192,
+					},
+					{
+						Name:        "failed-archive",
+						Type:        config.PackageTypeArchive,
+						State:       packages.PackageStateFailed,
+						Error:       "checksum mismatch",
+						LastUpdated: time.Unix(1700000004, 0).UTC(),
+						Version:     "10.11.12",
+					},
+					{
+						Name:        "unknown-state",
+						Type:        config.PackageTypeModule,
+						State:       packages.PackageStateUnknown,
+						LastUpdated: time.Unix(1700000005, 0).UTC(),
+						Version:     "13.14.15",
+					},
+				},
 			},
 			0,
 		},
@@ -2516,6 +2695,56 @@ func TestMachineStatus(t *testing.T) {
 			test.That(t, badStateCount, test.ShouldEqual, tc.expBadStateCount)
 		})
 	}
+}
+
+func TestMachineStatusPackageEdgeCases(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, &packageStatusServer{
+		response: &pb.GetMachineStatusResponse{
+			State: pb.GetMachineStatusResponse_STATE_RUNNING,
+			Packages: []*pb.PackageStatus{
+				{
+					Name:  "missing-timestamp",
+					Type:  packagespb.PackageType_PACKAGE_TYPE_MODULE,
+					State: pb.PackageStatus_STATE_READY,
+				},
+				{
+					Name:        "unsupported-values",
+					Type:        packagespb.PackageType(100),
+					State:       pb.PackageStatus_State(100),
+					LastUpdated: &timestamppb.Timestamp{Seconds: 253402300800},
+					Version:     "1.2.3",
+				},
+			},
+		},
+	})
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	status, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, status.Packages, test.ShouldResemble, []packages.PackageStatus{
+		{
+			Name:  "missing-timestamp",
+			Type:  config.PackageTypeModule,
+			State: packages.PackageStateReady,
+		},
+		{
+			Name:    "unsupported-values",
+			Version: "1.2.3",
+		},
+	})
 }
 
 func TestVersion(t *testing.T) {
@@ -2685,4 +2914,52 @@ func TestDialUnreachableErr(t *testing.T) {
 			test.That(t, dialUnreachableErr(tc.err), test.ShouldEqual, tc.expected)
 		})
 	}
+}
+
+func TestIsDisconnectedError(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		// grpc.ErrClientConnClosing: a call dispatched on a locally-closed ClientConn. It must read as a
+		// disconnect so the interceptor remaps it to a retryable Unavailable.
+		{"conn closing", status.Error(codes.Canceled, "grpc: the client connection is closing"), true},
+		{"disconnected", rpc.ErrDisconnected, true},
+		{"closed pipe", io.ErrClosedPipe, true},
+		{"unrelated canceled", status.Error(codes.Canceled, "context canceled"), false},
+		{"nil", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, isDisconnectedError(tc.err), test.ShouldEqual, tc.expected)
+		})
+	}
+}
+
+func TestSignalReconnectCheckCoalesces(t *testing.T) {
+	rc := &RobotClient{reconnectSignal: make(chan struct{}, 1)}
+	rc.connected.Store(true)
+
+	// A burst of failing calls must collapse into a single pending wakeup; otherwise a sustained
+	// outage would drive one reconnect per failed call. The send is non-blocking, so extra signals
+	// are dropped rather than blocking the caller.
+	for range 100 {
+		rc.signalReconnectCheck()
+	}
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 1)
+
+	<-rc.reconnectSignal
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 0)
+
+	// Safe to call repeatedly with the buffer full and nobody draining - must not block.
+	rc.signalReconnectCheck()
+	rc.signalReconnectCheck()
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 1)
+
+	// Once the loop has marked us disconnected, further failed calls must not re-signal: the loop is
+	// already reconnecting on its own cadence, and waking it per call would defeat that throttle.
+	<-rc.reconnectSignal
+	rc.connected.Store(false)
+	rc.signalReconnectCheck()
+	test.That(t, len(rc.reconnectSignal), test.ShouldEqual, 0)
 }

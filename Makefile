@@ -5,13 +5,9 @@ else
 	BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 endif
 
-TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
-
 BUILD_CHANNEL ?= local
-# Include mise in path.
-export PATH := $(HOME)/.local/bin:$(PATH)
-
-PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
+# Include mise and its shims in path.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
@@ -33,6 +29,7 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 	mise install -y
+	mise reshim
 
 build: build-go
 
@@ -83,34 +80,29 @@ deb-cli-upload:
 	done
 
 tool-install:
-	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/AlekSi/gocov-xml \
-		github.com/axw/gocov/gocov \
-		gotest.tools/gotestsum \
-		github.com/rhysd/actionlint/cmd/actionlint \
-		golang.org/x/tools/cmd/stringer
+	command -v mise >/dev/null && mise install -y && mise reshim || echo 'mise not installed, skipping'
 
 lint: lint-go actionlint
 
 actionlint:
-	PATH=$(PATH_WITH_TOOLS) actionlint
+	actionlint
 
 generate-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) go generate ./...
+	go generate ./...
 
 lint-go:
 	mise run lint-go
 
 cover-only: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
+	./etc/test.sh cover
 
 cover: test-go cover-only
 
 test-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
+	./etc/test.sh race
 
 test-go-no-race: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
+	./etc/test.sh
 
 # CGO is only supported on amd64/arm64; elsewhere build pure-Go with the no_cgo tag.
 # GO_BUILD_TAGS_EXTRA (comma-separated) lets callers inject additional build tags that augment --
@@ -153,9 +145,13 @@ bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
 full-static: bin/static/viam-server-$(GOARCH)
 
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
+#
+# CGO_ENABLED=1 here
+# tags no_cgo is still passed so you can still gate specific cgo dependencies (graphviz, nlopt, x264 streaming, etc.)
+WINDOWS_LDFLAGS = -ldflags "$(COMMON_LDFLAGS) -extldflags=-static"
 bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -tags no_cgo $(GCFLAGS) $(WINDOWS_LDFLAGS) -o $@ ./web/cmd/server
 
 .PHONY: windows
 windows: bin/windows/viam-server-amd64.exe

@@ -5,6 +5,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
+	"go.viam.com/rdk/vision/detection3d"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -14,6 +15,7 @@ type VisCapture struct {
 	Detections      []objectdetection.Detection
 	Classifications classification.Classifications
 	Objects         []*vision.Object
+	Detections3D    []*detection3d.Detection
 	Extra           map[string]interface{}
 }
 
@@ -23,4 +25,5 @@ type CaptureOptions struct {
 	ReturnDetections      bool
 	ReturnClassifications bool
 	ReturnObject          bool
+	ReturnDetections3D    bool
 }

@@ -3,12 +3,25 @@
 package logging
 
 import (
+	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/Microsoft/go-winio/pkg/etw"
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"go.viam.com/test"
 )
+
+// testETWProvider copies ServerETW but gives the trace session a name unique to
+// this process and moment. Session names are global to the machine, so reusing
+// ServerETW.SessionName collides with a leftover session -- or with a real
+// viam-server -- and logman then fails with 0x803000aa.
+func testETWProvider() ETWProvider {
+	p := ServerETW
+	p.SessionName = fmt.Sprintf("viam-test-trace-%d-%d", os.Getpid(), time.Now().UnixNano())
+	return p
+}
 
 func TestWindowsNulls(t *testing.T) {
 	logger := NewLogger("nulls")
@@ -23,7 +36,7 @@ func TestETWNulls(t *testing.T) {
 	logger := NewLogger("etw-register-test")
 
 	etlDir := t.TempDir()
-	closer, err := RegisterETWLogger(logger, etlDir, ServerETW)
+	closer, err := RegisterETWLogger(logger, etlDir, testETWProvider())
 	test.That(t, closer, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	defer closer.Close()

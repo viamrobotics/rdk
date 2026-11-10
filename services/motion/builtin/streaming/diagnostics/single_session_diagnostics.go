@@ -2,6 +2,7 @@
 package diagnostics
 
 import (
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -31,20 +32,21 @@ func New(window time.Duration) *SingleSessionDiagnostics {
 
 // RecordReceivedJointPositionTargetEvent records the arrival of one joint position target.
 func (t *SingleSessionDiagnostics) RecordReceivedJointPositionTargetEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordJointPositionTargetReceivedEvent()
 	t.stats.recordJointPositionTargetReceived()
 	t.mu.Unlock()
 }
 
+// RecordJointPositionTargetDroppedDueToTrajexExtendError records one target skipped because trajex rejected it.
+func (t *SingleSessionDiagnostics) RecordJointPositionTargetDroppedDueToTrajexExtendError() {
+	t.mu.Lock()
+	t.stats.recordJointPositionTargetDroppedDueToTrajexExtendError()
+	t.mu.Unlock()
+}
+
 // RecordArmRunway records one reading of the estimated arm-side runway.
 func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
-	if t == nil {
-		return
-	}
 	ms := float64(runway.Microseconds()) / 1000.0
 	t.mu.Lock()
 	t.details.recordArmRunway(ms)
@@ -52,11 +54,17 @@ func (t *SingleSessionDiagnostics) RecordArmRunway(runway time.Duration) {
 	t.mu.Unlock()
 }
 
+// RecordTrajexRunway records one reading of the trajectory buffered inside the trajex session.
+func (t *SingleSessionDiagnostics) RecordTrajexRunway(runway time.Duration) {
+	t.mu.Lock()
+	ms := float64(runway.Microseconds()) / 1000.0
+	t.details.recordTrajexRunway(ms)
+	t.stats.recordTrajexRunway(ms)
+	t.mu.Unlock()
+}
+
 // RecordTrajexSessionOpenEvent records the trajex session opening.
 func (t *SingleSessionDiagnostics) RecordTrajexSessionOpenEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordTrajexSessionOpenEvent()
 	t.mu.Unlock()
@@ -64,9 +72,6 @@ func (t *SingleSessionDiagnostics) RecordTrajexSessionOpenEvent() {
 
 // RecordTrajexSessionCloseEvent records the trajex session closing.
 func (t *SingleSessionDiagnostics) RecordTrajexSessionCloseEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordTrajexSessionCloseEvent()
 	t.mu.Unlock()
@@ -74,9 +79,6 @@ func (t *SingleSessionDiagnostics) RecordTrajexSessionCloseEvent() {
 
 // RecordArmStreamOpenEvent records the arm stream RPC opening.
 func (t *SingleSessionDiagnostics) RecordArmStreamOpenEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordArmStreamOpenEvent()
 	t.mu.Unlock()
@@ -84,31 +86,13 @@ func (t *SingleSessionDiagnostics) RecordArmStreamOpenEvent() {
 
 // RecordArmStreamCloseEvent records the arm stream RPC closing.
 func (t *SingleSessionDiagnostics) RecordArmStreamCloseEvent() {
-	if t == nil {
-		return
-	}
 	t.mu.Lock()
 	t.details.recordArmStreamCloseEvent()
 	t.mu.Unlock()
 }
 
-// RecordTrajexExtendLatency records the duration of one trajex Extend call that began at start.
-func (t *SingleSessionDiagnostics) RecordTrajexExtendLatency(start time.Time, d time.Duration) {
-	if t == nil {
-		return
-	}
-	ms := float64(d.Microseconds()) / 1000.0
-	t.mu.Lock()
-	t.details.recordTrajexExtendLatency(unixMillisFloat(start), ms)
-	t.stats.recordTrajexExtendLatency(ms)
-	t.mu.Unlock()
-}
-
 // RecordSendToArmLatency records the duration of one batch send to the arm RPC that began at start.
 func (t *SingleSessionDiagnostics) RecordSendToArmLatency(start time.Time, d time.Duration) {
-	if t == nil {
-		return
-	}
 	ms := float64(d.Microseconds()) / 1000.0
 	t.mu.Lock()
 	t.details.recordSendToArmLatency(unixMillisFloat(start), ms)
@@ -121,9 +105,6 @@ func (t *SingleSessionDiagnostics) RecordSampledPVAT(
 	positionsRad, velocitiesRadPerSec, accelerationsRadPerSec2 []float64,
 	trajectoryTime time.Duration,
 ) {
-	if t == nil {
-		return
-	}
 	// Converted from radians to degrees because the vel/accel limits are prescribed in
 	// degrees, so the recorded values read directly against them.
 	jointDeg := make([]float64, len(positionsRad))
@@ -151,11 +132,19 @@ func (t *SingleSessionDiagnostics) RecordSampledPVAT(
 	t.mu.Unlock()
 }
 
+// RecordTrajexExtend records one trajex Extend call.
+func (t *SingleSessionDiagnostics) RecordTrajexExtend(
+	start time.Time, dur time.Duration, kind string, branchSlack, deltaTotalDuration *time.Duration,
+) {
+	durMs := float64(dur.Microseconds()) / 1000.0
+	t.mu.Lock()
+	t.details.recordTrajexExtend(unixMillisFloat(start), durMs, kind, branchSlack, deltaTotalDuration)
+	t.stats.recordTrajexExtend(durMs, kind)
+	t.mu.Unlock()
+}
+
 // LastWindowDetails returns a copy of the retained window.
 func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDetails {
-	if t == nil {
-		return SingleSessionLastWindowDetails{}
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.details.pruneBefore(unixMillisFloat(time.Now()) - t.details.windowMs)
@@ -163,7 +152,8 @@ func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDe
 	return SingleSessionLastWindowDetails{
 		JointPositionTargetReceived: slices.Clone(live.JointPositionTargetReceived),
 		ArmRunway:                   slices.Clone(live.ArmRunway),
-		TrajexExtendLatency:         slices.Clone(live.TrajexExtendLatency),
+		TrajexRunway:                slices.Clone(live.TrajexRunway),
+		TrajexExtends:               slices.Clone(live.TrajexExtends),
 		SendToArmLatency:            slices.Clone(live.SendToArmLatency),
 		TrajexSessionOpen:           slices.Clone(live.TrajexSessionOpen),
 		TrajexSessionClose:          slices.Clone(live.TrajexSessionClose),
@@ -175,9 +165,6 @@ func (t *SingleSessionDiagnostics) LastWindowDetails() SingleSessionLastWindowDe
 
 // Stats returns the session's whole-run aggregates.
 func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
-	if t == nil {
-		return SingleSessionStats{}
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return SingleSessionStats{
@@ -186,14 +173,19 @@ func (t *SingleSessionDiagnostics) Stats() SingleSessionStats {
 		ArmRunwayMinMs: t.stats.armRunway.minMs,
 		ArmRunwayMaxMs: t.stats.armRunway.maxMs,
 
+		TrajexRunwayP50Ms:        t.stats.trajexRunway.quantileMs(0.5),
+		TrajexRunwayP99Ms:        t.stats.trajexRunway.quantileMs(0.99),
+		TrajexRunwayMaxMs:        t.stats.trajexRunway.maxMs,
 		TrajexExtendLatencyP50Ms: t.stats.extendLatency.quantileMs(0.5),
 		TrajexExtendLatencyP99Ms: t.stats.extendLatency.quantileMs(0.99),
 		TrajexExtendLatencyMaxMs: t.stats.extendLatency.maxMs,
+		TrajexExtendsByKind:      maps.Clone(t.stats.extendsByKind),
 		SendToArmLatencyP50Ms:    t.stats.sendLatency.quantileMs(0.5),
 		SendToArmLatencyP99Ms:    t.stats.sendLatency.quantileMs(0.99),
 		SendToArmLatencyMaxMs:    t.stats.sendLatency.maxMs,
 
-		JointPositionTargetsReceived: t.stats.targetsReceived,
+		JointPositionTargetsReceived:                      t.stats.targetsReceived,
+		JointPositionTargetsDroppedDueToTrajexExtendError: t.stats.targetsDroppedDueToTrajexExtendError,
 
 		MaxJointDegPerSec:  t.stats.maxJointDegPerSec,
 		MaxJointDegPerSec2: t.stats.maxJointDegPerSec2,
