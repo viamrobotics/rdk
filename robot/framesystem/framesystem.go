@@ -68,7 +68,8 @@ func CheckSingleKinematic(name resource.Name, byAPI map[resource.API]resource.Re
 	return errors.Errorf(
 		"composite %q serves multiple kinematic APIs %v, which the frame system does not support; "+
 			"a composite may serve at most one of arm/gantry/gripper",
-		name.ShortName(), kinematic)
+		name.ShortName(), kinematic,
+	)
 }
 
 // ShapedInputEnabled is a resource that reports its geometries and has a model, which every arm,
