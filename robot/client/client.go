@@ -987,6 +987,9 @@ func (rc *RobotClient) newCompositeLocked(name resource.Name, apis []resource.AP
 		}
 		byAPI[api] = sub
 	}
+	if err := framesystem.CheckSingleKinematic(name, byAPI); err != nil {
+		return nil, err
+	}
 	return resource.NewMultiAPIResource(name.AsAPI(apis[0]), byAPI), nil
 }
 
