@@ -43,7 +43,7 @@ jobs:
         # actions/create-github-app-token@v3.3.0
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
         with:
-          app-id: ${{ secrets.CI_GITHUB_APP_ID }}
+          client-id: ${{ vars.CI_GITHUB_APP_CLIENT_ID }}
           private-key: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
