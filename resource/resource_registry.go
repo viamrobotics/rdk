@@ -365,7 +365,8 @@ func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, m
 	}
 	if kinematic > 1 {
 		panic(errors.Errorf(
-			"model %q registers %d kinematic APIs; a composite may serve at most one (arm, gantry, or gripper)", model, kinematic))
+			"model %q registers %d kinematic APIs; a composite may serve at most one (arm, gantry, or gripper)", model, kinematic,
+		))
 	}
 	for _, api := range apis {
 		Register(api, model, reg)
