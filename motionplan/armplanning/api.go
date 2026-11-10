@@ -412,7 +412,7 @@ func PlanMotionSequence(
 		followupRequest.StartState = nil
 	}
 	for _, request := range requests {
-		// Copied, as callers may share one PlannerOptions across requests.
+		// Copied, as callers may share one PlannerOptions across PlanMotionSequence and PlanMotion requests.
 		plannerOpts := NewBasicPlannerOptions()
 		if request.PlannerOptions != nil {
 			*plannerOpts = *request.PlannerOptions
