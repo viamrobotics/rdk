@@ -1,6 +1,7 @@
 package robotimpl
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,17 +14,21 @@ import (
 )
 
 func TestApplyModulePackageVersions(t *testing.T) {
+	pkgs := []config.PackageConfig{
+		{Name: "m_reg", Package: "org/reg", Version: "1.2.3", Type: config.PackageTypeModule},
+		{Name: "m_local", Package: "org/local", Version: "9.9.9", Type: config.PackageTypeModule},
+		{Name: "m_no-pkg", Package: "org/model", Version: "4.0.0", Type: config.PackageTypeMlModel},
+	}
+	exePath := func(i int) string {
+		return filepath.Join(pkgs[i].LocalDataDirectory(config.DefaultPackagesDir()), "bin", "run")
+	}
 	cfg := &config.Config{
 		Modules: []config.Module{
-			{Name: "reg", Type: config.ModuleTypeRegistry, ModuleID: "viam:reg"},
-			{Name: "local", Type: config.ModuleTypeLocal, ExePath: "/bin/local"},
-			{Name: "no-pkg", Type: config.ModuleTypeRegistry, ModuleID: "viam:no-pkg"},
+			{Name: "reg", Type: config.ModuleTypeRegistry, ModuleID: "viam:reg", ExePath: exePath(0)},
+			{Name: "local", Type: config.ModuleTypeLocal, ExePath: exePath(1)},
+			{Name: "no-pkg", Type: config.ModuleTypeRegistry, ModuleID: "viam:no-pkg", ExePath: exePath(2)},
 		},
-		Packages: []config.PackageConfig{
-			{Name: "reg", Package: "org/reg", Version: "1.2.3", Type: config.PackageTypeModule},
-			{Name: "local", Package: "org/local", Version: "9.9.9", Type: config.PackageTypeModule},
-			{Name: "no-pkg", Package: "org/model", Version: "4.0.0", Type: config.PackageTypeMlModel},
-		},
+		Packages: pkgs,
 	}
 	applyModulePackageVersions(cfg)
 	test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, "1.2.3")

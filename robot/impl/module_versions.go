@@ -16,18 +16,22 @@ import (
 const reloadVersionPrefix = "reload"
 
 // applyModulePackageVersions copies each registry module's package version onto the module so the
-// module manager can record which version a module process reached ready with.
+// module manager can record which version a module process reached ready with. A module is matched
+// to the package whose data directory its resolved ExePath lives in.
 func applyModulePackageVersions(cfg *config.Config) {
-	versions := make(map[string]string, len(cfg.Packages))
-	for _, p := range cfg.Packages {
-		if p.Type == config.PackageTypeModule {
-			versions[p.Name] = p.Version
-		}
-	}
+	packagesDir := config.DefaultPackagesDir()
 	for i := range cfg.Modules {
 		mod := &cfg.Modules[i]
-		if mod.Type == config.ModuleTypeRegistry {
-			mod.PackageVersion = versions[mod.Name]
+		if mod.Type != config.ModuleTypeRegistry {
+			continue
+		}
+		mod.PackageVersion = ""
+		for j := range cfg.Packages {
+			p := &cfg.Packages[j]
+			if p.Type == config.PackageTypeModule && strings.HasPrefix(mod.ExePath, p.LocalDataDirectory(packagesDir)) {
+				mod.PackageVersion = p.Version
+				break
+			}
 		}
 	}
 }
