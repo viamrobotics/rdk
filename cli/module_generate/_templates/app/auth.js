@@ -25,10 +25,17 @@ export function getHostAndCredentials() {
         if (cookieData) {
             try {
                 const parsed = JSON.parse(cookieData);
-                const id = parsed?.apiKey?.id;
-                const key = parsed?.apiKey?.key;
                 const h = parsed?.hostname;
                 const machineId = parsed?.machineId || null;
+                // Use the credentials Viam injected as-is: a machine API key, or the user's own
+                // access token when the user can't see one of the machine's keys.
+                const credentials = parsed?.credentials;
+                if (h && credentials?.type && credentials?.payload) {
+                    return { host: h, credentials, machineId };
+                }
+                // Older cookies carry only apiKey.
+                const id = parsed?.apiKey?.id;
+                const key = parsed?.apiKey?.key;
                 if (h && id && key) {
                     return {
                         host: h,
