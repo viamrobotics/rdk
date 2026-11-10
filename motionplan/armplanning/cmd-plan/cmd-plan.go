@@ -165,8 +165,8 @@ func realMain() error {
 		"implies -chain. Plan every request in one armplanning.PlanMotionSequence call, which backtracks into "+
 			"earlier requests when a later one cannot be planned")
 	noPartialPlans := flag.Bool("no-partial-plans", false,
-		"clear return_partial_plan on every request, so a request that only partly plans fails instead. Under -batch a "+
-			"partial plan ends the sequence, whereas a failure lets PlanMotionSequence backtrack")
+		"clear return_partial_plan on every request, so a request that only partly plans fails instead; "+
+			"-batch always does this")
 	backtrackBranchFactor := flag.Int("backtrack-branch-factor", 0,
 		"with -batch, how many endings of a request to try from one start state before backtracking further; "+
 			"0 keeps PlanMotionSequence's default")
@@ -341,7 +341,7 @@ func realMain() error {
 		if err != nil {
 			return err
 		}
-		results, failure, notRun = outcome.results, outcome.failure, outcome.notRun
+		results, failure = outcome.results, outcome.failure
 		perFile = nil
 	}
 
@@ -423,8 +423,6 @@ type sequenceOutcome struct {
 	results []*stepResult
 	// failure is why the sequence could not be planned, if it could not.
 	failure error
-	// notRun are the files after a partial plan, which ended the sequence early.
-	notRun []string
 }
 
 // runBatch plans every file as one sequence with armplanning.PlanMotionSequence, which backtracks
@@ -466,12 +464,6 @@ func (r *runner) runBatch(ctx context.Context, files []string) (*sequenceOutcome
 
 	outcome := &sequenceOutcome{}
 	for idx, file := range files {
-		if plans[idx] == nil {
-			r.logger.Warnf("plan %d/%d was partial, so the %d after it were not planned", idx, len(files), len(files)-idx)
-			outcome.notRun = files[idx:]
-			break
-		}
-
 		current := &step{
 			idx: idx, total: len(files), file: file, req: requests[idx], origPlan: origPlans[idx], recordedStart: recordedStarts[idx],
 		}
