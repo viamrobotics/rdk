@@ -279,6 +279,19 @@ type PlanMeta struct {
 	// BacktrackCounter is incremented each time `PlanMotionSequence` re-attempts the corresponding
 	// PlanRequest in hopes for a better end result.
 	BacktrackCounter int
+
+	// RejectedSolutions are the plans of this request that `PlanMotionSequence` ruled out because a
+	// later request could not be planned from where they ended, in the order they were rejected.
+	// They are collected across every start state the request was planned from. `Merge` leaves them
+	// alone.
+	RejectedSolutions []RejectedSolution
+}
+
+// RejectedSolution is a configuration a request ended in that `PlanMotionSequence` gave up on, with
+// the configuration that request started from.
+type RejectedSolution struct {
+	Start referenceframe.FrameSystemInputs
+	End   referenceframe.FrameSystemInputs
 }
 
 // Merge will sum all of the numeric members of `PlanMeta`. Non-numeric members will be overwritten.
@@ -459,6 +472,7 @@ func PlanMotionSequence(
 			// If we've rejected a bunch of solutions from the prior request, let's backtrack a step
 			// further.
 			rejectedSolution := request.StartState.Configuration()
+			rejectedFromThisStart := len(request.rejectedSolutions[request.StartState])
 
 			// Playing tricks to make the map lookup work on PlanState pointers. As opposed to using
 			// a logical value that represents the "exact" slice of float64 inputs. Nil this out
@@ -469,7 +483,7 @@ func PlanMotionSequence(
 			requestIdx--
 			if requestIdx < 0 {
 				return plans, metas, fmt.Errorf("Failed to solve the first plan. Rejected solutions before giving up: %v",
-					len(request.rejectedSolutions[request.StartState]))
+					rejectedFromThisStart)
 			}
 
 			// Just reusing the variable for convenience. It's always reset on loop entry anyways.
@@ -480,7 +494,10 @@ func PlanMotionSequence(
 			request.rejectedSolutions[request.StartState] = append(
 				request.rejectedSolutions[request.StartState], rejectedSolution,
 			)
+
 			if len(request.rejectedSolutions[request.StartState]) < opts.BacktrackBranchFactor {
+				metas[requestIdx].RejectedSolutions = append(metas[requestIdx].RejectedSolutions,
+					RejectedSolution{Start: request.StartState.Configuration(), End: rejectedSolution})
 				// If the start state for this plan has only been tried a few times, give it another
 				// shot. Continue back onto the outer-loop.
 				logger.Infof("Backtracking. Adding rejected solution. Rerunning plan: %v", requestIdx)

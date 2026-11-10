@@ -71,6 +71,21 @@ var (
 	renderCancel context.CancelFunc
 )
 
+// trajectoryMu serializes trajectory playback. beginRender only cancels the previous render; without
+// this the new render's first draws could interleave with the old one's last in-flight frame.
+var trajectoryMu sync.Mutex
+
+// sleepOrCancel waits for the frame period, returning early when ctx is cancelled.
+func sleepOrCancel(ctx context.Context, duration time.Duration) {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+	case <-timer.C:
+	}
+}
+
 func beginRender() context.Context {
 	renderMu.Lock()
 	defer renderMu.Unlock()
@@ -201,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 {{define "dir"}}
 <details class="dir" data-path="{{.Path}}">
-  <summary>{{.Name}} <span class="count">({{.TotalFiles}})</span></summary>
+  <summary>{{.Name}} <span class="count">({{.TotalFiles}})</span>{{if .Files}} <a href="/sequence?dir={{.Path}}">plan sequence</a>{{end}}</summary>
   <div class="dir-body">
     {{range .Subdirs}}{{template "dir" .}}{{end}}
     {{template "files" .Files}}
@@ -1655,6 +1670,13 @@ func drawCandidatePose(req *armplanning.PlanRequest, candidatePoses []spatialmat
 // redrawing the same file's scene updates those entities in place rather than requiring a full
 // clear-then-redraw, which would otherwise leave the scene empty for a beat every render.
 func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest, steps []*referenceframe.LinearInputs) error {
+	trajectoryMu.Lock()
+	defer trajectoryMu.Unlock()
+
+	if ctx.Err() != nil {
+		return nil
+	}
+
 	startInputs := req.StartState.Configuration()
 	if _, err := vizapi.DrawWorldState(vizapi.DrawWorldStateOptions{
 		WorldState:  req.GetWorldState(),
@@ -1699,8 +1721,12 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 				}); err != nil {
 					return err
 				}
-				time.Sleep(renderFramePeriod)
+				sleepOrCancel(ctx, renderFramePeriod)
 			}
+		}
+		if ctx.Err() != nil {
+			//nolint: nilerr
+			return nil
 		}
 		if _, err := vizapi.DrawFrameSystem(vizapi.DrawFrameSystemOptions{
 			FrameSystem: req.FrameSystem,
@@ -1708,7 +1734,7 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 		}); err != nil {
 			return err
 		}
-		time.Sleep(renderFramePeriod)
+		sleepOrCancel(ctx, renderFramePeriod)
 	}
 	return nil
 }
@@ -2412,6 +2438,8 @@ func RunServer() error {
 	http.HandleFunc("/detail", handleDetail(logger))
 	http.HandleFunc("/ik-inspect", handleIKInspect(logger))
 	http.HandleFunc("/ik-inspect/run", handleIKInspectRun(logger))
+	http.HandleFunc("/sequence", handleSequence(logger))
+	http.HandleFunc("/sequence/run", handleSequenceRun(logger))
 	http.HandleFunc("/plan/run", handlePlanRun(logger))
 	http.HandleFunc("/plan/download", handlePlanDownload(logger))
 	http.HandleFunc("/render-plan", handleRenderPlan(logger))
