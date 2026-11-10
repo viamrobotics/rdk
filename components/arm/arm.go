@@ -28,6 +28,7 @@ func init() {
 		RPCServiceDesc:              &pb.ArmService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	resource.RegisterKinematicAPI(API)
 
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
