@@ -48,8 +48,8 @@ func (shapedRes) Geometries(context.Context, map[string]interface{}) ([]spatialm
 }
 
 // TestBuiltInReconfigureComposite covers how BuiltInReconfigure maps each resource name to its kinematic
-// handle: it keeps the kinematic sub even under a non-canonical API, refuses a composite serving two distinct
-// kinematic subs (detected as a short-name collision), and gives a non-kinematic resource no entry.
+// handle. It keeps the kinematic sub even under a non-canonical API, and gives a non-kinematic resource no
+// entry.
 func TestBuiltInReconfigureComposite(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -65,10 +65,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	// "combo": a composite serving arm (kinematic) + camera (non-kinematic).
 	comboArm := &kinematicRes{Named: resource.NewName(armAPI, "combo").AsNamed()}
 	comboCam := &plainRes{Named: resource.NewName(camAPI, "combo").AsNamed()}
-	// "multi": a composite serving two kinematic APIs (arm + gantry) with distinct objects, unsupported,
-	// must be refused.
-	multiArm := &kinematicRes{Named: resource.NewName(armAPI, "multi").AsNamed()}
-	multiGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "multi").AsNamed()}
 	// "solo": an ordinary resource.
 	solo := &plainRes{Named: resource.NewName(camAPI, "solo").AsNamed()}
 	// "noncanon": a composite whose kinematic API is not the canonical one, camera (canonical,
@@ -80,8 +76,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	deps := resource.Dependencies{
 		resource.NewName(armAPI, "combo"):       comboArm,
 		resource.NewName(camAPI, "combo"):       comboCam,
-		resource.NewName(armAPI, "multi"):       multiArm,
-		resource.NewName(gantryAPI, "multi"):    multiGantry,
 		resource.NewName(camAPI, "solo"):        solo,
 		resource.NewName(camAPI, "noncanon"):    ncCam,
 		resource.NewName(gantryAPI, "noncanon"): ncGantry,
@@ -94,9 +88,6 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 	// The composite is unwrapped to its kinematic (arm) sub, not the opaque wrapper, so its stored
 	// InputEnabled handle is that sub.
 	test.That(t, svc.components["combo"], test.ShouldEqual, comboArm)
-	// A multi-kinematic composite is refused, not silently picked.
-	_, present := svc.components["multi"]
-	test.That(t, present, test.ShouldBeFalse)
 	// A non-kinematic ordinary resource has no inputs entry.
 	_, soloPresent := svc.components["solo"]
 	test.That(t, soloPresent, test.ShouldBeFalse)
@@ -107,7 +98,7 @@ func TestBuiltInReconfigureComposite(t *testing.T) {
 
 // TestFrameContribution checks the helper that resolves a resource's frame contribution across every API
 // it serves: its kinematic (InputEnabled), model (ModelFramer), and shaped (geometry) impls, any of which
-// may be nil, plus refuse for a multi-kinematic composite.
+// may be nil.
 func TestFrameContribution(t *testing.T) {
 	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
 	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
@@ -115,31 +106,27 @@ func TestFrameContribution(t *testing.T) {
 
 	// Ordinary kinematic resource: its own kinematic impl, and a ModelFramer too, but not shaped.
 	arm := &kinematicRes{Named: resource.NewName(armAPI, "arm").AsNamed()}
-	ie, model, shaped, refuse := FrameContribution(arm)
-	test.That(t, refuse, test.ShouldBeFalse)
+	ie, model, shaped := FrameContribution(arm)
 	test.That(t, ie, test.ShouldEqual, arm)
 	test.That(t, model, test.ShouldEqual, arm)
 	test.That(t, shaped, test.ShouldBeNil)
 
 	// Ordinary resource implementing none of the frame interfaces: all nil.
-	ie, model, shaped, refuse = FrameContribution(&plainRes{Named: resource.NewName(camAPI, "cam").AsNamed()})
-	test.That(t, refuse, test.ShouldBeFalse)
+	ie, model, shaped = FrameContribution(&plainRes{Named: resource.NewName(camAPI, "cam").AsNamed()})
 	test.That(t, ie, test.ShouldBeNil)
 	test.That(t, model, test.ShouldBeNil)
 	test.That(t, shaped, test.ShouldBeNil)
 
 	// ModelFramer that is not InputEnabled: a model, no kinematic or shaped impl.
 	mf := &modelFramerRes{Named: resource.NewName(camAPI, "mf").AsNamed()}
-	ie, model, shaped, refuse = FrameContribution(mf)
-	test.That(t, refuse, test.ShouldBeFalse)
+	ie, model, shaped = FrameContribution(mf)
 	test.That(t, ie, test.ShouldBeNil)
 	test.That(t, model, test.ShouldEqual, mf)
 	test.That(t, shaped, test.ShouldBeNil)
 
 	// Shaped resource: a geometry, no kinematic or model impl.
 	shp := &shapedRes{Named: resource.NewName(camAPI, "shp").AsNamed()}
-	ie, model, shaped, refuse = FrameContribution(shp)
-	test.That(t, refuse, test.ShouldBeFalse)
+	ie, model, shaped = FrameContribution(shp)
 	test.That(t, ie, test.ShouldBeNil)
 	test.That(t, model, test.ShouldBeNil)
 	test.That(t, shaped, test.ShouldEqual, shp)
@@ -152,20 +139,33 @@ func TestFrameContribution(t *testing.T) {
 		resource.NewName(camAPI, "noncanon"),
 		map[resource.API]resource.Resource{camAPI: ncCam, gantryAPI: ncGantry},
 	)
-	ie, model, shaped, refuse = FrameContribution(ncWrapper)
-	test.That(t, refuse, test.ShouldBeFalse)
+	ie, model, shaped = FrameContribution(ncWrapper)
 	test.That(t, ie, test.ShouldEqual, ncGantry)
 	test.That(t, model, test.ShouldEqual, ncGantry)
 	test.That(t, shaped, test.ShouldEqual, ncCam)
+}
 
-	// Composite serving two distinct kinematic APIs: refused.
-	multiArm := &kinematicRes{Named: resource.NewName(armAPI, "multi").AsNamed()}
-	multiGantry := &kinematicRes{Named: resource.NewName(gantryAPI, "multi").AsNamed()}
-	multiWrapper := resource.NewMultiAPIResource(
-		resource.NewName(armAPI, "multi"),
-		map[resource.API]resource.Resource{armAPI: multiArm, gantryAPI: multiGantry},
-	)
-	ie, _, _, refuse = FrameContribution(multiWrapper)
-	test.That(t, refuse, test.ShouldBeTrue)
-	test.That(t, ie, test.ShouldBeNil)
+// TestCheckSingleKinematic rejects a composite assembled with more than one kinematic (InputEnabled) API and
+// accepts one with at most one.
+func TestCheckSingleKinematic(t *testing.T) {
+	armAPI := resource.APINamespaceRDK.WithComponentType("arm")
+	gantryAPI := resource.APINamespaceRDK.WithComponentType("gantry")
+	camAPI := resource.APINamespaceRDK.WithComponentType("camera")
+	name := resource.NewName(armAPI, "multi")
+
+	// One kinematic API alongside a non-kinematic one: allowed.
+	oneKinematic := map[resource.API]resource.Resource{
+		armAPI: &kinematicRes{Named: resource.NewName(armAPI, "multi").AsNamed()},
+		camAPI: &shapedRes{Named: resource.NewName(camAPI, "multi").AsNamed()},
+	}
+	test.That(t, CheckSingleKinematic(name, oneKinematic), test.ShouldBeNil)
+
+	// Two kinematic APIs: rejected.
+	twoKinematic := map[resource.API]resource.Resource{
+		armAPI:    &kinematicRes{Named: resource.NewName(armAPI, "multi").AsNamed()},
+		gantryAPI: &kinematicRes{Named: resource.NewName(gantryAPI, "multi").AsNamed()},
+	}
+	err := CheckSingleKinematic(name, twoKinematic)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple kinematic APIs")
 }

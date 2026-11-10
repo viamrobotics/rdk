@@ -1406,8 +1406,7 @@ func isKinematicSubtype(subtype string) bool {
 	return subtype == arm.SubtypeName || subtype == gantry.SubtypeName || subtype == gripper.SubtypeName
 }
 
-// modelMayBeKinematic reports whether any API the config is served under is a kinematic subtype. It is the
-// config-only guard FrameContribution's doc refers to for omitting a refusable resource while unavailable.
+// modelMayBeKinematic reports whether any API the config is served under is a kinematic subtype.
 func modelMayBeKinematic(resConfig resource.Config) bool {
 	for _, api := range resource.APIsForConfig(resConfig) {
 		if isKinematicSubtype(api.SubtypeName) {
@@ -1492,11 +1491,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 
 		// Add the richest frame contribution available, in priority: a kinematic model, else a model-framer
 		// model, else a geometry, else the bare frame config.
-		kinematic, modelFramer, shaped, refuse := framesystem.FrameContribution(rawRes)
-		if refuse {
-			// The frame system already logged this multi-kinematic composite during its reconfigure.
-			continue
-		}
+		kinematic, modelFramer, shaped := framesystem.FrameContribution(rawRes)
 		if kinematic != nil {
 			model, err := kinematic.Kinematics(ctx)
 			if err != nil {

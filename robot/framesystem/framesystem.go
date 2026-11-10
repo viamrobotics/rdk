@@ -119,23 +119,14 @@ func GeometriesFromKinematics(ctx context.Context, res InputEnabled) ([]spatialm
 // FrameContribution reports the frame-system capabilities a resource offers: its kinematic (InputEnabled),
 // model (ModelFramer), and geometry (Shaped) handles, any of which may be nil. For an ordinary resource each is
 // the resource itself when it implements that interface; for a composite each is resolved across the
-// several APIs it serves. refuse is true for a composite serving two distinct kinematic subs, which the
-// caller omits from the frame system.
-//
-// Deciding refuse needs the live resource. A caller that can't run this while a resource is unavailable
-// must omit anything refusable here with a broader config-only check instead, so a live refusal is also
-// omitted when unavailable (see modelMayBeKinematic in robot/impl).
-func FrameContribution(res resource.Resource) (kinematic InputEnabled, model ModelFramer, shaped resource.Shaped, refuse bool) {
-	// A composite is one physical device, so model and shaped take the first sub providing each. Two distinct
-	// kinematic subs are unsupported (refused) since they can't share one frame's inputs.
-	var kinematicRes resource.Resource
+// several APIs it serves.
+func FrameContribution(res resource.Resource) (kinematic InputEnabled, model ModelFramer, shaped resource.Shaped) {
+	// A composite is one physical device, so each handle takes the first sub that provides it.
 	for _, api := range resource.APIsOf(res) {
 		sub := resource.SubresourceForAPI(res, api)
-		if ie, ok := sub.(InputEnabled); ok {
-			if kinematicRes == nil {
-				kinematicRes = sub
-			} else if kinematicRes.(InputEnabled) != ie {
-				return nil, nil, nil, true
+		if kinematic == nil {
+			if ie, ok := sub.(InputEnabled); ok {
+				kinematic = ie
 			}
 		}
 		if model == nil {
@@ -149,8 +140,7 @@ func FrameContribution(res resource.Resource) (kinematic InputEnabled, model Mod
 			}
 		}
 	}
-	kinematic, _ = kinematicRes.(InputEnabled)
-	return kinematic, model, shaped, false
+	return kinematic, model, shaped
 }
 
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
@@ -317,30 +307,14 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	// svc.components maps a short resource name to its kinematic handle for CurrentInputs. Two distinct
-	// kinematic subresources under one short name (a composite serving two kinematic APIs) can't share one
-	// frame's inputs, so that name is refused.
+	// svc.components maps a short resource name to its kinematic handle for CurrentInputs.
 	svc.components = make(map[string]InputEnabled)
-	refused := make(map[string]bool)
 	for name, dep := range deps {
 		kinematic, ok := dep.(InputEnabled)
 		if !ok {
 			continue
 		}
-		short := name.Name
-		if refused[short] {
-			continue
-		}
-		if existing, present := svc.components[short]; present && existing != kinematic {
-			delete(svc.components, short)
-			refused[short] = true
-			svc.logger.Errorw(
-				"composite serves multiple kinematic APIs under one name, which the frame system does not support; refusing it",
-				"resource", short,
-			)
-			continue
-		}
-		svc.components[short] = kinematic
+		svc.components[name.Name] = kinematic
 	}
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)

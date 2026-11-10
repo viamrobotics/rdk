@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -24,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robot/framesystem"
 	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -607,71 +605,6 @@ func TestCompositeStopAllRemote(t *testing.T) {
 			test.That(t, stopCount.Load(), test.ShouldEqual, 2)
 		})
 	}
-}
-
-// TestCompositeInFrameSystemMultiKinematicRefused checks that a composite serving more than one
-// kinematic (InputEnabled) API is omitted from the frame system rather than modeled. The gripper+servo
-// composite exposes Kinematics on both implementations, so the model-frame builder can't pick one; it
-// drops the composite.
-func TestCompositeInFrameSystemMultiKinematicRefused(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	model := registerComboFacadeModel(t, "inproc-fs-multikin", []resource.API{gripper.API, servo.API}, nil, nil)
-
-	for _, configAPI := range []resource.API{gripper.API, servo.API} {
-		t.Run(configAPI.String(), func(t *testing.T) {
-			r := setupLocalRobot(t, ctx, &config.Config{
-				Components: []resource.Config{
-					{Name: "combo", API: configAPI, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
-				},
-			}, logger)
-
-			fsCfg, err := r.FrameSystemConfig(ctx)
-			test.That(t, err, test.ShouldBeNil)
-			for _, part := range fsCfg.Parts {
-				if part.FrameConfig != nil {
-					test.That(t, part.FrameConfig.Name(), test.ShouldNotEqual, "combo")
-				}
-			}
-		})
-	}
-}
-
-// TestFrameContributionRefusalImpliesUnavailableOmit ties FrameContribution's live refusal to the
-// unavailable-omit guard in getLocalFrameSystemParts. The guard can't run FrameContribution on a
-// resource that's down, so it approximates refusal from config via modelMayBeKinematic. That stays
-// correct only while every resource FrameContribution refuses is one the guard would also omit; this
-// asserts that invariant.
-func TestFrameContributionRefusalImpliesUnavailableOmit(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-
-	var sawRefuse bool
-	for _, tc := range []struct {
-		reg  string
-		apis []resource.API
-	}{
-		{"fs-refuse-multikin", []resource.API{gripper.API, servo.API}}, // two kinematic subs: refused
-		{"fs-refuse-onekin", []resource.API{button.API, gripper.API}},  // one kinematic sub
-		{"fs-refuse-nonkin", []resource.API{button.API, sensor.API}},   // no kinematic sub
-	} {
-		t.Run(tc.reg, func(t *testing.T) {
-			model := registerComboFacadeModel(t, tc.reg, tc.apis, nil, nil)
-			cfg := resource.Config{Name: "combo", API: tc.apis[0], Model: model}
-			r := setupLocalRobot(t, ctx, &config.Config{Components: []resource.Config{cfg}}, logger)
-
-			res, err := r.(*localRobot).resourceBySimpleName("combo")
-			test.That(t, err, test.ShouldBeNil)
-
-			if _, _, _, refuse := framesystem.FrameContribution(res); refuse {
-				sawRefuse = true
-				// FrameContribution refused this available resource, so the unavailable path must omit the
-				// same resource or the two disagree. modelMayBeKinematic is that guard.
-				test.That(t, modelMayBeKinematic(cfg), test.ShouldBeTrue)
-			}
-		})
-	}
-	test.That(t, sawRefuse, test.ShouldBeTrue)
 }
 
 // TestCompositeInFrameSystemNonCanonicalKinematic checks that a composite gets a model frame from its
@@ -1374,57 +1307,5 @@ func TestServiceConfiguredCompositeKinematicResolvesInFrameSystemOnRemote(t *tes
 		test.That(tb, err, test.ShouldBeNil)
 		_, ok := inputs["remcombo"]
 		test.That(tb, ok, test.ShouldBeTrue)
-	})
-}
-
-// TestCompositeInFrameSystemMultiKinematicRefusedOnRemote is the remote variant of
-// TestCompositeInFrameSystemMultiKinematicRefused: a gripper+servo composite that exposes Kinematics on
-// two served APIs must be dropped from the frame system even when it reaches the robot through a remote,
-// since the model-frame builder still can't pick one kinematic sub.
-func TestCompositeInFrameSystemMultiKinematicRefusedOnRemote(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-	model := registerComboFacadeModel(t, "remote-fs-multikin", []resource.API{gripper.API, servo.API}, nil, nil)
-
-	remote := setupLocalRobot(t, ctx, &config.Config{
-		Components: []resource.Config{
-			{Name: "combo", API: gripper.API, Model: model, Frame: &referenceframe.LinkConfig{Parent: referenceframe.World}},
-		},
-	}, logger.Sublogger("remote"))
-	opts, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	test.That(t, remote.StartWeb(ctx, opts), test.ShouldBeNil)
-
-	// The remote connects into main's frame system, so a single-kinematic composite here would merge.
-	main := setupLocalRobot(t, ctx, &config.Config{
-		Remotes: []config.Remote{{
-			Name: "rem", Address: addr, Prefix: "rem",
-			Frame: &referenceframe.LinkConfig{Parent: referenceframe.World},
-		}},
-	}, logger.Sublogger("main"))
-
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		if rem, ok := main.RemoteByName("rem"); ok {
-			if rc, ok := rem.(interface{ Refresh(context.Context) error }); ok {
-				test.That(tb, rc.Refresh(ctx), test.ShouldBeNil)
-			}
-		}
-		fsCfg, err := main.FrameSystemConfig(ctx)
-		test.That(tb, err, test.ShouldBeNil)
-		// The remote has settled when its own world frame has merged. Only then is the absence of a
-		// combo part meaningful rather than a not-yet-connected remote.
-		var settled, modelsComposite bool
-		for _, part := range fsCfg.Parts {
-			if part.FrameConfig == nil {
-				continue
-			}
-			if strings.Contains(part.FrameConfig.Name(), "rem") {
-				settled = true
-			}
-			if strings.HasSuffix(part.FrameConfig.Name(), "combo") {
-				modelsComposite = true
-			}
-		}
-		test.That(tb, settled, test.ShouldBeTrue)
-		test.That(tb, modelsComposite, test.ShouldBeFalse)
 	})
 }
