@@ -470,7 +470,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/deploy/'
-        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false
@@ -482,7 +482,7 @@ jobs:
       with:
         headers: "cache-control: no-cache"
         path: 'etc/packaging/static/manifest/'
-        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/${{ github.run_id }}/'
         glob: 'viam-server-*'
         parent: false
         gzip: false
