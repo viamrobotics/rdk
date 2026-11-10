@@ -1,12 +1,14 @@
 package armplanning_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
@@ -77,5 +79,49 @@ func TestWriteAndReadRequestAndResponse(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotReq, test.ShouldNotBeNil)
 		test.That(t, gotPlan, test.ShouldBeNil)
+	})
+}
+
+// TestPlanMotionJointGoalLimits checks that a joint goal must lie within the frame's limits, unless
+// it stays between an out-of-limit start and the limit that start is outside of.
+func TestPlanMotionJointGoalLimits(t *testing.T) {
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+	outside := model.DoF()[0].Max + 0.1
+
+	plan := func(start []float64, goals ...[]float64) (*armplanning.PlanMeta, error) {
+		req := &armplanning.PlanRequest{
+			FrameSystem:    fs,
+			StartState:     armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": start}),
+			PlannerOptions: armplanning.NewBasicPlannerOptions(),
+		}
+		for _, goal := range goals {
+			req.Goals = append(req.Goals, armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": goal}))
+		}
+		_, meta, err := armplanning.PlanMotion(context.Background(), logging.NewTestLogger(t), req)
+		return meta, err
+	}
+
+	t.Run("goal outside limits is rejected", func(t *testing.T) {
+		meta, err := plan([]float64{0, 0.5, -1.0, 0, 0.5, 0},
+			[]float64{0.2, 0.5, -1.0, 0, 0.5, 0},
+			[]float64{100, 0, 0, 0, 0, 0})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `goal 1 frame "arm" joint 0`)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "100")
+		test.That(t, meta.GoalsProcessed, test.ShouldEqual, 0)
+	})
+
+	t.Run("goal moving further outside an out-of-limit start is rejected", func(t *testing.T) {
+		_, err := plan([]float64{outside, 0.5, -1.0, 0, 0.5, 0}, []float64{outside + 0.1, 0.5, -1.0, 0, 0.5, 0})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `goal 0 frame "arm" joint 0`)
+	})
+
+	t.Run("goal holding an out-of-limit start is accepted", func(t *testing.T) {
+		_, err := plan([]float64{outside, 0.5, -1.0, 0, 0.5, 0}, []float64{outside, 0.3, -0.8, 0, 0.5, 0})
+		test.That(t, err, test.ShouldBeNil)
 	})
 }

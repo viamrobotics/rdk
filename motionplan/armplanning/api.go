@@ -152,8 +152,47 @@ func (req *PlanRequest) validatePlanRequest() error {
 		}
 	}
 
+	for goalIdx, goalState := range req.Goals {
+		if err := req.validateGoalConfigurationLimits(goalIdx, goalState); err != nil {
+			return err
+		}
+	}
+
 	if req.Constraints == nil {
 		req.Constraints = &motionplan.Constraints{}
+	}
+	return nil
+}
+
+// validateGoalConfigurationLimits rejects a goal configuration that puts any joint outside its
+// frame's limits. Frame transforms do not check limits, so that a robot parked outside them can
+// still be planned for, which leaves this as the only place an out-of-limit goal is caught.
+//
+// A joint whose start is already outside its limits may go anywhere between that start and the
+// limits, the same allowance arm.CheckDesiredJointPositions makes when the arm moves. This keeps
+// goals that hold an out-of-limit joint where it is valid, while rejecting ones that move it
+// further out.
+func (req *PlanRequest) validateGoalConfigurationLimits(goalIdx int, goal *PlanState) error {
+	for fName, inputs := range goal.structuredConfiguration {
+		frame := req.FrameSystem.Frame(fName)
+		if frame == nil {
+			return referenceframe.NewFrameMissingError(fName)
+		}
+		limits := frame.DoF()
+		if len(inputs) != len(limits) {
+			return fmt.Errorf("goal %d frame %q: %w", goalIdx, fName, referenceframe.NewIncorrectDoFError(len(inputs), len(limits)))
+		}
+		start := req.StartState.structuredConfiguration[fName]
+		for i, v := range inputs {
+			lo, hi := limits[i].Min, limits[i].Max
+			if len(start) == len(limits) {
+				lo, hi = min(lo, start[i]), max(hi, start[i])
+			}
+			if v < lo || v > hi {
+				return fmt.Errorf("goal %d frame %q joint %d is %.5f, outside its limits [%.5f, %.5f]",
+					goalIdx, fName, i, v, lo, hi)
+			}
+		}
 	}
 	return nil
 }
