@@ -622,6 +622,9 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	if len(apis) == 1 {
 		return byAPI[conf.API], nil
 	}
+	if err := framesystem.CheckSingleKinematic(base, byAPI); err != nil {
+		return abort(err)
+	}
 	return resource.NewMultiAPIResource(base, byAPI), nil
 }
 

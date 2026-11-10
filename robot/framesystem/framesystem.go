@@ -52,6 +52,25 @@ type InputEnabled interface {
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
+// CheckSingleKinematic errors when more than one of a composite's subs is kinematic (InputEnabled). The
+// frame system handles one kinematic sub per resource; combining several accurately isn't built yet
+// (RSDK-14905).
+func CheckSingleKinematic(name resource.Name, byAPI map[resource.API]resource.Resource) error {
+	var kinematic []resource.API
+	for api, sub := range byAPI {
+		if _, ok := sub.(InputEnabled); ok {
+			kinematic = append(kinematic, api)
+		}
+	}
+	if len(kinematic) <= 1 {
+		return nil
+	}
+	return errors.Errorf(
+		"composite %q serves multiple kinematic APIs %v, which the frame system does not support; "+
+			"a composite may serve at most one of arm/gantry/gripper",
+		name.ShortName(), kinematic)
+}
+
 // ShapedInputEnabled is a resource that reports its geometries and has a model, which every arm,
 // gantry and gripper does.
 type ShapedInputEnabled interface {
