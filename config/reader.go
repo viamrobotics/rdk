@@ -21,7 +21,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
 	"google.golang.org/grpc/codes"
-
 	// Register the gzip compressor so the config client advertises gzip in
 	// grpc-accept-encoding and can decode a gzip-compressed ConfigResponse. The
 	// server (app) opts in to actually compressing responses via SetSendCompressor.
