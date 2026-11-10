@@ -210,6 +210,9 @@ var (
 	// sub by the requested interface's own API, not the first sub that happens to satisfy it. Each API needs
 	// a distinct interface type or the map is last-writer-wins. Guarded by registryMu.
 	apiByInterfaceType = map[reflect.Type]API{}
+	// kinematicAPIs is the set of APIs whose resources implement the frame system's InputEnabled
+	// Guarded by registryMu.
+	kinematicAPIs = map[API]bool{}
 )
 
 // DefaultServices returns all servies that will be constructed by default if not
@@ -327,9 +330,24 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	registry[apiModel] = makeGenericResourceRegistration(reg)
 }
 
+// RegisterKinematicAPI marks api as kinematic, meaning its resources implement the frame system's
+// InputEnabled interface.
+func RegisterKinematicAPI(api API) {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	kinematicAPIs[api] = true
+}
+
+func apiIsKinematic(api API) bool {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	return kinematicAPIs[api]
+}
+
 // RegisterMultiAPI registers one model that serves one or more APIs. The single constructor is
 // registered under every API (so LookupRegistration finds it for any of them), and the API set is
-// recorded for models serving more than one. It panics on an empty API list.
+// recorded for models serving more than one. It panics on an empty API list, and on a model serving
+// more than one kinematic API, which the frame system cannot yet combine accurately (RSDK-14905).
 //
 // For a model serving more than one API the constructor is wrapped so its result is always a
 // MultiAPIResource. An author may return one struct implementing every API, and the wrapper composes it
@@ -338,6 +356,16 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 func RegisterMultiAPI[ResourceT Resource, ConfigT ConfigValidator](apis []API, model Model, reg Registration[ResourceT, ConfigT]) {
 	if len(apis) == 0 {
 		panic(errors.Errorf("RegisterMultiAPI requires at least one api for model: %q", model))
+	}
+	kinematic := 0
+	for _, api := range apis {
+		if apiIsKinematic(api) {
+			kinematic++
+		}
+	}
+	if kinematic > 1 {
+		panic(errors.Errorf(
+			"model %q registers %d kinematic APIs; a composite may serve at most one (arm, gantry, or gripper)", model, kinematic))
 	}
 	for _, api := range apis {
 		Register(api, model, reg)

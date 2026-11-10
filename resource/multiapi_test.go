@@ -356,6 +356,30 @@ func TestRegisterMultiAPIRecordsSet(t *testing.T) {
 	})
 }
 
+func TestRegisterMultiAPIRejectsMultipleKinematic(t *testing.T) {
+	kin1 := APINamespaceRDK.WithComponentType("testkin1")
+	kin2 := APINamespaceRDK.WithComponentType("testkin2")
+	RegisterKinematicAPI(kin1)
+	RegisterKinematicAPI(kin2)
+	t.Cleanup(func() {
+		registryMu.Lock()
+		delete(kinematicAPIs, kin1)
+		delete(kinematicAPIs, kin2)
+		registryMu.Unlock()
+	})
+
+	// Two kinematic APIs: rejected at registration.
+	test.That(t, func() {
+		RegisterMultiAPI([]API{kin1, kin2}, NewModel("acme", "test", "twokin"), newComboConstructor())
+	}, test.ShouldPanic)
+
+	// One kinematic API alongside a non-kinematic one: allowed.
+	okModel := NewModel("acme", "test", "onekin")
+	RegisterMultiAPI([]API{kin1, testSensAPI}, okModel, newComboConstructor())
+	Deregister(kin1, okModel)
+	Deregister(testSensAPI, okModel)
+}
+
 func TestSingleAPIRegisterMultiAPIBehavesLikeRegister(t *testing.T) {
 	model := NewModel("acme", "test", "single")
 	RegisterMultiAPI([]API{testCamAPI}, model, newComboConstructor())
