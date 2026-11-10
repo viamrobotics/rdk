@@ -3950,6 +3950,50 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 	})
+
+	t.Run("blocked by maintenance window", func(t *testing.T) {
+		logger, _ := logging.NewObservedTestLogger(t)
+		maintModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+		resource.RegisterComponent(
+			sensor.API, maintModel,
+			resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+				ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (sensor.Sensor, error) {
+				return newValidSensor(), nil
+			}},
+		)
+		defer resource.Deregister(sensor.API, maintModel)
+
+		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+		mod := config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
+		sensorCfg := resource.Config{Name: "maint-sensor", Model: maintModel, API: sensor.API}
+
+		r := setupLocalRobot(t, ctx, &config.Config{
+			Modules:    []config.Module{mod},
+			Components: []resource.Config{sensorCfg},
+		}, logger)
+
+		// Without a maintenance block, restart succeeds.
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldBeNil)
+
+		// With a maintenance block, restart fails with codes.FailedPrecondition.
+		r.Reconfigure(ctx, &config.Config{
+			Modules:    []config.Module{mod},
+			Components: []resource.Config{sensorCfg},
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/maint-sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+		})
+
+		err = r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldNotBeNil)
+		st, ok := status.FromError(err)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, st.Code(), test.ShouldEqual, codes.FailedPrecondition)
+		test.That(t, st.Message(), test.ShouldContainSubstring, "maintenance window")
+	})
 }
 
 var mockModel = resource.DefaultModelFamily.WithModel("mockmodel")
