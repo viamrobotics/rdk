@@ -752,7 +752,7 @@ func TestPlanMotionSequenceSucceedsDespitePoisonedCache(t *testing.T) {
 		-0.992999659809725, -1.2022321151487678, -3.6860351229031787, 4.632364891547901, 1.9934586075229215, 1.3777452467564468,
 	})
 
-	plans, metas, err := PlanMotionSequence(context.Background(), logger, requests)
+	plans, metas, err := PlanMotionSequence(context.Background(), logger, requests, nil)
 
 	// The key decision is where 035 ends, which is where 036 was started from: PlanMotionSequence
 	// sets each later request's StartState in place. This is logged before asserting so it shows up

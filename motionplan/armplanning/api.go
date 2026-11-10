@@ -382,8 +382,9 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 //
 // If a request cannot be planned from where the previous plan ended, an earlier request is planned
 // again with the end configuration that led to the failure ruled out, and the sequence continues
-// from the new answer. Each start state of a request gets a few attempts before the search backs
-// up another request. The cost of that search grows exponentially with how far it has to back up.
+// from the new answer. Each start state of a request gets opts.BacktrackBranchFactor attempts
+// before the search backs up another request. The cost of that search grows exponentially with how
+// far it has to back up. A nil opts uses NewDefaultSequenceOptions.
 //
 // PlanMotionSequence returns plans and metas, each with one entry per request. When it returns an
 // error or a partial plan, entries for the requests after the last good one are nil if never
@@ -396,7 +397,15 @@ func PlanMotionSequence(
 	ctx context.Context,
 	parentLogger logging.Logger,
 	requests []*PlanRequest,
+	opts *SequenceOptions,
 ) ([]motionplan.Plan, []*PlanMeta, error) {
+	if opts == nil {
+		opts = NewDefaultSequenceOptions()
+	}
+	if opts.BacktrackBranchFactor < 1 {
+		return nil, nil, fmt.Errorf("BacktrackBranchFactor must be at least 1, got %d", opts.BacktrackBranchFactor)
+	}
+
 	ctx, span := trace.StartSpan(ctx, "PlanMotionSequence")
 	defer span.End()
 
@@ -443,8 +452,6 @@ func PlanMotionSequence(
 			continue
 		}
 
-		// We'll try solving each plan request up to 3 times for each unique start state.
-		const backtrackBranchFactor = 3
 		for {
 			// If we errored on some request using a solution from some prior request, let's re-solve
 			// the earlier request in a way that forces a new answer -> start state.
@@ -473,7 +480,7 @@ func PlanMotionSequence(
 			request.rejectedSolutions[request.StartState] = append(
 				request.rejectedSolutions[request.StartState], rejectedSolution,
 			)
-			if len(request.rejectedSolutions[request.StartState]) < backtrackBranchFactor {
+			if len(request.rejectedSolutions[request.StartState]) < opts.BacktrackBranchFactor {
 				// If the start state for this plan has only been tried a few times, give it another
 				// shot. Continue back onto the outer-loop.
 				logger.Infof("Backtracking. Adding rejected solution. Rerunning plan: %v", requestIdx)
@@ -486,6 +493,18 @@ func PlanMotionSequence(
 	}
 
 	return plans, metas, nil
+}
+
+// SequenceOptions configures PlanMotionSequence.
+type SequenceOptions struct {
+	// BacktrackBranchFactor is how many endings of a request PlanMotionSequence tries from one
+	// start state before backtracking further. Must be at least 1.
+	BacktrackBranchFactor int
+}
+
+// NewDefaultSequenceOptions returns the SequenceOptions PlanMotionSequence uses when given nil.
+func NewDefaultSequenceOptions() *SequenceOptions {
+	return &SequenceOptions{BacktrackBranchFactor: 3}
 }
 
 // resetMeshCaches walks the robot link and world obstacle geometries reachable
