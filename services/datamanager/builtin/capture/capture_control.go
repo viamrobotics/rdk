@@ -69,13 +69,14 @@ func (c *Capture) buildEffectiveCollectors(
 	}
 
 	// 2. iterate through sensor readings to override resources that don't have data capture configured.
+	resolver := NewCollectorResolver(c.deps)
 	for key, override := range captureConfigReadings {
 		// Skip readings whose key matches a static default — those were already merged in step 1.
 		if _, seen := defaultKeys[key]; seen {
 			continue
 		}
 
-		resolved, res, ok := c.shouldAutoEnable(override)
+		resolved, res, ok := c.shouldAutoEnable(resolver, override)
 		if !ok {
 			continue
 		}
@@ -197,11 +198,15 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 
 // shouldAutoEnable validates that the sensor's override can produce a running collector when
 // data capture is not configured on the machine config for that resource/method pair. It returns the
-// resource that owns the method, its owning API (for a composite, the API that implements it), and whether
-// it resolved.
-func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (ResolvedCollector, resource.Resource, bool) {
-	// The sensor reading carries no API, so leave the name unpinned and let ResolveCollector infer the owner.
-	resolved, res, err := ResolveCollector(c.deps, datamanager.DataCaptureConfig{
+// resolved collector, the resource that owns the method, and whether it resolved.
+//
+// The reading carries no API, so a method a composite's APIs share (e.g. DoCommand) can't be resolved
+// here and won't auto-enable. A method one API owns (e.g. Readings on a sensor composite) resolves fine.
+func (c *Capture) shouldAutoEnable(
+	resolver *CollectorResolver, override datamanager.CaptureConfigReading,
+) (ResolvedCollector, resource.Resource, bool) {
+	// Leave the name unpinned and let the resolver infer the owner from the resource's served APIs.
+	resolved, res, err := resolver.Resolve(datamanager.DataCaptureConfig{
 		Name:             resource.NewName(resource.API{}, override.ResourceName),
 		Method:           override.MethodName,
 		CaptureDirectory: c.captureDir,

@@ -517,6 +517,7 @@ func lookupCollectorConfigsByResource(
 	logger logging.Logger,
 ) (capture.CollectorConfigsByResource, error) {
 	collectorConfigsByResource := capture.CollectorConfigsByResource{}
+	resolver := capture.NewCollectorResolver(deps)
 	for _, rawAssocCfg := range resConfig.AssociatedAttributes {
 		assocCfg, err := utils.AssertType[*datamanager.AssociatedConfig](rawAssocCfg)
 		if err != nil {
@@ -527,7 +528,7 @@ func lookupCollectorConfigsByResource(
 		for _, collectorConfig := range assocCfg.CaptureMethods {
 			// we need to set the CaptureDirectory to that in the data manager config
 			collectorConfig.CaptureDirectory = captureDir
-			resolved, res, err := capture.ResolveCollector(deps, collectorConfig)
+			resolved, res, err := resolver.Resolve(collectorConfig)
 			if err != nil {
 				logger.Warnw("datamanager failed to resolve capture resource from config", "error", err)
 				continue

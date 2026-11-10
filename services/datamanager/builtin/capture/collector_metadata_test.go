@@ -67,29 +67,60 @@ func registerCaptureAPIResolutionCollectors() {
 	})
 }
 
-func TestCaptureAPIForMethod(t *testing.T) {
+func TestResolveOwningAPI(t *testing.T) {
 	registerCaptureAPIResolutionCollectors()
 
-	t.Run("single-API resource always yields its configured API", func(t *testing.T) {
-		apis := []resource.API{fakeAPI}
-		test.That(t, captureAPIForMethod(apis, "GetReadings", fakeAPI), test.ShouldResemble, fakeAPI)
-		// Even a method with no registered collector resolves to the single API.
-		test.That(t, captureAPIForMethod(apis, "Nonexistent", fakeAPI), test.ShouldResemble, fakeAPI)
+	// cfg builds a capture config whose Name carries api; pinned marks it a real pin via PinnedAPI.
+	cfg := func(api resource.API, method string, pinned bool) datamanager.DataCaptureConfig {
+		c := datamanager.DataCaptureConfig{Name: resource.NewName(api, "r"), Method: method}
+		if pinned {
+			c.PinnedAPI = api
+		}
+		return c
+	}
+	composite := []resource.API{capAlphaAPI, capBetaAPI}
+
+	t.Run("single-API resource yields its one API", func(t *testing.T) {
+		got, err := resolveOwningAPI([]resource.API{fakeAPI}, cfg(fakeAPI, "GetReadings", false))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldResemble, fakeAPI)
 	})
 
-	t.Run("composite resolves each method to its owning API", func(t *testing.T) {
-		apis := []resource.API{capAlphaAPI, capBetaAPI}
+	t.Run("unpinned: a method one API owns resolves to that API", func(t *testing.T) {
+		// Configured alpha, but BetaOnly is owned by beta.
+		got, err := resolveOwningAPI(composite, cfg(capAlphaAPI, "BetaOnly", false))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldResemble, capBetaAPI)
+	})
 
-		// A method owned by exactly one served API resolves to that API, even when it is not the
-		// resource's configured API.
-		test.That(t, captureAPIForMethod(apis, "AlphaOnly", capAlphaAPI), test.ShouldResemble, capAlphaAPI)
-		test.That(t, captureAPIForMethod(apis, "BetaOnly", capAlphaAPI), test.ShouldResemble, capBetaAPI)
+	t.Run("unpinned: a shared method falls back to the configured API", func(t *testing.T) {
+		got, err := resolveOwningAPI(composite, cfg(capAlphaAPI, "Shared", false))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldResemble, capAlphaAPI)
+	})
 
-		// A method several served APIs share stays under the configured API.
-		test.That(t, captureAPIForMethod(apis, "Shared", capAlphaAPI), test.ShouldResemble, capAlphaAPI)
+	t.Run("unpinned: a method no API owns errors", func(t *testing.T) {
+		_, err := resolveOwningAPI(composite, cfg(capAlphaAPI, "Nonexistent", false))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no API that captures")
+	})
 
-		// A method no served API implements falls back to the configured API.
-		test.That(t, captureAPIForMethod(apis, "Nonexistent", capAlphaAPI), test.ShouldResemble, capAlphaAPI)
+	t.Run("pinned to an owner resolves to the pin", func(t *testing.T) {
+		got, err := resolveOwningAPI(composite, cfg(capBetaAPI, "BetaOnly", true))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldResemble, capBetaAPI)
+	})
+
+	t.Run("pinned to a served API that does not capture the method errors", func(t *testing.T) {
+		_, err := resolveOwningAPI(composite, cfg(capAlphaAPI, "BetaOnly", true))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "does not capture method")
+	})
+
+	t.Run("pinned to an unserved API errors", func(t *testing.T) {
+		_, err := resolveOwningAPI(composite, cfg(fakeAPI, "AlphaOnly", true))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "does not serve")
 	})
 }
 
@@ -137,7 +168,7 @@ func TestNewCollectorsTagsCompositeUnderOwningAPI(t *testing.T) {
 	}
 
 	// Resolution (upstream of newCollectors) picks the movement_sensor sub that owns Readings.
-	resolved, owningRes, err := ResolveCollector(deps, cfg)
+	resolved, owningRes, err := NewCollectorResolver(deps).Resolve(cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, owningRes, test.ShouldEqual, msSub)
 
@@ -150,33 +181,6 @@ func TestNewCollectorsTagsCompositeUnderOwningAPI(t *testing.T) {
 	test.That(t, compositeReadingsCapture.componentType, test.ShouldEqual, capMSAPI.String())
 	_, statErr := os.Stat(filepath.Join(captureDir, "rdk_component_movement_sensor", "combo", "Readings"))
 	test.That(t, statErr, test.ShouldBeNil)
-}
-
-func TestUnresolvedCaptureMethodError(t *testing.T) {
-	registerCaptureAPIResolutionCollectors()
-
-	compositeAPIs := []resource.API{capAlphaAPI, capBetaAPI}
-
-	// A single-API resource gets no special error (the generic lookup error stands).
-	test.That(t, unresolvedCaptureMethodError([]resource.API{fakeAPI}, datamanager.DataCaptureConfig{
-		Name: resource.NewName(fakeAPI, "x"), Method: "Nonexistent",
-	}), test.ShouldBeNil)
-
-	// A method several served APIs own is ambiguous: name the owners and how to fix it.
-	err := unresolvedCaptureMethodError(compositeAPIs, datamanager.DataCaptureConfig{
-		Name: resource.NewName(capAlphaAPI, "combo"), Method: "Shared",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple APIs")
-	test.That(t, err.Error(), test.ShouldContainSubstring, capAlphaAPI.String())
-	test.That(t, err.Error(), test.ShouldContainSubstring, capBetaAPI.String())
-
-	// A method no served API implements.
-	err = unresolvedCaptureMethodError(compositeAPIs, datamanager.DataCaptureConfig{
-		Name: resource.NewName(capAlphaAPI, "combo"), Method: "Nonexistent",
-	})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "serves no API that implements")
 }
 
 // TestNewCollectorsPinnedAPIDisambiguatesCollidingMethod drives newCollectors with a composite whose two
@@ -192,17 +196,17 @@ func TestNewCollectorsPinnedAPIDisambiguatesCollidingMethod(t *testing.T) {
 	captureDir := t.TempDir()
 	// Same method ("Shared", owned by both APIs), each capture config name pinned to a different owner.
 	cfgAlpha := datamanager.DataCaptureConfig{
-		Name: resource.NewName(capAlphaAPI, "combo"), Method: "Shared", CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
+		Name: resource.NewName(capAlphaAPI, "combo"), PinnedAPI: capAlphaAPI, Method: "Shared", CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
 	}
 	cfgBeta := datamanager.DataCaptureConfig{
-		Name: resource.NewName(capBetaAPI, "combo"), Method: "Shared", CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
+		Name: resource.NewName(capBetaAPI, "combo"), PinnedAPI: capBetaAPI, Method: "Shared", CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
 	}
 
 	// A pinned name resolves to that owner's sub, even though the method is served by both APIs.
-	resolvedAlpha, subAlpha, err := ResolveCollector(deps, cfgAlpha)
+	resolvedAlpha, subAlpha, err := NewCollectorResolver(deps).Resolve(cfgAlpha)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, subAlpha, test.ShouldEqual, alphaSub)
-	resolvedBeta, subBeta, err := ResolveCollector(deps, cfgBeta)
+	resolvedBeta, subBeta, err := NewCollectorResolver(deps).Resolve(cfgBeta)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, subBeta, test.ShouldEqual, betaSub)
 
@@ -236,7 +240,7 @@ func TestNewCollectorsAmbiguousCollidingMethodErrors(t *testing.T) {
 		Name: resource.NewName(capCamAPI, "combo"), Method: "Shared",
 	}
 
-	_, _, err := ResolveCollector(deps, cfg)
+	_, _, err := NewCollectorResolver(deps).Resolve(cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "multiple APIs")
 }
@@ -252,10 +256,10 @@ func TestResolveCollectorRejectsUnservedPinSingleAPI(t *testing.T) {
 	deps := resource.Dependencies{alphaSub.Name(): alphaSub}
 
 	cfg := datamanager.DataCaptureConfig{
-		Name: resource.NewName(capBetaAPI, "combo"), Method: "Shared",
+		Name: resource.NewName(capBetaAPI, "combo"), PinnedAPI: capBetaAPI, Method: "Shared",
 	}
 
-	_, _, err := ResolveCollector(deps, cfg)
+	_, _, err := NewCollectorResolver(deps).Resolve(cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not serve")
 }
@@ -271,9 +275,9 @@ func TestResolveCollectorRejectsUnservedAPI(t *testing.T) {
 	deps := resource.Dependencies{alphaSub.Name(): alphaSub, betaSub.Name(): betaSub}
 
 	cfg := datamanager.DataCaptureConfig{
-		Name: resource.NewName(capCamAPI, "combo"), Method: "Shared",
+		Name: resource.NewName(capCamAPI, "combo"), PinnedAPI: capCamAPI, Method: "Shared",
 	}
-	_, _, err := ResolveCollector(deps, cfg)
+	_, _, err := NewCollectorResolver(deps).Resolve(cfg)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "does not serve")
 }

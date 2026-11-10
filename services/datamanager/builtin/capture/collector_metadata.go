@@ -3,7 +3,6 @@ package capture
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -45,27 +44,28 @@ type ResolvedCollector struct {
 	Config   datamanager.DataCaptureConfig
 }
 
-// ResolveCollector resolves the resource serving cfg's capture method and returns it alongside a
-// ResolvedCollector (the collector's metadata plus cfg pinned to the owning API). For a composite it picks
-// the API that implements the method; for an ordinary resource it is the resource's own API. It errors if
-// the method cannot be resolved to one API, or the resolved resource is missing from deps.
-func ResolveCollector(deps resource.Dependencies, cfg datamanager.DataCaptureConfig) (ResolvedCollector, resource.Resource, error) {
-	apis := apisByShortName(deps)[cfg.Name.ShortName()]
-	// A pinned API must be one the resource serves; otherwise resolution silently drops the pin and the
-	// collector build fails later with a confusing missing-collector error.
-	if cfg.Name.API.Validate() == nil && len(apis) > 0 && !slices.Contains(apis, cfg.Name.API) {
-		return ResolvedCollector{}, nil, errors.Errorf("capture config for %q pins API %q, which it does not serve (serves %v)",
-			cfg.Name.ShortName(), cfg.Name.API, apis)
+// CollectorResolver resolves capture configs against a dependency set, indexing each resource's served
+// APIs once so resolving many methods (and every capture-control poll) doesn't rebuild the index.
+type CollectorResolver struct {
+	deps       resource.Dependencies
+	apisByName map[string][]resource.API
+}
+
+// NewCollectorResolver indexes deps by short name for repeated resolution.
+func NewCollectorResolver(deps resource.Dependencies) *CollectorResolver {
+	return &CollectorResolver{deps: deps, apisByName: apisByShortName(deps)}
+}
+
+// Resolve resolves the resource serving cfg's capture method and returns it alongside a ResolvedCollector
+// (the collector's metadata plus cfg pinned to the owning API). For a composite it picks the API that
+// implements the method; for an ordinary resource it is the resource's own API. It errors if the method
+// cannot be resolved to one API, or the resolved resource is missing from deps.
+func (r *CollectorResolver) Resolve(cfg datamanager.DataCaptureConfig) (ResolvedCollector, resource.Resource, error) {
+	owningAPI, err := resolveOwningAPI(r.apisByName[cfg.Name.ShortName()], cfg)
+	if err != nil {
+		return ResolvedCollector{}, nil, err
 	}
-	owningAPI := captureAPIForMethod(apis, cfg.Method, cfg.Name.API)
-	// The resolved API doesn't collect this method, which for a composite means it isn't owned by exactly
-	// one of the composite's APIs — report whether several own it (pin one) or none do.
-	if data.CollectorLookup(data.MethodMetadata{API: owningAPI, MethodName: cfg.Method}) == nil {
-		if err := unresolvedCaptureMethodError(apis, cfg); err != nil {
-			return ResolvedCollector{}, nil, err
-		}
-	}
-	sub, err := deps.Lookup(resource.NewName(owningAPI, cfg.Name.ShortName()))
+	sub, err := r.deps.Lookup(resource.NewName(owningAPI, cfg.Name.ShortName()))
 	if err != nil {
 		return ResolvedCollector{}, nil, err
 	}
@@ -74,8 +74,53 @@ func ResolveCollector(deps resource.Dependencies, cfg datamanager.DataCaptureCon
 	return ResolvedCollector{Metadata: newCollectorMetadata(cfg), Config: cfg}, sub, nil
 }
 
-// apisByShortName groups dependency names by short name, giving the set of APIs each resource serves,
-// canonical-first. A composite appears under one short name with several APIs; an ordinary resource has one.
+// resolveOwningAPI picks the API that owns cfg's capture method from the APIs its resource serves. A real
+// pin (cfg.PinnedAPI) must be one of the resource's APIs and must capture the method, else it errors rather
+// than resolve elsewhere. Without a pin, a method exactly one API captures resolves to that API
+// (Readings -> sensor); a method several APIs share (e.g. DoCommand) stays under the configured API that
+// name resolution filled into cfg.Name; a single-API resource uses its one API.
+func resolveOwningAPI(apis []resource.API, cfg datamanager.DataCaptureConfig) (resource.API, error) {
+	short := cfg.Name.ShortName()
+	owners := captureMethodOwners(apis, cfg.Method)
+	if cfg.PinnedAPI.Validate() == nil {
+		pin := cfg.PinnedAPI
+		if len(apis) > 0 && !slices.Contains(apis, pin) {
+			return resource.API{}, errors.Errorf(
+				"capture config for %q pins API %q, which it does not serve (serves %v)", short, pin, apis)
+		}
+		if len(apis) > 1 && !slices.Contains(owners, pin) {
+			return resource.API{}, errors.Errorf(
+				"capture config for %q pins API %q, which does not capture method %q (captured by %v)",
+				short, pin, cfg.Method, owners)
+		}
+		return pin, nil
+	}
+	switch {
+	case len(apis) == 0:
+		// Not in deps; return the configured API so the caller's Lookup fails with a clear missing-resource error.
+		return cfg.Name.API, nil
+	case len(apis) == 1:
+		return apis[0], nil
+	case len(owners) == 1:
+		return owners[0], nil
+	case len(owners) == 0:
+		return resource.API{}, errors.Errorf(
+			"composite %q serves no API that captures method %q", short, cfg.Method)
+	default:
+		// Several of the composite's APIs capture the method (e.g. DoCommand). Keep it under the
+		// configured API that name resolution filled into cfg.Name when that API is one of them;
+		// otherwise it is genuinely ambiguous and the user must pin one.
+		if slices.Contains(owners, cfg.Name.API) {
+			return cfg.Name.API, nil
+		}
+		return resource.API{}, errors.Errorf(
+			"capture method %q on composite %q is captured by multiple APIs (%v); pin the name to one",
+			cfg.Method, short, owners)
+	}
+}
+
+// apisByShortName groups dependency names by short name, giving the sorted set of APIs each resource serves.
+// A composite appears under one short name with several APIs; an ordinary resource has one.
 func apisByShortName(deps resource.Dependencies) map[string][]resource.API {
 	byName := map[string][]resource.API{}
 	for name := range deps {
@@ -85,24 +130,6 @@ func apisByShortName(deps resource.Dependencies) map[string][]resource.API {
 		resource.SortAPIs(apis)
 	}
 	return byName
-}
-
-// captureAPIForMethod resolves which of a resource's APIs owns a capture method, so its data is tagged
-// under the implementing API. A single-API resource yields its one API. For a composite, a method
-// exactly one API implements resolves to that API (Readings -> sensor, GetImage -> camera); a method
-// that several APIs share or collide on by name (e.g. DoCommand), or that no API implements, stays under
-// the configured API.
-func captureAPIForMethod(apis []resource.API, method string, configuredAPI resource.API) resource.API {
-	switch len(apis) {
-	case 0:
-		return configuredAPI
-	case 1:
-		return apis[0]
-	}
-	if owners := captureMethodOwners(apis, method); len(owners) == 1 {
-		return owners[0]
-	}
-	return configuredAPI
 }
 
 // captureMethodOwners returns every API in apis that registers a collector for method, in the given
@@ -115,28 +142,4 @@ func captureMethodOwners(apis []resource.API, method string) []resource.API {
 		}
 	}
 	return owners
-}
-
-// unresolvedCaptureMethodError returns an actionable error when a composite capture method cannot be
-// resolved to a single owning API, or nil when it can (a single-API resource, or exactly one owner).
-func unresolvedCaptureMethodError(apis []resource.API, cfg datamanager.DataCaptureConfig) error {
-	if len(apis) < 2 {
-		return nil
-	}
-	owners := captureMethodOwners(apis, cfg.Method)
-	switch len(owners) {
-	case 0:
-		return errors.Errorf("composite %q serves no API that implements capture method %q",
-			cfg.Name.ShortName(), cfg.Method)
-	case 1:
-		return nil
-	default:
-		names := make([]string, len(owners))
-		for i, api := range owners {
-			names[i] = api.String()
-		}
-		example := fmt.Sprintf("%s/%s", names[0], cfg.Name.ShortName())
-		return errors.Errorf("capture method %q on composite %q is served by multiple APIs (%s); pin the name to the owning API, e.g. %q",
-			cfg.Method, cfg.Name.ShortName(), strings.Join(names, ", "), example)
-	}
 }
