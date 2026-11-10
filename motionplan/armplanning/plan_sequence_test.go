@@ -61,9 +61,8 @@ func TestPlanMotionSequenceBacktrackBranchFactor(t *testing.T) {
 	}
 }
 
-// TestPlanMotionSequenceIgnoresReturnPartialPlan checks that a request which PlanMotion would
-// return as a partial plan fails within a sequence instead, and that the caller's PlannerOptions,
-// shared by every request here, keep ReturnPartialPlan.
+// TestPlanMotionSequenceIgnoresReturnPartialPlan checks that a request PlanMotion plans partially
+// fails within a sequence, without changing the caller's shared PlannerOptions.
 func TestPlanMotionSequenceIgnoresReturnPartialPlan(t *testing.T) {
 	requests := unplannableThirdRequest(t)[:2]
 	shared := NewBasicPlannerOptions()

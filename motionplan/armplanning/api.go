@@ -376,11 +376,10 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // The StartState of every request after the first is mutated in place. Whatever the caller put
 // there is discarded, so there are no requirements on it. It is set to the end of the previous plan
 // just before the request is planned, and again each time the request is re-planned. Callers should
-// not rely on its value afterwards. Each request's PlannerOptions is replaced with a copy that has
-// ReturnPartialPlan cleared, or with NewBasicPlannerOptions if nil: a partial plan would leave the
-// next request starting somewhere the previous one never meant to end, whereas a failure lets the
-// search backtrack. Requests also accumulate internal state while backtracking, so they should not
-// be reused for another call.
+// not rely on its value afterwards. Each request plans on a copy of its PlannerOptions (the
+// defaults if nil) with ReturnPartialPlan cleared, so a request that only partly plans fails and
+// the search backtracks. Requests also accumulate internal state while backtracking, so they should
+// not be reused for another call.
 //
 // If a request cannot be planned from where the previous plan ended, an earlier request is planned
 // again with the end configuration that led to the failure ruled out, and the sequence continues
@@ -413,7 +412,7 @@ func PlanMotionSequence(
 		followupRequest.StartState = nil
 	}
 	for _, request := range requests {
-		// Copied so that options shared with requests outside this sequence are left alone.
+		// Copied, as callers may share one PlannerOptions across requests.
 		plannerOpts := NewBasicPlannerOptions()
 		if request.PlannerOptions != nil {
 			*plannerOpts = *request.PlannerOptions

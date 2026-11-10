@@ -165,8 +165,8 @@ func realMain() error {
 		"implies -chain. Plan every request in one armplanning.PlanMotionSequence call, which backtracks into "+
 			"earlier requests when a later one cannot be planned")
 	noPartialPlans := flag.Bool("no-partial-plans", false,
-		"clear return_partial_plan on every request, so a request that only partly plans fails instead. "+
-			"-batch always does this, as PlanMotionSequence ignores return_partial_plan")
+		"clear return_partial_plan on every request, so a request that only partly plans fails instead; "+
+			"-batch always does this")
 	backtrackBranchFactor := flag.Int("backtrack-branch-factor", 0,
 		"with -batch, how many endings of a request to try from one start state before backtracking further; "+
 			"0 keeps PlanMotionSequence's default")
