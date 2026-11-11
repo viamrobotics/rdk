@@ -132,6 +132,16 @@ type GeometryConfig struct {
 	Label string
 }
 
+func (config *GeometryConfig) String() string {
+	if config.Type == MeshType {
+		return "Mesh"
+	}
+
+	//nolint:errcheck
+	jsonBytes, _ := json.Marshal(config)
+	return string(jsonBytes)
+}
+
 // NewGeometryConfig creates a config for a Geometry from an offset Pose.
 func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 	config := &GeometryConfig{}
