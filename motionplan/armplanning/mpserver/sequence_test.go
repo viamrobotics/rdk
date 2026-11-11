@@ -12,10 +12,13 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/utils"
 )
 
 // useTempPlanRoot points the server at a scratch plan root holding a directory named "seq" with
-// the two recorded requests of the capp fridge sequence as 1-open.json and 2-move.json, and
+// two chained joint-space requests as 1-open.json and 2-move.json, and
 // returns that directory's name relative to the new rdkRoot.
 func useTempPlanRoot(t *testing.T) string {
 	t.Helper()
@@ -30,13 +33,29 @@ func useTempPlanRoot(t *testing.T) string {
 	sequenceDir := filepath.Join(planFilesRoot, "seq")
 	test.That(t, os.MkdirAll(sequenceDir, 0o750), test.ShouldBeNil)
 
-	for source, name := range map[string]string{
-		"capp-fridge-open-035.json": "1-open.json",
-		"capp-fridge-move-036.json": "2-move.json",
-	} {
-		contents, err := os.ReadFile(filepath.Join("..", "data", source))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(filepath.Join(sequenceDir, name), contents, 0o600), test.ShouldBeNil)
+	// Joint-space goals on a bare arm: planning them is a straight line, so the test doesn't depend
+	// on IK, a roadmap or any other state a recorded request would drag in.
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
+
+	frameSystem := referenceframe.NewEmptyFrameSystem("")
+	test.That(t, frameSystem.AddFrame(model, frameSystem.World()), test.ShouldBeNil)
+
+	configurations := [][]float64{
+		{0, 0.5, -1.0, 0, 0.5, 0},
+		{0.3, 0.5, -1.0, 0, 0.5, 0.3},
+		{0.3, 0.7, -0.8, 0.2, 0.5, 0.3},
+	}
+	for index, name := range []string{"1-open.json", "2-move.json"} {
+		request := &armplanning.PlanRequest{
+			FrameSystem: frameSystem,
+			StartState:  armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": configurations[index]}),
+			Goals: []*armplanning.PlanState{
+				armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": configurations[index+1]}),
+			},
+			PlannerOptions: armplanning.NewBasicPlannerOptions(),
+		}
+		test.That(t, request.WriteToFile(filepath.Join(sequenceDir, name)), test.ShouldBeNil)
 	}
 
 	// Neither of these is a plan file.
