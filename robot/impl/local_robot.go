@@ -154,11 +154,9 @@ type localRobot struct {
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
 
-	// maintenanceOverrideUntil is when the armed one-shot maintenance sensor override lapses;
-	// the zero value means none is armed. Kept as a time.Time (not unix nanos) so expiry is
-	// judged on the monotonic clock and survives wall-clock jumps such as a post-boot NTP sync.
-	maintenanceOverrideMu    sync.Mutex
-	maintenanceOverrideUntil time.Time
+	// maintenanceOverrideArmed is set by OverrideMaintenanceSensor and cleared by the next
+	// reconfigure attempt after initialization.
+	maintenanceOverrideArmed atomic.Bool
 
 	traceClients atomic.Pointer[[]otlptrace.Client]
 }
@@ -1747,20 +1745,23 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// the sensor is skipped for the rest of this pass only.
 	var maintenanceOverridden bool
 	if !r.initializing.Load() {
-		var reconfigureAllowed bool
-		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
-		if !reconfigureAllowed {
-			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
-			// or resources changed), otherwise silently return.
-			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
-			if err != nil {
-				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
-				return
-			}
-			// Only spend the override on a config that actually changes resources; the cloud
-			// watcher re-delivers the unchanged config every poll and must not consume it.
-			maintenanceOverridden = diff != nil && !diff.ResourcesEqual && r.consumeMaintenanceOverride()
-			if !maintenanceOverridden {
+		// The override is spent by the first reconfigure attempt that sees it, even one whose
+		// config changes nothing. The cloud watcher delivers a config on every poll, so an
+		// armed override lasts at most one poll and needs no expiry of its own.
+		maintenanceOverridden = r.maintenanceOverrideArmed.Swap(false)
+		if maintenanceOverridden {
+			r.logger.CWarnw(ctx, "Maintenance sensor override consumed; skipping the maintenance sensor for this reconfigure")
+		} else {
+			var reconfigureAllowed bool
+			reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+			if !reconfigureAllowed {
+				// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
+				// or resources changed), otherwise silently return.
+				diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+				if err != nil {
+					r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+					return
+				}
 				r.logReconfigureBlocked(ctx, newConfig.MaintenanceConfig, diff, reconfigureAllowedErr)
 				return
 			}
@@ -1996,7 +1997,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		if maintenanceOverridden {
 			r.logger.CWarnw(
 				ctx,
-				"Reconfigure allowed by manual maintenance sensor override; override consumed",
+				"Reconfigure allowed by manual maintenance sensor override",
 				"sensor",
 				newConfig.MaintenanceConfig.SensorName,
 			)
@@ -2444,60 +2445,23 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	return canReconfigure, nil
 }
 
-// defaultConfigRefreshInterval mirrors the cloud config poll interval used when a machine
-// does not set refresh_interval.
-const defaultConfigRefreshInterval = 10 * time.Second
-
-// maintenanceOverrideWindow is how long an armed maintenance override waits for a config to
-// use it. It spans two config polls so the override survives a poll that was already in
-// flight when it was armed, without leaving the interlock open for longer than needed.
-func maintenanceOverrideWindow(cfg *config.Config) time.Duration {
-	interval := defaultConfigRefreshInterval
-	if cfg != nil && cfg.Cloud != nil && cfg.Cloud.RefreshInterval > 0 {
-		interval = cfg.Cloud.RefreshInterval
-	}
-	return 2 * interval
-}
-
 // OverrideMaintenanceSensor arms a one-shot override of the maintenance sensor: the next
-// reconfigure that the sensor would block, and that changes resources, is applied anyway.
-// The override is consumed by that reconfigure, or lapses if no such config arrives within
-// two config polls. It is held in memory only, does not survive a viam-server restart, and
-// does not affect RestartAllowed. It returns when the armed override lapses.
+// reconfigure attempt skips the sensor and consumes the override, whether or not its config
+// changes anything. The override is held in memory only, does not survive a viam-server
+// restart, and does not affect RestartAllowed.
 //
 // A config the sensor previously blocked does not need to be re-sent: the cloud config
-// watcher re-delivers the current config on every poll.
-func (r *localRobot) OverrideMaintenanceSensor(ctx context.Context) (time.Time, error) {
-	window := maintenanceOverrideWindow(r.Config())
-
-	r.maintenanceOverrideMu.Lock()
-	defer r.maintenanceOverrideMu.Unlock()
-	r.maintenanceOverrideUntil = time.Now().Add(window)
-	r.logger.CWarnw(ctx, "Maintenance sensor override armed; the next blocked reconfigure will be applied",
-		"expires_at", r.maintenanceOverrideUntil.UTC().Format(time.RFC3339),
-	)
-	return r.maintenanceOverrideUntil, nil
+// watcher re-delivers the current config on every poll, and that delivery applies it.
+func (r *localRobot) OverrideMaintenanceSensor(ctx context.Context) error {
+	r.maintenanceOverrideArmed.Store(true)
+	r.logger.CWarnw(ctx, "Maintenance sensor override armed; the next reconfigure will skip the maintenance sensor")
+	return nil
 }
 
-// MaintenanceOverrideExpiry returns when the armed maintenance sensor override lapses and
-// whether one is armed.
-func (r *localRobot) MaintenanceOverrideExpiry() (time.Time, bool) {
-	r.maintenanceOverrideMu.Lock()
-	defer r.maintenanceOverrideMu.Unlock()
-	if r.maintenanceOverrideUntil.IsZero() || !time.Now().Before(r.maintenanceOverrideUntil) {
-		return time.Time{}, false
-	}
-	return r.maintenanceOverrideUntil, true
-}
-
-// consumeMaintenanceOverride disarms the override and reports whether it was armed and
-// unexpired. Check and clear happen under one lock so the override admits a single reconfigure.
-func (r *localRobot) consumeMaintenanceOverride() bool {
-	r.maintenanceOverrideMu.Lock()
-	defer r.maintenanceOverrideMu.Unlock()
-	armed := !r.maintenanceOverrideUntil.IsZero() && time.Now().Before(r.maintenanceOverrideUntil)
-	r.maintenanceOverrideUntil = time.Time{}
-	return armed
+// MaintenanceOverrideArmed reports whether a maintenance sensor override is armed and not yet
+// consumed.
+func (r *localRobot) MaintenanceOverrideArmed() bool {
+	return r.maintenanceOverrideArmed.Load()
 }
 
 // logReconfigureBlocked logs why a reconfigure was skipped at the maintenance gate, staying

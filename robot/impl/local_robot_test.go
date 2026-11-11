@@ -5552,58 +5552,29 @@ func TestMaintenanceSensorOverride(t *testing.T) {
 		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
 		test.That(t, hasResource(r, "sensor2"), test.ShouldBeFalse)
 
-		expiresAt, err := r.OverrideMaintenanceSensor(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, expiresAt.After(time.Now()), test.ShouldBeTrue)
-		gotExpiry, armed := r.MaintenanceOverrideExpiry()
-		test.That(t, armed, test.ShouldBeTrue)
-		test.That(t, gotExpiry, test.ShouldEqual, expiresAt)
+		test.That(t, r.OverrideMaintenanceSensor(ctx), test.ShouldBeNil)
+		test.That(t, r.MaintenanceOverrideArmed(), test.ShouldBeTrue)
 		test.That(t, r.RestartAllowed(), test.ShouldBeFalse)
 
 		// Re-delivering the same blocked config, as the cloud watcher does each poll, applies it.
 		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
 		test.That(t, hasResource(r, "sensor2"), test.ShouldBeTrue)
-		_, armed = r.MaintenanceOverrideExpiry()
-		test.That(t, armed, test.ShouldBeFalse)
+		test.That(t, r.MaintenanceOverrideArmed(), test.ShouldBeFalse)
 
 		r.Reconfigure(ctx, cfgWith(sensor2Cfg, sensor3Cfg))
 		test.That(t, hasResource(r, "sensor3"), test.ShouldBeFalse)
 	})
 
-	t.Run("unchanged config does not consume the override", func(t *testing.T) {
+	t.Run("unchanged config consumes the override", func(t *testing.T) {
 		r := newRobot(t)
-		_, err := r.OverrideMaintenanceSensor(ctx)
-		test.That(t, err, test.ShouldBeNil)
+		test.That(t, r.OverrideMaintenanceSensor(ctx), test.ShouldBeNil)
 
 		r.Reconfigure(ctx, cfgWith())
-		_, armed := r.MaintenanceOverrideExpiry()
-		test.That(t, armed, test.ShouldBeTrue)
+		test.That(t, r.MaintenanceOverrideArmed(), test.ShouldBeFalse)
 
-		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
-		test.That(t, hasResource(r, "sensor2"), test.ShouldBeTrue)
-	})
-
-	t.Run("lapsed override does not apply", func(t *testing.T) {
-		r := newRobot(t)
-		_, err := r.OverrideMaintenanceSensor(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		r.maintenanceOverrideMu.Lock()
-		r.maintenanceOverrideUntil = time.Now().Add(-time.Second)
-		r.maintenanceOverrideMu.Unlock()
-
-		_, armed := r.MaintenanceOverrideExpiry()
-		test.That(t, armed, test.ShouldBeFalse)
 		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
 		test.That(t, hasResource(r, "sensor2"), test.ShouldBeFalse)
 	})
-}
-
-func TestMaintenanceOverrideWindow(t *testing.T) {
-	test.That(t, maintenanceOverrideWindow(nil), test.ShouldEqual, 2*defaultConfigRefreshInterval)
-	test.That(t, maintenanceOverrideWindow(&config.Config{}), test.ShouldEqual, 2*defaultConfigRefreshInterval)
-	test.That(t,
-		maintenanceOverrideWindow(&config.Config{Cloud: &config.Cloud{RefreshInterval: time.Minute}}),
-		test.ShouldEqual, 2*time.Minute)
 }
 
 func TestMaintenanceConfigLogs(t *testing.T) {
