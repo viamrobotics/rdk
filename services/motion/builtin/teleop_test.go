@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -206,6 +207,10 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 
 	fake := &fakeTeleopArmStreamRunner{}
 	ms.teleopRunArmStream = fake.run
+	diagDir := t.TempDir()
+	ms.mu.Lock()
+	ms.conf.StreamDiagnosticsFilePath = diagDir
+	ms.mu.Unlock()
 
 	initial, err := a.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -245,6 +250,14 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	})
 	test.That(t, fake.snapshot().closedCleanly, test.ShouldEqual, 1)
 	test.That(t, teleopStatus(t, ms)["running"], test.ShouldBeFalse)
+
+	// The stream's diagnostics file is written when it ends.
+	pattern := filepath.Join(diagDir, "tag=teleop-arm-stream-diagnostics", "tag="+teleopTestArm, "*.json")
+	waitFor(t, "diagnostics file to be written", func() bool {
+		files, err := filepath.Glob(pattern)
+		test.That(t, err, test.ShouldBeNil)
+		return len(files) == 1
+	})
 }
 
 func TestTeleopStreamedFallsBackToUnary(t *testing.T) {

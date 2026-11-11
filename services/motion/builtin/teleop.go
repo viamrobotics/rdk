@@ -59,9 +59,11 @@ const (
 	// streamed analogue of the unary executor dropping trajectories while a move is in flight.
 	defaultTeleopStreamMaxLeadMs = 100
 
-	// teleopStreamDiagWindow is how much detail each arm stream's diagnostics retain. It only
-	// needs to be long enough to always hold the most recent trajex runway reading.
-	teleopStreamDiagWindow = 2 * time.Second
+	// teleopStreamDiagWindow is how much detail each arm stream's diagnostics retain when no
+	// diagnostics file is written; teleopStreamDiagFileWindow is how much they retain when
+	// Config.StreamDiagnosticsFilePath is set, and so how much of a stream's end the file holds.
+	teleopStreamDiagWindow     = 2 * time.Second
+	teleopStreamDiagFileWindow = 120 * time.Second
 	// teleopStreamTargetBuffer is the depth of the channel between the executor and a stream's
 	// Run loop. A little slack lets the executor hand over a whole trajectory without waiting on
 	// the stream's send to the arm.
@@ -269,11 +271,7 @@ func (s *teleopArmStream) close() {
 // is added, so a value read from them would go stale, and never recover, while trajectories are
 // being skipped.
 func (s *teleopArmStream) trajexRunway() time.Duration {
-	details := s.diag.LastWindowDetails()
-	if n := len(details.TrajexRunway); n > 0 {
-		return time.Duration(details.TrajexRunway[n-1].SizeMs * float64(time.Millisecond))
-	}
-	return 0
+	return s.diag.LatestTrajexRunway()
 }
 
 // teleopComponent tracks a single component being teleop'd within the pipeline.
@@ -338,6 +336,8 @@ type teleopPipeline struct {
 	streamOpts   streaming.StreamOptions
 	maxLead      time.Duration
 	runArmStream teleopArmStreamRunner
+	// diagDir is where each arm stream writes its diagnostics file when it ends; empty disables it.
+	diagDir string
 
 	// Arm streams outlive the worker goroutines so stop() can drain them gracefully after the
 	// executor has halted. streamCancel is the hard stop (Run then stops the arm); streamWG
@@ -799,7 +799,7 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 	s := &teleopArmStream{
 		targets: make(chan []referenceframe.Input, teleopStreamTargetBuffer),
 		done:    make(chan struct{}),
-		diag:    diagnostics.New(teleopStreamDiagWindow),
+		diag:    diagnostics.New(time.Duration(tp.streamOpts.DiagnosticsWindowSecs) * time.Second),
 		cancel:  cancel,
 		started: time.Now(),
 	}
@@ -832,6 +832,11 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 			tp.logger.CWarnf(streamCtx, "teleop arm stream for %q ended: %v", name, err)
 		}
 		tp.logger.Infow("teleop arm stream stats", "component", name, "options", tp.streamOpts, "stats", s.diag.Stats())
+		if werr := writeStreamDiagnosticsFile(
+			tp.logger, tp.diagDir, "teleop-arm-stream-diagnostics", name, tp.streamOpts, s.diag, s.started, nil, err,
+		); werr != nil {
+			tp.logger.Warnf("couldn't write teleop arm stream diagnostics: %v", werr)
+		}
 	}()
 	tp.logger.CInfof(ctx, "teleop executor: opened arm stream for %q", name)
 	return s, nil
@@ -1109,9 +1114,15 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 
 		streamed := true
 		var streamConf TeleopStreamConfig
+		diagDir := ""
 		if ms.conf != nil {
 			streamed = ms.conf.TeleopExecutor != TeleopExecutorUnary
 			streamConf = ms.conf.TeleopStream
+			diagDir = ms.conf.StreamDiagnosticsFilePath
+		}
+		streamOpts := streamConf.streamOptions()
+		if diagDir != "" {
+			streamOpts.DiagnosticsWindowSecs = int(teleopStreamDiagFileWindow / time.Second)
 		}
 		runArmStream := ms.teleopRunArmStream
 		if runArmStream == nil {
@@ -1125,7 +1136,8 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			cachedFrameSys:   frameSys,
 			cachedBaseInputs: fsInputs,
 			streamed:         streamed,
-			streamOpts:       streamConf.streamOptions(),
+			streamOpts:       streamOpts,
+			diagDir:          diagDir,
 			maxLead:          streamConf.maxLead(),
 			runArmStream:     runArmStream,
 			streamCtx:        streamCtx,
