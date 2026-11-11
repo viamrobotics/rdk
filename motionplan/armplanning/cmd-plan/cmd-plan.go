@@ -336,12 +336,13 @@ func realMain() error {
 	// perFile is what the loop below plans one request at a time. A batch plans everything up
 	// front, and is reported on in the same way afterwards.
 	perFile := files
+	var backtrack *backtrackReport
 	if r.opts.batch {
 		outcome, err := r.runBatch(ctx, files)
 		if err != nil {
 			return err
 		}
-		results, failure = outcome.results, outcome.failure
+		results, failure, backtrack = outcome.results, outcome.failure, outcome.backtrack
 		perFile = nil
 	}
 
@@ -400,6 +401,10 @@ func realMain() error {
 		printSummary(r.mylog, results, notRun, time.Since(r.start))
 	}
 
+	if backtrack != nil {
+		r.printBacktrackSummary(backtrack)
+	}
+
 	if *waypointsFile != "" {
 		plans := make([]motionplan.Plan, 0, len(results))
 		for _, res := range results {
@@ -423,6 +428,18 @@ type sequenceOutcome struct {
 	results []*stepResult
 	// failure is why the sequence could not be planned, if it could not.
 	failure error
+	// backtrack is what the backtrack summary is printed from. Nil when nothing was planned as a
+	// sequence.
+	backtrack *backtrackReport
+}
+
+// backtrackReport holds what printBacktrackSummary needs from one PlanMotionSequence call.
+type backtrackReport struct {
+	files     []string
+	requests  []*armplanning.PlanRequest
+	plans     []motionplan.Plan
+	metas     []*armplanning.PlanMeta
+	succeeded bool
 }
 
 // runBatch plans every file as one sequence with armplanning.PlanMotionSequence, which backtracks
@@ -459,10 +476,13 @@ func (r *runner) runBatch(ctx context.Context, files []string) (*sequenceOutcome
 	if err != nil {
 		r.mylog.Printf("\nFAILED: no sequence of plans found for the %d requests: %v", len(requests), err)
 
-		return &sequenceOutcome{failure: fmt.Errorf("planning %d requests as a sequence: %w", len(requests), err)}, nil
+		return &sequenceOutcome{
+			failure:   fmt.Errorf("planning %d requests as a sequence: %w", len(requests), err),
+			backtrack: &backtrackReport{files: files, requests: requests, plans: plans, metas: metas},
+		}, nil
 	}
 
-	outcome := &sequenceOutcome{}
+	outcome := &sequenceOutcome{backtrack: &backtrackReport{files: files, requests: requests, plans: plans, metas: metas, succeeded: true}}
 	for idx, file := range files {
 		current := &step{
 			idx: idx, total: len(files), file: file, req: requests[idx], origPlan: origPlans[idx], recordedStart: recordedStarts[idx],
@@ -482,6 +502,152 @@ func (r *runner) runBatch(ctx context.Context, files []string) (*sequenceOutcome
 	}
 
 	return outcome, nil
+}
+
+// printBacktrackSummary shows, for every plan of a sequence that had solutions rejected, the
+// configuration the plan started from, the configuration it finished with and each rejected end
+// configuration. Rows are joints. Below them:
+//
+//   - Linf is the largest per-joint difference between a rejected end and the final end, which is
+//     what decides whether a planner solution is dropped as a repeat of a rejected one: it must be
+//     within rejectionTolerance on every joint of every frame to be dropped. Raw joint values are
+//     compared, so an angle that differs by a full turn is a different solution.
+//   - cost is the request's configuration distance metric (the L2 distance unless the planner
+//     options say otherwise) from the start the solution was planned from to the solution. The
+//     planner also adds a small bias for joints far from the middle of their range, which is not
+//     included.
+//
+// When the sequence failed, the final end is whatever the plan's last attempt produced, which is
+// not a working solution, and plans that were never planned have none.
+func (r *runner) printBacktrackSummary(report *backtrackReport) {
+	const rejectionTolerance = 0.01
+
+	header := false
+	for idx, meta := range report.metas {
+		if meta == nil || len(meta.RejectedSolutions) == 0 {
+			continue
+		}
+
+		if !header {
+			r.mylog.Printf("\nBacktrack summary:")
+			header = true
+		}
+
+		endLabel := "final"
+		if !report.succeeded {
+			endLabel = "last attempt"
+		}
+
+		var finalStart, finalEnd referenceframe.FrameSystemInputs
+		if idx < len(report.plans) && report.plans[idx] != nil {
+			trajectory := report.plans[idx].Trajectory()
+			finalStart, finalEnd = trajectory[0], trajectory[len(trajectory)-1]
+		}
+
+		metric := motionplan.GetConfigurationDistanceFunc(motionplan.FSConfigurationL2DistanceMetric)
+		if options := report.requests[idx].PlannerOptions; options != nil {
+			metric = motionplan.GetConfigurationDistanceFunc(options.ConfigurationDistanceMetric)
+		}
+
+		cost := func(start, end referenceframe.FrameSystemInputs) string {
+			if start == nil || end == nil {
+				return "-"
+			}
+
+			return fmt.Sprintf("%.4f", metric(&motionplan.SegmentFS{
+				StartConfiguration: start.ToLinearInputs(),
+				EndConfiguration:   end.ToLinearInputs(),
+			}))
+		}
+
+		r.mylog.Printf("plan %d/%d %s: %d rejected solutions, planned %d times",
+			idx+1, len(report.files), filepath.Base(report.files[idx]), len(meta.RejectedSolutions), meta.BacktrackCounter+1)
+
+		frameNames := map[string]bool{}
+		for _, rejected := range meta.RejectedSolutions {
+			for frameName, inputs := range rejected.End {
+				if len(inputs) > 0 {
+					frameNames[frameName] = true
+				}
+			}
+		}
+
+		for _, frameName := range slices.Sorted(maps.Keys(frameNames)) {
+			r.mylog.Printf("  frame %q", frameName)
+
+			// One column per configuration: the start, the final end, then each rejected end.
+			columns := []referenceframe.FrameSystemInputs{finalStart, finalEnd}
+			titles := []string{"start", endLabel}
+			for rejectedIdx, rejected := range meta.RejectedSolutions {
+				columns = append(columns, rejected.End)
+				titles = append(titles, fmt.Sprintf("rejected %d", rejectedIdx+1))
+			}
+
+			line := fmt.Sprintf("    %-6s", "joint")
+			for _, title := range titles {
+				line += fmt.Sprintf(" %12s", title)
+			}
+			r.mylog.Printf("%s", line)
+
+			for jointIdx := range meta.RejectedSolutions[0].End[frameName] {
+				line = fmt.Sprintf("    %-6d", jointIdx)
+				for _, column := range columns {
+					if jointIdx < len(column[frameName]) {
+						line += fmt.Sprintf(" %12.4f", column[frameName][jointIdx])
+					} else {
+						line += fmt.Sprintf(" %12s", "-")
+					}
+				}
+				r.mylog.Printf("%s", line)
+			}
+
+			line = fmt.Sprintf("    %-6s %12s %12s", "Linf", "", "")
+			for _, rejected := range meta.RejectedSolutions {
+				if finalEnd == nil {
+					line += fmt.Sprintf(" %12s", "-")
+					continue
+				}
+
+				distance := referenceframe.InputsLinfDistance(finalEnd[frameName], rejected.End[frameName])
+				marker := ""
+				if distance <= rejectionTolerance {
+					marker = "*"
+				}
+				line += fmt.Sprintf(" %11.4f%1s", distance, marker)
+			}
+			r.mylog.Printf("%s", line)
+		}
+
+		line := fmt.Sprintf("    %-6s %12s %12s", "cost", "", cost(finalStart, finalEnd))
+		for _, rejected := range meta.RejectedSolutions {
+			line += fmt.Sprintf(" %12s", cost(rejected.Start, rejected.End))
+		}
+		r.mylog.Printf("%s", line)
+
+		for rejectedIdx, rejected := range meta.RejectedSolutions {
+			if finalStart == nil || startsAgree(finalStart, rejected.Start, rejectionTolerance) {
+				continue
+			}
+
+			r.mylog.Printf("  rejected %d was planned from a different start than the one above", rejectedIdx+1)
+		}
+	}
+
+	if header {
+		r.mylog.Printf("Linf is the largest per-joint difference from the plan's end. * marks a difference within %v.",
+			rejectionTolerance)
+	}
+}
+
+// startsAgree reports whether two configurations are within tolerance on every joint of every frame.
+func startsAgree(first, second referenceframe.FrameSystemInputs, tolerance float64) bool {
+	for frameName, inputs := range first {
+		if referenceframe.InputsLinfDistance(inputs, second[frameName]) > tolerance {
+			return false
+		}
+	}
+
+	return true
 }
 
 // collectRequestFiles resolves the positional arguments into the sequence of requests to replay,
