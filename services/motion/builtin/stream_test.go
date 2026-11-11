@@ -410,7 +410,7 @@ func TestTempStreamArmJointPositionsWritesDiagnosticsFile(t *testing.T) {
 	test.That(t, doc.Arm, test.ShouldEqual, "arm")
 	test.That(t, doc.Error, test.ShouldBeEmpty)
 	test.That(t, doc.EndTime.After(doc.StartTime), test.ShouldBeTrue)
-	test.That(t, doc.Options.DiagnosticsWindowSecs, test.ShouldEqual, 60)
+	test.That(t, doc.Options.DiagnosticsWindow, test.ShouldEqual, 60*time.Second)
 	test.That(t, doc.Stats.JointPositionTargetsReceived, test.ShouldEqual, 6)
 	test.That(t, doc.Stats.JointPositionTargetsDroppedDueToTrajexExtendError, test.ShouldEqual, 0)
 
