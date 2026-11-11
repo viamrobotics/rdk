@@ -523,7 +523,7 @@ func (conf *Remote) validate(path string) error {
 	if conf.Secret != "" {
 		conf.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
+				Type:    rutils.CredentialsTypeRobotLocationSecret, //nolint:staticcheck // kept for outbound-dial compatibility
 				Payload: conf.Secret,
 			},
 		}
@@ -536,8 +536,6 @@ func (conf *Remote) validate(path string) error {
 type Cloud struct {
 	ID               string
 	Secret           string
-	LocationSecret   string // Deprecated: Use LocationSecrets
-	LocationSecrets  []LocationSecret
 	APIKey           APIKey
 	LocationID       string
 	PrimaryOrgID     string
@@ -569,8 +567,6 @@ type cloudData struct {
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
 
-	LocationSecret    string           `json:"location_secret"`
-	LocationSecrets   []LocationSecret `json:"location_secrets"`
 	APIKey            APIKey           `json:"api_key"`
 	LocationID        string           `json:"location_id"`
 	PrimaryOrgID      string           `json:"primary_org_id"`
@@ -623,8 +619,6 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 	*config = Cloud{
 		ID:                temp.ID,
 		Secret:            temp.Secret,
-		LocationSecret:    temp.LocationSecret,
-		LocationSecrets:   temp.LocationSecrets,
 		APIKey:            temp.APIKey,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
@@ -653,8 +647,6 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 	temp := cloudData{
 		ID:                config.ID,
 		Secret:            config.Secret,
-		LocationSecret:    config.LocationSecret,
-		LocationSecrets:   config.LocationSecrets,
 		APIKey:            config.APIKey,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
@@ -732,15 +724,7 @@ func (config *Cloud) Copy() *Cloud {
 		return nil
 	}
 	cloudCopy := *config
-	cloudCopy.LocationSecrets = slices.Clone(config.LocationSecrets)
 	return &cloudCopy
-}
-
-// LocationSecret describes a location secret that can be used to authenticate to the rdk.
-type LocationSecret struct {
-	ID string `json:"id"`
-	// Payload of the secret
-	Secret string `json:"secret"`
 }
 
 // NetworkConfig describes networking settings for the web server.
@@ -1062,8 +1046,7 @@ type AuthHandlerConfig struct {
 
 // Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
 // A sample AuthConfig in JSON form is shown below, where "handlers" contains a list of auth handlers. The only accepted credential
-// type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
-// later by the RDK during processing.
+// type for the RDK in the config is "api-key" currently.
 //
 //	"auth": {
 //			"handlers": [
