@@ -23,8 +23,11 @@ import (
 )
 
 const (
-	teleopTestArm     = "pieceArm"
-	teleopTestTimeout = 30 * time.Second
+	teleopTestArm = "pieceArm"
+	// teleopTestComponent is the frame teleop moves. It is carried by teleopTestArm, so the
+	// teleop component's name differs from the name of the arm that is actuated.
+	teleopTestComponent = "pieceGripper"
+	teleopTestTimeout   = 30 * time.Second
 )
 
 // fakeTeleopArmStreamRunner stands in for streaming.Run. It records the seed and every target
@@ -124,9 +127,9 @@ func setupTeleopTest(t *testing.T) (*builtIn, arm.Arm, func()) {
 func teleopStart(t *testing.T, ms *builtIn) *referenceframe.PoseInFrame {
 	t.Helper()
 	ctx := context.Background()
-	pose, err := ms.GetPose(ctx, teleopTestArm, referenceframe.World, nil, nil)
+	pose, err := ms.GetPose(ctx, teleopTestComponent, referenceframe.World, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	req := motion.MoveReq{ComponentName: teleopTestArm, Destination: pose}
+	req := motion.MoveReq{ComponentName: teleopTestComponent, Destination: pose}
 	proto, err := req.ToProto(ms.Name().Name)
 	test.That(t, err, test.ShouldBeNil)
 	bytes, err := protojson.Marshal(proto)
@@ -143,7 +146,7 @@ func teleopMove(t *testing.T, ms *builtIn, pose *referenceframe.PoseInFrame, seq
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := ms.DoCommand(context.Background(), map[string]interface{}{
 		DoTeleopMove:     string(bytes),
-		"component_name": teleopTestArm,
+		"component_name": teleopTestComponent,
 		"seq":            float64(seq),
 	})
 	test.That(t, err, test.ShouldBeNil)

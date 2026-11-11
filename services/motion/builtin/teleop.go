@@ -281,16 +281,21 @@ type teleopComponent struct {
 	name        string
 	moveReqBase motion.MoveReq
 	latestPose  atomic.Pointer[referenceframe.PoseInFrame]
+}
 
-	// Streamed-executor state, guarded by streamMu. The executor goroutine is the only one that
-	// opens streams and pushes to them; stop, removal, and the status handler read and close.
-	streamMu             sync.Mutex
+// teleopArmState is the streamed executor's state for one arm. It is keyed by the arm's name,
+// which is not the teleop component's name when the component is a frame the arm carries (a
+// gripper, say). The executor goroutine is the only one that opens streams and pushes to them;
+// stop, removal, and the status handler read and close.
+type teleopArmState struct {
+	name string
+
+	mu                   sync.Mutex
 	stream               *teleopArmStream
-	removed              bool  // set when the component leaves the pipeline; no new stream may open
 	streamFails          int   // consecutive stream failures
 	streamRestarts       int64 // total times the stream has died
 	streamSkipped        int64 // trajectories skipped because the stream was too far ahead of the arm
-	streamFallbackUnary  bool  // streaming has been given up for this component
+	streamFallbackUnary  bool  // streaming has been given up for this arm
 	streamFallbackReason string
 }
 
@@ -342,6 +347,11 @@ type teleopPipeline struct {
 	streamWG     sync.WaitGroup
 	// retryPending dedups the replan timer armed when a trajectory is skipped.
 	retryPending atomic.Bool
+	// Per-arm streamed-executor state, created the first time a trajectory moves the arm.
+	// streamsStopped is set once the pipeline is stopping; no stream may open after that.
+	armsMu         sync.Mutex
+	arms           map[string]*teleopArmState
+	streamsStopped bool
 
 	// Components being teleop'd. Protected by componentsMu.
 	componentsMu sync.RWMutex
@@ -612,6 +622,11 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		}
 
 		if armComp, ok := r.(arm.Arm); ok && tp.streamed {
+			if !tp.hasArmState(name) && !stepsMove(traj[0][name], steps) {
+				// The plan covers every arm in the frame system. Do not open a stream to one
+				// that teleop is not moving.
+				continue
+			}
 			sent, err := tp.executeStreamed(ctx, name, armComp, steps)
 			switch {
 			case errors.Is(err, errTeleopStreamFallback):
@@ -704,7 +719,7 @@ func (tp *teleopPipeline) executeUnary(ctx context.Context, ms *builtIn, jobs []
 // executeStreamed pushes one arm's planned steps into its stream as joint targets, opening or
 // reopening the stream first if needed. It returns sent=false with a nil error when the
 // trajectory was deliberately not sent: the stream is already too far ahead of the arm, or the
-// component has left the pipeline. It returns errTeleopStreamFallback once streaming has been
+// pipeline is stopping. It returns errTeleopStreamFallback once streaming has been
 // given up for this arm, so the caller can use the unary path for it instead.
 func (tp *teleopPipeline) executeStreamed(
 	ctx context.Context,
@@ -712,18 +727,13 @@ func (tp *teleopPipeline) executeStreamed(
 	a arm.Arm,
 	steps [][]referenceframe.Input,
 ) (bool, error) {
-	tp.componentsMu.RLock()
-	comp := tp.components[name]
-	tp.componentsMu.RUnlock()
+	comp := tp.armState(name)
 	if comp == nil {
 		return false, nil
 	}
 
-	comp.streamMu.Lock()
-	defer comp.streamMu.Unlock()
-	if comp.removed {
-		return false, nil
-	}
+	comp.mu.Lock()
+	defer comp.mu.Unlock()
 	if comp.streamFallbackUnary {
 		return false, errTeleopStreamFallback
 	}
@@ -777,9 +787,9 @@ func (tp *teleopPipeline) executeStreamed(
 }
 
 // openArmStream reads the arm's current joint positions, starts a stream seeded from them, and
-// moves the component's planning head onto that seed so the next plan starts from where the arm
-// actually is. Caller holds comp.streamMu and runs on the executor goroutine.
-func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *teleopComponent) (*teleopArmStream, error) {
+// moves the arm's planning head onto that seed so the next plan starts from where the arm
+// actually is. Caller holds comp.mu and runs on the executor goroutine.
+func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *teleopArmState) (*teleopArmStream, error) {
 	seed, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading seed joint positions: %w", err)
@@ -810,7 +820,7 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 		acksDrained := make(chan struct{})
 		go func() {
 			defer close(acksDrained)
-			for range acks { //nolint:revive
+			for range acks {
 			}
 		}()
 		err := tp.runArmStream(streamCtx, tp.logger, a, tp.streamOpts, s.targets, seed, s.diag, acks)
@@ -828,8 +838,8 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 }
 
 // noteStreamFailure records that comp's stream s has died and decides whether streaming should
-// be retried for this arm or abandoned for the rest of the session. Caller holds comp.streamMu.
-func (tp *teleopPipeline) noteStreamFailure(ctx context.Context, comp *teleopComponent, s *teleopArmStream) {
+// be retried for this arm or abandoned for the rest of the session. Caller holds comp.mu.
+func (tp *teleopPipeline) noteStreamFailure(ctx context.Context, comp *teleopArmState, s *teleopArmStream) {
 	err := s.err
 	comp.streamRestarts++
 	if time.Since(s.started) >= teleopStreamHealthyAfter {
@@ -856,6 +866,49 @@ func (tp *teleopPipeline) noteStreamFailure(ctx context.Context, comp *teleopCom
 	}
 	tp.logger.CWarnf(ctx, "teleop executor: arm stream for %q died (%d consecutive), will reopen: %v",
 		comp.name, comp.streamFails, err)
+}
+
+// armState returns the streamed-executor state for the named arm, creating it on first use. It
+// returns nil once the pipeline is stopping.
+func (tp *teleopPipeline) armState(name string) *teleopArmState {
+	tp.armsMu.Lock()
+	defer tp.armsMu.Unlock()
+	if tp.streamsStopped {
+		return nil
+	}
+	st, ok := tp.arms[name]
+	if !ok {
+		st = &teleopArmState{name: name}
+		tp.arms[name] = st
+	}
+	return st
+}
+
+func (tp *teleopPipeline) hasArmState(name string) bool {
+	tp.armsMu.Lock()
+	defer tp.armsMu.Unlock()
+	_, ok := tp.arms[name]
+	return ok
+}
+
+func (tp *teleopPipeline) armStates() []*teleopArmState {
+	tp.armsMu.Lock()
+	defer tp.armsMu.Unlock()
+	states := make([]*teleopArmState, 0, len(tp.arms))
+	for _, st := range tp.arms {
+		states = append(states, st)
+	}
+	return states
+}
+
+// stepsMove reports whether any step differs from start.
+func stepsMove(start []referenceframe.Input, steps [][]referenceframe.Input) bool {
+	for _, step := range steps {
+		if len(step) != len(start) || referenceframe.InputsL2Distance(step, start) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // scheduleRetry arms a one-shot replan after `after`, if none is already pending.
@@ -961,15 +1014,10 @@ func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 // remaining trajectory to the arm and waits for it to finish; streams still running after
 // teleopStreamCloseTimeout are cancelled, which makes Run stop their arms instead.
 func (tp *teleopPipeline) closeStreams(ctx context.Context) {
-	tp.componentsMu.RLock()
-	comps := make([]*teleopComponent, 0, len(tp.components))
-	for _, comp := range tp.components {
-		comps = append(comps, comp)
-	}
-	tp.componentsMu.RUnlock()
-	for _, comp := range comps {
-		tp.closeComponentStream(comp)
-	}
+	tp.armsMu.Lock()
+	tp.streamsStopped = true
+	tp.armsMu.Unlock()
+	tp.closeArmStreams()
 
 	streamsDone := make(chan struct{})
 	go func() {
@@ -993,31 +1041,26 @@ func (tp *teleopPipeline) closeStreams(ctx context.Context) {
 	}
 }
 
-// closeComponentStream half-closes comp's stream, if any, and marks the component so the
-// executor never opens another for it.
-func (tp *teleopPipeline) closeComponentStream(comp *teleopComponent) {
-	comp.streamMu.Lock()
-	comp.removed = true
-	s := comp.stream
-	comp.stream = nil
-	comp.streamMu.Unlock()
-	if s != nil {
-		s.close()
+// closeArmStreams half-closes every open arm stream, so each arm finishes what it was sent. The
+// executor opens a new stream for an arm if a later trajectory still moves it.
+func (tp *teleopPipeline) closeArmStreams() {
+	for _, st := range tp.armStates() {
+		st.mu.Lock()
+		s := st.stream
+		st.stream = nil
+		st.mu.Unlock()
+		if s != nil {
+			s.close()
+		}
 	}
 }
 
-// streamStatus reports the streamed executor's per-component state for teleop_status.
+// streamStatus reports the streamed executor's per-arm state for teleop_status.
 func (tp *teleopPipeline) streamStatus() map[string]any {
-	tp.componentsMu.RLock()
-	comps := make([]*teleopComponent, 0, len(tp.components))
-	for _, comp := range tp.components {
-		comps = append(comps, comp)
-	}
-	tp.componentsMu.RUnlock()
-
+	comps := tp.armStates()
 	streams := make(map[string]any, len(comps))
 	for _, comp := range comps {
-		comp.streamMu.Lock()
+		comp.mu.Lock()
 		info := map[string]any{
 			"open":           comp.stream != nil && !comp.stream.isDone(),
 			"restarts":       comp.streamRestarts,
@@ -1031,7 +1074,7 @@ func (tp *teleopPipeline) streamStatus() map[string]any {
 			info["trajex_runway_ms"] = float64(s.trajexRunway().Microseconds()) / 1e3
 			info["stats"] = s.diag.Stats()
 		}
-		comp.streamMu.Unlock()
+		comp.mu.Unlock()
 		streams[comp.name] = info
 	}
 	return streams
@@ -1092,6 +1135,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			trajCh:           make(chan motionplan.Trajectory, 1),
 			planningHead:     fsInputs,
 			commandedJoints:  make(map[string][]referenceframe.Input),
+			arms:             make(map[string]*teleopArmState),
 		}
 
 		comp := &teleopComponent{
@@ -1143,7 +1187,6 @@ func (ms *builtIn) removeTeleopComponent(ctx context.Context, componentName stri
 	}
 
 	tp.componentsMu.Lock()
-	comp := tp.components[componentName]
 	delete(tp.components, componentName)
 	remaining := len(tp.components)
 	tp.componentsMu.Unlock()
@@ -1153,10 +1196,9 @@ func (ms *builtIn) removeTeleopComponent(ctx context.Context, componentName stri
 		ms.teleopPipeline = nil
 		return
 	}
-	if comp != nil {
-		// Let this arm finish what it was sent; the pipeline carries on for the others.
-		tp.closeComponentStream(comp)
-	}
+	// The removed component's arm is not known here (the component may be a frame the arm
+	// carries), so every stream is drained. The executor reopens one for each arm still moving.
+	tp.closeArmStreams()
 }
 
 // handleTeleopCommand handles teleop DoCommand requests.
