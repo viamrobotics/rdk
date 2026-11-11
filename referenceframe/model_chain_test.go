@@ -380,3 +380,91 @@ func TestChainCarriesAFrameWithSeveralInputs(t *testing.T) {
 		test.That(t, spatial.PoseAlmostEqualEps(composeChain(t, chain, inputs), want, 1e-6), test.ShouldBeTrue)
 	}
 }
+
+// ChainFrom cuts the chain at a base frame, so composing it gives the end in that frame rather
+// than in world, which is what a tool speed cap relative to a moving carriage wants.
+func TestChainFromABaseFrame(t *testing.T) {
+	gantry, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	mountPose := spatial.NewPose(r3.Vector{X: 120, Y: -40, Z: 25}, &spatial.EulerAngles{Roll: 0.4, Pitch: -0.2, Yaw: 2.1})
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), "gantry", nil), ModelFrame: gantry},
+		{FrameConfig: NewLinkInFrame("gantry", mountPose, "mount", nil)},
+		{FrameConfig: NewLinkInFrame("mount", spatial.NewPoseFromPoint(r3.Vector{Z: 60}), "arm", nil), ModelFrame: arm},
+		{FrameConfig: NewLinkInFrame("arm", spatial.NewPoseFromPoint(r3.Vector{Z: 20}), "hand", nil), ModelFrame: gripper},
+		{FrameConfig: NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 2000}), "other", nil), ModelFrame: arm},
+	}
+	fs, err := NewFrameSystem("machine", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	machine, err := NewModel("machine", fs, "hand")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(machine.DoF()), test.ShouldEqual, len(gantry.DoF())+2*len(arm.DoF())+1)
+
+	whole, err := machine.Chain("")
+	test.That(t, err, test.ShouldBeNil)
+	fromWorld, err := machine.ChainFrom("", "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(fromWorld), test.ShouldResemble, chainNames(whole))
+
+	rng := rand.New(rand.NewSource(23))
+	for _, tc := range []struct {
+		base  string
+		first string
+	}{
+		{"gantry", "mount_origin"},
+		{"mount", "arm_origin"},
+		{"arm_origin", "base_link"},
+		{"arm", "hand_origin"},
+	} {
+		t.Run(tc.base, func(t *testing.T) {
+			chain, err := machine.ChainFrom(tc.base, "")
+			test.That(t, err, test.ShouldBeNil)
+			assertChainFrames(t, chain)
+			test.That(t, chainNames(chain)[0], test.ShouldEqual, tc.first)
+			for range 10 {
+				inputs := RandomFrameInputs(machine, rng)
+				want, err := fs.Transform(linearInputsOf(machine, inputs), NewPoseInFrame("hand", spatial.NewZeroPose()), tc.base)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, spatial.PoseAlmostEqualEps(composeChain(t, chain, inputs), want.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
+			}
+		})
+	}
+
+	// a base inside a part cuts that part's expanded chain, and so does one the walk climbs
+	// through on its way out of a part
+	inside, err := machine.ChainFrom("arm:wrist_3_joint", "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(inside)[:2], test.ShouldResemble, []string{"ee_link", "hand_origin"})
+	test.That(t, chainNames(inside)[len(inside)-1], test.ShouldEqual, "tcp")
+	finger, err := machine.ChainFrom("hand:base", "hand:right_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(finger), test.ShouldResemble, []string{"right_joint", "right_finger"})
+	handOffset, err := (&chainWalk{offsets: map[*SimpleModel]map[string]int{}}).offset(machine, "hand", gripper)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, finger[0].Mimic, test.ShouldResemble, &MimicInput{Source: handOffset, ValueMultiplier: 1})
+
+	same, err := machine.ChainFrom("hand", "hand")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, same, test.ShouldBeEmpty)
+
+	_, err = machine.ChainFrom("other", "hand")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"other" of model "machine" is not between "hand" and the world frame`)
+	_, err = machine.ChainFrom("nowhere", "hand")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "nowhere")
+}
+
+// linearInputsOf keys a model's flat input vector by the frames of the frame system it was built
+// over, which is how the frame system takes them.
+func linearInputsOf(m *SimpleModel, inputs []Input) *LinearInputs {
+	li := NewLinearInputs()
+	for _, meta := range m.inputSchema.metas {
+		li.Put(meta.frameName, inputs[meta.offset:meta.offset+meta.dof])
+	}
+	return li
+}
