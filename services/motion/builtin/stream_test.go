@@ -386,14 +386,14 @@ func runShortStreamSession(ctx context.Context, t *testing.T, ms *builtIn) error
 	}
 }
 
-func loadDiagnosticsFile(t *testing.T, dir, pattern string) streamDiagnosticsFile {
+func loadDiagnosticsFile(t *testing.T, dir, pattern string) StreamDiagnosticsFile {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join(dir, pattern))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, files, test.ShouldHaveLength, 1)
 	bytes, err := os.ReadFile(files[0])
 	test.That(t, err, test.ShouldBeNil)
-	var doc streamDiagnosticsFile
+	var doc StreamDiagnosticsFile
 	test.That(t, json.Unmarshal(bytes, &doc), test.ShouldBeNil)
 	return doc
 }
