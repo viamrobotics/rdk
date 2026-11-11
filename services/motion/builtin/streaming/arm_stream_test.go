@@ -81,3 +81,24 @@ func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
 		prev = cur
 	}
 }
+
+func TestArmStreamRunwayRecoversAfterUnderrun(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	ctx := context.Background()
+	s := newArmStream(ctx, inj, diagnostics.New(0))
+
+	test.That(t, s.send(ctx, []pvat{testPVAT(0), testPVAT(10 * time.Millisecond)}), test.ShouldBeNil)
+
+	// Pretend the first batch went out a second ago: the arm finished its 10ms long ago and
+	// has been idle since, so the estimate is far below zero.
+	s.timeFirstBatchWasSent = time.Now().Add(-time.Second)
+	test.That(t, s.currentEstimatedRunwayInArm(), test.ShouldBeLessThan, -900*time.Millisecond)
+
+	// The next batch adds 50ms of trajectory. The idle time must not count against it.
+	test.That(t, s.send(ctx, []pvat{testPVAT(60 * time.Millisecond)}), test.ShouldBeNil)
+	runway := s.currentEstimatedRunwayInArm()
+	test.That(t, runway, test.ShouldBeGreaterThan, 30*time.Millisecond)
+	test.That(t, runway, test.ShouldBeLessThanOrEqualTo, 50*time.Millisecond)
+
+	test.That(t, s.close(), test.ShouldBeNil)
+}
