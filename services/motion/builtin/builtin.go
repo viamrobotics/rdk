@@ -34,6 +34,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/streaming"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -114,6 +115,15 @@ type Config struct {
 	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
 	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
+	// TeleopExecutor selects how teleop trajectories reach an arm. "streamed" (the default) keeps
+	// one MoveThroughJointPositionsStreamed stream open per arm for the life of the teleop session
+	// and feeds it a velocity- and acceleration-limited trajectory derived from the planned
+	// targets; the EMA and interpolate settings above do not apply to it. "unary" sends each
+	// planned trajectory as one MoveThroughJointPositions call, as described above. Arms that do
+	// not support streaming fall back to the unary path automatically.
+	TeleopExecutor string `json:"teleop_executor"`
+	// TeleopStream tunes the streamed teleop executor; see TeleopStreamConfig.
+	TeleopStream TeleopStreamConfig `json:"teleop_stream"`
 
 	// CableConstraint, MaxCableTwistDegs, CableTwistReferenceDegs and CableConstraintFrames are
 	// the defaults for the planner options of the same names; a Move request's extra overrides
@@ -230,6 +240,15 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
 	}
+	switch c.TeleopExecutor {
+	case "", TeleopExecutorStreamed, TeleopExecutorUnary:
+	default:
+		return nil, nil, fmt.Errorf("teleop_executor must be %q or %q, got %q",
+			TeleopExecutorStreamed, TeleopExecutorUnary, c.TeleopExecutor)
+	}
+	if err := c.TeleopStream.validate(); err != nil {
+		return nil, nil, err
+	}
 
 	if c.MaxCableTwistDegs < 0 {
 		return nil, nil, fmt.Errorf("max_cable_twist_degs must be positive (0 selects the default), got %v", c.MaxCableTwistDegs)
@@ -252,6 +271,9 @@ type builtIn struct {
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
+	// teleopRunArmStream runs one arm's stream for the streamed teleop executor. It is
+	// streaming.Run in production; tests substitute a fake.
+	teleopRunArmStream teleopArmStreamRunner
 
 	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
 	// (separate from mu to simplify lock ordering).
@@ -264,8 +286,9 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:              conf.ResourceName().AsNamed(),
+		logger:             logger,
+		teleopRunArmStream: streaming.Run,
 	}
 
 	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
