@@ -7,28 +7,21 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-// ChainFrame is one frame on the path from a model's base to one of its frames, with where the
-// frame's inputs sit in the model's input vector. Chain returns them in order from the base, so
-// composing each frame's Transform onto the one before gives the pose of the last, which is
-// how the model computes Transform for its output frame.
+// ChainFrame is one frame on the path from a model's base to one of its frames, with where its
+// inputs sit in the model's input vector. Composing the frames of a chain in order is Transform.
 type ChainFrame struct {
-	// Frame is never a frame holding another model, since Chain expands those. In a model read
-	// from a file it is a static frame, a revolute frame, which implements RevoluteFrame, or a
-	// prismatic frame, which implements PrismaticFrame. A model built from frames in code may
-	// also carry a frame with several inputs, such as a pose frame, which comes back as it is,
-	// so a consumer that cannot drive one has to refuse it by its DoF.
+	// Frame is a static, revolute or prismatic frame in a model read from a file, never one holding
+	// another model. A model built from frames in code may also carry a frame with several inputs,
+	// such as a pose frame, which comes back as it is.
 	Frame Frame
-	// Offset is the index of the frame's first input in the model's input vector. It is 0 for a
-	// frame with no inputs, which has nothing to read there, and -1 for a frame that follows
-	// another, which Mimic describes.
+	// Offset is the index of the frame's first input in the model's input vector, 0 for a frame
+	// with no inputs and -1 for one that follows another.
 	Offset int
-	// Mimic is set for a frame whose input is derived from another input of the model rather
-	// than read from the input vector, and nil otherwise.
+	// Mimic describes the input of a frame that follows another, and is nil otherwise.
 	Mimic *MimicInput
 }
 
-// MimicInput says how a frame that follows another gets its input, which is ValueMultiplier
-// times the input at Source in the model's input vector, plus ValueOffset.
+// MimicInput derives a frame's input as ValueMultiplier times the input at Source plus ValueOffset.
 type MimicInput struct {
 	Source          int
 	ValueMultiplier float64
@@ -38,33 +31,24 @@ type MimicInput struct {
 // RevoluteFrame is a frame that turns about one axis and takes one input, in radians.
 type RevoluteFrame interface {
 	Frame
-	// RotationAxis is the unit axis the frame turns about, in the frame of its parent, with
-	// which the frame coincides at an input of zero.
+	// RotationAxis is the unit axis the frame turns about, in its parent's frame.
 	RotationAxis() r3.Vector
 }
 
 // PrismaticFrame is a frame that slides along one axis and takes one input, in millimeters.
 type PrismaticFrame interface {
 	Frame
-	// TranslationAxis is the unit axis the frame slides along, in the frame of its parent, with
-	// which the frame coincides at an input of zero.
+	// TranslationAxis is the unit axis the frame slides along, in its parent's frame.
 	TranslationAxis() r3.Vector
 }
 
-// Chain returns the frames from the model's base to outputFrame in order, with where each one's
-// inputs sit in the model's input vector. An empty outputFrame means the output frame whose pose
-// Transform reports. A model with no frames, which a resource without kinematics reports, has an
-// identity Transform and an empty chain, as does the world frame itself.
-//
-// A frame holding another model, which a model built over a frame system of parts has one of
-// per part, is replaced by that model's chain with its offsets shifted to where the part's
-// inputs sit, and a frame the frame system flattened out of a part is read as the matching
-// frame of the part's model, so climbing through a part's frames reads the same as holding the
-// part whole. Those frames come back under the names the part's model gives them, not the
-// part:frame names the frame system shows. A frame renamed with NewNamedFrame comes back as the
-// frame underneath, so that the axis interfaces assert on it, under its original name.
-//
-// The error names a frame the model does not have.
+// Chain returns the frames from the model's base to outputFrame in order. An empty outputFrame
+// means the frame Transform reports, and the world frame or a model with no frames gives an empty
+// chain. A frame holding another model, as a model built over a frame system of parts has, is
+// replaced by that model's chain with its offsets shifted, so the frames come back under the
+// names the part's model gives them, and a frame renamed with NewNamedFrame comes back as the
+// frame underneath so that the axis interfaces assert on it. The error names a frame the model
+// does not have.
 func (m *SimpleModel) Chain(outputFrame string) ([]ChainFrame, error) {
 	if outputFrame == "" {
 		outputFrame = m.primaryOutputFrame
@@ -79,8 +63,7 @@ func (m *SimpleModel) Chain(outputFrame string) ([]ChainFrame, error) {
 	return w.chain(m, outputFrame)
 }
 
-// chainWalk keeps, for each model a chain passes through, where its frames start in its input
-// vector, since a chain into a part asks for the part's place once per frame of the part.
+// chainWalk memoizes where each model's frames start in its input vector.
 type chainWalk struct {
 	offsets map[*SimpleModel]map[string]int
 }
@@ -106,15 +89,11 @@ func (w *chainWalk) chain(m *SimpleModel, outputFrame string) ([]ChainFrame, err
 	return chain, nil
 }
 
-// entries is the part of a chain one frame of the model contributes. A frame holding another
-// model contributes that model's whole chain, and a frame flattened out of a part contributes
-// the matching frame of the part's model, both shifted to where the part's inputs sit in this
-// model's input vector.
+// entries is what one frame of the model contributes to a chain, a whole shifted chain for a
+// frame that holds another model.
 func (w *chainWalk) entries(m *SimpleModel, name string) ([]ChainFrame, error) {
 	if owner, internal := m.internalFS.internalToComponent[name]; internal {
-		// a part's model may hold a part of its own, whose frames the frame system flattens under
-		// both names, so we climb to the frame of this model that holds them all and let that
-		// model place the rest
+		// climb past parts nested in parts, which the frame system flattens under both names
 		for {
 			above, ok := m.internalFS.internalToComponent[owner]
 			if !ok {
@@ -165,8 +144,6 @@ func (w *chainWalk) entries(m *SimpleModel, name string) ([]ChainFrame, error) {
 	return []ChainFrame{entry}, nil
 }
 
-// offset is where a frame's inputs start in a model's input vector. A frame with no inputs has
-// no place there and reads as 0.
 func (w *chainWalk) offset(m *SimpleModel, name string, frame Frame) (int, error) {
 	if len(frame.DoF()) == 0 {
 		return 0, nil
@@ -188,9 +165,8 @@ func (w *chainWalk) offset(m *SimpleModel, name string, frame Frame) (int, error
 	return offset, nil
 }
 
-// shiftChain moves a nested chain's offsets to where the nested model's inputs sit in the
-// enclosing model's input vector. The chain was built for this call and nothing else holds it,
-// so it is changed in place. A frame with no inputs keeps its 0.
+// shiftChain moves a freshly built nested chain's offsets in place to where the nested model's
+// inputs sit.
 func shiftChain(chain []ChainFrame, base int) []ChainFrame {
 	for i := range chain {
 		if len(chain[i].Frame.DoF()) == 0 {

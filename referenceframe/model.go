@@ -23,8 +23,7 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfigJSON
-	// Chain is the path from the model's base to one of its frames, with where each frame's
-	// inputs sit in the model's input vector. See SimpleModel.Chain.
+	// Chain is the path from the model's base to one of its frames. See SimpleModel.Chain.
 	Chain(outputFrame string) ([]ChainFrame, error)
 }
 
@@ -216,9 +215,8 @@ type SimpleModel struct {
 	inputSchema        *LinearInputsSchema // canonical flat-input <-> per-frame mapping
 	modelConfig        *ModelConfigJSON
 
-	// transformChain is Chain("") computed once, the frames from the base to the primary output
-	// frame with where each one's inputs sit, so Transform iterates a slice rather than walking
-	// the tree per call. Frames holding other models are already expanded in it.
+	// transformChain is Chain("") computed once, so Transform iterates a slice rather than walking
+	// the tree per call.
 	transformChain []ChainFrame
 
 	// mimicMappings maps frame name to its mimic mapping. A mimic frame derives
@@ -643,9 +641,6 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		},
 	}
 
-	// the chain carries each frame's place in the input vector, which a running index could not
-	// give for a branching model, where a sibling branch's inputs sit between two frames of the
-	// path, nor for a mimic frame, whose input is derived from another's
 	for _, cf := range m.transformChain {
 		frameInputs := emptyInputs
 		switch dof := len(cf.Frame.DoF()); {

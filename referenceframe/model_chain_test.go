@@ -12,8 +12,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// composeChain does by hand what Transform does, so a chain that composes to the same pose
-// carries the frames, their order and their offsets correctly.
+// composeChain does by hand what Transform does.
 func composeChain(t *testing.T, chain []ChainFrame, inputs []Input) spatial.Pose {
 	t.Helper()
 	pose := spatial.NewZeroPose()
@@ -34,8 +33,6 @@ func composeChain(t *testing.T, chain []ChainFrame, inputs []Input) spatial.Pose
 	return pose
 }
 
-// Every frame a chain returns is one a consumer can describe, a static frame or a joint with
-// one input and a readable axis, never a frame holding another model.
 func assertChainFrames(t *testing.T, chain []ChainFrame) {
 	t.Helper()
 	for _, cf := range chain {
@@ -71,8 +68,6 @@ func assertChainMatchesTransform(t *testing.T, m Model, seed int64) {
 	}
 }
 
-// Every arm file rdk ships, a URDF, a gantry and the mimic fixtures compose from their chain to
-// the pose Transform reports.
 func TestChainMatchesTransformForShippedModels(t *testing.T) {
 	armFiles, err := filepath.Glob(filepath.Join(utils.ResolveFile("components/arm/kinematics"), "*.json"))
 	test.That(t, err, test.ShouldBeNil)
@@ -93,9 +88,8 @@ func TestChainMatchesTransformForShippedModels(t *testing.T) {
 	}
 }
 
-// A branch off the path and a joint that follows another both show in the offsets. The
-// gripper's tcp hangs off its base, so neither finger joint is on the model's own chain, while
-// a chain to a finger carries its joint, the mimic one with no offset and a source instead.
+// The gripper's tcp hangs off its base, so neither finger joint is on the model's chain, while a
+// chain to a finger carries its joint, the mimic one with a source instead of an offset.
 func TestChainOffsetsShowBranchesAndMimics(t *testing.T) {
 	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -119,7 +113,6 @@ func TestChainOffsetsShowBranchesAndMimics(t *testing.T) {
 	test.That(t, right[1].Offset, test.ShouldEqual, -1)
 	test.That(t, right[1].Mimic, test.ShouldResemble, &MimicInput{Source: 0, ValueMultiplier: 1})
 
-	// the inputs a finger chain reads are the gripper's, so the two fingers move together
 	open := []Input{0.02}
 	leftPose := composeChain(t, left, open)
 	rightPose := composeChain(t, right, open)
@@ -143,9 +136,8 @@ func chainNames(chain []ChainFrame) []string {
 	return names
 }
 
-// A model built over a frame system of parts holds each part's model as one frame. Its chain
-// expands them, so a consumer sees joints with axes rather than an arm it cannot look inside,
-// and the offsets land where the part's inputs sit.
+// A model built over a frame system of parts holds each part's model as one frame, and the chain
+// expands them with the offsets where the part's inputs sit.
 func TestChainExpandsNestedModels(t *testing.T) {
 	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -181,8 +173,6 @@ func TestChainExpandsNestedModels(t *testing.T) {
 
 	assertChainMatchesTransform(t, composed, 7)
 
-	// the gripper's finger joint sits after the arm's six inputs, and a chain into the gripper
-	// through the frame system's flattened copy of its frames reads it there
 	finger, err := composed.Chain("hand:right_finger")
 	test.That(t, err, test.ShouldBeNil)
 	assertChainFrames(t, finger)
@@ -192,8 +182,7 @@ func TestChainExpandsNestedModels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, leftFinger[len(leftFinger)-2].Offset, test.ShouldEqual, 6)
 
-	// composing the chain into the gripper agrees with the frame system, which is the only
-	// forward kinematics there is for a frame inside a part
+	// the frame system is the only other forward kinematics for a frame inside a part
 	rng := rand.New(rand.NewSource(11))
 	for range 10 {
 		inputs := RandomFrameInputs(composed, rng)
@@ -207,9 +196,7 @@ func TestChainExpandsNestedModels(t *testing.T) {
 	}
 }
 
-// A revolute and a prismatic frame expose their axes through the interfaces, a static frame
-// through neither, and the two interfaces do not satisfy each other. A renamed frame hides the
-// methods, which is why Chain unwraps it.
+// A renamed frame hides the axis methods, which is why Chain unwraps it.
 func TestAxisInterfaces(t *testing.T) {
 	limit := Limit{Min: -1, Max: 1}
 	rot, err := NewRotationalFrame("rot", spatial.R4AA{RX: 0, RY: 0, RZ: 2}, limit)
@@ -256,10 +243,8 @@ func TestChainRefusesAFrameTheModelLacks(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "nope")
 }
 
-// A resource without kinematics reports a model with no frames, whose Transform is the identity,
-// and the world frame is where every chain starts, so both give an empty chain rather than an
-// error. A part with such a model, which a gripper without geometry is, then composes like any
-// other part.
+// A gripper without geometry is a model with no frames, and a part with such a model composes
+// like any other.
 func TestChainOfNothingIsEmpty(t *testing.T) {
 	empty := NewSimpleModel("empty")
 	chain, err := empty.Chain("")
@@ -291,9 +276,7 @@ func TestChainOfNothingIsEmpty(t *testing.T) {
 	test.That(t, chainNames(toHand)[len(toHand)-1], test.ShouldEqual, "hand_origin")
 }
 
-// A part's model may itself have been built over a frame system holding a part, so the frame
-// system flattens its frames under two prefixes. A chain into the innermost part climbs to the
-// frame of the model that holds them all and lets each model place its own.
+// The frame system flattens a part nested in a part under two prefixes.
 func TestChainReachesAModelInsideAModelInsideAModel(t *testing.T) {
 	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -326,8 +309,6 @@ func TestChainReachesAModelInsideAModelInsideAModel(t *testing.T) {
 	test.That(t, chainNames(left), test.ShouldResemble, []string{"wrist", "base", "left_joint", "left_finger"})
 	test.That(t, left[2].Offset, test.ShouldEqual, 1)
 
-	// the wrist turns the finger's travel out of the finger's own axis, so the composition has
-	// to follow the right frames in the right order
 	for _, q := range [][]Input{{0, 0}, {0.5, 0.02}, {-1, 0.01}} {
 		want, err := wrist.Transform(q[:1])
 		test.That(t, err, test.ShouldBeNil)
@@ -345,9 +326,7 @@ func TestChainReachesAModelInsideAModelInsideAModel(t *testing.T) {
 	}
 }
 
-// Transform is computed from the chain, so a frame hung inside a part through the frame
-// system's flattened copy of the part's frames, which the old precomputed walk read with no
-// offsets at all, now agrees with the frame system.
+// The precomputed walk Transform used before read no offsets for a part's flattened frames.
 func TestTransformFollowsTheChainIntoAPart(t *testing.T) {
 	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -378,8 +357,6 @@ func TestTransformFollowsTheChainIntoAPart(t *testing.T) {
 	}
 }
 
-// A pose frame takes seven inputs at once and is neither a revolute nor a prismatic joint. It
-// comes back as it is, with its offset, and composes like any other frame.
 func TestChainCarriesAFrameWithSeveralInputs(t *testing.T) {
 	free, err := NewPoseFrame("free", nil)
 	test.That(t, err, test.ShouldBeNil)
