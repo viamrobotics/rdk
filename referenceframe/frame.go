@@ -751,6 +751,11 @@ func (pf *translationalFrame) Hash() int {
 	return h
 }
 
+// TranslationAxis returns the unit axis the frame slides along, in its parent's frame.
+func (pf *translationalFrame) TranslationAxis() r3.Vector {
+	return pf.transAxis
+}
+
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	err := pf.validInputs(input)
@@ -854,6 +859,11 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 
 func (rf *rotationalFrame) Hash() int {
 	return rf.hash() + int(1000*rf.rotAxis.Norm())
+}
+
+// RotationAxis returns the unit axis the frame turns about, in its parent's frame.
+func (rf *rotationalFrame) RotationAxis() r3.Vector {
+	return rf.rotAxis
 }
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice

@@ -23,6 +23,9 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfigJSON
+	// Chain is the path from the model's base to one of its frames, with where each frame's
+	// inputs sit in the model's input vector. See SimpleModel.Chain.
+	Chain(outputFrame string) ([]ChainFrame, error)
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it. The typed
