@@ -1,6 +1,7 @@
 package robotimpl
 
 import (
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -33,7 +34,11 @@ func TestApplyModulePackageVersions(t *testing.T) {
 	applyModulePackageVersions(cfg)
 	test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, "1.2.3")
 	test.That(t, cfg.Modules[1].PackageVersion, test.ShouldBeEmpty)
-	test.That(t, cfg.Modules[2].PackageVersion, test.ShouldBeEmpty)
+	test.That(t, cfg.Modules[2].PackageVersion, test.ShouldEqual, localReloadVersion)
+
+	cfg.Modules[0].ExePath = "/home/dev/cam/bin/run"
+	applyModulePackageVersions(cfg)
+	test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, localReloadVersion)
 }
 
 func TestModuleVersionInfos(t *testing.T) {
@@ -93,20 +98,16 @@ func TestModuleVersionInfos(t *testing.T) {
 		test.That(t, infos[0].RunningVersion, test.ShouldEqual, "1.0.0")
 	})
 
-	t.Run("local and reload modules are excluded", func(t *testing.T) {
+	t.Run("local modules are excluded", func(t *testing.T) {
 		infos := moduleVersionInfos(
 			[]config.Module{
 				{Name: "local", Type: config.ModuleTypeLocal, ExePath: "/bin/local"},
 				{Name: "local-with-id", Type: config.ModuleTypeLocal, ModuleID: "viam:local-with-id"},
-				registry("cloud-reload", "reload-part-123-abc"),
-				registry("source-reload", "reload-source-part-123"),
 				registry("cam", "1.0.0"),
 			},
 			[]modulestatus.Status{
 				status("local", modulestatus.ModuleStateReady, ""),
 				status("local-with-id", modulestatus.ModuleStateReady, ""),
-				status("cloud-reload", modulestatus.ModuleStateReady, "reload-part-123-abc"),
-				status("source-reload", modulestatus.ModuleStateReady, "reload-source-part-123"),
 				status("cam", modulestatus.ModuleStateReady, "1.0.0"),
 			},
 			now,
@@ -115,13 +116,33 @@ func TestModuleVersionInfos(t *testing.T) {
 		test.That(t, infos[0].ModuleId, test.ShouldEqual, "viam:cam")
 	})
 
-	t.Run("reload build still running is not reported as the running version", func(t *testing.T) {
-		infos := moduleVersionInfos(
-			[]config.Module{registry("cam", "1.0.0")},
-			[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "reload-part-123-abc")},
-			now,
-		)
-		test.That(t, infos, test.ShouldHaveLength, 1)
-		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam"})
+	t.Run("reload builds report their reload version", func(t *testing.T) {
+		localReported := fmt.Sprintf("reload-%d", readyAt.Unix())
+		for version, want := range map[string]string{
+			"reload-part-123-1700000000":        "reload-part-123-1700000000",
+			"reload-source-part-123-1700000000": "reload-source-part-123-1700000000",
+			localReloadVersion:                  localReported,
+		} {
+			infos := moduleVersionInfos(
+				[]config.Module{registry("cam", version)},
+				[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, version)},
+				now,
+			)
+			test.That(t, infos, test.ShouldHaveLength, 1)
+			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
+				ModuleId:       "viam:cam",
+				RunningVersion: want,
+				RunningFor:     durationpb.New(time.Hour),
+			})
+		}
+	})
+
+	t.Run("each local path reload reports a distinct version", func(t *testing.T) {
+		mods := []config.Module{registry("cam", localReloadVersion)}
+		first := moduleVersionInfos(mods, []modulestatus.Status{status("cam", modulestatus.ModuleStateReady, localReloadVersion)}, now)
+		reloaded := status("cam", modulestatus.ModuleStateReady, localReloadVersion)
+		reloaded.LastUpdated = readyAt.Add(time.Minute)
+		second := moduleVersionInfos(mods, []modulestatus.Status{reloaded}, now)
+		test.That(t, second[0].RunningVersion, test.ShouldNotEqual, first[0].RunningVersion)
 	})
 }
