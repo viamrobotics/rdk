@@ -409,7 +409,18 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 	}
 	myCost := sss.psc.pc.ConfigurationDistanceFunc(stepArc)
 
-	myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), sss.revolute, stepSolution.Configuration)
+	if len(sss.psc.rejectedSolutions) == 2 {
+		// Given a default backtrack counter of 3, we use the last attempt (before backtracking
+		// further) to attempt to force an answer where every joint is in a maximally neutral
+		// position.
+		//
+		// Dan: This is an optimization that prioritizes getting an answer faster and sacrifices
+		// getting a better answer. Because plan motion + backtracking is already a rather greedy
+		// algorithm that is unable to globally optimize.
+		myCost += HeavyNeutralBias(sss.psc.pc.lis.GetLimits(), sss.revolute, stepSolution.Configuration)
+	} else {
+		myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), sss.revolute, stepSolution.Configuration)
+	}
 
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
@@ -786,6 +797,25 @@ func NeutralBias(limits []referenceframe.Limit, revolute []bool, configuration [
 			}
 		}
 	}
+	return bias
+}
+
+// HeavyNeutralBias computes a large cost penalty fo revolute joints that are more than pi from the
+// center.
+func HeavyNeutralBias(limits []referenceframe.Limit, revolute []bool, configuration []float64) float64 {
+	bias := 0.0
+	for idx, limit := range limits {
+		if !revolute[idx] {
+			continue
+		}
+
+		mid := (limit.Min + limit.Max) / 2
+		distanceToMid := math.Abs(configuration[idx] - mid)
+		if distanceToMid > math.Pi {
+			bias += 10 * math.Abs(distanceToMid)
+		}
+	}
+
 	return bias
 }
 
