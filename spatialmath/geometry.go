@@ -137,7 +137,7 @@ func (config *GeometryConfig) String() string {
 		return "Mesh"
 	}
 
-	//nolint:errcheck
+	//nolint:errcheck,errchkjson
 	jsonBytes, _ := json.Marshal(config)
 	return string(jsonBytes)
 }

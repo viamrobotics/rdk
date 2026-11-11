@@ -113,7 +113,8 @@ func buildSequenceBacktrack(
 			if sequenceStartsAgree(finalEnd, rejected.End) {
 				backtrack.Notes = append(backtrack.Notes, fmt.Sprintf(
 					"The %s solution is the same as rejected %d. Re-planning after rejecting it found no different solution, "+
-						"so the plan was not replaced.", endLabel, rejectedIdx+1))
+						"so the plan was not replaced.", endLabel, rejectedIdx+1,
+				))
 			}
 		}
 	}

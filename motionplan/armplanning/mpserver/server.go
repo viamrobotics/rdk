@@ -216,7 +216,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 {{define "dir"}}
 <details class="dir" data-path="{{.Path}}">
-  <summary>{{.Name}} <span class="count">({{.TotalFiles}})</span>{{if .Files}} <a href="/sequence?dir={{.Path}}">plan sequence</a>{{end}}</summary>
+  <summary>{{.Name}} <span class="count">({{.TotalFiles}})</span>
+    {{- if .Files}} <a href="/sequence?dir={{.Path}}">plan sequence</a>{{end}}</summary>
   <div class="dir-body">
     {{range .Subdirs}}{{template "dir" .}}{{end}}
     {{template "files" .Files}}
@@ -1696,7 +1697,6 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 	}
 	for idx, step := range steps {
 		if ctx.Err() != nil {
-			//nolint: nilerr
 			return nil
 		}
 		if idx > 0 {
@@ -1712,7 +1712,6 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 			}
 			for _, mp := range midPoints {
 				if ctx.Err() != nil {
-					//nolint: nilerr
 					return nil
 				}
 				if _, err := vizapi.DrawFrameSystem(vizapi.DrawFrameSystemOptions{
@@ -1725,7 +1724,6 @@ func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest
 			}
 		}
 		if ctx.Err() != nil {
-			//nolint: nilerr
 			return nil
 		}
 		if _, err := vizapi.DrawFrameSystem(vizapi.DrawFrameSystemOptions{

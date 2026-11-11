@@ -65,6 +65,12 @@ func useTempPlanRoot(t *testing.T) string {
 	return "mplans/seq"
 }
 
+func newSequenceRequest(t *testing.T, target string) *http.Request {
+	t.Helper()
+
+	return httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil)
+}
+
 func TestParseSequenceRange(t *testing.T) {
 	first, last, err := parseSequenceRange("0", "4", 5)
 	test.That(t, err, test.ShouldBeNil)
@@ -115,7 +121,7 @@ func TestSequencePageListsPlansInOrder(t *testing.T) {
 	sequenceDir := useTempPlanRoot(t)
 
 	recorder := httptest.NewRecorder()
-	handleSequence(logging.NewTestLogger(t))(recorder, httptest.NewRequest(http.MethodGet, "/sequence?dir="+sequenceDir, nil))
+	handleSequence(logging.NewTestLogger(t))(recorder, newSequenceRequest(t, "/sequence?dir="+sequenceDir))
 	test.That(t, recorder.Code, test.ShouldEqual, http.StatusOK)
 
 	page := recorder.Body.String()
@@ -137,7 +143,7 @@ func TestSequenceRunPlansTheSelectedRange(t *testing.T) {
 	logger := logging.NewInMemoryLogger(t)
 
 	recorder := httptest.NewRecorder()
-	handleSequenceRun(logger)(recorder, httptest.NewRequest(http.MethodGet, "/sequence/run?dir="+sequenceDir+"&first=0&last=1", nil))
+	handleSequenceRun(logger)(recorder, newSequenceRequest(t, "/sequence/run?dir="+sequenceDir+"&first=0&last=1"))
 
 	var result sequenceRunResult
 	test.That(t, json.Unmarshal(recorder.Body.Bytes(), &result), test.ShouldBeNil)
@@ -150,7 +156,7 @@ func TestSequenceRunPlansTheSelectedRange(t *testing.T) {
 
 	// Only the second plan.
 	recorder = httptest.NewRecorder()
-	handleSequenceRun(logger)(recorder, httptest.NewRequest(http.MethodGet, "/sequence/run?dir="+sequenceDir+"&first=1&last=1", nil))
+	handleSequenceRun(logger)(recorder, newSequenceRequest(t, "/sequence/run?dir="+sequenceDir+"&first=1&last=1"))
 	result = sequenceRunResult{}
 	test.That(t, json.Unmarshal(recorder.Body.Bytes(), &result), test.ShouldBeNil)
 	test.That(t, len(result.Plans), test.ShouldEqual, 1)
@@ -162,7 +168,7 @@ func TestSequenceRunRejectsBadRange(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	handleSequenceRun(logging.NewTestLogger(t))(recorder,
-		httptest.NewRequest(http.MethodGet, "/sequence/run?dir="+sequenceDir+"&first=1&last=0", nil))
+		newSequenceRequest(t, "/sequence/run?dir="+sequenceDir+"&first=1&last=0"))
 
 	var result sequenceRunResult
 	test.That(t, json.Unmarshal(recorder.Body.Bytes(), &result), test.ShouldBeNil)
@@ -175,7 +181,7 @@ func TestSequencePagePreselectsRangeFromLink(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	handleSequence(logging.NewTestLogger(t))(recorder,
-		httptest.NewRequest(http.MethodGet, "/sequence?dir="+sequenceDir+"&first=2&last=2", nil))
+		newSequenceRequest(t, "/sequence?dir="+sequenceDir+"&first=2&last=2"))
 	test.That(t, recorder.Code, test.ShouldEqual, http.StatusOK)
 
 	page := recorder.Body.String()
@@ -185,7 +191,7 @@ func TestSequencePagePreselectsRangeFromLink(t *testing.T) {
 	// A range that doesn't fit the directory falls back to the defaults rather than failing the page.
 	recorder = httptest.NewRecorder()
 	handleSequence(logging.NewTestLogger(t))(recorder,
-		httptest.NewRequest(http.MethodGet, "/sequence?dir="+sequenceDir+"&first=1&last=9", nil))
+		newSequenceRequest(t, "/sequence?dir="+sequenceDir+"&first=1&last=9"))
 	test.That(t, recorder.Code, test.ShouldEqual, http.StatusOK)
 	test.That(t, strings.Contains(recorder.Body.String(), `<option value="0" selected>`), test.ShouldBeTrue)
 }
@@ -194,15 +200,15 @@ func TestSequenceBranchFactorDefaultsAndComesFromLink(t *testing.T) {
 	sequenceDir := useTempPlanRoot(t)
 
 	recorder := httptest.NewRecorder()
-	handleSequence(logging.NewTestLogger(t))(recorder, httptest.NewRequest(http.MethodGet, "/sequence?dir="+sequenceDir, nil))
+	handleSequence(logging.NewTestLogger(t))(recorder, newSequenceRequest(t, "/sequence?dir="+sequenceDir))
 	test.That(t, strings.Contains(recorder.Body.String(), `id="branch" min="1" step="1" value="3"`), test.ShouldBeTrue)
 
 	recorder = httptest.NewRecorder()
-	handleSequence(logging.NewTestLogger(t))(recorder, httptest.NewRequest(http.MethodGet, "/sequence?dir="+sequenceDir+"&branch=5", nil))
+	handleSequence(logging.NewTestLogger(t))(recorder, newSequenceRequest(t, "/sequence?dir="+sequenceDir+"&branch=5"))
 	test.That(t, strings.Contains(recorder.Body.String(), `value="5"`), test.ShouldBeTrue)
 
 	recorder = httptest.NewRecorder()
-	handleSequence(logging.NewTestLogger(t))(recorder, httptest.NewRequest(http.MethodGet, "/sequence?dir="+sequenceDir+"&branch=0", nil))
+	handleSequence(logging.NewTestLogger(t))(recorder, newSequenceRequest(t, "/sequence?dir="+sequenceDir+"&branch=0"))
 	test.That(t, strings.Contains(recorder.Body.String(), `value="3"`), test.ShouldBeTrue)
 }
 
@@ -211,7 +217,7 @@ func TestSequenceRunRejectsBadBranchFactor(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	handleSequenceRun(logging.NewTestLogger(t))(recorder,
-		httptest.NewRequest(http.MethodGet, "/sequence/run?dir="+sequenceDir+"&first=0&last=1&branch=0", nil))
+		newSequenceRequest(t, "/sequence/run?dir="+sequenceDir+"&first=0&last=1&branch=0"))
 
 	var result sequenceRunResult
 	test.That(t, json.Unmarshal(recorder.Body.Bytes(), &result), test.ShouldBeNil)
