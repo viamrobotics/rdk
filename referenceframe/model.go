@@ -216,18 +216,10 @@ type SimpleModel struct {
 	inputSchema        *LinearInputsSchema // canonical flat-input <-> per-frame mapping
 	modelConfig        *ModelConfigJSON
 
-	// transformChain is a pre-computed ordered slice of frames from the world
-	// frame (base) to the primary output frame (tip). This enables Transform()
-	// to iterate a slice instead of doing map lookups and linear scans per
-	// frame per call.
-	transformChain []Frame
-
-	// transformChainInputOffsets holds the offset into the flat input vector for
-	// each frame in transformChain. For branching models, frames not on the
-	// primary path may appear between chain frames in the BFS-ordered input
-	// array, so a sequential posIdx would be wrong. A value of -1 indicates
-	// a mimic frame whose input is derived at runtime.
-	transformChainInputOffsets []int
+	// transformChain is Chain("") computed once, the frames from the base to the primary output
+	// frame with where each one's inputs sit, so Transform iterates a slice rather than walking
+	// the tree per call. Frames holding other models are already expanded in it.
+	transformChain []ChainFrame
 
 	// mimicMappings maps frame name to its mimic mapping. A mimic frame derives
 	// its input from a source frame rather than consuming a slot in the flat input vector.
@@ -242,8 +234,8 @@ type SimpleModel struct {
 
 func (m *SimpleModel) String() string {
 	tfsChain := make([]string, len(m.transformChain))
-	for idx, frame := range m.transformChain {
-		tfsChain[idx] = frame.Name()
+	for idx, cf := range m.transformChain {
+		tfsChain[idx] = cf.Frame.Name()
 	}
 
 	visualStrs := make([]string, 0)
@@ -351,11 +343,11 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	m.inputSchema = schema
 	m.limits = schema.GetLimits()
 
-	// Pre-compute the transform chain: walk from primaryOutputFrame back to world recording each frame
-	m.transformChain = m.buildTransformChain()
-	// Pre-compute schema offsets for each chain frame so Transform() can handle branching correctly.
-	m.transformChainInputOffsets = m.buildTransformChainOffsets()
-
+	chain, err := m.Chain("")
+	if err != nil {
+		return nil, err
+	}
+	m.transformChain = chain
 	return m, nil
 }
 
@@ -410,9 +402,11 @@ func NewModelWithMimics(name string, fs *FrameSystem, primaryOutputFrame string,
 		}
 	}
 
-	m.transformChain = m.buildTransformChain()
-	m.transformChainInputOffsets = m.buildTransformChainOffsets()
-
+	chain, err := m.Chain("")
+	if err != nil {
+		return nil, err
+	}
+	m.transformChain = chain
 	return m, nil
 }
 
@@ -632,63 +626,6 @@ func (m *SimpleModel) Hash() int {
 	return h
 }
 
-// buildTransformChain walks from primaryOutputFrame back to world through the
-// internalFS parent links. The result is a slice ordered from base to tip
-// (excluding world).
-func (m *SimpleModel) buildTransformChain() []Frame {
-	var chain []Frame
-	frameName := m.primaryOutputFrame
-	for {
-		parentName := m.internalFS.parents[frameName]
-		if parentName == "" {
-			// frameName is world or not in the FS; stop.
-			break
-		}
-		frame := m.internalFS.frames[frameName]
-		if frame == nil {
-			if frameName == World {
-				frame = m.internalFS.world
-			} else {
-				break
-			}
-		}
-		chain = append(chain, frame)
-		frameName = parentName
-	}
-
-	// Reverse: the walk above produces tip-to-base, we store base-to-tip.
-	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
-		chain[i], chain[j] = chain[j], chain[i]
-	}
-	return chain
-}
-
-// buildTransformChainOffsets returns, for each frame in transformChain, the
-// offset of that frame's inputs within the flat input vector defined by
-// inputSchema. For 0-DoF frames the offset is unused, so 0 is stored.
-// For mimic frames, -1 is stored as a sentinel indicating the input is
-// derived at runtime.
-// This must be called after both transformChain and inputSchema are set.
-func (m *SimpleModel) buildTransformChainOffsets() []int {
-	offsets := make([]int, len(m.transformChain))
-	for i, frame := range m.transformChain {
-		if len(frame.DoF()) == 0 {
-			continue // offset unused for 0-DoF frames
-		}
-		if m.mimicMappings != nil && m.mimicMappings[frame.Name()] != nil {
-			offsets[i] = -1 // sentinel: input derived at runtime from source frame
-			continue
-		}
-		for _, meta := range m.inputSchema.metas {
-			if meta.frameName == frame.Name() {
-				offsets[i] = meta.offset
-				break
-			}
-		}
-	}
-	return offsets
-}
-
 // emptyInputs is a pre-allocated empty slice used for 0-DoF frame transforms.
 var emptyInputs = []Input{}
 
@@ -706,29 +643,25 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		},
 	}
 
-	// Iterate base-to-tip (the storage order of transformChain).
-	// Use transformChainInputOffsets to locate each frame's inputs within the
-	// flat vector: a sequential posIdx would be wrong for branching models
-	// because sibling-branch frames with nonzero DoF occupy slots between
-	// chain frames in the BFS-ordered input array.
-	// An offset of -1 indicates a mimic frame whose input is derived at runtime.
-	for i, chainFrame := range m.transformChain {
-		dof := len(chainFrame.DoF())
-		offset := m.transformChainInputOffsets[i]
+	// the chain carries each frame's place in the input vector, which a running index could not
+	// give for a branching model, where a sibling branch's inputs sit between two frames of the
+	// path, nor for a mimic frame, whose input is derived from another's
+	for _, cf := range m.transformChain {
+		frameInputs := emptyInputs
+		switch dof := len(cf.Frame.DoF()); {
+		case dof == 0:
+		case cf.Mimic != nil:
+			frameInputs = []Input{cf.Mimic.ValueMultiplier*inputs[cf.Mimic.Source] + cf.Mimic.ValueOffset}
+		default:
+			frameInputs = inputs[cf.Offset : cf.Offset+dof]
+		}
 
-		switch frame := chainFrame.(type) {
+		switch frame := cf.Frame.(type) {
 		case *staticFrame:
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
 			}
 		case *rotationalFrame:
-			var frameInputs []Input
-			if offset == -1 {
-				mm := m.mimicMappings[chainFrame.Name()]
-				frameInputs = []Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset}
-			} else {
-				frameInputs = inputs[offset : offset+dof]
-			}
 			orientation := frame.InputToOrientation(frameInputs[0])
 			pose := &spatialmath.DualQuaternion{
 				Number: dualquat.Number{
@@ -739,18 +672,9 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				Number: composedTransformation.Transformation(pose.Number),
 			}
 		default:
-			var pose spatialmath.Pose
-			var err error
-			if dof == 0 {
-				pose, err = chainFrame.Transform(emptyInputs)
-			} else if offset == -1 {
-				mm := m.mimicMappings[chainFrame.Name()]
-				pose, err = chainFrame.Transform([]Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset})
-			} else {
-				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
-			}
+			pose, err := cf.Frame.Transform(frameInputs)
 			if err != nil {
-				return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
+				return &composedTransformation, fmt.Errorf("joint %d: %w", cf.Offset, err)
 			}
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
@@ -906,7 +830,6 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = newModel.primaryOutputFrame
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
-		m.transformChainInputOffsets = newModel.transformChainInputOffsets
 		m.mimicMappings = newModel.mimicMappings
 	} else if ser.InternalFS != nil {
 		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
@@ -918,7 +841,6 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = rebuilt.primaryOutputFrame
 		m.inputSchema = rebuilt.inputSchema
 		m.transformChain = rebuilt.transformChain
-		m.transformChainInputOffsets = rebuilt.transformChainInputOffsets
 		m.limits = rebuilt.limits
 	} else {
 		fs := NewEmptyFrameSystem(frameName)

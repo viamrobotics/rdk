@@ -251,11 +251,155 @@ func TestAxisInterfaces(t *testing.T) {
 func TestChainRefusesAFrameTheModelLacks(t *testing.T) {
 	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	for _, name := range []string{"nope", World} {
-		_, err := arm.Chain(name)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, name)
-	}
-	_, err = NewSimpleModel("empty").Chain("")
+	_, err = arm.Chain("nope")
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "nope")
+}
+
+// A resource without kinematics reports a model with no frames, whose Transform is the identity,
+// and the world frame is where every chain starts, so both give an empty chain rather than an
+// error. A part with such a model, which a gripper without geometry is, then composes like any
+// other part.
+func TestChainOfNothingIsEmpty(t *testing.T) {
+	empty := NewSimpleModel("empty")
+	chain, err := empty.Chain("")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chain, test.ShouldBeEmpty)
+	pose, err := empty.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(pose, spatial.NewZeroPose()), test.ShouldBeTrue)
+
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	chain, err = arm.Chain(World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chain, test.ShouldBeEmpty)
+
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), "arm", nil), ModelFrame: arm},
+		{FrameConfig: NewLinkInFrame("arm", spatial.NewPoseFromPoint(r3.Vector{Z: 20}), "hand", nil), ModelFrame: NewSimpleModel("hand")},
+	}
+	probe := NewLinkInFrame("hand", spatial.NewPoseFromPoint(r3.Vector{Z: 30}), "probe", nil)
+	fs, err := NewFrameSystem("machine", parts, []*LinkInFrame{probe})
+	test.That(t, err, test.ShouldBeNil)
+	composed, err := NewModel("composed", fs, "probe")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(composed.DoF()), test.ShouldEqual, 6)
+	assertChainMatchesTransform(t, composed, 13)
+	toHand, err := composed.Chain("hand")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(toHand)[len(toHand)-1], test.ShouldEqual, "hand_origin")
+}
+
+// A part's model may itself have been built over a frame system holding a part, so the frame
+// system flattens its frames under two prefixes. A chain into the innermost part climbs to the
+// frame of the model that holds them all and lets each model place its own.
+func TestChainReachesAModelInsideAModelInsideAModel(t *testing.T) {
+	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	inner := NewEmptyFrameSystem("inner")
+	wrist, err := NewRotationalFrame("wrist", spatial.R4AA{RY: 1}, Limit{Min: -1, Max: 1})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inner.AddFrame(wrist, inner.World()), test.ShouldBeNil)
+	test.That(t, inner.AddFrame(NewNamedFrame(gripper, "grip"), wrist), test.ShouldBeNil)
+	tool, err := NewModel("tool", inner, "grip")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(tool.DoF()), test.ShouldEqual, 2)
+
+	outer := NewEmptyFrameSystem("outer")
+	test.That(t, outer.AddFrame(NewNamedFrame(tool, "tool"), outer.World()), test.ShouldBeNil)
+	probe, err := NewStaticFrame("probe", spatial.NewPoseFromPoint(r3.Vector{Z: 5}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, outer.AddFrame(probe, outer.lookupFrame("tool:grip:right_finger")), test.ShouldBeNil)
+	model, err := NewModel("outer", outer, "probe")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
+
+	chain, err := model.Chain("")
+	test.That(t, err, test.ShouldBeNil)
+	assertChainFrames(t, chain)
+	test.That(t, chainNames(chain), test.ShouldResemble, []string{"wrist", "base", "right_joint", "right_finger", "probe"})
+	test.That(t, chain[0].Offset, test.ShouldEqual, 0)
+	test.That(t, chain[2].Mimic, test.ShouldResemble, &MimicInput{Source: 1, ValueMultiplier: 1})
+	left, err := model.Chain("tool:grip:left_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(left), test.ShouldResemble, []string{"wrist", "base", "left_joint", "left_finger"})
+	test.That(t, left[2].Offset, test.ShouldEqual, 1)
+
+	// the wrist turns the finger's travel out of the finger's own axis, so the composition has
+	// to follow the right frames in the right order
+	for _, q := range [][]Input{{0, 0}, {0.5, 0.02}, {-1, 0.01}} {
+		want, err := wrist.Transform(q[:1])
+		test.That(t, err, test.ShouldBeNil)
+		for _, name := range []string{"base", "right_joint", "right_finger"} {
+			f := gripper.(*SimpleModel).internalFS.Frame(name)
+			step, err := f.Transform(q[1:][:len(f.DoF())])
+			test.That(t, err, test.ShouldBeNil)
+			want = spatial.Compose(want, step)
+		}
+		want = spatial.Compose(want, spatial.NewPoseFromPoint(r3.Vector{Z: 5}))
+		test.That(t, spatial.PoseAlmostEqualEps(composeChain(t, chain, q), want, 1e-9), test.ShouldBeTrue)
+		got, err := model.Transform(q)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqualEps(got, want, 1e-9), test.ShouldBeTrue)
+	}
+}
+
+// Transform is computed from the chain, so a frame hung inside a part through the frame
+// system's flattened copy of the part's frames, which the old precomputed walk read with no
+// offsets at all, now agrees with the frame system.
+func TestTransformFollowsTheChainIntoAPart(t *testing.T) {
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 100}), "arm", nil), ModelFrame: arm},
+		{FrameConfig: NewLinkInFrame("arm", spatial.NewPoseFromPoint(r3.Vector{Z: 20}), "hand", nil), ModelFrame: gripper},
+		{FrameConfig: NewLinkInFrame("hand:right_finger", spatial.NewPoseFromPoint(r3.Vector{Z: 30}), "probe", nil)},
+	}
+	fs, err := NewFrameSystem("machine", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	composed, err := NewModel("composed", fs, "probe")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(composed.DoF()), test.ShouldEqual, 7)
+
+	rng := rand.New(rand.NewSource(17))
+	for range 10 {
+		inputs := RandomFrameInputs(composed, rng)
+		li := NewLinearInputs()
+		li.Put("arm", inputs[:6])
+		li.Put("hand", inputs[6:])
+		want, err := fs.Transform(li, NewPoseInFrame("probe", spatial.NewZeroPose()), World)
+		test.That(t, err, test.ShouldBeNil)
+		got, err := composed.Transform(inputs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqualEps(got, want.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
+	}
+}
+
+// A pose frame takes seven inputs at once and is neither a revolute nor a prismatic joint. It
+// comes back as it is, with its offset, and composes like any other frame.
+func TestChainCarriesAFrameWithSeveralInputs(t *testing.T) {
+	free, err := NewPoseFrame("free", nil)
+	test.That(t, err, test.ShouldBeNil)
+	tip, err := NewStaticFrame("tip", spatial.NewPoseFromPoint(r3.Vector{Z: 10}))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := NewSerialModel("free", []Frame{free, tip})
+	test.That(t, err, test.ShouldBeNil)
+	chain, err := model.Chain("")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(chain), test.ShouldResemble, []string{"free", "tip"})
+	test.That(t, len(chain[0].Frame.DoF()), test.ShouldEqual, 7)
+	test.That(t, chain[0].Offset, test.ShouldEqual, 0)
+	_, revolute := chain[0].Frame.(RevoluteFrame)
+	_, prismatic := chain[0].Frame.(PrismaticFrame)
+	test.That(t, revolute || prismatic, test.ShouldBeFalse)
+	rng := rand.New(rand.NewSource(19))
+	for range 10 {
+		inputs := RandomFrameInputs(model, rng)
+		want, err := model.Transform(inputs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqualEps(composeChain(t, chain, inputs), want, 1e-6), test.ShouldBeTrue)
+	}
 }
