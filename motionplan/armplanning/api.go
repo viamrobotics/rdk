@@ -389,9 +389,10 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // The StartState of every request after the first is mutated in place. Whatever the caller put
 // there is discarded, so there are no requirements on it. It is set to the end of the previous plan
 // just before the request is planned, and again each time the request is re-planned. Callers should
-// not rely on its value afterwards. As with PlanMotion, a nil PlannerOptions is also filled in.
-// Requests also accumulate internal state while backtracking, so they should not be reused for
-// another call.
+// not rely on its value afterwards. Each request plans on a copy of its PlannerOptions (the
+// defaults if nil) with ReturnPartialPlan cleared, so a request that only partly plans fails and
+// the search backtracks. Requests also accumulate internal state while backtracking, so they should
+// not be reused for another call.
 //
 // If a request cannot be planned from where the previous plan ended, an earlier request is planned
 // again with the end configuration that led to the failure ruled out, and the sequence continues
@@ -400,12 +401,10 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // far it has to back up. A nil opts uses NewDefaultSequenceOptions.
 //
 // PlanMotionSequence returns plans and metas, each with one entry per request. When it returns an
-// error or a partial plan, entries for the requests after the last good one are nil if never
-// planned, or hold whatever an abandoned attempt produced. A PlanMeta sums the numeric values over
-// every attempt at its request, and its BacktrackCounter says how many times the request was
-// re-planned. An error means no combination of solutions was found. A request with
-// ReturnPartialPlan set that only partially plans ends the sequence early with its partial plan and
-// no error, as PlanMotion would report it.
+// error, entries for the requests after the last good one are nil if never planned, or hold
+// whatever an abandoned attempt produced. A PlanMeta sums the numeric values over every attempt at
+// its request, and its BacktrackCounter says how many times the request was re-planned. An error
+// means no combination of solutions was found.
 func PlanMotionSequence(
 	ctx context.Context,
 	parentLogger logging.Logger,
@@ -424,6 +423,15 @@ func PlanMotionSequence(
 
 	for _, followupRequest := range requests[1:] {
 		followupRequest.StartState = nil
+	}
+	for _, request := range requests {
+		// Copied, as callers may share one PlannerOptions across PlanMotionSequence and PlanMotion requests.
+		plannerOpts := NewBasicPlannerOptions()
+		if request.PlannerOptions != nil {
+			*plannerOpts = *request.PlannerOptions
+		}
+		plannerOpts.ReturnPartialPlan = false
+		request.PlannerOptions = plannerOpts
 	}
 
 	logger := parentLogger.Sublogger("mp")
@@ -453,11 +461,6 @@ func PlanMotionSequence(
 		metas[requestIdx] = metas[requestIdx].Merge(*meta)
 		if err == nil {
 			plans[requestIdx] = plan
-			if meta.Partial {
-				logger.Warnf("Unintended use of PlanMotionSequence. Plan request only partially planned. Stopping here. Plan: %v/%v",
-					requestIdx+1, len(requests))
-				return plans, metas, nil
-			}
 
 			// We have a (so far) working solution. Move onto the next request that follows from
 			// this solution.

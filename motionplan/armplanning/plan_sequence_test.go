@@ -4,10 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -57,4 +59,29 @@ func TestPlanMotionSequenceBacktrackBranchFactor(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPlanMotionSequenceIgnoresReturnPartialPlan checks that a request PlanMotion plans partially
+// fails within a sequence, without changing the caller's shared PlannerOptions.
+func TestPlanMotionSequenceIgnoresReturnPartialPlan(t *testing.T) {
+	requests := unplannableThirdRequest(t)[:2]
+	shared := NewBasicPlannerOptions()
+	shared.ReturnPartialPlan = true
+	for _, req := range requests {
+		req.PlannerOptions = shared
+	}
+	tenMetersAway := NewPlanState(referenceframe.FrameSystemPoses{
+		"arm": referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: 10000})),
+	}, nil)
+	requests[0].Goals = append(requests[0].Goals, tenMetersAway)
+
+	_, meta, err := PlanMotion(context.Background(), logging.NewTestLogger(t), &PlanRequest{
+		FrameSystem: requests[0].FrameSystem, StartState: requests[0].StartState, Goals: requests[0].Goals, PlannerOptions: shared,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, meta.Partial, test.ShouldBeTrue)
+
+	_, _, err = PlanMotionSequence(context.Background(), logging.NewTestLogger(t), requests, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, shared.ReturnPartialPlan, test.ShouldBeTrue)
 }

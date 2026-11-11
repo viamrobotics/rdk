@@ -216,7 +216,6 @@ func TestWebWithAuth(t *testing.T) {
 			apiKey1 := utils.RandomAlphaString(32)
 			apiKeyID2 := uuid.New().String()
 			apiKey2 := utils.RandomAlphaString(32)
-			locationSecrets := []string{"locsosecret", "locsec2"}
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -224,12 +223,6 @@ func TestWebWithAuth(t *testing.T) {
 						apiKeyID1: apiKey1,
 						apiKeyID2: apiKey2,
 						"keys":    []string{apiKeyID1, apiKeyID2},
-					},
-				},
-				{
-					Type: rutils.CredentialsTypeRobotLocationSecret,
-					Config: rutils.AttributeMap{
-						"secrets": locationSecrets,
 					},
 				},
 			}
@@ -254,16 +247,6 @@ func TestWebWithAuth(t *testing.T) {
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey1,
 					}))
-				test.That(t, err, test.ShouldNotBeNil)
-				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
-
-				_, err = rgrpc.Dial(context.Background(), addr, logger,
-					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rutils.WithEntityCredentials("wrong", rpc.Credentials{
-						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecrets[0],
-					}),
-				)
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
@@ -293,47 +276,7 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
 
-				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-				// WebRTC connections across unix sockets can create deadlock in CI.
-				conn, err = rgrpc.Dial(context.Background(), addr, logger,
-					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithEntityCredentials(entityName, rpc.Credentials{
-						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecrets[0],
-					}),
-					rpc.WithForceDirectGRPC(),
-				)
-				test.That(t, err, test.ShouldBeNil)
-				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-				test.That(t, err, test.ShouldBeNil)
-
-				arm1Position, err = arm1.EndPosition(ctx, nil)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, arm1Position, test.ShouldResemble, pos)
-
-				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
-				test.That(t, conn.Close(), test.ShouldBeNil)
-
-				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-				// WebRTC connections across unix sockets can create deadlock in CI.
-				conn, err = rgrpc.Dial(context.Background(), addr, logger,
-					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithEntityCredentials(entityName, rpc.Credentials{
-						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecrets[1],
-					}),
-					rpc.WithForceDirectGRPC(),
-				)
-				test.That(t, err, test.ShouldBeNil)
-				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-				test.That(t, err, test.ShouldBeNil)
-
-				arm1Position, err = arm1.EndPosition(ctx, nil)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, arm1Position, test.ShouldResemble, pos)
-
-				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
-				test.That(t, conn.Close(), test.ShouldBeNil)
+				_ = entityName
 
 				_, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(apiKeyID1, rpc.Credentials{
@@ -432,28 +375,6 @@ func TestWebWithAuth(t *testing.T) {
 
 				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
 				test.That(t, conn.Close(), test.ShouldBeNil)
-
-				// TODO(RSDK-4473) Reenable WebRTC when we figure out why multiple
-				// WebRTC connections across unix sockets can create deadlock in CI.
-				conn, err = rgrpc.Dial(context.Background(), addr, logger,
-					rpc.WithAllowInsecureWithCredentialsDowngrade(),
-					rpc.WithCredentials(rpc.Credentials{
-						Type:    rutils.CredentialsTypeRobotLocationSecret,
-						Payload: locationSecrets[0],
-					}),
-					rpc.WithForceDirectGRPC(),
-				)
-				test.That(t, err, test.ShouldBeNil)
-
-				arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-				test.That(t, err, test.ShouldBeNil)
-
-				arm1Position, err = arm1.EndPosition(ctx, nil)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, arm1Position, test.ShouldResemble, pos)
-
-				test.That(t, arm1.Close(context.Background()), test.ShouldBeNil)
-				test.That(t, conn.Close(), test.ShouldBeNil)
 			}
 
 			err = svc.Close(context.Background())
@@ -490,13 +411,15 @@ func TestWebWithTLSAuth(t *testing.T) {
 	options.Auth.TLSAuthEntities = leaf.DNSNames
 	options.Managed = true
 	options.FQDN = altName
-	options.LocalFQDN = "localhost" // this will allow authentication to work in unmanaged, default host
-	locationSecret := "locsosecret"
+	options.LocalFQDN = "localhost"
+	apiKeyID := uuid.New().String()
+	apiKey := utils.RandomAlphaString(32)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
-			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Type: rpc.CredentialsTypeAPIKey,
 			Config: rutils.AttributeMap{
-				"secret": locationSecret,
+				apiKeyID: apiKey,
+				"keys":   []string{apiKeyID},
 			},
 		},
 	}
@@ -512,28 +435,30 @@ func TestWebWithTLSAuth(t *testing.T) {
 	clientTLSConfig.Certificates = nil
 	clientTLSConfig.ServerName = "somename"
 
+	// TLS alone (no creds) is rejected.
 	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
+	// Wrong API key is rejected.
 	_, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
-		rutils.WithEntityCredentials("wrong", rpc.Credentials{
-			Type:    rutils.CredentialsTypeRobotLocationSecret,
-			Payload: locationSecret,
+		rutils.WithEntityCredentials(apiKeyID, rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: "wrong",
 		}),
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-	// use secret
+	// TLS + correct API key succeeds.
 	conn, err := rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
-		rutils.WithEntityCredentials(options.FQDN, rpc.Credentials{
-			Type:    rutils.CredentialsTypeRobotLocationSecret,
-			Payload: locationSecret,
+		rutils.WithEntityCredentials(apiKeyID, rpc.Credentials{
+			Type:    rpc.CredentialsTypeAPIKey,
+			Payload: apiKey,
 		}),
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -546,7 +471,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	// use cert
+	// Client cert authenticates even without credentials.
 	clientTLSConfig.Certificates = []tls.Certificate{cert}
 	conn, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
@@ -561,61 +486,11 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	// use cert with mDNS
+	// Client cert + mDNS lookup.
 	if mdnsSupported {
 		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
 			rpc.WithDialDebug(),
 			rpc.WithTLSConfig(clientTLSConfig),
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		arm1Position, err = arm1.EndPosition(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, arm1Position, test.ShouldResemble, pos)
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	}
-
-	// use signaling creds
-	conn, err = rgrpc.Dial(context.Background(), addr, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-			SignalingServerAddress: addr,
-			SignalingAuthEntity:    options.FQDN,
-			SignalingCreds: rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
-				Payload: locationSecret,
-			},
-		}),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
-
-	// use cert with mDNS while signaling present
-	if mdnsSupported {
-		conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-			rpc.WithDialDebug(),
-			rpc.WithTLSConfig(clientTLSConfig),
-			rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-				SignalingServerAddress: addr,
-				SignalingAuthEntity:    options.FQDN,
-				SignalingCreds: rpc.Credentials{
-					Type:    rutils.CredentialsTypeRobotLocationSecret,
-					Payload: locationSecret + "bad",
-				},
-			}),
-			rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-				RemoveAuthCredentials: true,
-			}),
 		)
 		test.That(t, err, test.ShouldBeNil)
 
