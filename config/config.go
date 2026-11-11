@@ -567,16 +567,16 @@ type cloudData struct {
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
 
-	APIKey            APIKey           `json:"api_key"`
-	LocationID        string           `json:"location_id"`
-	PrimaryOrgID      string           `json:"primary_org_id"`
-	MachineID         string           `json:"machine_id"`
-	ManagedBy         string           `json:"managed_by"`
-	FQDN              string           `json:"fqdn"`
-	LocalFQDN         string           `json:"local_fqdn"`
-	SignalingAddress  string           `json:"signaling_address"`
-	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	RefreshInterval   string           `json:"refresh_interval,omitempty"`
+	APIKey            APIKey `json:"api_key"`
+	LocationID        string `json:"location_id"`
+	PrimaryOrgID      string `json:"primary_org_id"`
+	MachineID         string `json:"machine_id"`
+	ManagedBy         string `json:"managed_by"`
+	FQDN              string `json:"fqdn"`
+	LocalFQDN         string `json:"local_fqdn"`
+	SignalingAddress  string `json:"signaling_address"`
+	SignalingInsecure bool   `json:"signaling_insecure,omitempty"`
+	RefreshInterval   string `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
