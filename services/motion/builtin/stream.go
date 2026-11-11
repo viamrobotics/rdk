@@ -178,8 +178,8 @@ func (ms *builtIn) writeStreamDiagnostics(
 	if ms.conf == nil {
 		return nil
 	}
-	return writeStreamDiagnosticsFile(
-		ms.logger, ms.conf.StreamDiagnosticsFilePath, "arm-stream-diagnostics", armName, opts, diag, start, metadataTags, sessionErr)
+	dir := ms.conf.StreamDiagnosticsFilePath
+	return writeStreamDiagnosticsFile(ms.logger, dir, "arm-stream-diagnostics", armName, opts, diag, start, metadataTags, sessionErr)
 }
 
 // writeStreamDiagnosticsFile writes one stream's diagnostics as JSON under dir, in a
