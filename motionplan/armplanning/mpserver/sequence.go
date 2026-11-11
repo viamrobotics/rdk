@@ -53,6 +53,7 @@ var sequenceTmpl = template.Must(template.New("sequence").Parse(`<!DOCTYPE html>
   details { margin: 8px 0; }
   summary { cursor: pointer; font-weight: 600; }
   caption { text-align: left; font-weight: 600; }
+  .has-rejected { background-color: #ffd54f; font-weight: 600; }
   .half-turns { background-color: #6a1b9a; color: white; font-weight: 600; }
   .same { background-color: #1b5e20; color: white; font-weight: 600; }
   .note { font-weight: 600; }
@@ -136,8 +137,14 @@ async function renderAll() {
   }
 }
 
-function foldable(title, body) {
-  return '<details open><summary>' + title + '</summary>' + body + '</details>';
+function foldable(title, body, id) {
+  return '<details open' + (id ? ' id="' + id + '"' : '') + '><summary>' + title + '</summary>' + body + '</details>';
+}
+
+// Opens the folds around a plan's backtracking tables so the in-page link lands on something visible.
+function showBacktrack(planNumber) {
+  document.getElementById('backtracking').open = true;
+  document.getElementById('backtrack-plan-' + planNumber).open = true;
 }
 
 function resultsTable(plans) {
@@ -146,8 +153,10 @@ function resultsTable(plans) {
   plans.forEach((plan, planIdx) => {
     html += '<tr><td>' + plan.number + '</td><td>' + escapeHtml(plan.name) + '</td><td>' +
       (plan.planned ? 'yes' : 'no') + '</td><td>' + (plan.planned ? plan.steps : '-') + '</td><td>' +
-      escapeHtml(plan.duration || '-') + '</td><td>' + plan.times_planned + '</td><td>' +
-      plan.rejected_solutions + '</td><td>' +
+      escapeHtml(plan.duration || '-') + '</td><td>' + plan.times_planned + '</td><td' +
+      (plan.rejected_solutions > 0 ? ' class="has-rejected"' : '') + '>' + plan.rejected_solutions +
+      (plan.backtrack ? ' (<a href="#backtrack-plan-' + plan.number + '" onclick="showBacktrack(' + plan.number +
+        ')">Details</a>)' : '') + '</td><td>' +
       (plan.planned ? '<button onclick="renderOne(' + planIdx + ')">Render</button>' : '') + '</td></tr>';
   });
   return foldable('Results', html + '</table>');
@@ -178,7 +187,7 @@ function backtrackTables(plans) {
       frame.cost.forEach(value => { body += '<td class="num">' + value + '</td>'; });
       body += '</tr></table>';
     });
-    html += foldable('Backtracking: plan ' + plan.number + ' ' + escapeHtml(plan.name), body);
+    html += foldable('Backtracking: plan ' + plan.number + ' ' + escapeHtml(plan.name), body, 'backtrack-plan-' + plan.number);
   });
   if (!html) return '';
   const legend = '<p class="muted">Each table compares a plan\'s start, its successful end (or, when the sequence failed, ' +
@@ -189,7 +198,7 @@ function backtrackTables(plans) {
     'adds a small bias for joints far from mid-range, not shown. Rejected joints: ' +
     '<span class="same">same value as the successful end</span>, ' +
     '<span class="half-turns">a whole number of half turns (&pi;) from it</span>.</p>';
-  return foldable('Backtracking', legend + html);
+  return foldable('Backtracking', legend + html, 'backtracking');
 }
 
 function runSequence() {
