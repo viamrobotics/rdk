@@ -49,15 +49,16 @@ func inDir(path, dir string) bool {
 	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)+string(filepath.Separator))
 }
 
-// ModuleVersions reports the running versions of the registry modules in the most recently applied
-// config. It reads in-memory state every cloud config fetch and does not block on an in-progress
-// reconfigure.
-func (r *localRobot) ModuleVersions() []*apppb.ModuleVersionInfo {
+// FillAgentInfo adds the registry modules of the most recently applied config and whether the
+// maintenance sensor blocked the last reconfigure to info. It reads in-memory state on every cloud
+// config fetch and does not block on an in-progress reconfigure.
+func (r *localRobot) FillAgentInfo(info *apppb.AgentInfo) {
+	info.ReconfigureBlocked = r.reconfigureBlocked.Load()
 	cfg, ok := r.mostRecentCfg.Load().(config.Config)
 	if !ok || len(cfg.Modules) == 0 {
-		return nil
+		return
 	}
-	return moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status(), time.Now())
+	info.ModuleVersions = moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status(), time.Now())
 }
 
 // moduleVersionInfos builds one entry per reportable registry module from the configured modules
@@ -73,8 +74,15 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, no
 		if mod.Type != config.ModuleTypeRegistry || mod.ModuleID == "" {
 			continue
 		}
-		info := &apppb.ModuleVersionInfo{ModuleId: mod.ModuleID}
+		info := &apppb.ModuleVersionInfo{ModuleId: mod.ModuleID, ModuleName: mod.Name}
 		s, ok := byName[mod.Name]
+		if ok {
+			pbStatus := s.ToProto()
+			info.State = pbStatus.State
+			info.Error = pbStatus.Error
+			info.ConsecutiveFailures = pbStatus.ConsecutiveFailures
+			info.RestartCount = uint32(s.ReadyCount)
+		}
 		if ok && s.State == modulestatus.ModuleStateReady && s.Version != "" {
 			info.RunningVersion = s.Version
 			info.RunningFor = durationpb.New(now.Sub(s.LastUpdated))

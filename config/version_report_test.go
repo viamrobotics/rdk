@@ -58,15 +58,16 @@ func TestConfigRequestReportsVersions(t *testing.T) {
 		test.That(t, info.ModuleVersions, test.ShouldBeEmpty)
 	})
 
-	t.Run("module versions come from the provider", func(t *testing.T) {
+	t.Run("robot state comes from the provider", func(t *testing.T) {
 		want := []*pb.ModuleVersionInfo{
 			{ModuleId: "viam:raspberry-pi", RunningVersion: "1.2.0", RunningFor: durationpb.New(time.Minute)},
 			{ModuleId: "viam:realsense"},
 		}
 		calls := 0
-		provider := func() []*pb.ModuleVersionInfo {
+		provider := func(info *pb.AgentInfo) {
 			calls++
-			return want
+			info.ModuleVersions = want
+			info.ReconfigureBlocked = true
 		}
 
 		_, err := readFromCloud(ctx, robotPartID, &prevCloudCfg, false, logger, appConn, provider)
@@ -78,6 +79,7 @@ func TestConfigRequestReportsVersions(t *testing.T) {
 		test.That(t, info.ModuleVersions, test.ShouldHaveLength, 2)
 		test.That(t, info.ModuleVersions[0], test.ShouldResembleProto, want[0])
 		test.That(t, info.ModuleVersions[1], test.ShouldResembleProto, want[1])
+		test.That(t, info.ReconfigureBlocked, test.ShouldBeTrue)
 		test.That(t, info.ViamServerUptime, test.ShouldNotBeNil)
 	})
 }

@@ -44,6 +44,7 @@ func TestModuleStatusVersion(t *testing.T) {
 	s := statusFor(t, mgr, modCfg.Name)
 	test.That(t, s.State, test.ShouldEqual, modulestatus.ModuleStateReady)
 	test.That(t, s.Version, test.ShouldEqual, "1.0.0")
+	test.That(t, s.ReadyCount, test.ShouldEqual, 1)
 	firstReady := s.LastUpdated
 
 	modCfg.PackageVersion = "1.1.0"
@@ -52,6 +53,7 @@ func TestModuleStatusVersion(t *testing.T) {
 	s = statusFor(t, mgr, modCfg.Name)
 	test.That(t, s.State, test.ShouldEqual, modulestatus.ModuleStateReady)
 	test.That(t, s.Version, test.ShouldEqual, "1.1.0")
+	test.That(t, s.ReadyCount, test.ShouldEqual, 2)
 	test.That(t, s.LastUpdated.After(firstReady), test.ShouldBeTrue)
 
 	t.Setenv("VIAM_TESTMODULE_PANIC", "1")
@@ -61,4 +63,7 @@ func TestModuleStatusVersion(t *testing.T) {
 	s = statusFor(t, mgr, modCfg.Name)
 	test.That(t, s.State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 	test.That(t, s.Version, test.ShouldNotEqual, "1.2.0")
+	test.That(t, s.ConsecutiveFailures, test.ShouldBeGreaterThan, 0)
+	test.That(t, s.Error, test.ShouldNotBeNil)
+	test.That(t, s.ReadyCount, test.ShouldEqual, 2)
 }

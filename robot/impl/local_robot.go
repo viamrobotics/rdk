@@ -149,6 +149,9 @@ type localRobot struct {
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
 
+	// whether the maintenance sensor blocked the most recent reconfigure
+	reconfigureBlocked atomic.Bool
+
 	// whether the robot is still initializing. this value controls what state will be
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
 	// configured based on the `Initial` value of applied `config.Config`s.
@@ -1740,6 +1743,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		r.reconfigureBlocked.Store(!reconfigureAllowed)
 		if !reconfigureAllowed {
 			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
 			// or resources changed), otherwise silently return.
@@ -1873,6 +1877,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		r.reconfigureBlocked.Store(!reconfigureAllowed)
 		if !reconfigureAllowed {
 			r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
 			return

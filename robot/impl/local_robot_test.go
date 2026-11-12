@@ -5377,12 +5377,14 @@ func TestMaintenanceConfig(t *testing.T) {
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeTrue)
 
 		// removing maintenance config unblocks reconfig and allows sensor to be added
 		r.Reconfigure(ctx, cfgUnblock)
 		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
 	})
 
 	t.Run("remote sensor successfully blocks reconfigure when remote name is specified and not specified", func(t *testing.T) {

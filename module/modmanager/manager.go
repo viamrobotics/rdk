@@ -65,6 +65,7 @@ func NewManager(
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
 		moduleStatusMap:         make(map[string]modulestatus.Status),
+		readyCounts:             make(map[string]uint),
 	}
 	return ret, nil
 }
@@ -154,6 +155,8 @@ type Manager struct {
 
 	moduleStatusMu  sync.RWMutex
 	moduleStatusMap map[string]modulestatus.Status
+	// readyCounts outlives module statuses, which are removed when a module restarts on reconfigure.
+	readyCounts map[string]uint
 }
 
 // Close terminates module connections and processes.
@@ -1205,7 +1208,9 @@ func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, 
 		status.ConsecutiveFailures = 0
 		status.Error = nil
 		status.Version = version
+		mgr.readyCounts[moduleName]++
 	}
+	status.ReadyCount = mgr.readyCounts[moduleName]
 
 	mgr.moduleStatusMap[moduleName] = status
 

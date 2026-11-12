@@ -1,11 +1,13 @@
 package robotimpl
 
 import (
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
 
 	apppb "go.viam.com/api/app/v1"
+	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -74,8 +76,10 @@ func TestModuleVersionInfos(t *testing.T) {
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 			ModuleId:       "viam:cam",
+			ModuleName:     "cam",
 			RunningVersion: "1.0.0",
 			RunningFor:     durationpb.New(time.Hour),
+			State:          robotpb.ModuleStatus_STATE_READY,
 		})
 	})
 
@@ -87,18 +91,32 @@ func TestModuleVersionInfos(t *testing.T) {
 			modulestatus.ModuleStateUnhealthy,
 			modulestatus.ModuleStateClosing,
 		} {
-			infos := moduleVersionInfos(
-				[]config.Module{registry("cam", "1.0.0")},
-				[]modulestatus.Status{status("cam", state, "1.0.0")},
-				now,
-			)
+			s := status("cam", state, "1.0.0")
+			infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
 			test.That(t, infos, test.ShouldHaveLength, 1)
-			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam"})
+			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam", ModuleName: "cam", State: s.ToProto().State})
 		}
 
 		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, nil, now)
 		test.That(t, infos, test.ShouldHaveLength, 1)
-		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam"})
+		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam", ModuleName: "cam"})
+	})
+
+	t.Run("module status is reported", func(t *testing.T) {
+		s := status("cam", modulestatus.ModuleStateUnhealthy, "1.0.0")
+		s.Error = errors.New("exit status 2")
+		s.ConsecutiveFailures = 3
+		s.ReadyCount = 4
+		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
+		test.That(t, infos, test.ShouldHaveLength, 1)
+		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
+			ModuleId:            "viam:cam",
+			ModuleName:          "cam",
+			State:               robotpb.ModuleStatus_STATE_UNHEALTHY,
+			Error:               "exit status 2",
+			ConsecutiveFailures: 3,
+			RestartCount:        4,
+		})
 	})
 
 	t.Run("update in flight reports the version that is still running", func(t *testing.T) {
@@ -143,8 +161,10 @@ func TestModuleVersionInfos(t *testing.T) {
 			test.That(t, infos, test.ShouldHaveLength, 1)
 			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 				ModuleId:       "viam:cam",
+				ModuleName:     "cam",
 				RunningVersion: version,
 				RunningFor:     durationpb.New(time.Hour),
+				State:          robotpb.ModuleStatus_STATE_READY,
 			})
 		}
 	})

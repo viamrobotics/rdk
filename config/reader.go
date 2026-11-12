@@ -52,10 +52,11 @@ const (
 // before main runs. Uptime is measured from its monotonic reading
 var processStartedAt = time.Now()
 
-// ModuleVersionsFunc reports the running versions of the machine's registry modules.
-type ModuleVersionsFunc func() []*apppb.ModuleVersionInfo
+// AgentInfoFunc adds the robot's running state, such as module versions and whether reconfigure is
+// blocked, to the AgentInfo sent with each config request.
+type AgentInfoFunc func(info *apppb.AgentInfo)
 
-func getAgentInfo(logger logging.Logger, moduleVersions ModuleVersionsFunc) (*apppb.AgentInfo, error) {
+func getAgentInfo(logger logging.Logger, fillAgentInfo AgentInfoFunc) (*apppb.AgentInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -92,8 +93,8 @@ func getAgentInfo(logger logging.Logger, moduleVersions ModuleVersionsFunc) (*ap
 		PlatformTags:     readExtendedPlatformTags(logger, true),
 		ViamServerUptime: durationpb.New(time.Since(processStartedAt)),
 	}
-	if moduleVersions != nil {
-		info.ModuleVersions = moduleVersions()
+	if fillAgentInfo != nil {
+		fillAgentInfo(info)
 	}
 	return info, nil
 }
@@ -211,9 +212,9 @@ func fetchAndProcessCloudConfig(
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-	moduleVersions ModuleVersionsFunc,
+	fillAgentInfo AgentInfoFunc,
 ) (cloudReadResult, error) {
-	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, machineID, shouldReadFromCache, logger, conn, moduleVersions)
+	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, machineID, shouldReadFromCache, logger, conn, fillAgentInfo)
 	if err != nil {
 		return cloudReadResult{}, err
 	}
@@ -347,14 +348,14 @@ func readFromCloud(
 	checkForNewCert bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-	moduleVersions ModuleVersionsFunc,
+	fillAgentInfo AgentInfoFunc,
 ) (*Config, error) {
 	if prevCloudCfg == nil {
 		return nil, errors.New("expected prevCloudCfg to not be nil")
 	}
 	logger.Debug("reading configuration from the cloud")
 
-	res, err := fetchAndProcessCloudConfig(ctx, machineID, false, logger, conn, moduleVersions)
+	res, err := fetchAndProcessCloudConfig(ctx, machineID, false, logger, conn, fillAgentInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -818,11 +819,11 @@ func getFromCloudOrCache(
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-	moduleVersions ModuleVersionsFunc,
+	fillAgentInfo AgentInfoFunc,
 ) (*Config, bool, error) {
 	var cached bool
 
-	cfg, err := getFromCloudGRPC(ctx, machineID, shouldReadFromCache, logger, conn, moduleVersions)
+	cfg, err := getFromCloudGRPC(ctx, machineID, shouldReadFromCache, logger, conn, fillAgentInfo)
 	if err != nil {
 		malformed := IsMalformedConfigError(err)
 		if shouldReadFromCache {
@@ -872,13 +873,13 @@ func getFromCloudGRPC(
 	shouldReadFromCache bool,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-	moduleVersions ModuleVersionsFunc,
+	fillAgentInfo AgentInfoFunc,
 ) (*Config, error) {
 	// Agent info is gathered before the timeout starts: it is local work -- on darwin it shells out
 	// to sw_vers -- while the timeout is there to bound the cloud round trip. That timeout is as
 	// short as a second when a cached config exists, so local work charged against it can leave no
 	// time for a request the cloud would have answered (RSDK-14774).
-	agentInfo, err := getAgentInfo(logger, moduleVersions)
+	agentInfo, err := getAgentInfo(logger, fillAgentInfo)
 	if err != nil {
 		return nil, errors.WithMessage(err, "error getting agent info")
 	}

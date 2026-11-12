@@ -32,13 +32,13 @@ func NewWatcher(
 	config *Config,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-	moduleVersions ModuleVersionsFunc,
+	fillAgentInfo AgentInfoFunc,
 ) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {
-		return newCloudWatcher(ctx, config, logger, conn, moduleVersions), nil
+		return newCloudWatcher(ctx, config, logger, conn, fillAgentInfo), nil
 	}
 	if config.ConfigFilePath != "" {
 		return newFSWatcher(ctx, config.ConfigFilePath, logger, conn)
@@ -62,7 +62,7 @@ func newCloudWatcher(
 	config *Config,
 	logger logging.Logger,
 	conn rpc.ClientConn,
-	moduleVersions ModuleVersionsFunc,
+	fillAgentInfo AgentInfoFunc,
 ) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
@@ -94,7 +94,7 @@ func newCloudWatcher(
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, machineID, prevCloudConfig, checkForNewCert, logger, conn, moduleVersions)
+			newConfig, err := readFromCloud(cancelCtx, machineID, prevCloudConfig, checkForNewCert, logger, conn, fillAgentInfo)
 			if err != nil {
 				// A malformed config is a legitimate error. The robot keeps running its current config,
 				// but we surface it loudly. A transient failure to reach the cloud stays at debug since
