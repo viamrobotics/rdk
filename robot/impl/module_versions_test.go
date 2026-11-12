@@ -1,7 +1,6 @@
 package robotimpl
 
 import (
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -34,11 +33,25 @@ func TestApplyModulePackageVersions(t *testing.T) {
 	applyModulePackageVersions(cfg)
 	test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, "1.2.3")
 	test.That(t, cfg.Modules[1].PackageVersion, test.ShouldBeEmpty)
-	test.That(t, cfg.Modules[2].PackageVersion, test.ShouldEqual, localReloadVersion)
+	test.That(t, cfg.Modules[2].PackageVersion, test.ShouldBeEmpty)
 
-	cfg.Modules[0].ExePath = "/home/dev/cam/bin/run"
-	applyModulePackageVersions(cfg)
-	test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, localReloadVersion)
+	t.Run("module outside the packages directory is a local path reload", func(t *testing.T) {
+		for _, p := range []string{
+			"/home/dev/cam/bin/run",
+			filepath.Join(config.DefaultPackagesDir()+config.LocalPackagesSuffix, "viam_reg-module.tar.gz", "bin", "run"),
+		} {
+			cfg.Modules[0].ExePath = p
+			applyModulePackageVersions(cfg)
+			test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, localReloadVersion)
+		}
+	})
+
+	t.Run("package directory must contain the ExePath, not just prefix it", func(t *testing.T) {
+		other := config.PackageConfig{Name: "m_reg", Package: "org/reg", Version: "1.2.30", Type: config.PackageTypeModule}
+		cfg.Modules[0].ExePath = filepath.Join(other.LocalDataDirectory(config.DefaultPackagesDir()), "bin", "run")
+		applyModulePackageVersions(cfg)
+		test.That(t, cfg.Modules[0].PackageVersion, test.ShouldBeEmpty)
+	})
 }
 
 func TestModuleVersionInfos(t *testing.T) {
@@ -117,11 +130,10 @@ func TestModuleVersionInfos(t *testing.T) {
 	})
 
 	t.Run("reload builds report their reload version", func(t *testing.T) {
-		localReported := fmt.Sprintf("reload-%d", readyAt.Unix())
-		for version, want := range map[string]string{
-			"reload-part-123-1700000000":        "reload-part-123-1700000000",
-			"reload-source-part-123-1700000000": "reload-source-part-123-1700000000",
-			localReloadVersion:                  localReported,
+		for _, version := range []string{
+			"reload-part-123-1700000000",
+			"reload-source-part-123-1700000000",
+			localReloadVersion,
 		} {
 			infos := moduleVersionInfos(
 				[]config.Module{registry("cam", version)},
@@ -131,18 +143,9 @@ func TestModuleVersionInfos(t *testing.T) {
 			test.That(t, infos, test.ShouldHaveLength, 1)
 			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 				ModuleId:       "viam:cam",
-				RunningVersion: want,
+				RunningVersion: version,
 				RunningFor:     durationpb.New(time.Hour),
 			})
 		}
-	})
-
-	t.Run("each local path reload reports a distinct version", func(t *testing.T) {
-		mods := []config.Module{registry("cam", localReloadVersion)}
-		first := moduleVersionInfos(mods, []modulestatus.Status{status("cam", modulestatus.ModuleStateReady, localReloadVersion)}, now)
-		reloaded := status("cam", modulestatus.ModuleStateReady, localReloadVersion)
-		reloaded.LastUpdated = readyAt.Add(time.Minute)
-		second := moduleVersionInfos(mods, []modulestatus.Status{reloaded}, now)
-		test.That(t, second[0].RunningVersion, test.ShouldNotEqual, first[0].RunningVersion)
 	})
 }

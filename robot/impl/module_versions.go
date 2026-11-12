@@ -1,7 +1,7 @@
 package robotimpl
 
 import (
-	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -12,14 +12,15 @@ import (
 	modulestatus "go.viam.com/rdk/module/status"
 )
 
-// localReloadVersion marks a registry module running from a `viam module reload` local path, which
-// has no package version. It is reported as "reload-<unix time it became ready>" so each reload is
-// distinct. Cloud reloads keep their unique "reload-..." package version.
-const localReloadVersion = "reload"
+// localReloadVersion is reported for a registry module running from a `viam module reload` local
+// path, which has no package version. Each reload is a separate config change (reload_time), so
+// the version does not need to change per reload.
+const localReloadVersion = "local"
 
 // applyModulePackageVersions copies each registry module's package version onto the module so the
 // module manager can record which version a module process reached ready with. A module is matched
-// to the package whose data directory its resolved ExePath lives in.
+// to the package whose data directory contains its resolved ExePath. A module outside the packages
+// directory is a local path reload; one inside it with no matching package gets no version.
 func applyModulePackageVersions(cfg *config.Config) {
 	packagesDir := config.DefaultPackagesDir()
 	for i := range cfg.Modules {
@@ -27,15 +28,25 @@ func applyModulePackageVersions(cfg *config.Config) {
 		if mod.Type != config.ModuleTypeRegistry {
 			continue
 		}
-		mod.PackageVersion = localReloadVersion
+		mod.PackageVersion = ""
+		if !inDir(mod.ExePath, packagesDir) {
+			mod.PackageVersion = localReloadVersion
+			continue
+		}
 		for j := range cfg.Packages {
 			p := &cfg.Packages[j]
-			if p.Type == config.PackageTypeModule && strings.HasPrefix(mod.ExePath, p.LocalDataDirectory(packagesDir)) {
+			if p.Type == config.PackageTypeModule && inDir(mod.ExePath, p.LocalDataDirectory(packagesDir)) {
 				mod.PackageVersion = p.Version
 				break
 			}
 		}
 	}
+}
+
+// inDir reports whether path is inside dir. A plain prefix check would match sibling directories
+// such as packages-local or a package whose version extends another's (1.2.3 and 1.2.30).
+func inDir(path, dir string) bool {
+	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)+string(filepath.Separator))
 }
 
 // ModuleVersions reports the running versions of the registry modules in the most recently applied
@@ -66,9 +77,6 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, no
 		s, ok := byName[mod.Name]
 		if ok && s.State == modulestatus.ModuleStateReady && s.Version != "" {
 			info.RunningVersion = s.Version
-			if s.Version == localReloadVersion {
-				info.RunningVersion = fmt.Sprintf("%s-%d", localReloadVersion, s.LastUpdated.Unix())
-			}
 			info.RunningFor = durationpb.New(now.Sub(s.LastUpdated))
 		}
 		infos = append(infos, info)
