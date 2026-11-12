@@ -373,12 +373,14 @@ type MachineStatus struct {
 }
 
 // MaintenanceStatus reports whether the machine would currently allow a reconfigure.
-// Populated only when the machine is running and has a maintenance config; nil otherwise so
-// callers can distinguish "no opinion" from an explicit allow/deny.
 type MaintenanceStatus struct {
 	Allowed bool
 	Reason  string
 }
+
+// FollowingReasonPrefix is the prefix used in MaintenanceStatus.Reason when a machine's
+// maintenance config is itself a follow_part.
+const FollowingReasonPrefix = "following "
 
 // JobStatus encapsulates status information about a single JobManager job.
 type JobStatus struct {
