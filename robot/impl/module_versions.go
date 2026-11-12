@@ -17,22 +17,28 @@ import (
 // the version does not need to change per reload.
 const localReloadVersion = "local"
 
+// isLocalReload reports whether mod is a registry module that app sent as a local module because
+// `viam module reload` set a local path for it.
+func isLocalReload(mod config.Module) bool {
+	return mod.Type == config.ModuleTypeLocal && mod.ModuleID != ""
+}
+
 // applyModulePackageVersions copies each registry module's package version onto the module so the
 // module manager can record which version a module process reached ready with. A module is matched
-// to the package whose data directory contains its resolved ExePath. A module outside the packages
-// directory is a local path reload; one inside it with no matching package gets no version.
+// to the package whose data directory contains its resolved ExePath, and gets no version if none
+// does. Local path reloads get localReloadVersion.
 func applyModulePackageVersions(cfg *config.Config) {
 	packagesDir := config.DefaultPackagesDir()
 	for i := range cfg.Modules {
 		mod := &cfg.Modules[i]
+		if isLocalReload(*mod) {
+			mod.PackageVersion = localReloadVersion
+			continue
+		}
 		if mod.Type != config.ModuleTypeRegistry {
 			continue
 		}
 		mod.PackageVersion = ""
-		if !inDir(mod.ExePath, packagesDir) {
-			mod.PackageVersion = localReloadVersion
-			continue
-		}
 		for j := range cfg.Packages {
 			p := &cfg.Packages[j]
 			if p.Type == config.PackageTypeModule && inDir(mod.ExePath, p.LocalDataDirectory(packagesDir)) {
@@ -43,8 +49,8 @@ func applyModulePackageVersions(cfg *config.Config) {
 	}
 }
 
-// inDir reports whether path is inside dir. A plain prefix check would match sibling directories
-// such as packages-local or a package whose version extends another's (1.2.3 and 1.2.30).
+// inDir reports whether path is inside dir. A plain prefix check would match a package whose
+// version extends another's (1.2.3 and 1.2.30).
 func inDir(path, dir string) bool {
 	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)+string(filepath.Separator))
 }
@@ -61,8 +67,8 @@ func (r *localRobot) FillAgentInfo(info *apppb.AgentInfo) {
 	info.ModuleVersions = moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status(), time.Now())
 }
 
-// moduleVersionInfos builds one entry per reportable registry module from the configured modules
-// and the current module statuses.
+// moduleVersionInfos builds one entry per registry module, including local path reloads, from the
+// configured modules and the current module statuses.
 func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, now time.Time) []*apppb.ModuleVersionInfo {
 	byName := make(map[string]modulestatus.Status, len(statuses))
 	for _, s := range statuses {
@@ -71,7 +77,7 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, no
 
 	var infos []*apppb.ModuleVersionInfo
 	for _, mod := range mods {
-		if mod.Type != config.ModuleTypeRegistry || mod.ModuleID == "" {
+		if (mod.Type != config.ModuleTypeRegistry || mod.ModuleID == "") && !isLocalReload(mod) {
 			continue
 		}
 		info := &apppb.ModuleVersionInfo{ModuleId: mod.ModuleID, ModuleName: mod.Name}

@@ -29,6 +29,7 @@ func TestApplyModulePackageVersions(t *testing.T) {
 			{Name: "reg", Type: config.ModuleTypeRegistry, ModuleID: "viam:reg", ExePath: exePath(0)},
 			{Name: "local", Type: config.ModuleTypeLocal, ExePath: exePath(1)},
 			{Name: "no-pkg", Type: config.ModuleTypeRegistry, ModuleID: "viam:no-pkg", ExePath: exePath(2)},
+			{Name: "reloaded", Type: config.ModuleTypeLocal, ModuleID: "viam:reloaded", ExePath: "/home/dev/cam/bin/run"},
 		},
 		Packages: pkgs,
 	}
@@ -36,16 +37,12 @@ func TestApplyModulePackageVersions(t *testing.T) {
 	test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, "1.2.3")
 	test.That(t, cfg.Modules[1].PackageVersion, test.ShouldBeEmpty)
 	test.That(t, cfg.Modules[2].PackageVersion, test.ShouldBeEmpty)
+	test.That(t, cfg.Modules[3].PackageVersion, test.ShouldEqual, localReloadVersion)
 
-	t.Run("module outside the packages directory is a local path reload", func(t *testing.T) {
-		for _, p := range []string{
-			"/home/dev/cam/bin/run",
-			filepath.Join(config.DefaultPackagesDir()+config.LocalPackagesSuffix, "viam_reg-module.tar.gz", "bin", "run"),
-		} {
-			cfg.Modules[0].ExePath = p
-			applyModulePackageVersions(cfg)
-			test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, localReloadVersion)
-		}
+	t.Run("registry module outside any package directory gets no version", func(t *testing.T) {
+		cfg.Modules[0].ExePath = "/home/dev/cam/bin/run"
+		applyModulePackageVersions(cfg)
+		test.That(t, cfg.Modules[0].PackageVersion, test.ShouldBeEmpty)
 	})
 
 	t.Run("package directory must contain the ExePath, not just prefix it", func(t *testing.T) {
@@ -129,22 +126,24 @@ func TestModuleVersionInfos(t *testing.T) {
 		test.That(t, infos[0].RunningVersion, test.ShouldEqual, "1.0.0")
 	})
 
-	t.Run("local modules are excluded", func(t *testing.T) {
+	t.Run("local modules are excluded but local path reloads are reported", func(t *testing.T) {
 		infos := moduleVersionInfos(
 			[]config.Module{
 				{Name: "local", Type: config.ModuleTypeLocal, ExePath: "/bin/local"},
-				{Name: "local-with-id", Type: config.ModuleTypeLocal, ModuleID: "viam:local-with-id"},
+				{Name: "reloaded", Type: config.ModuleTypeLocal, ModuleID: "viam:reloaded", PackageVersion: localReloadVersion},
 				registry("cam", "1.0.0"),
 			},
 			[]modulestatus.Status{
 				status("local", modulestatus.ModuleStateReady, ""),
-				status("local-with-id", modulestatus.ModuleStateReady, ""),
+				status("reloaded", modulestatus.ModuleStateReady, localReloadVersion),
 				status("cam", modulestatus.ModuleStateReady, "1.0.0"),
 			},
 			now,
 		)
-		test.That(t, infos, test.ShouldHaveLength, 1)
-		test.That(t, infos[0].ModuleId, test.ShouldEqual, "viam:cam")
+		test.That(t, infos, test.ShouldHaveLength, 2)
+		test.That(t, infos[0].ModuleId, test.ShouldEqual, "viam:reloaded")
+		test.That(t, infos[0].RunningVersion, test.ShouldEqual, localReloadVersion)
+		test.That(t, infos[1].ModuleId, test.ShouldEqual, "viam:cam")
 	})
 
 	t.Run("reload builds report their reload version", func(t *testing.T) {

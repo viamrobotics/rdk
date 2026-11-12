@@ -1743,15 +1743,17 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
-		r.reconfigureBlocked.Store(!reconfigureAllowed)
 		if !reconfigureAllowed {
 			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
-			// or resources changed), otherwise silently return.
+			// or resources changed), otherwise silently return. Local module versions are applied
+			// first so unchanged local modules don't count as a change.
+			r.applyLocalModuleVersions(newConfig)
 			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 			if err != nil {
 				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 				return
 			}
+			r.reconfigureBlocked.Store(diff != nil && !diff.ResourcesEqual)
 			if diff != nil && !diff.NetworkEqual {
 				if reconfigureAllowedErr != nil {
 					r.logger.CInfow(
@@ -1773,6 +1775,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 			return
 		}
+		r.reconfigureBlocked.Store(false)
 	}
 
 	// If reconfigure is allowed, assume we are reconfiguring until this function
