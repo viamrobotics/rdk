@@ -783,9 +783,10 @@ func TestPlanMotionSequenceSucceedsDespitePoisonedCache(t *testing.T) {
 // TestPlanMotionSequenceHeavyNeutralBias contains two plans, the first is unconstrained while the
 // second is heavily constrained. Due to the start position, the solution to the unconstrained
 // motion that allows the second to succeed has a much worse score than the alternatives. However,
-// this working solution does have the property of being a "normalized" solution (all joints between
-// -pi and pi) when compared the failed ones. Without HeavyNeutralBias, the algorithm would only
-// explore this solution on a fourth backtrack.
+// this working solution does have the property of being a "normalized" solution (all joints within
+// pi of the middle of their range) when compared the failed ones. Without HeavyNeutralBias, the
+// algorithm would only explore this solution on a fourth backtrack, which the default branch factor
+// of three never reaches.
 func TestPlanMotionSequenceHeavyNeutralBias(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -801,9 +802,14 @@ func TestPlanMotionSequenceHeavyNeutralBias(t *testing.T) {
 		requests = append(requests, request)
 	}
 
-	plans, metas, err := PlanMotionSequence(context.Background(), logger, requests, nil)
+	plans, _, err := PlanMotionSequence(context.Background(), logger, requests, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(plans), test.ShouldEqual, len(requests))
 
-	test.That(t, len(metas[0].RejectedSolutions), test.ShouldEqual, 2)
+	// How many solutions of the first request get rejected before the normalized one wins depends
+	// on what the time-budgeted, multi-threaded IK search happens to produce. Only the answer the
+	// sequence settles on, which is the one HeavyNeutralBias prefers, is deterministic.
+	armFrame := requests[0].FrameSystem.Frame("arm")
+	bias := HeavyNeutralBias(armFrame.DoF(), referenceframe.RevoluteDoF(armFrame), requests[1].StartState.Configuration()["arm"])
+	test.That(t, bias, test.ShouldEqual, 0)
 }

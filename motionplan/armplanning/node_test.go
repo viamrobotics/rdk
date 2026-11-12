@@ -96,6 +96,35 @@ func TestNeutralBias(t *testing.T) {
 	test.That(t, NeutralBias(wideLimits, []bool{false}, []float64{math.Pi}), test.ShouldEqual, 0)
 }
 
+func TestHeavyNeutralBias(t *testing.T) {
+	// ±2π limits: center is 0.
+	limits := []referenceframe.Limit{
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+		{Min: -2 * math.Pi, Max: 2 * math.Pi},
+	}
+	bothRevolute := []bool{true, true}
+
+	// Normalized configurations are free.
+	test.That(t, HeavyNeutralBias(limits, bothRevolute, []float64{math.Pi, -math.Pi}), test.ShouldEqual, 0)
+
+	// Anything further than π from the center is penalized far more than NeutralBias would.
+	overRotated := []float64{math.Pi + 0.1, 0}
+	test.That(t, HeavyNeutralBias(limits, bothRevolute, overRotated),
+		test.ShouldBeGreaterThan, NeutralBias(limits, bothRevolute, overRotated))
+
+	// Each over-rotated joint adds to the penalty.
+	test.That(t, HeavyNeutralBias(limits, bothRevolute, []float64{2 * math.Pi, 2 * math.Pi}),
+		test.ShouldBeGreaterThan, HeavyNeutralBias(limits, bothRevolute, []float64{2 * math.Pi, 0}))
+
+	// Non-revolute joints contribute nothing.
+	test.That(t, HeavyNeutralBias(limits, []bool{false, false}, []float64{2 * math.Pi, 2 * math.Pi}), test.ShouldEqual, 0)
+
+	// Asymmetric limits are measured from the middle of the range, here -2.
+	asymLimits := []referenceframe.Limit{{Min: -6, Max: 2}}
+	test.That(t, HeavyNeutralBias(asymLimits, []bool{true}, []float64{-2}), test.ShouldEqual, 0)
+	test.That(t, HeavyNeutralBias(asymLimits, []bool{true}, []float64{2}), test.ShouldBeGreaterThan, 0)
+}
+
 func TestUnwrapRotationalJoints(t *testing.T) {
 	const twoPi = 2 * math.Pi
 	rot := referenceframe.Limit{Min: -2 * math.Pi, Max: 2 * math.Pi} // rotational
