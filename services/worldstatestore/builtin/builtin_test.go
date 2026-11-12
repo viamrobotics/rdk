@@ -417,7 +417,9 @@ func TestOverGRPC(t *testing.T) {
 	// Serve the model as it is registered.
 	registration, ok := resource.LookupRegistration(worldstatestore.API, resource.DefaultServiceModel)
 	test.That(t, ok, test.ShouldBeTrue)
-	res, err := registration.Constructor(ctx, nil, resource.Config{Name: name.Name, API: worldstatestore.API}, logger)
+	res, err := registration.Constructor(
+		ctx, nil, resource.Config{Name: name.Name, API: worldstatestore.API, ConvertedAttributes: &Config{}}, logger,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	svc := res.(worldstatestore.Service)
 	defer func() { test.That(t, svc.Close(ctx), test.ShouldBeNil) }()
@@ -479,4 +481,66 @@ func TestOverGRPC(t *testing.T) {
 	updated := nextChange(t, stream)
 	test.That(t, updated.ChangeType, test.ShouldEqual, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED)
 	test.That(t, updated.UpdatedFields, test.ShouldResemble, []string{"pose_in_observer_frame.pose.x"})
+}
+
+// TestConfiguredTransforms asserts that a store starts with the transforms in its config, and
+// that a config it could not start with is rejected.
+func TestConfiguredTransforms(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	table := map[string]any{
+		"referenceFrame":      "table",
+		"poseInObserverFrame": map[string]any{"referenceFrame": "world", "pose": map[string]any{"z": -10.0}},
+		"physicalObject":      map[string]any{"box": map[string]any{"dimsMm": map[string]any{"x": 1000.0, "y": 1000.0, "z": 20.0}}},
+	}
+	wall := map[string]any{
+		"uuid":                "d2FsbA==",
+		"referenceFrame":      "wall",
+		"poseInObserverFrame": map[string]any{"referenceFrame": "world"},
+	}
+	conf := &Config{Transforms: []map[string]any{table, wall}}
+	_, _, err := conf.Validate("")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Build the store the way the robot does.
+	registration, ok := resource.LookupRegistration(worldstatestore.API, resource.DefaultServiceModel)
+	test.That(t, ok, test.ShouldBeTrue)
+	res, err := registration.Constructor(
+		ctx, nil, resource.Config{Name: "store", API: worldstatestore.API, ConvertedAttributes: conf}, logger,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	svc := res.(worldstatestore.Service)
+	defer func() { test.That(t, svc.Close(ctx), test.ShouldBeNil) }()
+
+	// Both transforms are there. The one without a uuid is stored under its reference frame name.
+	uuids, err := svc.ListUUIDs(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, uuids, test.ShouldHaveLength, 2)
+	got, err := svc.GetTransform(ctx, []byte("table"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.GetPoseInObserverFrame().GetPose().GetZ(), test.ShouldEqual, -10)
+	test.That(t, got.GetPhysicalObject().GetBox().GetDimsMm().GetX(), test.ShouldEqual, 1000)
+	_, err = svc.GetTransform(ctx, []byte("wall"), nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// A new stream starts with them, and they can be changed like any other transform.
+	stream, err := svc.StreamTransformChanges(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, nextChange(t, stream).ChangeType, test.ShouldEqual, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED)
+	test.That(t, nextChange(t, stream).ChangeType, test.ShouldEqual, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED)
+	_, err = svc.DoCommand(ctx, command(t, DoRemove, &event{Transform: &commonpb.Transform{Uuid: []byte("table")}}))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Validation names the transform that is wrong: here the second repeats the first's identity.
+	_, _, err = (&Config{Transforms: []map[string]any{table, table}}).Validate("services.0")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `transforms[1]: transform "table" already exists`)
+	_, _, err = (&Config{Transforms: []map[string]any{{"referenceFrame": "floating"}}}).Validate("services.0")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "transforms[0]: transform has no observer reference frame")
+
+	// An empty config is an empty store.
+	_, _, err = (&Config{}).Validate("")
+	test.That(t, err, test.ShouldBeNil)
 }

@@ -1,8 +1,8 @@
 // Package builtin implements a world state store service that keeps its transforms in memory.
 //
 // Transforms are added, updated and removed with the `DoAdd`, `DoUpdate` and `DoRemove`
-// DoCommands. Nothing is persisted: the store starts empty, and its contents are lost when
-// viam-server restarts or when the resource is rebuilt.
+// DoCommands. Nothing is persisted: the store starts with the transforms listed in its config, if
+// any, and everything added since is lost when viam-server restarts or the resource is rebuilt.
 //
 // The model has to be added to a machine's config; it is not a default service. Machine-wide name
 // uniqueness leaves room for only one default service, because every default service is named
@@ -35,11 +35,19 @@ func init() {
 	resource.RegisterService(
 		worldstatestore.API,
 		resource.DefaultServiceModel,
-		resource.Registration[worldstatestore.Service, resource.NoNativeConfig]{
+		resource.Registration[worldstatestore.Service, *Config]{
 			Constructor: func(
 				ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 			) (worldstatestore.Service, error) {
-				return NewBuiltIn(conf.ResourceName(), logger)
+				nativeConf, err := resource.NativeConfig[*Config](conf)
+				if err != nil {
+					return nil, err
+				}
+				svc := newBuiltIn(conf.ResourceName(), logger)
+				if err := svc.seed(nativeConf.Transforms); err != nil {
+					return nil, err
+				}
+				return svc, nil
 			},
 		},
 	)
