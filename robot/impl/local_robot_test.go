@@ -5412,6 +5412,81 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
+func TestMaintenanceSensorOverride(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// "ThatsMyWallet" always reads false, so the sensor blocks every reconfigure.
+	maintenanceCfg := &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"}
+	sensorCfg := resource.Config{Name: "sensor", Model: model, API: sensor.API}
+	sensor2Cfg := resource.Config{Name: "sensor2", Model: model, API: sensor.API}
+	sensor3Cfg := resource.Config{Name: "sensor3", Model: model, API: sensor.API}
+
+	newRobot := func(t *testing.T) *localRobot {
+		t.Helper()
+		r := setupLocalRobot(t, ctx, &config.Config{
+			MaintenanceConfig: maintenanceCfg,
+			Components:        []resource.Config{sensorCfg},
+		}, logger)
+		return r.(*localRobot)
+	}
+	hasResource := func(r *localRobot, name string) bool {
+		_, err := r.ResourceByName(sensor.Named(name))
+		return err == nil
+	}
+
+	cfgWith := func(extra ...resource.Config) *config.Config {
+		return &config.Config{
+			MaintenanceConfig: maintenanceCfg,
+			Components:        append([]resource.Config{sensorCfg}, extra...),
+		}
+	}
+
+	t.Run("override applies exactly one blocked reconfigure", func(t *testing.T) {
+		r := newRobot(t)
+
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeFalse)
+
+		test.That(t, r.OverrideMaintenanceSensor(ctx), test.ShouldBeNil)
+		test.That(t, r.MaintenanceOverrideArmed(), test.ShouldBeTrue)
+		test.That(t, r.RestartAllowed(), test.ShouldBeFalse)
+
+		// Re-delivering the same blocked config, as the cloud watcher does each poll, applies it.
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeTrue)
+		test.That(t, r.MaintenanceOverrideArmed(), test.ShouldBeFalse)
+
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg, sensor3Cfg))
+		test.That(t, hasResource(r, "sensor3"), test.ShouldBeFalse)
+	})
+
+	t.Run("unchanged config consumes the override", func(t *testing.T) {
+		r := newRobot(t)
+		test.That(t, r.OverrideMaintenanceSensor(ctx), test.ShouldBeNil)
+
+		r.Reconfigure(ctx, cfgWith())
+		test.That(t, r.MaintenanceOverrideArmed(), test.ShouldBeFalse)
+
+		r.Reconfigure(ctx, cfgWith(sensor2Cfg))
+		test.That(t, hasResource(r, "sensor2"), test.ShouldBeFalse)
+	})
+}
+
 func TestMaintenanceConfigLogs(t *testing.T) {
 	ctx := context.Background()
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))

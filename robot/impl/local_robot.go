@@ -154,6 +154,10 @@ type localRobot struct {
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
 
+	// maintenanceOverrideArmed is set by OverrideMaintenanceSensor and cleared by the next
+	// reconfigure attempt after initialization.
+	maintenanceOverrideArmed atomic.Bool
+
 	traceClients atomic.Pointer[[]otlptrace.Client]
 }
 
@@ -1737,37 +1741,30 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// No need to check whether reconfiguring is allowed if this is initialization.
 	var reconfigureAllowedErr error
+	// maintenanceOverridden is set when this pass consumed the one-shot manual override, so
+	// the sensor is skipped for the rest of this pass only.
+	var maintenanceOverridden bool
 	if !r.initializing.Load() {
-		var reconfigureAllowed bool
-		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
-		if !reconfigureAllowed {
-			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
-			// or resources changed), otherwise silently return.
-			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
-			if err != nil {
-				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+		// The override is spent by the first reconfigure attempt that sees it, even one whose
+		// config changes nothing. The cloud watcher delivers a config on every poll, so an
+		// armed override lasts at most one poll and needs no expiry of its own.
+		maintenanceOverridden = r.maintenanceOverrideArmed.Swap(false)
+		if maintenanceOverridden {
+			r.logger.CWarnw(ctx, "Maintenance sensor override consumed; skipping the maintenance sensor for this reconfigure")
+		} else {
+			var reconfigureAllowed bool
+			reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+			if !reconfigureAllowed {
+				// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
+				// or resources changed), otherwise silently return.
+				diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+				if err != nil {
+					r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+					return
+				}
+				r.logReconfigureBlocked(ctx, newConfig.MaintenanceConfig, diff, reconfigureAllowedErr)
 				return
 			}
-			if diff != nil && !diff.NetworkEqual {
-				if reconfigureAllowedErr != nil {
-					r.logger.CInfow(
-						ctx,
-						"Reconfigure NOT allowed due to error but Cloud/Auth/Network config changes will be applied",
-						"error",
-						reconfigureAllowedErr.Error(),
-					)
-				} else {
-					r.logger.CInfow(
-						ctx,
-						"Reconfigure NOT allowed by maintenance sensor but Cloud/Auth/Network config changes will be applied",
-						"sensor",
-						newConfig.MaintenanceConfig.SensorName,
-					)
-				}
-			} else if diff != nil && !diff.ResourcesEqual {
-				r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
-			}
-			return
 		}
 	}
 
@@ -1869,7 +1866,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Package sync and first-run scripts can take minutes, so read the sensor again
 	// right before anything is torn down.
-	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
+	if !r.initializing.Load() && !initialDiff.ResourcesEqual && !maintenanceOverridden {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
 		if !reconfigureAllowed {
@@ -1997,7 +1994,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		logNoun = "construction"
 	}
 	if !r.initializing.Load() && newConfig.MaintenanceConfig != nil {
-		if reconfigureAllowedErr != nil {
+		if maintenanceOverridden {
+			r.logger.CWarnw(
+				ctx,
+				"Reconfigure allowed by manual maintenance sensor override",
+				"sensor",
+				newConfig.MaintenanceConfig.SensorName,
+			)
+		} else if reconfigureAllowedErr != nil {
 			r.logger.CInfow(
 				ctx,
 				"Reconfigure allowed despite error while checking",
@@ -2458,6 +2462,53 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
 	}
 	return canReconfigure, nil
+}
+
+// OverrideMaintenanceSensor arms a one-shot override of the maintenance sensor: the next
+// reconfigure attempt skips the sensor and consumes the override, whether or not its config
+// changes anything. The override is held in memory only, does not survive a viam-server
+// restart, and does not affect RestartAllowed.
+//
+// A config the sensor previously blocked does not need to be re-sent: the cloud config
+// watcher re-delivers the current config on every poll, and that delivery applies it.
+func (r *localRobot) OverrideMaintenanceSensor(ctx context.Context) error {
+	r.maintenanceOverrideArmed.Store(true)
+	r.logger.CWarnw(ctx, "Maintenance sensor override armed; the next reconfigure will skip the maintenance sensor")
+	return nil
+}
+
+// MaintenanceOverrideArmed reports whether a maintenance sensor override is armed and not yet
+// consumed.
+func (r *localRobot) MaintenanceOverrideArmed() bool {
+	return r.maintenanceOverrideArmed.Load()
+}
+
+// logReconfigureBlocked logs why a reconfigure was skipped at the maintenance gate, staying
+// silent when the incoming config changes neither network nor resources.
+func (r *localRobot) logReconfigureBlocked(
+	ctx context.Context, mCfg *config.MaintenanceConfig, diff *config.Diff, allowedErr error,
+) {
+	switch {
+	case diff == nil:
+	case !diff.NetworkEqual:
+		if allowedErr != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure NOT allowed due to error but Cloud/Auth/Network config changes will be applied",
+				"error",
+				allowedErr.Error(),
+			)
+		} else {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure NOT allowed by maintenance sensor but Cloud/Auth/Network config changes will be applied",
+				"sensor",
+				mCfg.SensorName,
+			)
+		}
+	case !diff.ResourcesEqual:
+		r.logReconfigureNotAllowed(ctx, mCfg, allowedErr)
+	}
 }
 
 func (r *localRobot) logReconfigureNotAllowed(ctx context.Context, mCfg *config.MaintenanceConfig, err error) {
