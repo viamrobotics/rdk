@@ -53,7 +53,10 @@ def update_annotation(
 
 
 def replace_async_func(
-    resource_name: str, func: ast.AsyncFunctionDef, nodes: Set[str], parent: str = ""
+    resource_name: str,
+    func: Union[ast.FunctionDef, ast.AsyncFunctionDef],
+    nodes: Set[str],
+    parent: str = "",
 ) -> None:
     for arg in func.args.args:
         arg.annotation = update_annotation(resource_name, arg.annotation, nodes, parent)
@@ -88,18 +91,36 @@ def resolve_import_module(base_module: str, level: int, module: str) -> str:
     return ".".join(base_parts) + ("." + module if module else "")
 
 
+def is_abstractmethod_decorator(decorator: ast.AST) -> bool:
+    if isinstance(decorator, ast.Name) and decorator.id == "abstractmethod":
+        return True
+    return isinstance(decorator, ast.Attribute) and decorator.attr == "abstractmethod"
+
+
+def is_abstract_method(node: ast.AST) -> bool:
+    if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    return any(is_abstractmethod_decorator(decorator) for decorator in node.decorator_list)
+
+
 def is_abstract_class(cls: ast.ClassDef) -> bool:
-    for node in ast.walk(cls):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Name) and decorator.id == "abstractmethod":
-                    return True
-                if (
-                    isinstance(decorator, ast.Attribute)
-                    and decorator.attr == "abstractmethod"
-                ):
-                    return True
-    return False
+    return any(is_abstract_method(node) for node in ast.walk(cls))
+
+
+def should_copy_method(node: ast.AST) -> bool:
+    """Methods the stub must define so the generated class can be constructed.
+
+    RPC methods are async. ``register_control_callback`` is a synchronous
+    abstract method, and leaving it off the subclass makes ``InputController``
+    impossible to instantiate.
+    """
+    if isinstance(node, ast.AsyncFunctionDef):
+        return True
+    return (
+        isinstance(node, ast.FunctionDef)
+        and not node.name.startswith("__")
+        and is_abstract_method(node)
+    )
 
 
 def return_subclass(
@@ -126,7 +147,7 @@ def return_subclass(
                 nodes_to_remove.append(cstmt)
             elif isinstance(cstmt, ast.ClassDef):
                 parse_subclass(resource_name, cstmt, stmt.bases[0].id)
-            elif isinstance(cstmt, ast.AsyncFunctionDef):
+            elif should_copy_method(cstmt):
                 replace_async_func(resource_name, cstmt, nodes, stmt.bases[0].id)
         for node in nodes_to_remove:
             stmt.body.remove(node)
@@ -483,7 +504,7 @@ def same_file_stub(
                     subclasses.append(return_subclass(resource_name, cstmt))
                     for node in ast.walk(cstmt):
                         referenced |= signature_names(node)
-                elif isinstance(cstmt, ast.AsyncFunctionDef):
+                elif should_copy_method(cstmt):
                     replace_async_func(resource_name, cstmt, nodes)
                     referenced |= signature_names(cstmt)
                     indented_code = "\n".join(
@@ -584,7 +605,7 @@ def main(
         for stmt in tree.body:
             if isinstance(stmt, ast.ClassDef):
                 for cstmt in stmt.body:
-                    if isinstance(cstmt, ast.AsyncFunctionDef):
+                    if should_copy_method(cstmt):
                         replace_async_func("", cstmt, [])
                         indented_code = "\n".join(
                             ["    " + line for line in ast.unparse(cstmt).splitlines()]
@@ -775,12 +796,26 @@ class Board:
     async def stream_ticks(self) -> TickStream:
         raise NotImplementedError()
 
+class EventType:
+    pass
+
+ControlFunction = dict
+
 class Controller:
     async def get_controls(self) -> List[Control]:
         raise NotImplementedError()
 
     async def get_events(self) -> Dict[Control, Event]:
         raise NotImplementedError()
+
+    @abc.abstractmethod
+    def register_control_callback(
+        self, control: Control, triggers: List[EventType], function: Optional[ControlFunction]
+    ):
+        ...
+
+    def not_copied(self) -> str:
+        return "keep"
 
 class Vision:
     async def capture_all_from_camera(self) -> CaptureAllResult:
@@ -801,12 +836,44 @@ class Vision:
     if "TickStream" not in "\n".join(board_methods):
         raise SystemExit("board method dropped TickStream")
 
-    input_imports, _, _ = same_file_stub(
+    input_imports, _, input_methods = same_file_stub(
         source, "Controller", "viam.components.input.input"
     )
-    input_import = "from viam.components.input.input import Control, Event"
+    input_import = (
+        "from viam.components.input.input import Control, ControlFunction, Event, EventType"
+    )
     if input_import not in input_imports:
         raise SystemExit(f"input imports: {input_imports}")
+    input_text = "\n".join(input_methods)
+    if "def register_control_callback(" not in input_text:
+        raise SystemExit("sync abstract method was not copied")
+    if "abstractmethod" in input_text or "def not_copied(" in input_text:
+        raise SystemExit(f"unexpected method in input stub:\n{input_text}")
+    if "async def get_controls(" not in input_text:
+        raise SystemExit("async method was dropped")
+    namespace: dict = {}
+    exec(
+        "import abc\n"
+        "from typing import Dict, List, Optional\n"
+        "class Control: pass\n"
+        "class Event: pass\n"
+        "class EventType: pass\n"
+        "ControlFunction = dict\n"
+        "class Controller(abc.ABC):\n"
+        "    @abc.abstractmethod\n"
+        "    async def get_controls(self) -> List[Control]: raise NotImplementedError()\n"
+        "    @abc.abstractmethod\n"
+        "    async def get_events(self) -> Dict[Control, Event]: raise NotImplementedError()\n"
+        "    @abc.abstractmethod\n"
+        "    def register_control_callback(\n"
+        "        self, control: Control, triggers: List[EventType], function: Optional[ControlFunction]\n"
+        "    ): ...\n"
+        "class Model(Controller):\n"
+        + input_text
+        + "\n",
+        namespace,
+    )
+    namespace["Model"]()
 
     vision_imports, _, _ = same_file_stub(
         source, "Vision", "viam.services.vision.vision"
