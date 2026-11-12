@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -38,4 +39,24 @@ func TestPlanMotionJointGoalAlreadyAtTarget(t *testing.T) {
 	traj := plan.Trajectory()
 	test.That(t, traj, test.ShouldHaveLength, 1)
 	test.That(t, traj[0]["arm"], test.ShouldResemble, joints)
+}
+
+// TestPlanMotionFailsOnDoneContext checks that a done context is reported as an error rather than
+// as a plan that stops short of its goals.
+func TestPlanMotionFailsOnDoneContext(t *testing.T) {
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, _, err = PlanMotion(ctx, logging.NewTestLogger(t), &PlanRequest{
+		FrameSystem:    fs,
+		StartState:     NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": {0, 0.5, -1.0, 0, 0.5, 0}}),
+		Goals:          []*PlanState{NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": {0.2, 0.5, -1.0, 0, 0.5, 0}})},
+		PlannerOptions: NewBasicPlannerOptions(),
+	})
+	test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
 }
