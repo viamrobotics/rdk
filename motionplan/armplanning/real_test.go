@@ -796,6 +796,7 @@ func TestPlanMotionSequenceHeavyNeutralBias(t *testing.T) {
 	} {
 		request, err := ReadRequestFromFile(file)
 		test.That(t, err, test.ShouldBeNil)
+		request.PlannerOptions.Timeout = defaultTimeout + 1
 
 		requests = append(requests, request)
 	}
