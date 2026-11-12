@@ -409,3 +409,59 @@ func TestMoveWithConfiguredWorldStateStore(t *testing.T) {
 	_, err = ms.(*builtIn).plan(ctx, moveReq, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldNotBeNil)
 }
+
+// TestMoveWithStoreConfiguredTransforms asserts that an obstacle listed in the store's config
+// blocks a move from the moment the robot starts, with nothing added at runtime.
+func TestMoveWithStoreConfiguredTransforms(t *testing.T) {
+	raw, err := os.ReadFile("../data/moving_arm.json")
+	test.That(t, err, test.ShouldBeNil)
+	var cfg map[string]interface{}
+	test.That(t, json.Unmarshal(raw, &cfg), test.ShouldBeNil)
+	cfg["services"] = []interface{}{
+		map[string]interface{}{
+			"name":  "world-state",
+			"api":   worldstatestore.API.String(),
+			"model": "rdk:builtin:builtin",
+			"attributes": map[string]interface{}{"transforms": []interface{}{
+				map[string]interface{}{
+					"referenceFrame": "slab",
+					"poseInObserverFrame": map[string]interface{}{
+						"referenceFrame": referenceframe.World,
+						"pose":           map[string]interface{}{"z": 370.0, "oZ": 1.0},
+					},
+					"physicalObject": map[string]interface{}{
+						"box": map[string]interface{}{"dimsMm": map[string]interface{}{"x": 2000.0, "y": 2000.0, "z": 20.0}},
+					},
+				},
+			}},
+		},
+		map[string]interface{}{
+			"name":       "builtin",
+			"api":        motion.API.String(),
+			"model":      "rdk:builtin:builtin",
+			"attributes": map[string]interface{}{"world_state_store_service_name": "world-state"},
+		},
+	}
+	raw, err = json.Marshal(cfg)
+	test.That(t, err, test.ShouldBeNil)
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	test.That(t, os.WriteFile(cfgPath, raw, 0o600), test.ShouldBeNil)
+
+	ms, teardown := setupMotionServiceFromConfig(t, cfgPath)
+	defer teardown()
+
+	// The store holds the configured slab, under its reference frame name.
+	slab, err := ms.(*builtIn).worldStateStore.GetTransform(context.Background(), []byte("slab"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, slab.GetPhysicalObject().GetBox().GetDimsMm().GetX(), test.ShouldEqual, 2000)
+
+	// The move that TestMoveWithConfiguredWorldStateStore can plan with an empty store is blocked.
+	moveReq := motion.MoveReq{
+		ComponentName: "pieceArm",
+		Destination: referenceframe.NewPoseInFrame(
+			referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: -600, Y: -400, Z: 460}),
+		),
+	}
+	_, err = ms.(*builtIn).plan(context.Background(), moveReq, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldNotBeNil)
+}
