@@ -779,3 +779,31 @@ func TestPlanMotionSequenceSucceedsDespitePoisonedCache(t *testing.T) {
 	}
 	test.That(t, numBacktracks, test.ShouldBeGreaterThanOrEqualTo, 1)
 }
+
+// TestPlanMotionSequenceHeavyNeutralBias contains two plans, the first is unconstrained while the
+// second is heavily constrained. Due to the start position, the solution to the unconstrained
+// motion that allows the second to succeed has a much worse score than the alternatives. However,
+// this working solution does have the property of being a "normalized" solution (all joints between
+// -pi and pi) when compared the failed ones. Without HeavyNeutralBias, the algorithm would only
+// explore this solution on a fourth backtrack.
+func TestPlanMotionSequenceHeavyNeutralBias(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	var requests []*PlanRequest
+	for _, file := range []string{
+		"data/sequence-heavy-bias/123-20261106_163547.972-serving-carry-success.json",
+		"data/sequence-heavy-bias/124-20261106_163552.763-serving-pivot-success.json",
+	} {
+		request, err := ReadRequestFromFile(file)
+		test.That(t, err, test.ShouldBeNil)
+		request.PlannerOptions.Timeout = defaultTimeout + 1
+
+		requests = append(requests, request)
+	}
+
+	plans, metas, err := PlanMotionSequence(context.Background(), logger, requests, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(plans), test.ShouldEqual, len(requests))
+
+	test.That(t, len(metas[0].RejectedSolutions), test.ShouldEqual, 2)
+}
