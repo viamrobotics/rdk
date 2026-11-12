@@ -95,7 +95,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	if opts.MaxTargetsDroppedInARowDueToTrajexExtendError, err = streaming.MaxTargetsDroppedInARowDueToTrajexExtendError(extra); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}
-	if opts.ForceRebaseIfExtendLatencyExceedsMs, err = streaming.ForceRebaseIfExtendLatencyExceedsMs(extra); err != nil {
+	if opts.ForceRebaseIfExtendLatencyExceeds, err = streaming.ForceRebaseIfExtendLatencyExceeds(extra); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
 	}
 	if err := opts.Validate(); err != nil {
@@ -122,7 +122,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		return fmt.Errorf("failed to read seed joint positions from %q: %w", armName, err)
 	}
 
-	diag := diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
+	diag := diagnostics.New(opts.DiagnosticsWindow)
 
 	// A cancelable ctx lets Close end the session from another goroutine (via s.cancel), even
 	// though this call otherwise just runs to completion on the caller's own ctx.
@@ -237,8 +237,8 @@ func (ms *builtIn) streamStatus(armName string) map[string]any {
 	if !ok {
 		return map[string]any{}
 	}
-	status := map[string]any{streamKeyDiagnosticsWindowSecs: s.opts.DiagnosticsWindowSecs}
-	if s.opts.DiagnosticsWindowSecs > 0 {
+	status := map[string]any{streamKeyDiagnosticsWindowSecs: int(s.opts.DiagnosticsWindow / time.Second)}
+	if s.opts.DiagnosticsWindow > 0 {
 		status[streamKeyLastWindowDetails] = s.diagnostics.LastWindowDetails()
 	}
 	return status
