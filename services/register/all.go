@@ -9,6 +9,8 @@ import (
 	_ "go.viam.com/rdk/services/generic/register"
 	_ "go.viam.com/rdk/services/shell/register"
 	_ "go.viam.com/rdk/services/slam/register"
+	_ "go.viam.com/rdk/services/statemachine/register"
+	_ "go.viam.com/rdk/services/task/register"
 	_ "go.viam.com/rdk/services/video/register"
 	_ "go.viam.com/rdk/services/vision/register"
 	_ "go.viam.com/rdk/services/worldstatestore/register"
