@@ -3,5 +3,6 @@ package register
 
 import (
 	// for world state store models.
+	_ "go.viam.com/rdk/services/worldstatestore/builtin"
 	_ "go.viam.com/rdk/services/worldstatestore/fake"
 )

@@ -11,9 +11,6 @@ import (
 	"go.viam.com/rdk/logging"
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
-	// The builtin world state store is a default service. Like the builtin motion service, it is
-	// registered here rather than in services/register so that only viam-server constructs it.
-	_ "go.viam.com/rdk/services/worldstatestore/builtin"
 	"go.viam.com/rdk/web/server"
 )
 

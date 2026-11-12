@@ -4,7 +4,10 @@
 // DoCommands. Nothing is persisted: the store starts empty, and its contents are lost when
 // viam-server restarts or when the resource is rebuilt.
 //
-// This is a default service: every machine has one named "builtin" without configuring it.
+// The model has to be added to a machine's config; it is not a default service. Machine-wide name
+// uniqueness leaves room for only one default service, because every default service is named
+// "builtin", and the motion service is it. For the same reason the store cannot be named
+// "builtin". Left unnamed it is called "world_state_store".
 package builtin
 
 import (
@@ -29,7 +32,7 @@ const defaultSubscriberBuffer = 1024
 var errClosed = errors.New("world state store is closed")
 
 func init() {
-	resource.RegisterDefaultService(
+	resource.RegisterService(
 		worldstatestore.API,
 		resource.DefaultServiceModel,
 		resource.Registration[worldstatestore.Service, resource.NoNativeConfig]{

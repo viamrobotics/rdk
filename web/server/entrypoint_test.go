@@ -83,11 +83,11 @@ func TestEntrypoint(t *testing.T) {
 
 		resourceNames := rc.ResourceNames()
 
-		// numResources is the # of resources in /etc/configs/fake.json + the 2
-		// expected builtin resources (motion, which needs cgo, and the world state store).
-		numResources := 21
+		// numResources is the # of resources in /etc/configs/fake.json + the 1
+		// expected builtin resources.
+		numResources := 20
 		if cgoBuiltinsExcluded() {
-			numResources = 19
+			numResources = 18
 		}
 
 		test.That(t, len(resourceNames), test.ShouldEqual, numResources)
