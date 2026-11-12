@@ -76,7 +76,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 	pm.pc.planMeta.SubgoalsPerGoal = make([]int, len(pm.request.Goals))
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
-			return linearTraj, i, err // note: here and below, we return traj because of ReturnPartialPlan
+			return linearTraj, i, ctx.Err() // note: here and below, we return traj because of ReturnPartialPlan
 		}
 
 		to, err := g.ComputePoses(ctx, pm.request.FrameSystem)
