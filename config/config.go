@@ -110,9 +110,9 @@ func (cfg TracingConfig) IsEnabled() bool {
 }
 
 // MaintenanceConfig specifies how a machine decides whether it is allowed to reconfigure.
-// Either SensorName+MaintenanceAllowedKey is set (the machine reads a local/remote sensor) or
-// FollowPart is set (the machine defers the decision to another part via a sideband connection).
-// The two are mutually exclusive; if both are set, FollowPart wins and the sensor fields are
+// Either SensorName+MaintenanceAllowedKey is set (the machine reads a local/remote
+// sensor) or FollowPart is set (the machine defers the decision to another part). The two
+// are mutually exclusive; if both are set, FollowPart wins and the sensor fields are
 // ignored.
 type MaintenanceConfig struct {
 	SensorName            string         `json:"sensor_name,omitempty"`
@@ -120,9 +120,8 @@ type MaintenanceConfig struct {
 	FollowPart            *FollowPartRef `json:"follow_part,omitempty"`
 }
 
-// FollowPartRef points at another part whose MaintenanceStatus governs this machine's reconfigure
-// decision. The referenced part is reached over a sideband SDK connection and is NOT added to
-// the resource graph (so it cannot create remote cycles).
+// FollowPartRef points at another part whose maintenance status governs this machine's
+// reconfigure decision.
 type FollowPartRef struct {
 	Address string     `json:"address"`
 	Auth    RemoteAuth `json:"auth,omitempty"`
