@@ -2484,6 +2484,14 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 
 	// Ignore SensorName and MaintenanceAllowedKey if FollowPart is set.
 	if mCfg.FollowPart != nil {
+		if mCfg.SensorName != "" || mCfg.MaintenanceAllowedKey != "" {
+			r.logger.CWarnw(ctx,
+				"maintenance config sets both follow_part and sensor fields; follow_part wins and "+
+					"sensor_name / maintenance_allowed_key are ignored. Remove one to clear this warning",
+				"sensor_name", mCfg.SensorName,
+				"maintenance_allowed_key", mCfg.MaintenanceAllowedKey,
+				"follow_part_address", mCfg.FollowPart.Address)
+		}
 		return r.reconfigureAllowedFollowPart(ctx, mCfg.FollowPart)
 	}
 
