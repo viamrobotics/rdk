@@ -85,7 +85,7 @@ func (svc *builtIn) DoCommand(ctx context.Context, cmd map[string]any) (map[stri
 	var changes []worldstatestore.TransformChange
 	switch name {
 	case DoAdd:
-		changes, err = svc.addLocked(events)
+		changes, err = svc.addLocked(DoAdd, events)
 	case DoUpdate:
 		changes, err = svc.updateLocked(events)
 	case DoRemove:
@@ -175,16 +175,16 @@ func decodeEvent(item json.RawMessage, inferUpdatedFields bool) (*pb.StreamTrans
 // before touching `svc.transforms`, so a batch with an invalid item changes nothing. They
 // return the changes to publish.
 
-func (svc *builtIn) addLocked(events []*pb.StreamTransformChangesResponse) ([]worldstatestore.TransformChange, error) {
+func (svc *builtIn) addLocked(label string, events []*pb.StreamTransformChangesResponse) ([]worldstatestore.TransformChange, error) {
 	staged := make(map[string]*commonpb.Transform, len(events))
 	changes := make([]worldstatestore.TransformChange, 0, len(events))
 	for idx, event := range events {
 		transform := event.GetTransform()
 		if transform.GetReferenceFrame() == "" {
-			return nil, fmt.Errorf("%s[%d]: transform has no reference frame", DoAdd, idx)
+			return nil, fmt.Errorf("%s[%d]: transform has no reference frame", label, idx)
 		}
 		if transform.GetPoseInObserverFrame().GetReferenceFrame() == "" {
-			return nil, fmt.Errorf("%s[%d]: transform has no observer reference frame", DoAdd, idx)
+			return nil, fmt.Errorf("%s[%d]: transform has no observer reference frame", label, idx)
 		}
 		if len(transform.GetUuid()) == 0 {
 			id := uuid.New()
@@ -195,7 +195,7 @@ func (svc *builtIn) addLocked(events []*pb.StreamTransformChangesResponse) ([]wo
 		_, isStored := svc.transforms[key]
 		_, isStaged := staged[key]
 		if isStored || isStaged {
-			return nil, fmt.Errorf("%s[%d]: transform %q already exists", DoAdd, idx, key)
+			return nil, fmt.Errorf("%s[%d]: transform %q already exists", label, idx, key)
 		}
 
 		staged[key] = transform
