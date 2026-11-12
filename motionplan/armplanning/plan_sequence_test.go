@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -84,4 +85,19 @@ func TestPlanMotionSequenceIgnoresReturnPartialPlan(t *testing.T) {
 	_, _, err = PlanMotionSequence(context.Background(), logging.NewTestLogger(t), requests, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, shared.ReturnPartialPlan, test.ShouldBeTrue)
+}
+
+// TestPlanMotionSequenceStopsOnDoneContext checks that a done context ends the sequence with
+// ctx.Err() instead of backtracking.
+func TestPlanMotionSequenceStopsOnDoneContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, metas, err := PlanMotionSequence(ctx, logging.NewTestLogger(t), unplannableThirdRequest(t), nil)
+	test.That(t, errors.Is(err, context.Canceled), test.ShouldBeTrue)
+	for _, meta := range metas {
+		if meta != nil {
+			test.That(t, meta.BacktrackCounter, test.ShouldEqual, 0)
+		}
+	}
 }

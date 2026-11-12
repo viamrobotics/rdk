@@ -433,7 +433,8 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // error, entries for the requests after the last good one are nil if never planned, or hold
 // whatever an abandoned attempt produced. A PlanMeta sums the numeric values over every attempt at
 // its request, and its BacktrackCounter says how many times the request was re-planned. An error
-// means no combination of solutions was found.
+// means no combination of solutions was found, or that ctx was done, in which case it wraps
+// ctx.Err().
 func PlanMotionSequence(
 	ctx context.Context,
 	parentLogger logging.Logger,
@@ -469,6 +470,11 @@ func PlanMotionSequence(
 
 	// requestIdx is managed by the success/failure of individual plan solve attempts.
 	for requestIdx := 0; requestIdx < len(requests); {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			// Every attempt from here on would fail the same way, so backtracking cannot help.
+			return plans, metas, fmt.Errorf("stopped before planning request %v/%v: %w", requestIdx+1, len(requests), ctxErr)
+		}
+
 		request := requests[requestIdx]
 		if request.rejectedSolutions == nil {
 			request.rejectedSolutions = make(map[*PlanState][]referenceframe.FrameSystemInputs)
