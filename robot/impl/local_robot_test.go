@@ -2896,6 +2896,70 @@ func TestReconfigureActivityEvents(t *testing.T) {
 	}
 }
 
+func TestResourceActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	ctx := context.Background()
+
+	errMockBuild := errors.New("build failed")
+	resource.RegisterComponent(
+		mockAPI,
+		mockModel,
+		resource.Registration[resource.Resource, *mockConfig]{
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (resource.Resource, error) {
+				if conf.ConvertedAttributes.(*mockConfig).Value < 0 {
+					return nil, errMockBuild
+				}
+				return newMock(ctx, deps, conf, logger)
+			},
+		},
+	)
+	defer resource.Deregister(mockAPI, mockModel)
+
+	// resourceEvents returns (activity, event, stage) triples for "m" in emission order.
+	resourceEvents := func() [][3]string {
+		var events [][3]string
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["resource"] != mockNamed("m").String() {
+				continue
+			}
+			stage, _ := fields["stage"].(string)
+			events = append(events, [3]string{fmt.Sprint(fields["activity"]), fmt.Sprint(fields["event"]), stage})
+		}
+		return events
+	}
+
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{newMockConfig("m", 0, false, "")},
+	}, logger, WithDisableCompleteConfigWorker())
+	expected := [][3]string{
+		{"resource_construct", "start", ""},
+		{"resource_construct", "complete", ""},
+	}
+	test.That(t, resourceEvents(), test.ShouldResemble, expected)
+
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{newMockConfig("m", 0, true, "")},
+	})
+	expected = append(expected,
+		[3]string{"resource_rebuild", "start", ""},
+		[3]string{"resource_rebuild", "fail", "validate"},
+	)
+	test.That(t, resourceEvents(), test.ShouldResemble, expected)
+
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{newMockConfig("m", -1, false, "")},
+	})
+	expected = append(expected,
+		[3]string{"resource_rebuild", "start", ""},
+		[3]string{"resource_rebuild", "fail", "build"},
+	)
+	test.That(t, resourceEvents(), test.ShouldResemble, expected)
+}
+
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
