@@ -29,7 +29,7 @@ import (
 func TestNewWatcherNoop(t *testing.T) {
 	t.Parallel()
 	logger := logging.NewTestLogger(t)
-	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger, nil)
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	timer := time.NewTimer(time.Second)
@@ -51,7 +51,7 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	watcher, err := config.NewWatcher(context.Background(), &config.Config{ConfigFilePath: temp.Name()}, logger, nil)
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{ConfigFilePath: temp.Name()}, logger, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	writeConf := func(conf *config.Config) {
@@ -282,7 +282,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
-	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger, appConn)
+	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger, appConn, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	confToExpect := confToReturn

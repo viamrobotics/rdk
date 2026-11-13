@@ -5390,17 +5390,26 @@ func TestMaintenanceConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorResource, test.ShouldNotBeNil)
 
+		// Maintenance sensor says no, but the config is unchanged so nothing is blocked
+		r.Reconfigure(ctx, &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor1,
+		})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
 		// Maintenance sensor will block reconfig so sensor2 should not be added
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeTrue)
 
 		// removing maintenance config unblocks reconfig and allows sensor to be added
 		r.Reconfigure(ctx, cfgUnblock)
 		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
 	})
 
 	t.Run("remote sensor successfully blocks reconfigure when remote name is specified and not specified", func(t *testing.T) {

@@ -149,6 +149,9 @@ type localRobot struct {
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
 
+	// whether the maintenance sensor is holding back a config change that would change resources
+	reconfigureBlocked atomic.Bool
+
 	// whether the robot is still initializing. this value controls what state will be
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
 	// configured based on the `Initial` value of applied `config.Config`s.
@@ -1744,12 +1747,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
 		if !reconfigureAllowed {
 			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
-			// or resources changed), otherwise silently return.
+			// or resources changed), otherwise silently return. Local module versions are applied
+			// first so unchanged local modules don't count as a change.
+			r.applyLocalModuleVersions(newConfig)
 			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 			if err != nil {
 				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 				return
 			}
+			r.reconfigureBlocked.Store(diff != nil && !diff.ResourcesEqual)
 			if diff != nil && !diff.NetworkEqual {
 				if reconfigureAllowedErr != nil {
 					r.logger.CInfow(
@@ -1771,6 +1777,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 			return
 		}
+		r.reconfigureBlocked.Store(false)
 	}
 
 	// If reconfigure is allowed, assume we are reconfiguring until this function
@@ -1796,6 +1803,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	//
 	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
 	r.applyLocalModuleVersions(newConfig)
+	applyModulePackageVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1874,6 +1882,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		r.reconfigureBlocked.Store(!reconfigureAllowed)
 		if !reconfigureAllowed {
 			r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
 			return

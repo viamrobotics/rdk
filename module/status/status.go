@@ -25,4 +25,6 @@ type Status struct {
 	LastUpdated         time.Time
 	Error               error
 	ConsecutiveFailures uint
+	Version             string
+	ReadyCount          uint // how many times a module with this name has become ready since viam-server started.
 }
