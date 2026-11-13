@@ -363,13 +363,24 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources   []resource.Status
-	Modules     []modulestatus.Status
-	Config      config.Revision
-	State       MachineState
-	JobStatuses map[string]JobStatus
-	Packages    []packages.PackageStatus
+	Resources         []resource.Status
+	Modules           []modulestatus.Status
+	Config            config.Revision
+	State             MachineState
+	JobStatuses       map[string]JobStatus
+	Packages          []packages.PackageStatus
+	MaintenanceStatus *MaintenanceStatus
 }
+
+// MaintenanceStatus reports whether the machine would currently allow a reconfigure.
+type MaintenanceStatus struct {
+	Allowed bool
+	Reason  string
+}
+
+// FollowingReasonPrefix is the prefix used in MaintenanceStatus.Reason when a machine's
+// maintenance config is itself a follow_part.
+const FollowingReasonPrefix = "following "
 
 // JobStatus encapsulates status information about a single JobManager job.
 type JobStatus struct {
