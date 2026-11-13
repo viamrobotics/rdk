@@ -102,9 +102,12 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
-	// WorldStateStoreServiceName names a world state store service. When set, every Move plans
-	// around the store's transforms in addition to any world state the request carries.
-	WorldStateStoreServiceName string `json:"world_state_store_service_name"`
+	// WorldStateStores names world state store services. Every Move plans around the transforms
+	// they hold, in addition to any world state the request carries. A transform whose metadata
+	// sets `visual_only` to true is not planned around.
+	//
+	// Where two stores name a frame the same, the store listed first here defines it.
+	WorldStateStores []string `json:"world_state_stores"`
 
 	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
 	// When false (the default) each batch of joint targets is sent with interpolate=false and
@@ -218,7 +221,7 @@ func (c *Config) shouldWritePlan(start time.Time, err error) bool {
 }
 
 // Validate here adds a dependency on the internal framesystem service, and on the world state
-// store service if one is named.
+// store services that are named.
 func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.LogPlannerErrors && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
@@ -242,8 +245,14 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	}
 
 	deps := []string{framesystem.InternalServiceName.String()}
-	if c.WorldStateStoreServiceName != "" {
-		deps = append(deps, worldstatestore.Named(c.WorldStateStoreServiceName).String())
+	for idx, name := range c.WorldStateStores {
+		if name == "" {
+			return nil, nil, fmt.Errorf("world_state_stores[%d] is empty", idx)
+		}
+		if slices.Contains(c.WorldStateStores[:idx], name) {
+			return nil, nil, fmt.Errorf("world_state_stores names %q more than once", name)
+		}
+		deps = append(deps, worldstatestore.Named(name).String())
 	}
 	return deps, nil, nil
 }
@@ -256,9 +265,10 @@ type builtIn struct {
 	movementSensors map[string]movementsensor.MovementSensor
 	slamServices    map[string]slam.Service
 	visionServices  map[string]vision.Service
-	worldStateStore worldstatestore.Service
-	components      map[string]resource.Resource
-	logger          logging.Logger
+	// worldStateStores are the configured world state stores, in the order the config lists them.
+	worldStateStores []worldstatestore.Service
+	components       map[string]resource.Resource
+	logger           logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
@@ -315,7 +325,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
-	var worldStateStore worldstatestore.Service
+	worldStateStoresByName := make(map[string]worldstatestore.Service)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -327,9 +337,7 @@ func (ms *builtIn) BuiltInReconfigure(
 		case vision.Service:
 			visionServices[name.Name] = dep
 		case worldstatestore.Service:
-			if name.Name == config.WorldStateStoreServiceName {
-				worldStateStore = dep
-			}
+			worldStateStoresByName[name.Name] = dep
 		default:
 			componentMap[name.Name] = dep
 		}
@@ -339,12 +347,17 @@ func (ms *builtIn) BuiltInReconfigure(
 	ms.visionServices = visionServices
 	ms.components = componentMap
 
-	if config.WorldStateStoreServiceName != "" && worldStateStore == nil {
-		return fmt.Errorf("world_state_store_service_name %q not found in dependencies", config.WorldStateStoreServiceName)
+	worldStateStores := make([]worldstatestore.Service, 0, len(config.WorldStateStores))
+	for _, name := range config.WorldStateStores {
+		store, ok := worldStateStoresByName[name]
+		if !ok {
+			return fmt.Errorf("world state store %q, named in world_state_stores, not found in dependencies", name)
+		}
+		worldStateStores = append(worldStateStores, store)
 	}
-	ms.worldStateStore = worldStateStore
-	if worldStateStore != nil {
-		ms.logger.CInfow(ctx, "Moves will plan around the world state store", "store", config.WorldStateStoreServiceName)
+	ms.worldStateStores = worldStateStores
+	if len(worldStateStores) > 0 {
+		ms.logger.CInfow(ctx, "Moves will plan around the world state stores", "stores", config.WorldStateStores)
 	}
 
 	return nil

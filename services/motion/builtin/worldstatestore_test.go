@@ -6,12 +6,14 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -49,8 +51,29 @@ func storeTransform(name, parent string, center r3.Vector, boxSize float64) *com
 // client would add them.
 func newStore(t *testing.T, transforms ...*commonpb.Transform) worldstatestore.Service {
 	t.Helper()
+	return newNamedStore(t, "store", transforms...)
+}
 
-	store, err := wssbuiltin.NewBuiltIn(worldstatestore.Named("store"), logging.NewTestLogger(t))
+// withMetadata returns the transform with its metadata set.
+func withMetadata(t *testing.T, transform *commonpb.Transform, metadata map[string]interface{}) *commonpb.Transform {
+	t.Helper()
+
+	var err error
+	transform.Metadata, err = structpb.NewStruct(metadata)
+	test.That(t, err, test.ShouldBeNil)
+	return transform
+}
+
+// visualOnly returns the transform marked as not to be planned around.
+func visualOnly(t *testing.T, transform *commonpb.Transform) *commonpb.Transform {
+	t.Helper()
+	return withMetadata(t, transform, map[string]interface{}{worldstatestore.VisualOnlyMetadataKey: true})
+}
+
+func newNamedStore(t *testing.T, name string, transforms ...*commonpb.Transform) worldstatestore.Service {
+	t.Helper()
+
+	store, err := wssbuiltin.NewBuiltIn(worldstatestore.Named(name), logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() { test.That(t, store.Close(context.Background()), test.ShouldBeNil) })
 
@@ -74,6 +97,16 @@ func newStore(t *testing.T, transforms ...*commonpb.Transform) worldstatestore.S
 func newMotionWithStore(t *testing.T, store worldstatestore.Service, frames ...string) *builtIn {
 	t.Helper()
 
+	if store == nil {
+		return newMotionWithStores(t, frames)
+	}
+	return newMotionWithStores(t, frames, store)
+}
+
+// newMotionWithStores is newMotionWithStore for any number of stores, in the order given.
+func newMotionWithStores(t *testing.T, frames []string, stores ...worldstatestore.Service) *builtIn {
+	t.Helper()
+
 	parts := make([]*referenceframe.FrameSystemPart, 0, len(frames))
 	for _, frame := range frames {
 		parts = append(parts, &referenceframe.FrameSystemPart{
@@ -84,7 +117,7 @@ func newMotionWithStore(t *testing.T, store worldstatestore.Service, frames ...s
 	fsService.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{Parts: parts}, nil
 	}
-	return &builtIn{logger: logging.NewTestLogger(t), worldStateStore: store, fsService: fsService}
+	return &builtIn{logger: logging.NewTestLogger(t), worldStateStores: stores, fsService: fsService}
 }
 
 // obstacleParents returns the parent frame of each obstacle, keyed by the obstacle's label.
@@ -136,7 +169,7 @@ func TestStoreWorldState(t *testing.T) {
 	)
 	ms := newMotionWithStore(t, store, "gripper")
 
-	obstacles, transforms := ms.storeWorldState(ctx)
+	obstacles, transforms := ms.storeWorldState(ctx, nil)
 	test.That(t, transformNames(transforms), test.ShouldResemble, []string{"marker"})
 	test.That(t, obstacleParents(obstacles), test.ShouldResemble, map[string]string{
 		"box-in-world":   referenceframe.World,
@@ -172,7 +205,7 @@ func TestStoreWorldStateSkips(t *testing.T) {
 			storeTransform("known", "gripper", r3.Vector{}, 10),
 			storeTransform("orphan", "nonexistent", r3.Vector{}, 10),
 		)
-		obstacles, transforms := newMotionWithStore(t, store, "gripper").storeWorldState(ctx)
+		obstacles, transforms := newMotionWithStore(t, store, "gripper").storeWorldState(ctx, nil)
 		test.That(t, transforms, test.ShouldBeEmpty)
 		test.That(t, obstacleParents(obstacles), test.ShouldResemble, map[string]string{"known": "gripper"})
 	})
@@ -182,7 +215,7 @@ func TestStoreWorldStateSkips(t *testing.T) {
 			storeTransform("gripper", referenceframe.World, r3.Vector{}, 0),
 			storeTransform("marker", referenceframe.World, r3.Vector{}, 0),
 		)
-		obstacles, transforms := newMotionWithStore(t, store, "gripper").storeWorldState(ctx)
+		obstacles, transforms := newMotionWithStore(t, store, "gripper").storeWorldState(ctx, nil)
 		test.That(t, obstacles, test.ShouldBeEmpty)
 		test.That(t, transformNames(transforms), test.ShouldResemble, []string{"marker"})
 	})
@@ -192,7 +225,7 @@ func TestStoreWorldStateSkips(t *testing.T) {
 		store.ListUUIDsFunc = func(ctx context.Context, extra map[string]any) ([][]byte, error) {
 			return nil, errors.New("boom")
 		}
-		obstacles, transforms := newMotionWithStore(t, store).storeWorldState(ctx)
+		obstacles, transforms := newMotionWithStore(t, store).storeWorldState(ctx, nil)
 		test.That(t, obstacles, test.ShouldBeEmpty)
 		test.That(t, transforms, test.ShouldBeEmpty)
 	})
@@ -208,9 +241,148 @@ func TestStoreWorldStateSkips(t *testing.T) {
 			}
 			return storeTransform("box", referenceframe.World, r3.Vector{}, 10), nil
 		}
-		obstacles, _ := newMotionWithStore(t, store).storeWorldState(ctx)
+		obstacles, _ := newMotionWithStore(t, store).storeWorldState(ctx, nil)
 		test.That(t, obstacleParents(obstacles), test.ShouldResemble, map[string]string{"box": referenceframe.World})
 	})
+}
+
+// TestStoreWorldStateFrames asserts which supplemental frames a store contributes when they
+// depend on each other or on frames that do not exist.
+func TestStoreWorldStateFrames(t *testing.T) {
+	ctx := context.Background()
+
+	// "inner" is parented to "outer", and an obstacle to "inner". "lost" has no parent to attach
+	// to, and neither does the obstacle that depends on it.
+	store := newStore(t,
+		storeTransform("box-on-inner", "inner", r3.Vector{}, 10),
+		storeTransform("inner", "outer", r3.Vector{X: 1}, 0),
+		storeTransform("outer", referenceframe.World, r3.Vector{X: 2}, 0),
+		storeTransform("lost", "nowhere", r3.Vector{}, 0),
+		storeTransform("box-on-lost", "lost", r3.Vector{}, 10),
+	)
+	obstacles, transforms := newMotionWithStore(t, store).storeWorldState(ctx, nil)
+
+	// A frame is only accepted after its parent, whatever order the store listed them in.
+	test.That(t, transformNames(transforms), test.ShouldResemble, []string{"outer", "inner"})
+	test.That(t, obstacleParents(obstacles), test.ShouldResemble, map[string]string{"box-on-inner": "inner"})
+
+	// What is left builds into a frame system, which a frame with a missing parent would not.
+	frameSystem, err := referenceframe.NewFrameSystem("test", nil, transforms)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frameSystem.Frame("inner"), test.ShouldNotBeNil)
+
+	// A transform the request supplies defines its name. The store's frame of that name is
+	// skipped, and the store's obstacle is parented to the request's.
+	request, err := referenceframe.NewWorldState(nil, []*referenceframe.LinkInFrame{
+		referenceframe.NewLinkInFrame(referenceframe.World, spatialmath.NewZeroPose(), "inner", nil),
+	})
+	test.That(t, err, test.ShouldBeNil)
+	obstacles, transforms = newMotionWithStore(t, store).storeWorldState(ctx, request)
+	test.That(t, transformNames(transforms), test.ShouldResemble, []string{"outer"})
+	test.That(t, obstacleParents(obstacles), test.ShouldResemble, map[string]string{"box-on-inner": "inner"})
+}
+
+// TestStoreWorldStateVisualOnly asserts that a transform marked visual only is not an obstacle,
+// and that only a boolean true marks it so.
+func TestStoreWorldStateVisualOnly(t *testing.T) {
+	ctx := context.Background()
+
+	store := newStore(t,
+		storeTransform("obstacle", referenceframe.World, r3.Vector{}, 10),
+		visualOnly(t, storeTransform("visual", referenceframe.World, r3.Vector{X: 100}, 10)),
+		// Something parented to a visual-only transform still has a frame to attach to.
+		storeTransform("box-on-visual", "visual", r3.Vector{}, 10),
+		// None of these mark the transform, so each stays an obstacle.
+		withMetadata(t, storeTransform("marked-false", referenceframe.World, r3.Vector{}, 10),
+			map[string]interface{}{worldstatestore.VisualOnlyMetadataKey: false}),
+		withMetadata(t, storeTransform("marked-with-a-string", referenceframe.World, r3.Vector{}, 10),
+			map[string]interface{}{worldstatestore.VisualOnlyMetadataKey: "true"}),
+		withMetadata(t, storeTransform("marked-with-a-number", referenceframe.World, r3.Vector{}, 10),
+			map[string]interface{}{worldstatestore.VisualOnlyMetadataKey: 1}),
+		withMetadata(t, storeTransform("other-metadata", referenceframe.World, r3.Vector{}, 10),
+			map[string]interface{}{"color": "red"}),
+	)
+	obstacles, transforms := newMotionWithStore(t, store).storeWorldState(ctx, nil)
+
+	test.That(t, transformNames(transforms), test.ShouldResemble, []string{"visual"})
+	test.That(t, transforms[0].Geometry(), test.ShouldBeNil)
+	test.That(t, transforms[0].Pose().Point(), test.ShouldResemble, r3.Vector{X: 100})
+	test.That(t, obstacleParents(obstacles), test.ShouldResemble, map[string]string{
+		"obstacle":             referenceframe.World,
+		"box-on-visual":        "visual",
+		"marked-false":         referenceframe.World,
+		"marked-with-a-string": referenceframe.World,
+		"marked-with-a-number": referenceframe.World,
+		"other-metadata":       referenceframe.World,
+	})
+}
+
+// TestStoreWorldStateMultipleStores asserts that several stores are read together: each
+// contributes, they can build on each other's frames, and one failing does not affect the rest.
+func TestStoreWorldStateMultipleStores(t *testing.T) {
+	ctx := context.Background()
+
+	first := newNamedStore(t, "first",
+		storeTransform("first-box", referenceframe.World, r3.Vector{X: 1}, 10),
+		storeTransform("shared-frame", referenceframe.World, r3.Vector{X: 10}, 0),
+		storeTransform("same-label", referenceframe.World, r3.Vector{}, 10),
+	)
+	broken := inject.NewWorldStateStoreService("broken")
+	broken.ListUUIDsFunc = func(ctx context.Context, extra map[string]any) ([][]byte, error) {
+		return nil, errors.New("boom")
+	}
+	second := newNamedStore(t, "second",
+		// Parented to a frame that only the first store defines.
+		storeTransform("second-box", "shared-frame", r3.Vector{X: 2}, 10),
+		// The first store already defined this frame, at another pose.
+		storeTransform("shared-frame", referenceframe.World, r3.Vector{X: 999}, 0),
+		storeTransform("same-label", referenceframe.World, r3.Vector{}, 10),
+	)
+	ms := newMotionWithStores(t, nil, first, broken, second)
+
+	obstacles, transforms := ms.storeWorldState(ctx, nil)
+
+	// The first store's definition of the shared frame stands, and the second store's obstacle
+	// attaches to it.
+	test.That(t, transformNames(transforms), test.ShouldResemble, []string{"shared-frame"})
+	test.That(t, transforms[0].Pose().Point(), test.ShouldResemble, r3.Vector{X: 10})
+	parents := make(map[string]string)
+	labels := make([]string, 0, len(obstacles))
+	for _, inFrame := range obstacles {
+		label := inFrame.Geometries()[0].Label()
+		labels = append(labels, label)
+		parents[label] = inFrame.Parent()
+	}
+	test.That(t, parents["first-box"], test.ShouldEqual, referenceframe.World)
+	test.That(t, parents["second-box"], test.ShouldEqual, "shared-frame")
+
+	// Stores are read in the order they are configured, and the broken one contributes nothing.
+	test.That(t, labels, test.ShouldHaveLength, 4)
+	fromFirst, fromSecond := slices.Clone(labels[:2]), slices.Clone(labels[2:])
+	slices.Sort(fromFirst)
+	slices.Sort(fromSecond)
+	test.That(t, fromFirst, test.ShouldResemble, []string{"first-box", "same-label"})
+	test.That(t, fromSecond, test.ShouldResemble, []string{"same-label", "second-box"})
+
+	// Merged into a world state, the label both stores use is kept for both obstacles.
+	merged := ms.withStoreWorldState(ctx, boxWorldState(t, "request-box"))
+	test.That(t, merged.ObstacleNames(), test.ShouldResemble, map[string]bool{
+		"request-box":  true,
+		"first-box":    true,
+		"second-box":   true,
+		"same-label":   true,
+		"same-label#2": true,
+	})
+	test.That(t, transformNames(merged.Transforms()), test.ShouldResemble, []string{"shared-frame"})
+
+	// Reading the other way round, the other store's definition stands.
+	_, transforms = newMotionWithStores(t, nil, second, first).storeWorldState(ctx, nil)
+	test.That(t, transformNames(transforms), test.ShouldResemble, []string{"shared-frame"})
+	test.That(t, transforms[0].Pose().Point(), test.ShouldResemble, r3.Vector{X: 999})
+
+	// No stores at all leaves the request's world state as it is.
+	request := boxWorldState(t, "request-box")
+	test.That(t, newMotionWithStores(t, nil).withStoreWorldState(ctx, request), test.ShouldEqual, request)
 }
 
 // TestMergeWorldState asserts that the request's world state and the store's are combined without
@@ -251,8 +423,8 @@ func TestMergeWorldState(t *testing.T) {
 	test.That(t, transformNames(merged.Transforms()), test.ShouldResemble, []string{"frame", "frame#2"})
 }
 
-// TestWorldStateStoreConfig asserts that naming a store makes it a dependency, and that the motion
-// service picks it out of its dependencies.
+// TestWorldStateStoreConfig asserts that naming stores makes them dependencies, and that the
+// motion service picks them out of its dependencies in the order the config names them.
 func TestWorldStateStoreConfig(t *testing.T) {
 	ctx := context.Background()
 
@@ -261,32 +433,48 @@ func TestWorldStateStoreConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{framesystem.InternalServiceName.String()})
 
-	conf := &Config{WorldStateStoreServiceName: "store"}
+	conf := &Config{WorldStateStores: []string{"second", "first"}}
 	deps, _, err = conf.Validate("")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, deps, test.ShouldContain, worldstatestore.Named("store").String())
+	test.That(t, deps, test.ShouldResemble, []string{
+		framesystem.InternalServiceName.String(),
+		worldstatestore.Named("second").String(),
+		worldstatestore.Named("first").String(),
+	})
 
-	// The store that is named is the one used, whatever else is among the dependencies.
-	store := newStore(t)
+	// A name that is empty or repeated is rejected.
+	_, _, err = (&Config{WorldStateStores: []string{"store", ""}}).Validate("")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "world_state_stores[1] is empty")
+	_, _, err = (&Config{WorldStateStores: []string{"store", "store"}}).Validate("")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `names "store" more than once`)
+
+	// The stores that are named are the ones used, in the config's order, whatever else is among
+	// the dependencies.
+	first, second := newNamedStore(t, "first"), newNamedStore(t, "second")
 	other := inject.NewWorldStateStoreService("other")
 	resourceConf := resource.Config{Name: "builtin", API: motion.API, ConvertedAttributes: conf}
 	ms := &builtIn{logger: logging.NewTestLogger(t)}
 	err = ms.BuiltInReconfigure(ctx, resource.Dependencies{
-		worldstatestore.Named("other"): other,
-		worldstatestore.Named("store"): store,
+		worldstatestore.Named("first"):  first,
+		worldstatestore.Named("other"):  other,
+		worldstatestore.Named("second"): second,
 	}, resourceConf)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ms.worldStateStore, test.ShouldEqual, store)
+	test.That(t, ms.worldStateStores, test.ShouldHaveLength, 2)
+	test.That(t, ms.worldStateStores[0], test.ShouldEqual, second)
+	test.That(t, ms.worldStateStores[1], test.ShouldEqual, first)
 
 	// A named store that is missing is an error.
-	err = ms.BuiltInReconfigure(ctx, resource.Dependencies{worldstatestore.Named("other"): other}, resourceConf)
+	err = ms.BuiltInReconfigure(ctx, resource.Dependencies{worldstatestore.Named("second"): second}, resourceConf)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"store" not found`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `world state store "first"`)
 
-	// Reconfiguring without a store named stops using one.
+	// Reconfiguring without stores named stops using them.
 	resourceConf.ConvertedAttributes = &Config{}
 	test.That(t, ms.BuiltInReconfigure(ctx, nil, resourceConf), test.ShouldBeNil)
-	test.That(t, ms.worldStateStore, test.ShouldBeNil)
+	test.That(t, ms.worldStateStores, test.ShouldBeEmpty)
 }
 
 // planRequestWithStore plans a move on the moving arm test robot, with its motion service reading
@@ -296,7 +484,7 @@ func planRequestWithStore(t *testing.T, req motion.MoveReq, transforms ...*commo
 
 	ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 	defer teardown()
-	ms.(*builtIn).worldStateStore = newStore(t, transforms...)
+	ms.(*builtIn).worldStateStores = []worldstatestore.Service{newStore(t, transforms...)}
 	_, err := ms.(*builtIn).plan(context.Background(), req, logging.NewTestLogger(t))
 	return err
 }
@@ -343,9 +531,27 @@ func TestMoveWithWorldStateStore(t *testing.T) {
 		test.That(t, planRequestWithStore(t, blockedReq, slab), test.ShouldNotBeNil)
 	})
 
+	// The same slab marked visual only is not in the way.
+	t.Run("a visual-only obstacle in the way does not block the move", func(t *testing.T) {
+		blockedReq := motion.MoveReq{
+			ComponentName: "pieceArm",
+			Destination: referenceframe.NewPoseInFrame(
+				referenceframe.World, spatialmath.NewPoseFromPoint(r3.Vector{X: -600, Y: -400, Z: 460}),
+			),
+		}
+		slab := visualOnly(t, storeTransform("slab", referenceframe.World, r3.Vector{Z: 370}, 0))
+		slab.PhysicalObject = &commonpb.Geometry{
+			GeometryType: &commonpb.Geometry_Box{
+				Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{X: 2000, Y: 2000, Z: 20}},
+			},
+		}
+		test.That(t, planRequestWithStore(t, blockedReq, slab), test.ShouldBeNil)
+	})
+
 	t.Run("store contents the planner cannot use do not fail the move", func(t *testing.T) {
 		test.That(t, planWithStore(t,
 			storeTransform("orphan", "nonexistent_frame", r3.Vector{}, 100),
+			storeTransform("orphan-frame", "nonexistent_frame", r3.Vector{}, 0),
 			storeTransform("pieceArm", referenceframe.World, r3.Vector{}, 0),
 		), test.ShouldBeNil)
 	})
@@ -367,7 +573,7 @@ func TestMoveWithConfiguredWorldStateStore(t *testing.T) {
 			"name":       "builtin",
 			"api":        motion.API.String(),
 			"model":      "rdk:builtin:builtin",
-			"attributes": map[string]interface{}{"world_state_store_service_name": "world-state"},
+			"attributes": map[string]interface{}{"world_state_stores": []interface{}{"world-state"}},
 		},
 	}
 	raw, err = json.Marshal(cfg)
@@ -377,7 +583,8 @@ func TestMoveWithConfiguredWorldStateStore(t *testing.T) {
 
 	ms, teardown := setupMotionServiceFromConfig(t, cfgPath)
 	defer teardown()
-	store := ms.(*builtIn).worldStateStore
+	test.That(t, ms.(*builtIn).worldStateStores, test.ShouldHaveLength, 1)
+	store := ms.(*builtIn).worldStateStores[0]
 	test.That(t, store, test.ShouldNotBeNil)
 	test.That(t, store.Name(), test.ShouldResemble, worldstatestore.Named("world-state"))
 
@@ -439,7 +646,7 @@ func TestMoveWithStoreConfiguredTransforms(t *testing.T) {
 			"name":       "builtin",
 			"api":        motion.API.String(),
 			"model":      "rdk:builtin:builtin",
-			"attributes": map[string]interface{}{"world_state_store_service_name": "world-state"},
+			"attributes": map[string]interface{}{"world_state_stores": []interface{}{"world-state"}},
 		},
 	}
 	raw, err = json.Marshal(cfg)
@@ -451,7 +658,7 @@ func TestMoveWithStoreConfiguredTransforms(t *testing.T) {
 	defer teardown()
 
 	// The store holds the configured slab, under its reference frame name.
-	slab, err := ms.(*builtIn).worldStateStore.GetTransform(context.Background(), []byte("slab"), nil)
+	slab, err := ms.(*builtIn).worldStateStores[0].GetTransform(context.Background(), []byte("slab"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, slab.GetPhysicalObject().GetBox().GetDimsMm().GetX(), test.ShouldEqual, 2000)
 

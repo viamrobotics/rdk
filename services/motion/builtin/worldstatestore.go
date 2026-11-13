@@ -7,20 +7,22 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/worldstatestore"
 	"go.viam.com/rdk/spatialmath"
 )
 
-// This file feeds the configured world state store into planning. Every `Move` reads the store
-// afresh and plans around what it holds, in addition to any world state the request carries.
+// This file feeds the configured world state stores into planning. Every `Move` reads the stores
+// afresh and plans around what they hold, in addition to any world state the request carries.
 //
-// A problem with the store never fails a `Move`. Whatever cannot be used is logged and skipped,
+// A problem with a store never fails a `Move`. Whatever cannot be used is logged and skipped,
 // because planning with the obstacles that could be read is better than refusing to move.
 //
-// This is deliberately naive: the store is read with one `GetTransform` call per transform on
-// every `Move`, nothing is cached, and only `Move` consults the store. Each of those is a known
-// follow-up rather than an oversight.
+// This is deliberately naive: the stores are read one after another, with one `GetTransform` call
+// per transform, on every `Move`. Nothing is cached, and only `Move` consults the stores. Each of
+// those is a known follow-up rather than an oversight.
 
 // The names used in log lines for where a piece of world state came from.
 const (
@@ -28,16 +30,17 @@ const (
 	fromStore   = "world state store"
 )
 
-// withStoreWorldState returns the request's world state combined with the configured world state
-// store's. Without a store, or with an empty one, it returns the request's world state as is.
+// withStoreWorldState returns the request's world state combined with what the configured world
+// state stores hold. Without stores, or with empty ones, it returns the request's world state
+// as is.
 func (ms *builtIn) withStoreWorldState(ctx context.Context, request *referenceframe.WorldState) *referenceframe.WorldState {
-	if ms.worldStateStore == nil {
+	if len(ms.worldStateStores) == 0 {
 		return request
 	}
 
-	obstacles, transforms := ms.storeWorldState(ctx)
-	ms.logger.CDebugw(ctx, "Read the world state store for a move",
-		"store", ms.worldStateStore.Name().Name,
+	obstacles, transforms := ms.storeWorldState(ctx, request)
+	ms.logger.CDebugw(ctx, "Read the world state stores for a move",
+		"numStores", len(ms.worldStateStores),
 		"numObstacles", len(obstacles),
 		"numTransforms", len(transforms),
 		"obstacles", describeObstacles(obstacles),
@@ -45,29 +48,48 @@ func (ms *builtIn) withStoreWorldState(ctx context.Context, request *referencefr
 	return ms.mergeWorldState(ctx, request, obstacles, transforms)
 }
 
-// storeWorldState reads the world state store. A stored transform with a geometry becomes an
-// obstacle. One without becomes a supplemental frame that other transforms can be parented to.
-func (ms *builtIn) storeWorldState(ctx context.Context) ([]*referenceframe.GeometriesInFrame, []*referenceframe.LinkInFrame) {
-	store := ms.worldStateStore
-	storeName := store.Name().Name
-
-	uuids, err := store.ListUUIDs(ctx, nil)
-	if err != nil {
-		ms.logger.CWarnw(ctx, "Failed to list the world state store's transforms. Planning without it.",
-			"store", storeName, "err", err)
-		return nil, nil
+// storeWorldState reads the world state stores. A stored transform with a geometry becomes an
+// obstacle. One without a geometry, or one marked visual only, becomes a supplemental frame that
+// other transforms can be parented to.
+//
+// A frame name has one definition: the robot's, else the request's, else that of the first store
+// to use it. A later definition is skipped, and what is parented to that name attaches to the
+// definition that stood. Obstacle labels are not names in that sense, and are made unique later.
+func (ms *builtIn) storeWorldState(
+	ctx context.Context, request *referenceframe.WorldState,
+) ([]*referenceframe.GeometriesInFrame, []*referenceframe.LinkInFrame) {
+	knownFrames := ms.frameNames(ctx)
+	for _, link := range request.Transforms() {
+		knownFrames[link.Name()] = true
 	}
 
-	// The frames an obstacle can be parented to: the robot's, plus the supplemental frames
-	// accepted from the store below.
-	knownFrames := ms.frameNames(ctx)
-
-	var withGeometry []*referenceframe.LinkInFrame
+	var obstacles []*referenceframe.GeometriesInFrame
 	var transforms []*referenceframe.LinkInFrame
+	for _, store := range ms.worldStateStores {
+		storeName := store.Name().Name
+		storeObstacles, storeTransforms := ms.placeStoreLinks(ctx, storeName, ms.readStore(ctx, store), knownFrames)
+		obstacles = append(obstacles, storeObstacles...)
+		transforms = append(transforms, storeTransforms...)
+	}
+	return obstacles, transforms
+}
+
+// readStore returns the transforms of one store as links. The link of a transform that is marked
+// visual only has no geometry.
+func (ms *builtIn) readStore(ctx context.Context, store worldstatestore.Service) []*referenceframe.LinkInFrame {
+	storeName := store.Name().Name
+	uuids, err := store.ListUUIDs(ctx, nil)
+	if err != nil {
+		ms.logger.CWarnw(ctx, "Failed to list a world state store's transforms. Planning without it.",
+			"store", storeName, "err", err)
+		return nil
+	}
+
+	ret := make([]*referenceframe.LinkInFrame, 0, len(uuids))
 	for _, uuid := range uuids {
 		transform, err := store.GetTransform(ctx, uuid, nil)
 		if err != nil {
-			ms.logger.CWarnw(ctx, "Failed to get a transform from the world state store. Skipping it.",
+			ms.logger.CWarnw(ctx, "Failed to get a transform from a world state store. Skipping it.",
 				"store", storeName, "uuid", fmt.Sprintf("%q", uuid), "err", err)
 			continue
 		}
@@ -77,29 +99,81 @@ func (ms *builtIn) storeWorldState(ctx context.Context) ([]*referenceframe.Geome
 
 		link, err := referenceframe.LinkInFrameFromTransformProtobuf(withGeometryCenter(transform))
 		if err != nil {
-			ms.logger.CWarnw(ctx, "Skipping a malformed transform from the world state store",
+			ms.logger.CWarnw(ctx, "Skipping a malformed transform from a world state store",
 				"store", storeName, "uuid", fmt.Sprintf("%q", uuid), "err", err)
 			continue
 		}
-
-		if link.Geometry() != nil {
-			withGeometry = append(withGeometry, link)
-			continue
+		if ms.isVisualOnly(ctx, storeName, transform) {
+			link = referenceframe.NewLinkInFrame(link.Parent(), link.Pose(), link.Name(), nil)
 		}
+		ret = append(ret, link)
+	}
+	return ret
+}
 
-		// A supplemental frame named like an existing frame would make building the frame system
-		// fail, and with it the whole move.
-		if knownFrames[link.Name()] {
+// isVisualOnly reports whether a transform's metadata marks it as not to be planned around. Only
+// a boolean true does. Anything else leaves the transform an obstacle, which is the safe reading
+// of a value that was probably meant as true.
+func (ms *builtIn) isVisualOnly(ctx context.Context, storeName string, transform *commonpb.Transform) bool {
+	value, ok := transform.GetMetadata().GetFields()[worldstatestore.VisualOnlyMetadataKey]
+	if !ok {
+		return false
+	}
+	if _, isBool := value.GetKind().(*structpb.Value_BoolValue); !isBool {
+		ms.logger.CWarnw(ctx, "A world state store transform's visual_only is not a boolean. Treating it as an obstacle.",
+			"store", storeName, "transform", transform.GetReferenceFrame(), "value", value.AsInterface())
+		return false
+	}
+	return value.GetBoolValue()
+}
+
+// placeStoreLinks turns the links of one store into obstacles and supplemental frames. It adds
+// the frames it accepts to `knownFrames`.
+func (ms *builtIn) placeStoreLinks(
+	ctx context.Context, storeName string, links []*referenceframe.LinkInFrame, knownFrames map[string]bool,
+) ([]*referenceframe.GeometriesInFrame, []*referenceframe.LinkInFrame) {
+	var withGeometry, pending []*referenceframe.LinkInFrame
+	for _, link := range links {
+		switch {
+		case link.Geometry() != nil:
+			withGeometry = append(withGeometry, link)
+		case knownFrames[link.Name()]:
+			// Two frames with one name would make building the frame system fail, and with it the
+			// whole move.
 			ms.logger.CWarnw(ctx, "Skipping a world state store transform named like an existing frame",
 				"store", storeName, "frame", link.Name())
-			continue
+		default:
+			pending = append(pending, link)
 		}
-		knownFrames[link.Name()] = true
-		transforms = append(transforms, link)
 	}
 
-	// Obstacles are resolved after the loop so that one can be parented to a supplemental frame
-	// regardless of the order the store listed them in.
+	// A frame is accepted once its parent is known. Repeating until nothing more is accepted
+	// handles frames parented to each other, in whatever order the store listed them.
+	var transforms []*referenceframe.LinkInFrame
+	for accepted := true; accepted; {
+		accepted = false
+		for idx, link := range pending {
+			if link == nil || !knownFrames[link.Parent()] {
+				continue
+			}
+			pending[idx] = nil
+			if knownFrames[link.Name()] {
+				ms.logger.CWarnw(ctx, "Skipping a world state store transform named like an existing frame",
+					"store", storeName, "frame", link.Name())
+				continue
+			}
+			knownFrames[link.Name()] = true
+			transforms = append(transforms, link)
+			accepted = true
+		}
+	}
+	for _, link := range pending {
+		if link != nil {
+			ms.logger.CWarnw(ctx, "Skipping a world state store transform whose parent frame does not exist",
+				"store", storeName, "frame", link.Name(), "parent", link.Parent())
+		}
+	}
+
 	var obstacles []*referenceframe.GeometriesInFrame
 	for _, link := range withGeometry {
 		if !knownFrames[link.Parent()] {
@@ -114,7 +188,6 @@ func (ms *builtIn) storeWorldState(ctx context.Context) ([]*referenceframe.Geome
 		geometry.SetLabel(link.Name())
 		obstacles = append(obstacles, referenceframe.NewGeometriesInFrame(link.Parent(), []spatialmath.Geometry{geometry}))
 	}
-
 	return obstacles, transforms
 }
 
@@ -131,8 +204,8 @@ func withGeometryCenter(transform *commonpb.Transform) *commonpb.Transform {
 }
 
 // frameNames returns the names of the frames in the robot's frame system, including the world
-// frame. If the frame system cannot be read only the world frame is known, so store obstacles in
-// any other frame are skipped.
+// frame. If the frame system cannot be read only the world frame is known, so what the stores
+// hold in any other frame is skipped.
 func (ms *builtIn) frameNames(ctx context.Context) map[string]bool {
 	ret := map[string]bool{referenceframe.World: true}
 	if ms.fsService == nil {
