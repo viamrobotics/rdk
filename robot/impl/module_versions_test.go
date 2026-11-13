@@ -116,7 +116,7 @@ func TestModuleVersionInfos(t *testing.T) {
 			State:               robotpb.ModuleStatus_STATE_UNHEALTHY,
 			Error:               "exit status 2",
 			ConsecutiveFailures: 3,
-			RestartCount:        4,
+			ReadyCount:          4,
 		})
 	})
 

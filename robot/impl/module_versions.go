@@ -81,7 +81,7 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, no
 			info.State = pbStatus.State
 			info.Error = pbStatus.Error
 			info.ConsecutiveFailures = pbStatus.ConsecutiveFailures
-			info.RestartCount = uint32(s.ReadyCount)
+			info.ReadyCount = uint32(s.ReadyCount)
 		}
 		if ok && s.State == modulestatus.ModuleStateReady && s.Version != "" {
 			info.RunningVersion = s.Version
