@@ -24,7 +24,7 @@ const uuidField = "uuid"
 //
 // It also returns the event to publish for the update, and the paths in their proto spelling.
 // The event carries the complete merged value of every top-level field that was touched, rather
-// than only the named leaves. Consumers that apply an update one top-level field at a time,
+// than only the named leaves. Consumers that apply an update one top-level field at a time
 // would otherwise reset the rest of that field.
 func mergeTransform(stored, patch *commonpb.Transform, paths []string) (
 	merged, event *commonpb.Transform, protoPaths []string, err error,
@@ -133,38 +133,13 @@ func mergePath(dst, src protoreflect.Message, path string) (protoreflect.FieldDe
 	return topLevel, strings.Join(protoSegments, "."), nil
 }
 
-// copyField makes `fd` in `dst` equal to `fd` in `src`, without sharing any memory between them.
+// copyField makes `fd` in `dst` equal to `fd` in `src`. The two then share the field's memory,
+// which is safe for both uses here: an update's patch is discarded once it has been merged, and
+// an event is read-only like the stored transform it is built from.
 func copyField(dst, src protoreflect.Message, fd protoreflect.FieldDescriptor) {
-	dst.Clear(fd)
 	if !src.Has(fd) {
+		dst.Clear(fd)
 		return
 	}
-
-	value := src.Get(fd)
-	switch {
-	case fd.IsList():
-		srcList, dstList := value.List(), dst.Mutable(fd).List()
-		for idx := range srcList.Len() {
-			dstList.Append(cloneValue(fd, srcList.Get(idx)))
-		}
-	case fd.IsMap():
-		dstMap := dst.Mutable(fd).Map()
-		value.Map().Range(func(key protoreflect.MapKey, entry protoreflect.Value) bool {
-			dstMap.Set(key, cloneValue(fd.MapValue(), entry))
-			return true
-		})
-	default:
-		dst.Set(fd, cloneValue(fd, value))
-	}
-}
-
-// cloneValue deep-copies a single (non-list, non-map) value of the kind `fd` holds.
-func cloneValue(fd protoreflect.FieldDescriptor, value protoreflect.Value) protoreflect.Value {
-	if fd.Message() != nil {
-		return protoreflect.ValueOfMessage(proto.Clone(value.Message().Interface()).ProtoReflect())
-	}
-	if fd.Kind() == protoreflect.BytesKind {
-		return protoreflect.ValueOfBytes(append([]byte(nil), value.Bytes()...))
-	}
-	return value
+	dst.Set(fd, src.Get(fd))
 }

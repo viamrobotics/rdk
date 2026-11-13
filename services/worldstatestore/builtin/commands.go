@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"maps"
 
 	"github.com/google/uuid"
 	commonpb "go.viam.com/api/common/v1"
@@ -18,17 +17,26 @@ import (
 )
 
 // The DoCommands that change the store. Each takes a list of transforms, so many can be changed
-// in one call. A transform is written in its proto JSON form, in which a uuid is base64 encoded.
+// at once. A transform is written in its proto JSON form, in which a uuid is base64 encoded.
 //
-// A call applies its whole list or none of it. If any item is invalid the store is left
-// untouched and the error names the item's index.
+// One call can carry any combination of the three commands. They are applied in the order
+// remove, add, update, whatever order they were written in, so that a call can replace a
+// transform by removing it and adding it again under the same uuid.
+//
+// A call applies everything it carries or nothing. If any item is invalid the store is left
+// untouched and the error names the command and the item's index.
+//
+// The response holds, for each command the call carried, the base64 uuid of each transform that
+// command changed, in the order of its list:
+//
+//	{"add": ["Ym94"], "remove": ["b2xk"]}
 const (
 	// DoAdd adds transforms. Each item is a whole transform:
 	//
 	//	{"add": [{"uuid": "Ym94", "referenceFrame": "box", "poseInObserverFrame": {...}}]}
 	//
 	// A transform needs a reference frame and an observer frame. One without a uuid is given a
-	// random one. Adding a uuid that is already stored is an error.
+	// random one, which the response reports. Adding a uuid that is already stored is an error.
 	DoAdd = "add"
 
 	// DoUpdate changes fields of stored transforms. Each item is a transform holding the uuid and
@@ -47,32 +55,28 @@ const (
 	//	{"remove": [{"uuid": "Ym94"}]}
 	DoRemove = "remove"
 
-	// UUIDsKey is the key of the response to every command above. It holds the base64 uuid of
-	// each transform the call changed, in the order of its list.
-	UUIDsKey = "uuids"
-
 	updatedFieldsKey = "updatedFields"
 )
 
-// DoCommand applies one of `DoAdd`, `DoUpdate` or `DoRemove`.
+// commandOrder is the order in which the commands of one call are applied.
+var commandOrder = []string{DoRemove, DoAdd, DoUpdate}
+
+// DoCommand applies the `DoAdd`, `DoUpdate` and `DoRemove` commands that `cmd` carries.
 func (svc *builtIn) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
-	var name string
-	for _, candidate := range []string{DoAdd, DoUpdate, DoRemove} {
-		if _, ok := cmd[candidate]; !ok {
+	decoded := make(map[string][]*pb.StreamTransformChangesResponse, len(commandOrder))
+	for _, name := range commandOrder {
+		raw, ok := cmd[name]
+		if !ok {
 			continue
 		}
-		if name != "" {
-			return nil, fmt.Errorf("only one of %q, %q and %q can be sent per command", DoAdd, DoUpdate, DoRemove)
+		events, err := decodeEvents(name, raw)
+		if err != nil {
+			return nil, err
 		}
-		name = candidate
+		decoded[name] = events
 	}
-	if name == "" {
+	if len(decoded) == 0 {
 		return nil, resource.ErrDoUnimplemented
-	}
-
-	events, err := decodeEvents(name, cmd[name])
-	if err != nil {
-		return nil, err
 	}
 
 	svc.mu.Lock()
@@ -82,27 +86,38 @@ func (svc *builtIn) DoCommand(ctx context.Context, cmd map[string]any) (map[stri
 		return nil, errClosed
 	}
 
-	var changes []worldstatestore.TransformChange
-	switch name {
-	case DoAdd:
-		changes, err = svc.addLocked(DoAdd, events)
-	case DoUpdate:
-		changes, err = svc.updateLocked(events)
-	case DoRemove:
-		changes, err = svc.removeLocked(events)
-	}
-	if err != nil {
-		return nil, err
+	staged := newBatch(svc.transforms)
+	ret := make(map[string]any, len(decoded))
+	for _, name := range commandOrder {
+		events, ok := decoded[name]
+		if !ok {
+			continue
+		}
+
+		firstChange := len(staged.changes)
+		var err error
+		switch name {
+		case DoRemove:
+			err = staged.remove(events)
+		case DoAdd:
+			err = staged.add(DoAdd, events)
+		case DoUpdate:
+			err = staged.update(events)
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		uuids := make([]any, 0, len(events))
+		for _, change := range staged.changes[firstChange:] {
+			uuids = append(uuids, base64.StdEncoding.EncodeToString(change.Transform.GetUuid()))
+		}
+		ret[name] = uuids
 	}
 
-	uuids := make([]any, 0, len(changes))
-	for _, change := range changes {
-		svc.publishLocked(change)
-		uuids = append(uuids, base64.StdEncoding.EncodeToString(change.Transform.GetUuid()))
-	}
-	svc.logger.CDebugw(ctx, "Applied world state changes", "command", name, "numTransforms", len(changes))
-
-	return map[string]any{UUIDsKey: uuids}, nil
+	svc.commitLocked(staged)
+	svc.logger.CDebugw(ctx, "Applied world state changes", "numChanges", len(staged.changes))
+	return ret, nil
 }
 
 // decodeEvents parses the list of transforms sent with the command `name`. Each is returned as
@@ -171,20 +186,40 @@ func decodeEvent(item json.RawMessage, inferUpdatedFields bool) (*pb.StreamTrans
 	return event, nil
 }
 
-// The three functions below each validate a whole batch against a staged view of the store
-// before touching `svc.transforms`, so a batch with an invalid item changes nothing. They
-// return the changes to publish.
+// batch stages changes against the store, so that everything one call carries can be checked
+// before any of it is applied. A change sees the effect of the changes staged before it. Nothing
+// reaches the store until `commitLocked`, so a batch that hits an invalid item is simply dropped.
+type batch struct {
+	// stored is the store's own map. A batch only reads it.
+	stored map[string]*commonpb.Transform
+	// staged holds what the batch has added or updated, and nil for what it has removed.
+	staged map[string]*commonpb.Transform
+	// changes are the events to publish if the batch is committed, in the order they were staged.
+	changes []worldstatestore.TransformChange
+}
 
-func (svc *builtIn) addLocked(label string, events []*pb.StreamTransformChangesResponse) ([]worldstatestore.TransformChange, error) {
-	staged := make(map[string]*commonpb.Transform, len(events))
-	changes := make([]worldstatestore.TransformChange, 0, len(events))
+func newBatch(stored map[string]*commonpb.Transform) *batch {
+	return &batch{stored: stored, staged: make(map[string]*commonpb.Transform)}
+}
+
+// get returns the transform as it would be if the batch were committed now.
+func (b *batch) get(key string) (*commonpb.Transform, bool) {
+	if transform, ok := b.staged[key]; ok {
+		return transform, transform != nil
+	}
+	transform, ok := b.stored[key]
+	return transform, ok
+}
+
+// add stages new transforms. `label` names the list in errors: the command, or the config key.
+func (b *batch) add(label string, events []*pb.StreamTransformChangesResponse) error {
 	for idx, event := range events {
 		transform := event.GetTransform()
 		if transform.GetReferenceFrame() == "" {
-			return nil, fmt.Errorf("%s[%d]: transform has no reference frame", label, idx)
+			return fmt.Errorf("%s[%d]: transform has no reference frame", label, idx)
 		}
 		if transform.GetPoseInObserverFrame().GetReferenceFrame() == "" {
-			return nil, fmt.Errorf("%s[%d]: transform has no observer reference frame", label, idx)
+			return fmt.Errorf("%s[%d]: transform has no observer reference frame", label, idx)
 		}
 		if len(transform.GetUuid()) == 0 {
 			id := uuid.New()
@@ -192,77 +227,71 @@ func (svc *builtIn) addLocked(label string, events []*pb.StreamTransformChangesR
 		}
 
 		key := string(transform.GetUuid())
-		_, isStored := svc.transforms[key]
-		_, isStaged := staged[key]
-		if isStored || isStaged {
-			return nil, fmt.Errorf("%s[%d]: transform %q already exists", label, idx, key)
+		if _, exists := b.get(key); exists {
+			return fmt.Errorf("%s[%d]: transform %q already exists", label, idx, key)
 		}
 
-		staged[key] = transform
-		changes = append(changes, worldstatestore.TransformChange{
+		b.staged[key] = transform
+		b.changes = append(b.changes, worldstatestore.TransformChange{
 			ChangeType: pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED,
 			Transform:  transform,
 		})
 	}
-
-	maps.Copy(svc.transforms, staged)
-	return changes, nil
+	return nil
 }
 
-func (svc *builtIn) updateLocked(events []*pb.StreamTransformChangesResponse) ([]worldstatestore.TransformChange, error) {
-	// A batch can update the same transform more than once, so later events merge into the
-	// staged result of earlier ones.
-	staged := make(map[string]*commonpb.Transform, len(events))
-	changes := make([]worldstatestore.TransformChange, 0, len(events))
+// update stages changes to fields of existing transforms. The same transform can be updated more
+// than once, each update building on the one before.
+func (b *batch) update(events []*pb.StreamTransformChangesResponse) error {
 	for idx, event := range events {
 		key := string(event.GetTransform().GetUuid())
-		current, ok := staged[key]
-		if !ok {
-			current, ok = svc.transforms[key]
-		}
-		if !ok {
-			return nil, fmt.Errorf("%s[%d]: transform %q not found", DoUpdate, idx, key)
+		current, exists := b.get(key)
+		if !exists {
+			return fmt.Errorf("%s[%d]: transform %q not found", DoUpdate, idx, key)
 		}
 
 		merged, changed, paths, err := mergeTransform(current, event.GetTransform(), event.GetUpdatedFields().GetPaths())
 		if err != nil {
-			return nil, fmt.Errorf("%s[%d]: %w", DoUpdate, idx, err)
+			return fmt.Errorf("%s[%d]: %w", DoUpdate, idx, err)
 		}
 
-		staged[key] = merged
-		changes = append(changes, worldstatestore.TransformChange{
+		b.staged[key] = merged
+		b.changes = append(b.changes, worldstatestore.TransformChange{
 			ChangeType:    pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_UPDATED,
 			Transform:     changed,
 			UpdatedFields: paths,
 		})
 	}
-
-	maps.Copy(svc.transforms, staged)
-	return changes, nil
+	return nil
 }
 
-func (svc *builtIn) removeLocked(events []*pb.StreamTransformChangesResponse) ([]worldstatestore.TransformChange, error) {
-	staged := make(map[string]struct{}, len(events))
-	changes := make([]worldstatestore.TransformChange, 0, len(events))
+// remove stages the removal of existing transforms.
+func (b *batch) remove(events []*pb.StreamTransformChangesResponse) error {
 	for idx, event := range events {
 		key := string(event.GetTransform().GetUuid())
-		_, isStored := svc.transforms[key]
-		_, isStaged := staged[key]
-		if !isStored || isStaged {
-			return nil, fmt.Errorf("%s[%d]: transform %q not found", DoRemove, idx, key)
+		if _, exists := b.get(key); !exists {
+			return fmt.Errorf("%s[%d]: transform %q not found", DoRemove, idx, key)
 		}
 
-		staged[key] = struct{}{}
+		b.staged[key] = nil
 		// The world state store API specifies that a removal's field mask is the uuid path.
-		changes = append(changes, worldstatestore.TransformChange{
+		b.changes = append(b.changes, worldstatestore.TransformChange{
 			ChangeType:    pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED,
 			Transform:     &commonpb.Transform{Uuid: []byte(key)},
 			UpdatedFields: []string{uuidField},
 		})
 	}
+	return nil
+}
 
-	for key := range staged {
-		delete(svc.transforms, key)
+// commitLocked applies a batch to the store and publishes its changes.
+func (svc *builtIn) commitLocked(staged *batch) {
+	for key, transform := range staged.staged {
+		if transform == nil {
+			delete(svc.transforms, key)
+			continue
+		}
+		svc.transforms[key] = transform
 	}
-	return changes, nil
+	svc.publishLocked(staged.changes)
 }

@@ -1,8 +1,6 @@
 package builtin
 
 import (
-	commonpb "go.viam.com/api/common/v1"
-
 	"go.viam.com/rdk/resource"
 )
 
@@ -25,8 +23,7 @@ type Config struct {
 
 // Validate checks that the configured transforms could all be added to an empty store.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
-	scratch := &builtIn{transforms: make(map[string]*commonpb.Transform)}
-	if err := scratch.seed(conf.Transforms); err != nil {
+	if err := stageConfigured(newBatch(nil), conf.Transforms); err != nil {
 		return nil, nil, resource.NewConfigValidationError(path, err)
 	}
 	return nil, nil, nil
@@ -34,6 +31,19 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 
 // seed adds the configured transforms to the store.
 func (svc *builtIn) seed(transforms []map[string]any) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+
+	staged := newBatch(svc.transforms)
+	if err := stageConfigured(staged, transforms); err != nil {
+		return err
+	}
+	svc.commitLocked(staged)
+	return nil
+}
+
+// stageConfigured stages the transforms of a config as additions.
+func stageConfigured(staged *batch, transforms []map[string]any) error {
 	if len(transforms) == 0 {
 		return nil
 	}
@@ -48,10 +58,5 @@ func (svc *builtIn) seed(transforms []map[string]any) error {
 			transform.Uuid = []byte(transform.GetReferenceFrame())
 		}
 	}
-
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-
-	_, err = svc.addLocked(transformsKey, events)
-	return err
+	return staged.add(transformsKey, events)
 }
