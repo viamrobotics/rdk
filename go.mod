@@ -9,9 +9,6 @@ godebug multipathtcp=0
 // We fork this bc the stock version of this library is over 20mb.
 replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
 
-// Local PoC for RSDK-14858; drop before merging.
-replace go.viam.com/api => /Users/benjirewis/Code/Viam/api
-
 require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/Microsoft/go-winio v0.6.2
