@@ -50,17 +50,41 @@ type PrismaticFrame interface {
 // frame underneath so that the axis interfaces assert on it. The error names a frame the model
 // does not have.
 func (m *SimpleModel) Chain(outputFrame string) ([]ChainFrame, error) {
+	return m.ChainFrom(World, outputFrame)
+}
+
+// ChainFrom is Chain cut at base, the frames strictly below base out to outputFrame, so that
+// composing them gives outputFrame in the frame of base. base is a frame of the model by the
+// name the model knows it by, a part's flattened frame included, and must lie on the path from
+// outputFrame to the world frame, since a path that climbs through a joint is not a chain. The
+// same frame for both gives an empty chain.
+func (m *SimpleModel) ChainFrom(base, outputFrame string) ([]ChainFrame, error) {
 	if outputFrame == "" {
 		outputFrame = m.primaryOutputFrame
 	}
-	if outputFrame == World {
-		return nil, nil
+	if base == "" {
+		base = World
 	}
-	if m.internalFS == nil || m.internalFS.lookupFrame(outputFrame) == nil {
+	if m.internalFS == nil {
+		if outputFrame == World && base == World {
+			return nil, nil
+		}
 		return nil, NewFrameMissingError(outputFrame)
 	}
+	for _, name := range []string{base, outputFrame} {
+		if name != World && m.internalFS.lookupFrame(name) == nil {
+			return nil, NewFrameMissingError(name)
+		}
+	}
 	w := &chainWalk{offsets: map[*SimpleModel]map[string]int{}}
-	return w.chain(m, outputFrame)
+	chain, found, err := w.chain(m, base, outputFrame)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("frame %q of model %q is not between %q and the world frame", base, m.name, outputFrame)
+	}
+	return chain, nil
 }
 
 // chainWalk memoizes where each model's frames start in its input vector.
@@ -68,30 +92,43 @@ type chainWalk struct {
 	offsets map[*SimpleModel]map[string]int
 }
 
-func (w *chainWalk) chain(m *SimpleModel, outputFrame string) ([]ChainFrame, error) {
+// chain walks from outputFrame up to base, or to the world frame when base is not met on the
+// way, and reports whether it was. A base inside a part the walk passes over as one frame is
+// found while expanding that part.
+func (w *chainWalk) chain(m *SimpleModel, base, outputFrame string) ([]ChainFrame, bool, error) {
 	var names []string
+	found := base == World
 	for name := outputFrame; name != World; {
+		if name == base {
+			found = true
+			break
+		}
 		names = append(names, name)
 		parent, ok := m.internalFS.parents[name]
 		if !ok {
-			return nil, NewFrameMissingError(name)
+			return nil, false, NewFrameMissingError(name)
 		}
 		name = parent
 	}
 	var chain []ChainFrame
 	for i := len(names) - 1; i >= 0; i-- {
-		entries, err := w.entries(m, names[i])
+		entries, inside, err := w.entries(m, names[i], base)
 		if err != nil {
-			return nil, err
+			return nil, false, err
+		}
+		if inside {
+			found = true
+			chain = chain[:0]
 		}
 		chain = append(chain, entries...)
 	}
-	return chain, nil
+	return chain, found, nil
 }
 
 // entries is what one frame of the model contributes to a chain, a whole shifted chain for a
-// frame that holds another model.
-func (w *chainWalk) entries(m *SimpleModel, name string) ([]ChainFrame, error) {
+// frame that holds another model, cut at base when base lies inside that model, which the
+// second result reports.
+func (w *chainWalk) entries(m *SimpleModel, name, base string) ([]ChainFrame, bool, error) {
 	if owner, internal := m.internalFS.internalToComponent[name]; internal {
 		// climb past parts nested in parts, which the frame system flattens under both names
 		for {
@@ -103,45 +140,49 @@ func (w *chainWalk) entries(m *SimpleModel, name string) ([]ChainFrame, error) {
 		}
 		nested := asFlattenableModel(m.internalFS.lookupFrame(owner))
 		if nested == nil {
-			return nil, fmt.Errorf("frame %q of model %q belongs to %q, which holds no model", name, m.name, owner)
+			return nil, false, fmt.Errorf("frame %q of model %q belongs to %q, which holds no model", name, m.name, owner)
 		}
-		base, err := w.offset(m, owner, nested)
+		shift, err := w.offset(m, owner, nested)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		entries, err := w.entries(nested, strings.TrimPrefix(name, owner+":"))
+		entries, inside, err := w.entries(nested, strings.TrimPrefix(name, owner+":"), strings.TrimPrefix(base, owner+":"))
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return shiftChain(entries, base), nil
+		return shiftChain(entries, shift), inside, nil
 	}
 	frame := m.internalFS.lookupFrame(name)
 	if nested := asFlattenableModel(frame); nested != nil {
-		base, err := w.offset(m, name, nested)
+		shift, err := w.offset(m, name, nested)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		entries, err := w.chain(nested, nested.primaryOutputFrame)
+		innerBase := World
+		if strings.HasPrefix(base, name+":") {
+			innerBase = strings.TrimPrefix(base, name+":")
+		}
+		entries, inside, err := w.chain(nested, innerBase, nested.primaryOutputFrame)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return shiftChain(entries, base), nil
+		return shiftChain(entries, shift), inside && innerBase != World, nil
 	}
 	entry := ChainFrame{Frame: unwrapNamed(frame)}
 	if len(frame.DoF()) == 0 {
-		return []ChainFrame{entry}, nil
+		return []ChainFrame{entry}, false, nil
 	}
 	if mm := m.mimicMappings[name]; mm != nil {
 		entry.Offset = -1
 		entry.Mimic = &MimicInput{Source: mm.sourceInputIdx, ValueMultiplier: mm.valueMultiplier, ValueOffset: mm.valueOffset}
-		return []ChainFrame{entry}, nil
+		return []ChainFrame{entry}, false, nil
 	}
 	offset, err := w.offset(m, name, frame)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	entry.Offset = offset
-	return []ChainFrame{entry}, nil
+	return []ChainFrame{entry}, false, nil
 }
 
 func (w *chainWalk) offset(m *SimpleModel, name string, frame Frame) (int, error) {
