@@ -71,7 +71,7 @@ type Module struct {
 	LocalVersion string
 
 	// PackageVersion is the in-process version reported for this module: its package version, or
-	// "local" for a local path reload. It is ignored by Equals.
+	// "local" for a local module. It is ignored by Equals.
 	PackageVersion string `json:"-"`
 }
 

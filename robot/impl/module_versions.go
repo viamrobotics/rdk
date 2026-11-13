@@ -12,27 +12,21 @@ import (
 	modulestatus "go.viam.com/rdk/module/status"
 )
 
-// localReloadVersion is reported for a registry module running from a `viam module reload` local
-// path, which has no package version. Each reload is a separate config change (reload_time), so
-// the version does not need to change per reload.
-const localReloadVersion = "local"
+// localVersion is reported for local modules, which have no package version. This includes
+// registry modules that app sends as local because `viam module reload` set a local path for them.
+// Changes show up as config changes (such as a new reload_time) followed by a restart.
+const localVersion = "local"
 
-// isLocalReload reports whether mod is a registry module that app sent as a local module because
-// `viam module reload` set a local path for it.
-func isLocalReload(mod config.Module) bool {
-	return mod.Type == config.ModuleTypeLocal && mod.ModuleID != ""
-}
-
-// applyModulePackageVersions sets PackageVersion on each registry module so the module manager can
-// record which version a module process reached ready with. A module is matched
-// to the package whose data directory contains its resolved ExePath, and gets no version if none
-// does. Local path reloads get localReloadVersion.
+// applyModulePackageVersions sets PackageVersion on each module so the module manager can record
+// which version a module process reached ready with. A registry module is matched to the package
+// whose data directory contains its resolved ExePath, and gets no version if none does. Local
+// modules get localVersion.
 func applyModulePackageVersions(cfg *config.Config) {
 	packagesDir := config.DefaultPackagesDir()
 	for i := range cfg.Modules {
 		mod := &cfg.Modules[i]
-		if isLocalReload(*mod) {
-			mod.PackageVersion = localReloadVersion
+		if mod.Type == config.ModuleTypeLocal {
+			mod.PackageVersion = localVersion
 			continue
 		}
 		if mod.Type != config.ModuleTypeRegistry {
@@ -55,7 +49,7 @@ func inDir(path, dir string) bool {
 	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)+string(filepath.Separator))
 }
 
-// FillAgentInfo adds the registry modules of the most recently applied config and whether the
+// FillAgentInfo adds the modules of the most recently applied config and whether the
 // maintenance sensor is holding back a config change to info. It reads in-memory state on every
 // cloud config fetch and does not block on an in-progress reconfigure.
 func (r *localRobot) FillAgentInfo(info *apppb.AgentInfo) {
@@ -67,8 +61,8 @@ func (r *localRobot) FillAgentInfo(info *apppb.AgentInfo) {
 	info.ModuleVersions = moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status(), time.Now())
 }
 
-// moduleVersionInfos builds one entry per registry module, including local path reloads, from the
-// configured modules and the current module statuses.
+// moduleVersionInfos builds one entry per registry or local module from the configured modules and
+// the current module statuses. Local modules without a registry module ID are identified by name.
 func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, now time.Time) []*apppb.ModuleVersionInfo {
 	byName := make(map[string]modulestatus.Status, len(statuses))
 	for _, s := range statuses {
@@ -77,7 +71,7 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, no
 
 	var infos []*apppb.ModuleVersionInfo
 	for _, mod := range mods {
-		if (mod.Type != config.ModuleTypeRegistry || mod.ModuleID == "") && !isLocalReload(mod) {
+		if mod.Type != config.ModuleTypeRegistry && mod.Type != config.ModuleTypeLocal {
 			continue
 		}
 		info := &apppb.ModuleVersionInfo{ModuleId: mod.ModuleID, ModuleName: mod.Name}
