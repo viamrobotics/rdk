@@ -1731,8 +1731,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	defer func() {
 		// Always update the `initializing` value at the end of this function. Resources may
 		// be equal or `reconfigure` may otherwise return early, but we still want to move
-		// from a state of initializing to running as dictated by the config value.
+		// from a state of initializing to running as dictated by the config value. Also
+		// always update the stored most recent config.
 		r.initializing.Store(newConfig.Initial)
+		r.mostRecentCfg.Store(*newConfig)
 	}()
 
 	// No need to check whether reconfiguring is allowed if this is initialization.
@@ -1955,7 +1957,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	existingConfig := r.Config()
-	r.mostRecentCfg.Store(*newConfig)
 
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
@@ -2308,6 +2309,13 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 		return status.Errorf(codes.NotFound,
 			"module not found with id=%s, name=%s. make sure it is configured and running on your machine",
 			req.ModuleID, req.ModuleName)
+	}
+
+	if allowed, allowedErr := r.reconfigureAllowed(ctx, r.Config().MaintenanceConfig); !allowed {
+		if allowedErr != nil {
+			return status.Errorf(codes.FailedPrecondition, "maintenance window blocking module restart: %s", allowedErr.Error())
+		}
+		return status.Error(codes.FailedPrecondition, "maintenance window blocking module restart")
 	}
 
 	activeModules := r.manager.createConfig().Modules
