@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
+	"go.viam.com/rdk/services/worldstatestore"
 	"go.viam.com/rdk/utils"
 )
 
@@ -100,6 +101,13 @@ type Config struct {
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
+
+	// WorldStateStores names world state store services. Every Move plans around the transforms
+	// they hold, in addition to any world state the request carries. A transform whose metadata
+	// sets `visual_only` to true is not planned around.
+	//
+	// Where two stores name a frame the same, the store listed first here defines it.
+	WorldStateStores []string `json:"world_state_stores"`
 
 	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
 	// When false (the default) each batch of joint targets is sent with interpolate=false and
@@ -212,7 +220,8 @@ func (c *Config) shouldWritePlan(start time.Time, err error) bool {
 	return false
 }
 
-// Validate here adds a dependency on the internal framesystem service.
+// Validate here adds a dependency on the internal framesystem service, and on the world state
+// store services that are named.
 func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.LogPlannerErrors && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent log_planner_errors to %v", c.LogPlannerErrors)
@@ -235,7 +244,17 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("max_cable_twist_degs must be positive (0 selects the default), got %v", c.MaxCableTwistDegs)
 	}
 
-	return []string{framesystem.InternalServiceName.String()}, nil, nil
+	deps := []string{framesystem.InternalServiceName.String()}
+	for idx, name := range c.WorldStateStores {
+		if name == "" {
+			return nil, nil, fmt.Errorf("world_state_stores[%d] is empty", idx)
+		}
+		if slices.Contains(c.WorldStateStores[:idx], name) {
+			return nil, nil, fmt.Errorf("world_state_stores names %q more than once", name)
+		}
+		deps = append(deps, worldstatestore.Named(name).String())
+	}
+	return deps, nil, nil
 }
 
 type builtIn struct {
@@ -246,8 +265,10 @@ type builtIn struct {
 	movementSensors map[string]movementsensor.MovementSensor
 	slamServices    map[string]slam.Service
 	visionServices  map[string]vision.Service
-	components      map[string]resource.Resource
-	logger          logging.Logger
+	// worldStateStores are the configured world state stores, in the order the config lists them.
+	worldStateStores []worldstatestore.Service
+	components       map[string]resource.Resource
+	logger           logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
@@ -304,6 +325,7 @@ func (ms *builtIn) BuiltInReconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
+	worldStateStoresByName := make(map[string]worldstatestore.Service)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -314,6 +336,8 @@ func (ms *builtIn) BuiltInReconfigure(
 			slamServices[name.Name] = dep
 		case vision.Service:
 			visionServices[name.Name] = dep
+		case worldstatestore.Service:
+			worldStateStoresByName[name.Name] = dep
 		default:
 			componentMap[name.Name] = dep
 		}
@@ -322,6 +346,19 @@ func (ms *builtIn) BuiltInReconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = componentMap
+
+	worldStateStores := make([]worldstatestore.Service, 0, len(config.WorldStateStores))
+	for _, name := range config.WorldStateStores {
+		store, ok := worldStateStoresByName[name]
+		if !ok {
+			return fmt.Errorf("world state store %q, named in world_state_stores, not found in dependencies", name)
+		}
+		worldStateStores = append(worldStateStores, store)
+	}
+	ms.worldStateStores = worldStateStores
+	if len(worldStateStores) > 0 {
+		ms.logger.CInfow(ctx, "Moves will plan around the world state stores", "stores", config.WorldStateStores)
+	}
 
 	return nil
 }
@@ -568,6 +605,8 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
+	req.WorldState = ms.withStoreWorldState(ctx, req.WorldState)
+
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
 		return nil, err

@@ -31,6 +31,12 @@ const (
 	SubtypeName = "world_state_store"
 )
 
+// VisualOnlyMetadataKey is a key of a transform's metadata. A transform that sets it to true is
+// there to be looked at, not planned around: a consumer that treats the geometries in a store as
+// obstacles, as the builtin motion service does, leaves that transform's geometry out. Any other
+// value, or none, leaves the transform an obstacle.
+const VisualOnlyMetadataKey = "visual_only"
+
 // API is a variable that identifies the world state store resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
