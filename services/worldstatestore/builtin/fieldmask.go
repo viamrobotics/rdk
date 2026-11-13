@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	commonpb "go.viam.com/api/common/v1"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -17,6 +16,10 @@ const uuidField = "uuid"
 
 // mergeTransform returns a copy of `stored` with the fields named by `paths` taken from `patch`.
 // A named field that `patch` leaves unset is cleared.
+//
+// `stored` is left as it is, and the copy shares every part of it that the paths do not reach.
+// An update therefore costs what it touches, not the size of the transform: moving a transform
+// does not copy its point cloud.
 //
 // Paths are dot-separated field names, in either their proto (`pose_in_observer_frame.pose.x`)
 // or JSON (`poseInObserverFrame.pose.x`) spelling. A path can name a whole message, which is
@@ -33,7 +36,7 @@ func mergeTransform(stored, patch *commonpb.Transform, paths []string) (
 		return nil, nil, nil, errors.New("an update must change at least one field")
 	}
 
-	merged = proto.Clone(stored).(*commonpb.Transform)
+	merged = shallowCopy(stored.ProtoReflect()).Interface().(*commonpb.Transform)
 	touched := make([]protoreflect.FieldDescriptor, 0, len(paths))
 	protoPaths = make([]string, 0, len(paths))
 	for _, path := range paths {
@@ -63,12 +66,9 @@ func mergeTransform(stored, patch *commonpb.Transform, paths []string) (
 func inferPaths(desc protoreflect.MessageDescriptor, object map[string]json.RawMessage, prefix string) ([]string, error) {
 	var ret []string
 	for _, key := range slices.Sorted(maps.Keys(object)) {
-		fd := desc.Fields().ByJSONName(key)
-		if fd == nil {
-			fd = desc.Fields().ByName(protoreflect.Name(key))
-		}
-		if fd == nil {
-			return nil, fmt.Errorf("%s has no field %q", desc.Name(), key)
+		fd, err := fieldNamed(desc, key)
+		if err != nil {
+			return nil, err
 		}
 		if prefix == "" && fd.Name() == uuidField {
 			continue
@@ -99,13 +99,9 @@ func mergePath(dst, src protoreflect.Message, path string) (protoreflect.FieldDe
 	var topLevel protoreflect.FieldDescriptor
 
 	for idx, segment := range segments {
-		fields := dst.Descriptor().Fields()
-		fd := fields.ByName(protoreflect.Name(segment))
-		if fd == nil {
-			fd = fields.ByJSONName(segment)
-		}
-		if fd == nil {
-			return nil, "", fmt.Errorf("%s has no field %q", dst.Descriptor().Name(), segment)
+		fd, err := fieldNamed(dst.Descriptor(), segment)
+		if err != nil {
+			return nil, "", err
 		}
 		protoSegments = append(protoSegments, string(fd.Name()))
 
@@ -124,13 +120,41 @@ func mergePath(dst, src protoreflect.Message, path string) (protoreflect.FieldDe
 		if fd.Message() == nil || fd.IsList() || fd.IsMap() {
 			return nil, "", fmt.Errorf("cannot address a field inside %q", segment)
 		}
-		// `Get` on an unset message field returns an empty read-only message, so a patch that
-		// omits a parent clears the named leaf.
+		// The message at `fd` may still be shared with the stored transform, so it is replaced
+		// by a copy before anything inside it changes. `Get` on an unset message field returns an
+		// empty read-only message, so this also creates a parent that `dst` lacks, and a patch
+		// that omits a parent clears the named leaf.
+		child := shallowCopy(dst.Get(fd).Message())
+		dst.Set(fd, protoreflect.ValueOfMessage(child))
 		src = src.Get(fd).Message()
-		dst = dst.Mutable(fd).Message()
+		dst = child
 	}
 
 	return topLevel, strings.Join(protoSegments, "."), nil
+}
+
+// fieldNamed returns the field of a message with the given name, in its proto or JSON spelling.
+func fieldNamed(desc protoreflect.MessageDescriptor, name string) (protoreflect.FieldDescriptor, error) {
+	fields := desc.Fields()
+	if fd := fields.ByName(protoreflect.Name(name)); fd != nil {
+		return fd, nil
+	}
+	if fd := fields.ByJSONName(name); fd != nil {
+		return fd, nil
+	}
+	return nil, fmt.Errorf("%s has no field %q", desc.Name(), name)
+}
+
+// shallowCopy returns a new message whose fields are those of `msg`. The two share the memory
+// of every field, so the copy's fields can be replaced but must not be changed in place.
+func shallowCopy(msg protoreflect.Message) protoreflect.Message {
+	ret := msg.New()
+	msg.Range(func(fd protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+		ret.Set(fd, value)
+		return true
+	})
+	ret.SetUnknown(msg.GetUnknown())
+	return ret
 }
 
 // copyField makes `fd` in `dst` equal to `fd` in `src`. The two then share the field's memory,
