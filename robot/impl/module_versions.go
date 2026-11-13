@@ -23,8 +23,8 @@ func isLocalReload(mod config.Module) bool {
 	return mod.Type == config.ModuleTypeLocal && mod.ModuleID != ""
 }
 
-// applyModulePackageVersions copies each registry module's package version onto the module so the
-// module manager can record which version a module process reached ready with. A module is matched
+// applyModulePackageVersions sets PackageVersion on each registry module so the module manager can
+// record which version a module process reached ready with. A module is matched
 // to the package whose data directory contains its resolved ExePath, and gets no version if none
 // does. Local path reloads get localReloadVersion.
 func applyModulePackageVersions(cfg *config.Config) {
@@ -56,8 +56,8 @@ func inDir(path, dir string) bool {
 }
 
 // FillAgentInfo adds the registry modules of the most recently applied config and whether the
-// maintenance sensor blocked the last reconfigure to info. It reads in-memory state on every cloud
-// config fetch and does not block on an in-progress reconfigure.
+// maintenance sensor is holding back a config change to info. It reads in-memory state on every
+// cloud config fetch and does not block on an in-progress reconfigure.
 func (r *localRobot) FillAgentInfo(info *apppb.AgentInfo) {
 	info.ReconfigureBlocked = r.reconfigureBlocked.Load()
 	cfg, ok := r.mostRecentCfg.Load().(config.Config)

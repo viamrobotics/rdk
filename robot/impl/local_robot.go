@@ -149,7 +149,7 @@ type localRobot struct {
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
 
-	// whether the maintenance sensor blocked the most recent reconfigure
+	// whether the maintenance sensor is holding back a config change that would change resources
 	reconfigureBlocked atomic.Bool
 
 	// whether the robot is still initializing. this value controls what state will be

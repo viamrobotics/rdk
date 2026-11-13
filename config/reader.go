@@ -52,8 +52,8 @@ const (
 // before main runs. Uptime is measured from its monotonic reading
 var processStartedAt = time.Now()
 
-// AgentInfoFunc adds the robot's running state, such as module versions and whether reconfigure is
-// blocked, to the AgentInfo sent with each config request.
+// AgentInfoFunc adds the robot's running state, such as module versions and whether the maintenance
+// sensor is holding back a config change, to the AgentInfo sent with each config request.
 type AgentInfoFunc func(info *apppb.AgentInfo)
 
 func getAgentInfo(logger logging.Logger, fillAgentInfo AgentInfoFunc) (*apppb.AgentInfo, error) {
@@ -283,7 +283,7 @@ func firstReadFromCloud(
 	logger.Debug("reading first configuration from the cloud")
 	machineID := originalCloudCfg.ID
 
-	// No robot exists yet on startup, so there are no module versions to report.
+	// No robot exists yet on startup, so there is no module or reconfigure state to report.
 	res, err := fetchAndProcessCloudConfig(ctx, machineID, true, logger, conn, nil)
 	if err != nil {
 		return nil, err
