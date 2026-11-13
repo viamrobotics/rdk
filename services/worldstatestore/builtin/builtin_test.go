@@ -5,9 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"net"
+	"slices"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -448,70 +451,149 @@ func TestStream(t *testing.T) {
 	test.That(t, snapshot.Transform, test.ShouldResembleProto, boxTransform("late", 4))
 }
 
+// numSubscribers returns how many streams the store is feeding.
+func numSubscribers(svc *builtIn) int {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
+	return len(svc.subscribers)
+}
+
 // TestStreamLifetime covers the three ways a stream ends: its context is canceled, its consumer
 // falls too far behind, or the service closes.
 func TestStreamLifetime(t *testing.T) {
 	ctx := context.Background()
 	svc := newTestStore(t)
-	svc.subscriberBuffer = 1
-
-	numSubscribers := func() int {
-		svc.mu.Lock()
-		defer svc.mu.Unlock()
-		return len(svc.subscribers)
-	}
-	waitForSubscribers := func(expected int) {
-		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
-		for numSubscribers() != expected {
-			if time.Now().After(deadline) {
-				t.Fatalf("expected %d subscribers, have %d", expected, numSubscribers())
-			}
-			time.Sleep(time.Millisecond)
-		}
+	svc.backlogSlack = 1
+	moveX := func(x float64) map[string]interface{} {
+		return command(t, DoUpdate, &event{Transform: &commonpb.Transform{
+			Uuid:                []byte("box"),
+			PoseInObserverFrame: &commonpb.PoseInFrame{Pose: &commonpb.Pose{X: x}},
+		}})
 	}
 
 	// Canceling a stream's context unsubscribes it.
 	cancelCtx, cancel := context.WithCancel(ctx)
 	canceled, err := svc.StreamTransformChanges(cancelCtx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, numSubscribers(), test.ShouldEqual, 1)
+	test.That(t, numSubscribers(svc), test.ShouldEqual, 1)
 	cancel()
-	waitForSubscribers(0)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, numSubscribers(svc), test.ShouldEqual, 0)
+	})
 	_, err = canceled.Next()
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeError, context.Canceled)
 
-	// A stream nobody reads fills its one-change buffer on the first add. The second add cannot
-	// be delivered, so the stream is disconnected: it yields what it had, then ends.
+	// A stream nobody reads is kept for as long as it would be cheaper to catch up than to start
+	// over. With one transform stored and a slack of one, that is up to two unread changes.
 	slow, err := svc.StreamTransformChanges(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = svc.DoCommand(ctx, command(t, DoAdd, &event{Transform: boxTransform("one", 0)}))
+	_, err = svc.DoCommand(ctx, command(t, DoAdd, &event{Transform: boxTransform("box", 0)}))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, numSubscribers(), test.ShouldEqual, 1)
-	_, err = svc.DoCommand(ctx, command(t, DoAdd, &event{Transform: boxTransform("two", 0)}))
+	_, err = svc.DoCommand(ctx, moveX(1))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, numSubscribers(), test.ShouldEqual, 0)
-	test.That(t, nextChange(t, slow).Transform.GetUuid(), test.ShouldResemble, []byte("one"))
+	// The stream now holds two unread changes, which is still within bounds, so a third is queued.
+	_, err = svc.DoCommand(ctx, moveX(2))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numSubscribers(svc), test.ShouldEqual, 1)
+	// With three unread it is past the bound when the next command arrives, and is dropped. Its
+	// stream ends at once, without first handing over the changes it never read.
+	_, err = svc.DoCommand(ctx, moveX(3))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numSubscribers(svc), test.ShouldEqual, 0)
 	_, err = slow.Next()
 	test.That(t, err, test.ShouldEqual, io.EOF)
 
-	// Closing the service ends open streams once they drain, and refuses new streams and
-	// commands. Closing again is harmless.
-	open, err := svc.StreamTransformChanges(ctx, nil)
+	// A stream opened afterwards starts from the store as it is now.
+	fresh, err := svc.StreamTransformChanges(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.Close(ctx), test.ShouldBeNil)
-	test.That(t, svc.Close(ctx), test.ShouldBeNil)
-	for {
-		_, err = open.Next()
-		if err != nil {
-			break
-		}
+	test.That(t, nextChange(t, fresh).Transform, test.ShouldResembleProto, boxTransform("box", 3))
+
+	// A stream waiting for a change is woken by the service closing. Closing also refuses new
+	// streams and commands, and closing again is harmless.
+	waiting := make(chan error, 1)
+	go func() {
+		_, err := fresh.Next()
+		waiting <- err
+	}()
+	select {
+	case err := <-waiting:
+		t.Fatalf("the stream returned before anything happened: %v", err)
+	case <-time.After(50 * time.Millisecond):
 	}
-	test.That(t, err, test.ShouldEqual, io.EOF)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+	select {
+	case err := <-waiting:
+		test.That(t, err, test.ShouldEqual, io.EOF)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the stream did not end when the service closed")
+	}
 	_, err = svc.StreamTransformChanges(ctx, nil)
 	test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
 	_, err = svc.DoCommand(ctx, command(t, DoAdd, &event{Transform: boxTransform("three", 0)}))
 	test.That(t, errors.Is(err, errClosed), test.ShouldBeTrue)
+}
+
+// TestStreamLargeCommands asserts that the size of a command or of the store never ends a
+// stream. Only the changes a stream left unread before a command count against it.
+func TestStreamLargeCommands(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestStore(t)
+	svc.backlogSlack = 1
+	const numTransforms = 50
+
+	adds := make([]*event, 0, numTransforms)
+	removes := make([]*event, 0, numTransforms)
+	for idx := range numTransforms {
+		uuid := fmt.Sprintf("box-%d", idx)
+		adds = append(adds, &event{Transform: boxTransform(uuid, float64(idx))})
+		removes = append(removes, &event{Transform: &commonpb.Transform{Uuid: []byte(uuid)}})
+	}
+	readAll := func(stream *worldstatestore.TransformChangeStream, changeType pb.TransformChangeType) []string {
+		t.Helper()
+		uuids := make([]string, 0, numTransforms)
+		for range numTransforms {
+			change := nextChange(t, stream)
+			test.That(t, change.ChangeType, test.ShouldEqual, changeType)
+			uuids = append(uuids, string(change.Transform.GetUuid()))
+		}
+		return uuids
+	}
+	inOrder := make([]string, 0, numTransforms)
+	for _, add := range adds {
+		inOrder = append(inOrder, string(add.GetTransform().GetUuid()))
+	}
+
+	// One add far larger than the slack reaches a stream that reads none of it until afterwards.
+	early, err := svc.StreamTransformChanges(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = svc.DoCommand(ctx, command(t, DoAdd, adds...))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numSubscribers(svc), test.ShouldEqual, 1)
+	test.That(t, readAll(early, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED), test.ShouldResemble, inOrder)
+
+	// A stream opened on a store far larger than the slack is sent all of it, and survives the
+	// next command even though it has not read any of it yet.
+	late, err := svc.StreamTransformChanges(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = svc.DoCommand(ctx, command(t, DoAdd, &event{Transform: boxTransform("one-more", 0)}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numSubscribers(svc), test.ShouldEqual, 2)
+	snapshot := readAll(late, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_ADDED)
+	slices.Sort(snapshot)
+	expected := slices.Clone(inOrder)
+	slices.Sort(expected)
+	test.That(t, snapshot, test.ShouldResemble, expected)
+	test.That(t, nextChange(t, late).Transform.GetUuid(), test.ShouldResemble, []byte("one-more"))
+	test.That(t, nextChange(t, early).Transform.GetUuid(), test.ShouldResemble, []byte("one-more"))
+
+	// One remove that empties most of the store reaches both streams, in order.
+	_, err = svc.DoCommand(ctx, command(t, DoRemove, removes...))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, numSubscribers(svc), test.ShouldEqual, 2)
+	test.That(t, readAll(early, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED), test.ShouldResemble, inOrder)
+	test.That(t, readAll(late, pb.TransformChangeType_TRANSFORM_CHANGE_TYPE_REMOVED), test.ShouldResemble, inOrder)
 }
 
 // TestOverGRPC drives the store through the gRPC server and client, where a DoCommand arrives

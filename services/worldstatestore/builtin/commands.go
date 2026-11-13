@@ -293,7 +293,5 @@ func (svc *builtIn) commitLocked(staged *batch) {
 		}
 		svc.transforms[key] = transform
 	}
-	for _, change := range staged.changes {
-		svc.publishLocked(change)
-	}
+	svc.publishLocked(staged.changes)
 }
