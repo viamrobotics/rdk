@@ -24,9 +24,9 @@ func distanceTo(target []float64) CostFunc {
 	}
 }
 
-func solveOnce(t *testing.T, target []float64, maxTime time.Duration) (int, []SeedSolveMetaData, time.Duration) {
+func solveOnce(t *testing.T, logger logging.Logger, target []float64, maxTime time.Duration) (int, []SeedSolveMetaData, time.Duration) {
 	t.Helper()
-	solver, err := CreateNloptSolver(logging.NewTestLogger(t), -1, true, true, maxTime)
+	solver, err := CreateNloptSolver(logger, -1, true, true, maxTime)
 	test.That(t, err, test.ShouldBeNil)
 
 	limits := []referenceframe.Limit{{Min: -1, Max: 1}, {Min: -1, Max: 1}}
@@ -50,7 +50,12 @@ func solveOnce(t *testing.T, target []float64, maxTime time.Duration) (int, []Se
 
 func TestExactSolverGivesUpOnUnreachableGoal(t *testing.T) {
 	// The target sits outside the limits, so every descent lands on the same nonzero floor.
-	n, meta, elapsed := solveOnce(t, []float64{5, 0}, time.Minute)
+	//
+	// Every descent logs debug lines, which would flood the output.
+	logger := logging.NewTestLogger(t)
+	logger.SetLevel(logging.INFO)
+
+	n, meta, elapsed := solveOnce(t, logger, []float64{5, 0}, time.Minute)
 	test.That(t, n, test.ShouldEqual, 0)
 	test.That(t, meta[0].Attempts, test.ShouldBeGreaterThanOrEqualTo, stallAttempts)
 	test.That(t, meta[0].Attempts, test.ShouldBeLessThan, 2*stallAttempts)
@@ -61,7 +66,12 @@ func TestExactSolverKeepsSearchingOnceSolved(t *testing.T) {
 	// Every descent reaches a reachable target and none improves on the last, so the solver must
 	// not mistake that plateau for a stall and must run its full budget.
 	maxTime := 200 * time.Millisecond
-	n, meta, elapsed := solveOnce(t, []float64{0.5, -0.5}, maxTime)
+
+	// The solver keeps descending for the whole budget, so its debug lines would flood the output.
+	logger := logging.NewTestLogger(t)
+	logger.SetLevel(logging.INFO)
+
+	n, meta, elapsed := solveOnce(t, logger, []float64{0.5, -0.5}, maxTime)
 	test.That(t, n, test.ShouldBeGreaterThan, stallAttempts)
 	test.That(t, meta[0].Attempts, test.ShouldBeGreaterThan, stallAttempts)
 	test.That(t, elapsed, test.ShouldBeGreaterThanOrEqualTo, maxTime)

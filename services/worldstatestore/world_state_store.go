@@ -139,6 +139,13 @@ func (s *TransformChangeStream) Next() (TransformChange, error) {
 	return s.next()
 }
 
+// NewTransformChangeStream returns a TransformChangeStream whose changes come from calling next.
+// It is for implementations whose changes do not come from a single channel. next must return
+// io.EOF once the stream has ended, and the context's error if the caller gives up waiting.
+func NewTransformChangeStream(next func() (TransformChange, error)) *TransformChangeStream {
+	return &TransformChangeStream{next: next}
+}
+
 // NewTransformChangeStreamFromChannel wraps a channel of TransformChange as a TransformChangeStream.
 // The provided context is used to cancel iteration; when ctx is done, Next returns ctx.Err().
 func NewTransformChangeStreamFromChannel(ctx context.Context, ch <-chan TransformChange) *TransformChangeStream {

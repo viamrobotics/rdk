@@ -13,6 +13,9 @@ const (
 	CredentialsTypeRobotSecret = "robot-secret"
 
 	// CredentialsTypeRobotLocationSecret is for credentials used against the cloud managing this robot's location.
+	//
+	// Deprecated: viam-server no longer accepts this credential type on direct dials (RSDK-14908);
+	// use an API key. Still valid for authenticating to app signaling.
 	CredentialsTypeRobotLocationSecret = "robot-location-secret"
 
 	// CredentialsTypeAPIKey is intended for by external users, human and computer.

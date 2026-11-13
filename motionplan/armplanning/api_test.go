@@ -1,12 +1,14 @@
 package armplanning_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
@@ -78,4 +80,26 @@ func TestWriteAndReadRequestAndResponse(t *testing.T) {
 		test.That(t, gotReq, test.ShouldNotBeNil)
 		test.That(t, gotPlan, test.ShouldBeNil)
 	})
+}
+
+// TestPlanMotionJointGoalLimits checks that a joint goal outside the frame's limits is rejected
+// before any goal is planned.
+func TestPlanMotionJointGoalLimits(t *testing.T) {
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "arm")
+	test.That(t, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+
+	joints := func(inputs ...float64) *armplanning.PlanState {
+		return armplanning.NewPlanState(nil, referenceframe.FrameSystemInputs{"arm": inputs})
+	}
+	_, meta, err := armplanning.PlanMotion(context.Background(), logging.NewTestLogger(t), &armplanning.PlanRequest{
+		FrameSystem:    fs,
+		StartState:     joints(0, 0.5, -1.0, 0, 0.5, 0),
+		Goals:          []*armplanning.PlanState{joints(0.2, 0.5, -1.0, 0, 0.5, 0), joints(100, 0, 0, 0, 0, 0)},
+		PlannerOptions: armplanning.NewBasicPlannerOptions(),
+	})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `goal 1 frame "arm" joint 0 is 100.00000`)
+	test.That(t, meta.GoalsProcessed, test.ShouldEqual, 0)
 }

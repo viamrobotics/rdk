@@ -880,6 +880,27 @@ func (manager *resourceManager) completeConfig(
 					}
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
 
+					activityType := fmt.Sprintf("resource_%s", verb)
+					activityRevision := gNode.PendingRevision()
+					activityStarted := time.Now()
+					manager.logger.Activity(activityType, "start",
+						"resource", resName.String(),
+						"model", conf.Model.String(),
+						"reason", gNode.ReconfigureReason(),
+						"revision", activityRevision,
+					)
+					// emitEnd emits the attempt's single terminal event.
+					emitEnd := func(event string, keysAndValues ...any) {
+						duration := time.Since(activityStarted)
+						manager.logger.Activity(activityType, event, append([]any{
+							"resource", resName.String(),
+							"model", conf.Model.String(),
+							"revision", activityRevision,
+							"duration", duration.String(),
+							"duration_us", duration.Microseconds(),
+						}, keysAndValues...)...)
+					}
+
 					// The config was already validated, but we must check again before attempting
 					// to add.
 					if _, _, err := conf.Validate("", resName.API.Type.Name); err != nil {
@@ -888,6 +909,7 @@ func (manager *resourceManager) completeConfig(
 							"resource", conf.ResourceName(),
 							"model", conf.Model,
 						)
+						emitEnd("fail", "stage", "validate", "error", err)
 						return
 					}
 					if manager.moduleManager.Provides(conf) {
@@ -898,6 +920,7 @@ func (manager *resourceManager) completeConfig(
 								"resource", conf.ResourceName(),
 								"model", conf.Model,
 							)
+							emitEnd("fail", "stage", "validate", "error", err)
 							return
 						}
 
@@ -918,21 +941,13 @@ func (manager *resourceManager) completeConfig(
 							conf.ImplicitOptionalDependsOn = implicitOptionalDeps
 							gNode.SetNewConfig(conf, conf.Dependencies())
 							lr.sendTriggerConfig("modular dependency re-resolution")
+							emitEnd("defer", "reason", "implicit_deps_changed")
 							return
 						}
 					}
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-						activityType := fmt.Sprintf("resource_%s", verb)
-						activityRevision := gNode.PendingRevision()
-						activityStarted := time.Now()
-						manager.logger.Activity(activityType, "start",
-							"resource", resName.String(),
-							"model", conf.Model.String(),
-							"reason", gNode.ReconfigureReason(),
-							"revision", activityRevision,
-						)
 						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if err := manager.markChildrenForUpdate(resName); err != nil {
 							manager.logger.CErrorw(ctx,
@@ -947,14 +962,7 @@ func (manager *resourceManager) completeConfig(
 								"resource", conf.ResourceName(),
 								"model", conf.Model,
 							)
-							buildDuration := time.Since(activityStarted)
-							manager.logger.Activity(activityType, "fail",
-								"resource", resName.String(),
-								"model", conf.Model.String(),
-								"revision", activityRevision,
-								"duration", buildDuration.String(),
-								"duration_us", buildDuration.Microseconds(),
-								"error", err)
+							emitEnd("fail", "stage", "build", "error", err)
 							return
 						}
 
@@ -966,17 +974,10 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err(),
 							)
-							buildDuration := time.Since(activityStarted)
-							manager.logger.Activity(activityType, "fail",
-								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
-								"duration", buildDuration.String(), "duration_us", buildDuration.Microseconds(),
-								"error", ctxWithTimeout.Err())
+							emitEnd("fail", "stage", "build", "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
-							buildDuration := time.Since(activityStarted)
-							manager.logger.Activity(activityType, "complete",
-								"resource", resName.String(), "model", conf.Model.String(), "revision", activityRevision,
-								"duration", buildDuration.String(), "duration_us", buildDuration.Microseconds())
+							emitEnd("complete")
 						}
 
 					default:

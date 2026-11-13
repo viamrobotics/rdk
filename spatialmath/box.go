@@ -74,6 +74,7 @@ type box struct {
 	boundingSphereR float64
 	label           string
 	mesh            *Mesh
+	meshOnce        sync.Once
 	// rotMatrix caches the world→local rotation matrix — the transpose of
 	// what b.center.Orientation().RotationMatrix() returns (which is
 	// local→world). SAT and projection routines in this file read its rows
@@ -344,7 +345,7 @@ func (b *box) vertices() []r3.Vector {
 
 // toMesh returns a 12-triangle mesh representation of the box, 2 right triangles for each face.
 func (b *box) toMesh() *Mesh {
-	if b.mesh == nil {
+	b.meshOnce.Do(func() {
 		m := &Mesh{pose: NewZeroPose(), state: newMeshState()}
 		triangles := make([]*Triangle, 0, 12)
 		verts := b.vertices()
@@ -354,7 +355,7 @@ func (b *box) toMesh() *Mesh {
 		m.triangles = triangles
 		// bvh is built lazily via ensureBVH() on first collision check
 		b.mesh = m
-	}
+	})
 	return b.mesh
 }
 

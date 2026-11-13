@@ -1,0 +1,100 @@
+{
+  "name": "test_mimic_gripper",
+  "links": [
+    {
+      "id": "base",
+      "parent": "world",
+      "pose": {
+        "translation": {}
+      }
+    },
+    {
+      "id": "tcp",
+      "parent": "base",
+      "pose": {
+        "translation": {
+          "z": 30
+        }
+      }
+    },
+    {
+      "id": "left_finger",
+      "parent": "left_joint",
+      "pose": {
+        "translation": {
+          "z": 30
+        }
+      },
+      "collision": [
+        {
+          "center": {
+            "z": 15,
+            "o_z": 1
+          },
+          "box": {
+            "dims_mm": {
+              "x": 10,
+              "y": 10,
+              "z": 30
+            }
+          },
+          "label": "left_finger"
+        }
+      ]
+    },
+    {
+      "id": "right_finger",
+      "parent": "right_joint",
+      "pose": {
+        "translation": {
+          "z": 30
+        }
+      },
+      "collision": [
+        {
+          "center": {
+            "z": 15,
+            "o_z": 1
+          },
+          "box": {
+            "dims_mm": {
+              "x": 10,
+              "y": 10,
+              "z": 30
+            }
+          },
+          "label": "right_finger"
+        }
+      ]
+    }
+  ],
+  "joints": [
+    {
+      "id": "left_joint",
+      "parent": "base",
+      "type": "JOINT_TYPE_PRISMATIC",
+      "axis": {
+        "y": 1
+      },
+      "limits": {
+        "min": 0,
+        "max": 50
+      }
+    },
+    {
+      "id": "right_joint",
+      "parent": "base",
+      "type": "JOINT_TYPE_PRISMATIC",
+      "axis": {
+        "y": -1
+      },
+      "mimic": {
+        "joint": "left_joint",
+        "multiplier": 1
+      }
+    }
+  ],
+  "output_frames": [
+    "tcp"
+  ]
+}

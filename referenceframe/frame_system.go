@@ -101,7 +101,7 @@ func NewEmptyFrameSystem(name string) *FrameSystem {
 func (sfs *FrameSystem) resolveFrameInputs(li *LinearInputs, frameName string) []Input {
 	for componentName, b := range sfs.flattened {
 		componentInputs := li.Get(componentName)
-		if componentInputs == nil {
+		if len(componentInputs) == 0 {
 			continue
 		}
 		for _, meta := range b.schema.metas {
@@ -698,7 +698,9 @@ func (sfs *FrameSystem) localFrameTransform(frame Frame, linearInputs *LinearInp
 		frameInputs = []Input{mi.multiplier*sourceInputs[0] + mi.offset}
 	} else if len(frame.DoF()) != 0 {
 		frameInputs = linearInputs.Get(frame.Name())
-		if frameInputs == nil {
+		if len(frameInputs) == 0 {
+			// Frames inside models (e.g: `ur5e:elbow_joint` inside the `ur5e` model) return some
+			// length-0 value from linear inputs.
 			frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
 		}
 		if len(frame.DoF()) != len(frameInputs) {
@@ -1209,10 +1211,12 @@ func FrameSystemGeometriesForFrames(
 		if wanted != nil && !wanted[name] {
 			continue
 		}
+
 		frame := fs.Frame(name)
-		inputs, err := linearInputs.GetFrameInputs(frame)
-		if err != nil {
-			errAll = multierr.Append(errAll, err)
+		inputs := linearInputs.Get(name)
+		if len(inputs) != len(frame.DoF()) {
+			errAll = multierr.Append(errAll, fmt.Errorf("Frame inputs size does not match. Frame: %v FS: %v Inputs: %v",
+				name, len(frame.DoF()), len(inputs)))
 			continue
 		}
 

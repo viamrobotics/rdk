@@ -165,31 +165,12 @@ func shouldCheckForCert(prevCloud, cloud *Cloud) bool {
 	diffSignalingAddr := prevCloud.SignalingAddress != cloud.SignalingAddress
 	diffSignalInsecure := prevCloud.SignalingInsecure != cloud.SignalingInsecure
 	diffManagedBy := prevCloud.ManagedBy != cloud.ManagedBy
-	diffLocSecret := prevCloud.LocationSecret != cloud.LocationSecret || !isLocationSecretsEqual(prevCloud, cloud)
 	// certs are scoped to a location, so a location (or owning org) change means a new cert.
 	diffLocID := prevCloud.LocationID != cloud.LocationID
 	diffOrgID := prevCloud.PrimaryOrgID != cloud.PrimaryOrgID
 
 	return diffFQDN || diffLocalFQDN || diffSignalingAddr ||
-		diffSignalInsecure || diffManagedBy || diffLocSecret || diffLocID || diffOrgID
-}
-
-func isLocationSecretsEqual(prevCloud, cloud *Cloud) bool {
-	if len(prevCloud.LocationSecrets) != len(cloud.LocationSecrets) {
-		return false
-	}
-
-	for i := range cloud.LocationSecrets {
-		if cloud.LocationSecrets[i].Secret != prevCloud.LocationSecrets[i].Secret {
-			return false
-		}
-
-		if cloud.LocationSecrets[i].ID != prevCloud.LocationSecrets[i].ID {
-			return false
-		}
-	}
-
-	return true
+		diffSignalInsecure || diffManagedBy || diffLocID || diffOrgID
 }
 
 // cloudReadResult is what one read of the cloud config endpoint or on-disk cache produces. The two

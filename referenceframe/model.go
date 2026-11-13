@@ -237,6 +237,26 @@ type SimpleModel struct {
 	properties KinematicProperties
 }
 
+func (m *SimpleModel) String() string {
+	tfsChain := make([]string, len(m.transformChain))
+	for idx, frame := range m.transformChain {
+		tfsChain[idx] = frame.Name()
+	}
+
+	visualStrs := make([]string, 0)
+	for name, geoms := range m.visual {
+		geomStrs := make([]string, len(geoms))
+		for idx, geom := range geoms {
+			geomStrs[idx] = geom.String()
+		}
+
+		visualStrs = append(visualStrs, fmt.Sprintf("Link: %v Geoms: %v", name, geomStrs))
+	}
+
+	return fmt.Sprintf("&SimpleModel{Name: %v, DoF: %v TransformChain: %v Geometries: %v}",
+		m.Name(), m.DoF(), tfsChain, visualStrs)
+}
+
 // KinematicProperties describes the component as a whole rather than any one joint. Zero means a
 // property was never set, since neither value is meaningful at zero, and a zero property is left
 // off the wire.

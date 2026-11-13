@@ -7,6 +7,7 @@
 //	cmd-plan plan1.json plan2.json         # replay both exactly as recorded
 //	cmd-plan capture/                      # replay every .json in capture/, alphabetically
 //	cmd-plan -chain plan1.json plan2.json  # plan2 starts where plan1's plan ended
+//	cmd-plan -batch plan1.json plan2.json  # same, planned as one sequence that backtracks
 //	cmd-plan -fs-override limits.json plan1.json plan2.json  # both against edited DoF limits
 //
 // Replaying as recorded asks whether each plan still solves on its own. Chaining asks whether the
@@ -77,6 +78,9 @@ type runOptions struct {
 	tryManySeeds            int
 	noViz                   bool
 	chain                   bool
+	batch                   bool
+	noPartialPlans          bool
+	sequenceOpts            *armplanning.SequenceOptions
 }
 
 // runner replays the sequence of plan requests named on the command line.
@@ -101,6 +105,9 @@ type step struct {
 	file     string
 	req      *armplanning.PlanRequest
 	origPlan motionplan.Plan
+	// recordedStart is the start state the request file recorded, kept only when chaining replaced
+	// it with where the previous plan ended.
+	recordedStart referenceframe.FrameSystemInputs
 }
 
 // stepResult is what one step produced, kept for the end-of-run summary and for chaining. A nil
@@ -114,6 +121,15 @@ type stepResult struct {
 	duration       time.Duration
 	totalL2        float64
 	totalCartesion float64
+	// err is why planning failed. Set only for a step that has no plan because of it.
+	err error
+	// hasRecording is whether the request file held a recorded response, and startDrift how far
+	// chaining moved the start from the recorded one. Both are what a failed step can still report.
+	hasRecording bool
+	startDrift   float64
+	// div is how the plan compares to the response recorded in its file. Nil when the file had no
+	// recorded response or the step produced no plan.
+	div *divergence
 }
 
 func realMain() error {
@@ -145,6 +161,15 @@ func realMain() error {
 	noViz := flag.Bool("no-viz", false, "skip rendering the plan; useful for benchmarking success rate and planning speed")
 	chain := flag.Bool("chain", false,
 		"plan each request from the configuration the previous plan ended in, rather than from its own recorded start state")
+	batch := flag.Bool("batch", false,
+		"implies -chain. Plan every request in one armplanning.PlanMotionSequence call, which backtracks into "+
+			"earlier requests when a later one cannot be planned")
+	noPartialPlans := flag.Bool("no-partial-plans", false,
+		"clear return_partial_plan on every request, so a request that only partly plans fails instead; "+
+			"-batch always does this")
+	backtrackBranchFactor := flag.Int("backtrack-branch-factor", 0,
+		"with -batch, how many endings of a request to try from one start state before backtracking further; "+
+			"0 keeps PlanMotionSequence's default")
 	fsOverrideFile := flag.String("fs-override", "",
 		"json file of frame system overrides to apply to every request, e.g. tighter DoF limits. See override.go for the schema")
 
@@ -152,6 +177,21 @@ func realMain() error {
 
 	if *runMotionPlanServer {
 		return mpserver.RunServer()
+	}
+
+	if *batch {
+		*chain = true
+	}
+
+	if *backtrackBranchFactor < 0 {
+		return errors.New("-backtrack-branch-factor cannot be negative")
+	}
+	if *backtrackBranchFactor > 0 && !*batch {
+		return errors.New("-backtrack-branch-factor only applies with -batch")
+	}
+	sequenceOpts := armplanning.NewDefaultSequenceOptions()
+	if *backtrackBranchFactor > 0 {
+		sequenceOpts.BacktrackBranchFactor = *backtrackBranchFactor
 	}
 
 	files, err := collectRequestFiles(flag.Args())
@@ -260,6 +300,9 @@ func realMain() error {
 			tryManySeeds:            *tryManySeeds,
 			noViz:                   *noViz,
 			chain:                   *chain,
+			batch:                   *batch,
+			noPartialPlans:          *noPartialPlans,
+			sequenceOpts:            sequenceOpts,
 		},
 		override: override,
 		logger:   logger,
@@ -274,31 +317,63 @@ func realMain() error {
 		if r.opts.chain {
 			mode = "chained, each plan starting where the previous one ended"
 		}
+		if r.opts.batch {
+			mode += ", as one sequence that backtracks into earlier plans when a later one fails"
+		}
 		logger.Infof("replaying %d plan requests %s", len(files), mode)
 	}
 
 	var results []*stepResult
 
+	// failure is the first planning error. It ends the sequence, but only after the summary and
+	// waypoints for everything that did plan have been written.
+	var failure error
+	var notRun []string
+
 	// carried is the configuration the previous plan ended in. Only ever populated in chained mode.
 	var carried referenceframe.FrameSystemInputs
 
-	for i, file := range files {
+	// perFile is what the loop below plans one request at a time. A batch plans everything up
+	// front, and is reported on in the same way afterwards.
+	perFile := files
+	var backtrack *backtrackReport
+	if r.opts.batch {
+		outcome, err := r.runBatch(ctx, files)
+		if err != nil {
+			return err
+		}
+		results, failure, backtrack = outcome.results, outcome.failure, outcome.backtrack
+		perFile = nil
+	}
+
+	for i, file := range perFile {
 		req, origPlan, err := r.loadRequest(file)
 		if err != nil {
 			return err
 		}
 
+		var recordedStart referenceframe.FrameSystemInputs
 		if carried != nil {
+			recordedStart = req.StartState.Configuration()
+
 			if err := chainStartState(req, carried, logger); err != nil {
 				return err
 			}
 		}
 
-		res, err := r.planOne(ctx, &step{idx: i, total: len(files), file: file, req: req, origPlan: origPlan})
+		res, err := r.planOne(ctx, &step{
+			idx: i, total: len(files), file: file, req: req, origPlan: origPlan, recordedStart: recordedStart,
+		})
 		if err != nil {
 			return err
 		}
 		results = append(results, res)
+
+		if res.err != nil {
+			failure = fmt.Errorf("plan %d/%d %s: %w", i+1, len(files), file, res.err)
+			notRun = files[i+1:]
+			break
+		}
 
 		if res.plan == nil {
 			// Interactive mode consumed a planning failure. There is no end state to chain from,
@@ -323,7 +398,11 @@ func realMain() error {
 	metricsExporter.Stop()
 
 	if !r.single {
-		printSummary(r.mylog, results, time.Since(r.start))
+		printSummary(r.mylog, results, notRun, time.Since(r.start))
+	}
+
+	if backtrack != nil {
+		r.printBacktrackSummary(backtrack)
 	}
 
 	if *waypointsFile != "" {
@@ -340,7 +419,235 @@ func realMain() error {
 		}
 	}
 
-	return nil
+	return failure
+}
+
+// sequenceOutcome is what planning a sequence of requests produced, in the form the end-of-run
+// summary and waypoints output take.
+type sequenceOutcome struct {
+	results []*stepResult
+	// failure is why the sequence could not be planned, if it could not.
+	failure error
+	// backtrack is what the backtrack summary is printed from. Nil when nothing was planned as a
+	// sequence.
+	backtrack *backtrackReport
+}
+
+// backtrackReport holds what printBacktrackSummary needs from one PlanMotionSequence call.
+type backtrackReport struct {
+	files     []string
+	requests  []*armplanning.PlanRequest
+	plans     []motionplan.Plan
+	metas     []*armplanning.PlanMeta
+	succeeded bool
+}
+
+// runBatch plans every file as one sequence with armplanning.PlanMotionSequence, which backtracks
+// into earlier requests when a later one cannot be planned from where they ended. It then reports
+// on each plan just as the one-at-a-time path would.
+//
+// PlanMotionSequence chooses each request's start itself, so unlike chainStartState it says
+// nothing about frames that carried over with a different shape or outside their limits, and it
+// does not say which request was the one that could not be planned.
+func (r *runner) runBatch(ctx context.Context, files []string) (*sequenceOutcome, error) {
+	var requests []*armplanning.PlanRequest
+	var origPlans []motionplan.Plan
+	var recordedStarts []referenceframe.FrameSystemInputs
+	for idx, file := range files {
+		req, origPlan, err := r.loadRequest(file)
+		if err != nil {
+			return nil, err
+		}
+
+		// PlanMotionSequence replaces every later request's start state, so keep the recorded one
+		// to measure how far the sequence moved away from it.
+		var recordedStart referenceframe.FrameSystemInputs
+		if idx > 0 {
+			recordedStart = req.StartState.Configuration()
+		}
+
+		requests = append(requests, req)
+		origPlans = append(origPlans, origPlan)
+		recordedStarts = append(recordedStarts, recordedStart)
+	}
+
+	r.logger.Infof("planning %d requests as one sequence", len(requests))
+	plans, metas, err := armplanning.PlanMotionSequence(ctx, r.mpLogger, requests, r.opts.sequenceOpts)
+	if err != nil {
+		r.mylog.Printf("\nFAILED: no sequence of plans found for the %d requests: %v", len(requests), err)
+
+		return &sequenceOutcome{
+			failure:   fmt.Errorf("planning %d requests as a sequence: %w", len(requests), err),
+			backtrack: &backtrackReport{files: files, requests: requests, plans: plans, metas: metas},
+		}, nil
+	}
+
+	outcome := &sequenceOutcome{backtrack: &backtrackReport{files: files, requests: requests, plans: plans, metas: metas, succeeded: true}}
+	for idx, file := range files {
+		current := &step{
+			idx: idx, total: len(files), file: file, req: requests[idx], origPlan: origPlans[idx], recordedStart: recordedStarts[idx],
+		}
+		r.printStepHeader(current)
+
+		if metas[idx].BacktrackCounter > 0 {
+			r.mylog.Printf("plan %d/%d was planned %d times because the sequence backtracked",
+				idx+1, len(files), metas[idx].BacktrackCounter+1)
+		}
+
+		res, err := r.finishStep(ctx, current, plans[idx], metas[idx], nil, metas[idx].Duration)
+		if err != nil {
+			return nil, err
+		}
+		outcome.results = append(outcome.results, res)
+	}
+
+	return outcome, nil
+}
+
+// printBacktrackSummary shows, for every plan of a sequence that had solutions rejected, the
+// configuration the plan started from, the configuration it finished with and each rejected end
+// configuration. Rows are joints. Below them:
+//
+//   - Linf is the largest per-joint difference between a rejected end and the final end, which is
+//     what decides whether a planner solution is dropped as a repeat of a rejected one: it must be
+//     within rejectionTolerance on every joint of every frame to be dropped. Raw joint values are
+//     compared, so an angle that differs by a full turn is a different solution.
+//   - cost is the request's configuration distance metric (the L2 distance unless the planner
+//     options say otherwise) from the start the solution was planned from to the solution. The
+//     planner also adds a small bias for joints far from the middle of their range, which is not
+//     included.
+//
+// When the sequence failed, the final end is whatever the plan's last attempt produced, which is
+// not a working solution, and plans that were never planned have none.
+func (r *runner) printBacktrackSummary(report *backtrackReport) {
+	const rejectionTolerance = 0.01
+
+	header := false
+	for idx, meta := range report.metas {
+		if meta == nil || len(meta.RejectedSolutions) == 0 {
+			continue
+		}
+
+		if !header {
+			r.mylog.Printf("\nBacktrack summary:")
+			header = true
+		}
+
+		endLabel := "final"
+		if !report.succeeded {
+			endLabel = "last attempt"
+		}
+
+		var finalStart, finalEnd referenceframe.FrameSystemInputs
+		if idx < len(report.plans) && report.plans[idx] != nil {
+			trajectory := report.plans[idx].Trajectory()
+			finalStart, finalEnd = trajectory[0], trajectory[len(trajectory)-1]
+		}
+
+		metric := motionplan.GetConfigurationDistanceFunc(motionplan.FSConfigurationL2DistanceMetric)
+		if options := report.requests[idx].PlannerOptions; options != nil {
+			metric = motionplan.GetConfigurationDistanceFunc(options.ConfigurationDistanceMetric)
+		}
+
+		cost := func(start, end referenceframe.FrameSystemInputs) string {
+			if start == nil || end == nil {
+				return "-"
+			}
+
+			return fmt.Sprintf("%.4f", metric(&motionplan.SegmentFS{
+				StartConfiguration: start.ToLinearInputs(),
+				EndConfiguration:   end.ToLinearInputs(),
+			}))
+		}
+
+		r.mylog.Printf("plan %d/%d %s: %d rejected solutions, planned %d times",
+			idx+1, len(report.files), filepath.Base(report.files[idx]), len(meta.RejectedSolutions), meta.BacktrackCounter+1)
+
+		frameNames := map[string]bool{}
+		for _, rejected := range meta.RejectedSolutions {
+			for frameName, inputs := range rejected.End {
+				if len(inputs) > 0 {
+					frameNames[frameName] = true
+				}
+			}
+		}
+
+		for _, frameName := range slices.Sorted(maps.Keys(frameNames)) {
+			r.mylog.Printf("  frame %q", frameName)
+
+			// One column per configuration: the start, the final end, then each rejected end.
+			columns := []referenceframe.FrameSystemInputs{finalStart, finalEnd}
+			titles := []string{"start", endLabel}
+			for rejectedIdx, rejected := range meta.RejectedSolutions {
+				columns = append(columns, rejected.End)
+				titles = append(titles, fmt.Sprintf("rejected %d", rejectedIdx+1))
+			}
+
+			line := fmt.Sprintf("    %-6s", "joint")
+			for _, title := range titles {
+				line += fmt.Sprintf(" %12s", title)
+			}
+			r.mylog.Printf("%s", line)
+
+			for jointIdx := range meta.RejectedSolutions[0].End[frameName] {
+				line = fmt.Sprintf("    %-6d", jointIdx)
+				for _, column := range columns {
+					if jointIdx < len(column[frameName]) {
+						line += fmt.Sprintf(" %12.4f", column[frameName][jointIdx])
+					} else {
+						line += fmt.Sprintf(" %12s", "-")
+					}
+				}
+				r.mylog.Printf("%s", line)
+			}
+
+			line = fmt.Sprintf("    %-6s %12s %12s", "Linf", "", "")
+			for _, rejected := range meta.RejectedSolutions {
+				if finalEnd == nil {
+					line += fmt.Sprintf(" %12s", "-")
+					continue
+				}
+
+				distance := referenceframe.InputsLinfDistance(finalEnd[frameName], rejected.End[frameName])
+				marker := ""
+				if distance <= rejectionTolerance {
+					marker = "*"
+				}
+				line += fmt.Sprintf(" %11.4f%1s", distance, marker)
+			}
+			r.mylog.Printf("%s", line)
+		}
+
+		line := fmt.Sprintf("    %-6s %12s %12s", "cost", "", cost(finalStart, finalEnd))
+		for _, rejected := range meta.RejectedSolutions {
+			line += fmt.Sprintf(" %12s", cost(rejected.Start, rejected.End))
+		}
+		r.mylog.Printf("%s", line)
+
+		for rejectedIdx, rejected := range meta.RejectedSolutions {
+			if finalStart == nil || startsAgree(finalStart, rejected.Start, rejectionTolerance) {
+				continue
+			}
+
+			r.mylog.Printf("  rejected %d was planned from a different start than the one above", rejectedIdx+1)
+		}
+	}
+
+	if header {
+		r.mylog.Printf("Linf is the largest per-joint difference from the plan's end. * marks a difference within %v.",
+			rejectionTolerance)
+	}
+}
+
+// startsAgree reports whether two configurations are within tolerance on every joint of every frame.
+func startsAgree(first, second referenceframe.FrameSystemInputs, tolerance float64) bool {
+	for frameName, inputs := range first {
+		if referenceframe.InputsLinfDistance(inputs, second[frameName]) > tolerance {
+			return false
+		}
+	}
+
+	return true
 }
 
 // collectRequestFiles resolves the positional arguments into the sequence of requests to replay,
@@ -388,8 +695,8 @@ func collectRequestFiles(args []string) ([]string, error) {
 }
 
 // loadRequest reads one request off disk and applies everything that is a property of the run
-// rather than of the recorded request: the pseudolinear constraints, the seed and the frame system
-// override.
+// rather than of the recorded request: the pseudolinear constraints, the seed, partial plans and the
+// frame system override.
 func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.Plan, error) {
 	r.logger.Infof("reading plan from %s", file)
 	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(file)
@@ -405,6 +712,11 @@ func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.
 
 	if r.opts.seed >= 0 {
 		req.PlannerOptions.RandomSeed = r.opts.seed
+	}
+
+	if r.opts.noPartialPlans && req.PlannerOptions.ReturnPartialPlan {
+		req.PlannerOptions.ReturnPartialPlan = false
+		r.logger.Infof("-no-partial-plans: cleared return_partial_plan on %s", filepath.Base(file))
 	}
 
 	if r.override != nil {
@@ -423,28 +735,52 @@ func (r *runner) loadRequest(file string) (*armplanning.PlanRequest, motionplan.
 
 // planOne plans a single request, reports on it, and renders and executes it if asked to.
 func (r *runner) planOne(ctx context.Context, s *step) (*stepResult, error) {
+	r.printStepHeader(s)
+
+	r.logger.Infof("starting motion planning for %d goals", len(s.req.Goals))
+
+	planStart := time.Now()
+	plan, meta, planErr := armplanning.PlanMotion(ctx, r.mpLogger, s.req)
+
+	return r.finishStep(ctx, s, plan, meta, planErr, time.Since(planStart))
+}
+
+// printStepHeader announces a step of a multi-request run.
+func (r *runner) printStepHeader(s *step) {
 	if !r.single {
 		r.mylog.Printf("\n===== plan %d/%d: %s =====", s.idx+1, s.total, s.file)
 	}
+}
 
+// finishStep is everything that follows planning a step: comparing it to the recording, reporting
+// on it, and rendering and executing it if asked to. duration is how long planning took.
+func (r *runner) finishStep(
+	ctx context.Context,
+	s *step,
+	plan motionplan.Plan,
+	meta *armplanning.PlanMeta,
+	planErr error,
+	duration time.Duration,
+) (*stepResult, error) {
 	req := s.req
-	r.logger.Infof("starting motion planning for %d goals", len(req.Goals))
-
-	planStart := time.Now()
-	plan, meta, planErr := armplanning.PlanMotion(ctx, r.mpLogger, req)
 	res := &stepResult{
 		file:     s.file,
 		goals:    len(req.Goals),
 		plan:     plan,
 		meta:     meta,
-		duration: time.Since(planStart),
+		duration: duration,
 	}
+
+	res.hasRecording = s.origPlan != nil
+	res.startDrift = startDrift(s.recordedStart, req.StartState.Configuration())
 
 	if planErr == nil {
 		var err error
 		if res.totalCartesion, res.totalL2, err = planDistances(plan); err != nil {
 			return nil, err
 		}
+
+		res.div = compareToRecorded(s.origPlan, plan, s.recordedStart, req.StartState.Configuration())
 	}
 
 	if r.opts.interactive {
@@ -463,7 +799,11 @@ func (r *runner) planOne(ctx context.Context, s *step) (*stepResult, error) {
 		if plan != nil {
 			r.mylog.Printf("error but partial result of length: %d", len(plan.Trajectory()))
 		}
-		return nil, planErr
+
+		// Reported in the sequence summary, which the caller prints before surfacing the error.
+		res.plan, res.err = nil, planErr
+
+		return res, nil
 	}
 
 	if len(plan.Path()) != len(plan.Trajectory()) {
@@ -637,37 +977,66 @@ func (r *runner) reportPlan(
 	}
 }
 
-// printSummary reports one line per replayed request. Only interesting for a sequence, so callers
-// skip it when a single request was given.
-func printSummary(mylog *log.Logger, results []*stepResult, wallClock time.Duration) {
+// printSummary reports only what a sequence run has to say about its recorded responses: which
+// plans diverged from them, and, if the run stopped on a planning failure, which plan that was and
+// whether its request file recorded a solution. Callers skip it when a single request was given.
+func printSummary(mylog *log.Logger, results []*stepResult, notRun []string, wallClock time.Duration) {
 	mylog.Printf("\n===== sequence summary: %d plan(s) in %v =====", len(results), wallClock.Truncate(time.Millisecond))
 
-	var planning time.Duration
-	trajectorySteps := 0
-	totalL2, totalCartesion := 0.0, 0.0
+	matched, unrecorded, diverged, first := 0, 0, 0, 0
+	var failed *stepResult
+	failedIdx := 0
 
-	for i, res := range results {
-		if res.plan == nil {
-			mylog.Printf("  %d %s: no plan", i+1, filepath.Base(res.file))
-			continue
+	for idx, res := range results {
+		switch {
+		case res.err != nil:
+			failed, failedIdx = res, idx+1
+		case res.plan == nil || res.div == nil:
+			unrecorded++
+		case res.div.diverged():
+			if diverged == 0 {
+				first = idx + 1
+			}
+			diverged++
+
+			mylog.Printf("  plan %d (%s) DIVERGES from its recorded response:", idx+1, filepath.Base(res.file))
+			if res.div.startDrift > divergeStartDriftRad {
+				mylog.Printf("    it started with a joint %0.4f rad from the recorded start", res.div.startDrift)
+			}
+			for _, reason := range res.div.reasons {
+				mylog.Printf("    - %s", reason)
+			}
+		default:
+			matched++
 		}
-
-		note := ""
-		if res.meta != nil && res.meta.PartialError != nil {
-			note = " PARTIAL"
-		}
-		mylog.Printf("  %d %s: %v for %d goals => trajectory length %d, totalL2 %0.4f totalCartesion %0.4f%s",
-			i+1, filepath.Base(res.file), res.duration.Truncate(time.Millisecond), res.goals,
-			len(res.plan.Trajectory()), res.totalL2, res.totalCartesion, note)
-
-		planning += res.duration
-		trajectorySteps += len(res.plan.Trajectory())
-		totalL2 += res.totalL2
-		totalCartesion += res.totalCartesion
 	}
 
-	mylog.Printf("  total: %v planning => trajectory length %d, totalL2 %0.4f totalCartesion %0.4f",
-		planning.Truncate(time.Millisecond), trajectorySteps, totalL2, totalCartesion)
+	switch {
+	case diverged > 0:
+		mylog.Printf("  first divergence: plan %d (%s)", first, filepath.Base(results[first-1].file))
+	case matched > 0:
+		mylog.Printf("  no divergence: all %d successful plan(s) matched their recorded responses", matched)
+	}
+	if unrecorded > 0 {
+		mylog.Printf("  %d successful plan(s) had no recorded response to compare against", unrecorded)
+	}
+
+	if failed == nil {
+		return
+	}
+
+	mylog.Printf("  FAILED: plan %d (%s): %v", failedIdx, filepath.Base(failed.file), failed.err)
+	if failed.hasRecording {
+		mylog.Printf("    its request file recorded a solution")
+	} else {
+		mylog.Printf("    its request file recorded no solution")
+	}
+	if failed.startDrift > divergeStartDriftRad {
+		mylog.Printf("    it started with a joint %0.4f rad from the recorded start", failed.startDrift)
+	}
+	if len(notRun) > 0 {
+		mylog.Printf("  %d later plan(s) not run", len(notRun))
+	}
 }
 
 // endConfiguration is the configuration a plan leaves the robot in, or nil if the plan is empty.
@@ -1487,4 +1856,160 @@ func describeLimit(limit referenceframe.Limit) string {
 		out += fmt.Sprintf(" max_acceleration %v", *limit.MaxAcceleration)
 	}
 	return out
+}
+
+// Planning is not deterministic, so a replayed plan is never expected to match the recorded response
+// waypoint for waypoint. These thresholds decide when the difference is worth reporting.
+const (
+	// divergeEndJointRad bounds how far any single joint of the replayed plan's final configuration
+	// may sit from the recorded one. The final configuration is what the next chained plan starts
+	// from, so this is where a sequence begins to drift.
+	divergeEndJointRad = 0.02
+	// divergeTravelRatio is how much longer or shorter, as a multiple, the replayed plan's joint
+	// travel may be before it is reported. divergeTravelFloorRad keeps tiny moves from tripping it.
+	divergeTravelRatio    = 1.5
+	divergeTravelFloorRad = 0.1
+	// divergeStartDriftRad is how far a chained plan's start may sit from the recorded start before
+	// the summary says so. It is not a divergence by itself, it explains the ones that follow.
+	divergeStartDriftRad = 0.01
+)
+
+// divergence is how one replayed plan compares to the response recorded in its request file.
+type divergence struct {
+	// startDrift is the largest single joint difference, over all frames, between the start state
+	// the request recorded and the one the plan actually ran from. Only chained steps can have one.
+	startDrift float64
+	// endJoint is the largest single joint difference between the final configurations, with the
+	// frame and joint it happened at and the two values.
+	endJoint         float64
+	endJointFrame    string
+	endJointIdx      int
+	endJointRecorded float64
+	endJointCurrent  float64
+	recordedL2       float64
+	currentL2        float64
+	recordedLen      int
+	currentLen       int
+	// reasons holds one sentence per threshold crossed. Empty means the plan agrees with the
+	// recording as far as these checks can tell.
+	reasons []string
+}
+
+func (div *divergence) diverged() bool {
+	return div != nil && len(div.reasons) > 0
+}
+
+// startDrift is the largest single joint difference, over all frames, between two start states.
+func startDrift(recordedStart, actualStart referenceframe.FrameSystemInputs) float64 {
+	drift := 0.0
+	for name, recordedInputs := range recordedStart {
+		actualInputs := actualStart[name]
+		if len(recordedInputs) == 0 || len(recordedInputs) != len(actualInputs) {
+			continue
+		}
+		drift = math.Max(drift, referenceframe.InputsLinfDistance(recordedInputs, actualInputs))
+	}
+
+	return drift
+}
+
+// compareToRecorded measures current against the recorded response. recordedStart and actualStart
+// are the start configurations before and after chaining replaced it; pass nil for recordedStart
+// when nothing was replaced. It returns nil when there is no recorded response to compare to.
+func compareToRecorded(
+	recorded, current motionplan.Plan,
+	recordedStart, actualStart referenceframe.FrameSystemInputs,
+) *divergence {
+	if recorded == nil || current == nil {
+		return nil
+	}
+
+	div := &divergence{
+		recordedLen: len(recorded.Trajectory()),
+		currentLen:  len(current.Trajectory()),
+	}
+
+	div.startDrift = startDrift(recordedStart, actualStart)
+
+	if div.recordedLen == 0 || len(recorded.Path()) == 0 || len(current.Path()) == 0 {
+		div.reasons = append(div.reasons, "the recorded response has no path to compare against")
+		return div
+	}
+
+	div.compareEnd(recorded, current)
+
+	// Starting somewhere else changes how far the plan has to move, so travel only says something
+	// when both plans started from the same place.
+	if div.startDrift <= divergeStartDriftRad {
+		div.compareTravel(recorded, current)
+	}
+
+	return div
+}
+
+// compareEnd checks the joint positions each plan leaves every frame in. The final configuration
+// is the solution, and it is what a chained plan inherits as its start.
+func (div *divergence) compareEnd(recorded, current motionplan.Plan) {
+	recordedJoints := recorded.Trajectory()[len(recorded.Trajectory())-1]
+	currentJoints := current.Trajectory()[len(current.Trajectory())-1]
+
+	for _, name := range sortedFrameNames(currentJoints) {
+		if len(currentJoints[name]) == 0 {
+			continue
+		}
+
+		recordedInputs, ok := recordedJoints[name]
+		if !ok {
+			div.reasons = append(div.reasons, fmt.Sprintf("frame %q is not in the recorded response", name))
+			continue
+		}
+		if len(recordedInputs) != len(currentJoints[name]) {
+			div.reasons = append(div.reasons, fmt.Sprintf("frame %q has %d joints, the recording has %d",
+				name, len(currentJoints[name]), len(recordedInputs)))
+			continue
+		}
+
+		for idx, value := range currentJoints[name] {
+			gap := math.Abs(value - recordedInputs[idx])
+			if gap > div.endJoint {
+				div.endJoint, div.endJointFrame, div.endJointIdx = gap, name, idx
+				div.endJointRecorded, div.endJointCurrent = recordedInputs[idx], value
+			}
+		}
+	}
+
+	if div.endJoint > divergeEndJointRad {
+		div.reasons = append(div.reasons, fmt.Sprintf("%s joint %d ends at %0.4f, the recording at %0.4f (%0.4f rad apart)",
+			div.endJointFrame, div.endJointIdx, div.endJointCurrent, div.endJointRecorded, div.endJoint))
+	}
+}
+
+// compareTravel checks that the replayed plan moves about as far as the recorded one did. A plan
+// that reaches the same pose by a much longer or shorter route is usually a different solution
+// branch or a different obstacle response.
+func (div *divergence) compareTravel(recorded, current motionplan.Plan) {
+	_, recordedL2, recordedErr := planDistances(recorded)
+	_, currentL2, currentErr := planDistances(current)
+	if recordedErr != nil || currentErr != nil {
+		div.reasons = append(div.reasons, "joint travel could not be compared, a plan is malformed")
+		return
+	}
+	div.recordedL2, div.currentL2 = recordedL2, currentL2
+
+	if math.Abs(currentL2-recordedL2) < divergeTravelFloorRad {
+		return
+	}
+
+	switch {
+	case recordedL2 == 0:
+		div.reasons = append(div.reasons, fmt.Sprintf("moves %0.3f in joint space, the recording did not move", currentL2))
+	case currentL2 == 0:
+		div.reasons = append(div.reasons, fmt.Sprintf("does not move, the recording traveled %0.3f in joint space", recordedL2))
+	case currentL2/recordedL2 > divergeTravelRatio:
+		div.reasons = append(div.reasons,
+			fmt.Sprintf("joint travel %0.2f is %0.1fx the recorded %0.2f", currentL2, currentL2/recordedL2, recordedL2))
+	case recordedL2/currentL2 > divergeTravelRatio:
+		div.reasons = append(div.reasons,
+			fmt.Sprintf("joint travel %0.2f is %0.1fx shorter than the recorded %0.2f", currentL2, recordedL2/currentL2, recordedL2))
+	}
 }

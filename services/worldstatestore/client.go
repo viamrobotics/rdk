@@ -44,7 +44,7 @@ func NewClientFromConn(
 }
 
 // ListUUIDs lists all UUIDs in the world state store.
-func (c *client) ListUUIDs(ctx context.Context, extra map[string]interface{}) ([][]byte, error) {
+func (c *client) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
 	ctx, span := trace.StartSpan(ctx, "worldstatestore::client::ListUUIDs")
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
@@ -57,16 +57,12 @@ func (c *client) ListUUIDs(ctx context.Context, extra map[string]interface{}) ([
 	if err != nil {
 		return nil, err
 	}
-	uuids := resp.GetUuids()
-	if uuids == nil {
-		return nil, ErrNilResponse
-	}
-
-	return uuids, nil
+	// An empty store's list decodes as nil, which is a valid response.
+	return resp.GetUuids(), nil
 }
 
 // GetTransform gets the transform for a given UUID.
-func (c *client) GetTransform(ctx context.Context, uuid []byte, extra map[string]interface{}) (*commonPB.Transform, error) {
+func (c *client) GetTransform(ctx context.Context, uuid []byte, extra map[string]any) (*commonPB.Transform, error) {
 	ctx, span := trace.StartSpan(ctx, "worldstatestore::client::GetTransform")
 	defer span.End()
 	ext, err := protoutils.StructToStructPb(extra)
@@ -88,7 +84,7 @@ func (c *client) GetTransform(ctx context.Context, uuid []byte, extra map[string
 }
 
 // StreamTransformChanges streams transform changes.
-func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]interface{}) (*TransformChangeStream, error) {
+func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]any) (*TransformChangeStream, error) {
 	ctx, span := trace.StartSpan(ctx, "worldstatestore::client::StreamTransformChanges")
 	defer span.End()
 
@@ -135,13 +131,13 @@ func (c *client) StreamTransformChanges(ctx context.Context, extra map[string]in
 }
 
 // DoCommand handles arbitrary commands.
-func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
 	ctx, span := trace.StartSpan(ctx, "worldstatestore::client::DoCommand")
 	defer span.End()
 
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
-func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+func (c *client) Status(ctx context.Context) (map[string]any, error) {
 	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
 }

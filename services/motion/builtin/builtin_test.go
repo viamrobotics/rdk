@@ -414,7 +414,15 @@ func TestMultiWaypointPlanning(t *testing.T) {
 		// Verify start configuration matches current robot state
 		fsInputs, err := ms.(*builtIn).fsService.CurrentInputs(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, plan[0], test.ShouldResemble, fsInputs)
+
+		// Trajectories only carry frames with degrees of freedom.
+		movableInputs := referenceframe.FrameSystemInputs{}
+		for frameName, inputs := range fsInputs {
+			if len(inputs) > 0 {
+				movableInputs[frameName] = inputs
+			}
+		}
+		test.That(t, plan[0], test.ShouldResemble, movableInputs)
 
 		// Verify final pose
 		frameSys, err := framesystem.NewFromService(ctx, ms.(*builtIn).fsService, nil)
@@ -1005,4 +1013,13 @@ func TestArmMoveWithinObstacle(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 	})
+}
+
+func TestConfigValidateStreamDiagnosticsMetadataKeysToUseAsFileTags(t *testing.T) {
+	_, _, err := (&Config{StreamDiagnosticsMetadataKeysToUseAsFileTags: []string{"pass-id"}}).Validate("")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "stream_diagnostics_file_path")
+
+	_, _, err = (&Config{StreamDiagnosticsFilePath: "/tmp/x", StreamDiagnosticsMetadataKeysToUseAsFileTags: []string{"pass-id"}}).Validate("")
+	test.That(t, err, test.ShouldBeNil)
 }

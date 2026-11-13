@@ -667,6 +667,16 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
 	}
 
+	shutdownMetrics, metricsErr := setupMetricsExport(ctx, fullProcessedConfig, s.rootLogger)
+	if metricsErr != nil {
+		s.rootLogger.Warnw("Failed to set up OTLP metrics export", "err", metricsErr)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+		utils.UncheckedError(shutdownMetrics(ctx))
+	}()
+
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
 	// all components, services, remotes, modules, processes, packages, and jobs from
 	// `minimalProcessedConfig`. Create new robot with `minimalProcessedConfig`

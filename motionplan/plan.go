@@ -157,7 +157,9 @@ func (path Path) String() string {
 	return str
 }
 
-// GetFrameInputs is a helper function which will extract the waypoints of a single frame from the map output of a trajectory.
+// GetFrameInputs is a helper function which will extract the waypoints of a single frame from the
+// map output of a trajectory. Only non-zero DoF frames are included in the trajectory. It is an
+// error to call this with a frame name that has no degrees of freedom.a
 func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Input, error) {
 	solution := make([][]referenceframe.Input, 0, len(traj))
 	for _, step := range traj {
@@ -167,6 +169,7 @@ func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Inpu
 		}
 		solution = append(solution, frameStep)
 	}
+
 	return solution, nil
 }
 
