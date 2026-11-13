@@ -98,8 +98,9 @@ type localRobot struct {
 	// TODO: replace all usage of [utils.ViamDotDir] with this configurable value.
 	homeDir string
 
-	manager       *resourceManager
-	mostRecentCfg atomic.Value // config.Config
+	manager                  *resourceManager
+	mostRecentCfg            atomic.Value // config.Config
+	mostRecentMaintenanceCfg atomic.Pointer[config.MaintenanceConfig]
 
 	// followPartClient caches the robot client for the current follow_part target.
 	followPartClientMu      sync.Mutex
@@ -1737,10 +1738,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	defer func() {
 		// Always update the `initializing` value at the end of this function. Resources may
 		// be equal or `reconfigure` may otherwise return early, but we still want to move
-		// from a state of initializing to running as dictated by the config value. Also
-		// always update the stored most recent config.
+		// from a state of initializing to running as dictated by the config value.
+		//
+		// Also always update the most recent maintenance config. Even if we are blocked from
+		// reconfiguring due to this new maintenance window, we want `RestartSingleModule` and
+		// `RestartModule` to be aware of the latest maintenance config.
 		r.initializing.Store(newConfig.Initial)
-		r.mostRecentCfg.Store(*newConfig)
+		r.mostRecentMaintenanceCfg.Store(newConfig.MaintenanceConfig)
 	}()
 
 	// No need to check whether reconfiguring is allowed if this is initialization.
@@ -1963,6 +1967,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	existingConfig := r.Config()
+	r.mostRecentCfg.Store(*newConfig)
 
 	// Now that we have the new config and all references are resolved, diff it
 	// with the current generated config to see what has changed
@@ -2317,7 +2322,7 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 			req.ModuleID, req.ModuleName)
 	}
 
-	if allowed, allowedErr := r.reconfigureAllowed(ctx, r.Config().MaintenanceConfig); !allowed {
+	if allowed, allowedErr := r.reconfigureAllowed(ctx, r.mostRecentMaintenanceCfg.Load()); !allowed {
 		if allowedErr != nil {
 			return status.Errorf(codes.FailedPrecondition, "maintenance window blocking module restart: %s", allowedErr.Error())
 		}
@@ -2445,23 +2450,23 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 
 // maintenanceStatus repots the current maintenance status.
 func (r *localRobot) maintenanceStatus(ctx context.Context) *robot.MaintenanceStatus {
-	cfg := r.Config()
+	mCfg := r.mostRecentMaintenanceCfg.Load()
 	// No maintenance config means allowed.
-	if cfg == nil || cfg.MaintenanceConfig == nil {
+	if mCfg == nil {
 		return &robot.MaintenanceStatus{Allowed: true}
 	}
 
 	// Don't cascade: when this machine itself follows another part, report allowed with a
 	// prefix-tagged reason. That lets a follower detect the chain and surface a
 	// configuration error. Follow chains can otherwise introduce cycles.
-	if cfg.MaintenanceConfig.FollowPart != nil {
+	if mCfg.FollowPart != nil {
 		return &robot.MaintenanceStatus{
 			Allowed: true,
-			Reason:  robot.FollowingReasonPrefix + cfg.MaintenanceConfig.FollowPart.Address,
+			Reason:  robot.FollowingReasonPrefix + mCfg.FollowPart.Address,
 		}
 	}
 
-	allowed, err := r.reconfigureAllowed(ctx, cfg.MaintenanceConfig)
+	allowed, err := r.reconfigureAllowed(ctx, mCfg)
 	status := &robot.MaintenanceStatus{Allowed: allowed}
 	if err != nil {
 		status.Reason = err.Error()
@@ -2652,7 +2657,7 @@ func (r *localRobot) RestartAllowed() bool {
 	// the restart_allowed endpoint.
 	//
 	//nolint:errcheck
-	reconfigureAllowed, _ := r.reconfigureAllowed(context.Background(), r.Config().MaintenanceConfig)
+	reconfigureAllowed, _ := r.reconfigureAllowed(context.Background(), r.mostRecentMaintenanceCfg.Load())
 	return reconfigureAllowed
 }
 
