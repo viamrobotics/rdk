@@ -33,7 +33,7 @@ jobs:
 
     - name: Publish full-static binaries
       run: |
-        gsutil mv "gs://${{ env.BUCKET }}/testing/full-static/${{ inputs.date }}/${{ github.sha }}/*" "gs://${{ env.BUCKET }}/"
+        gsutil mv "gs://${{ env.BUCKET }}/testing/full-static/${{ inputs.date }}/${{ github.sha }}/${{ github.run_id }}/*" "gs://${{ env.BUCKET }}/"
 
     - name: URLs to summary
       shell: bash
