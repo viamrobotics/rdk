@@ -688,13 +688,15 @@ func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig, _ logging.Logger) (
 		maintenanceConfig.SensorName = protoRdkUtils.ResourceNameFromProto(proto.GetSensorName()).String()
 	}
 	if fp := proto.GetFollowPart(); fp != nil {
-		auth, err := remoteAuthFromProto(fp.GetAuth())
-		if err != nil {
-			return nil, err
-		}
 		ref := &FollowPartRef{Address: fp.GetAddress()}
-		if auth != nil {
-			ref.Auth = *auth
+		if authProto := fp.GetAuth(); authProto != nil {
+			auth, err := remoteAuthFromProto(authProto)
+			if err != nil {
+				return nil, err
+			}
+			if auth != nil {
+				ref.Auth = *auth
+			}
 		}
 		maintenanceConfig.FollowPart = ref
 	}
