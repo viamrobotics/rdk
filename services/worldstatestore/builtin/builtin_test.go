@@ -19,6 +19,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -202,6 +203,96 @@ func TestUpdate(t *testing.T) {
 	got, err = svc.GetTransform(ctx, []byte("box"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, got, test.ShouldResembleProto, expected)
+}
+
+// TestUpdateSharesWhatItDoesNotTouch asserts the two things that make an update cheap and safe.
+// It shares the parts of a transform it does not reach, rather than copying them. And it never
+// changes a transform or an event that already exists, which is what allows the sharing.
+func TestUpdateSharesWhatItDoesNotTouch(t *testing.T) {
+	ctx := context.Background()
+	svc := newTestStore(t)
+	stored := func() *commonpb.Transform {
+		svc.mu.Lock()
+		defer svc.mu.Unlock()
+		return svc.transforms["cloud"]
+	}
+	withPoints := func(points []byte) *commonpb.Geometry {
+		return &commonpb.Geometry{GeometryType: &commonpb.Geometry_Pointcloud{
+			Pointcloud: &commonpb.PointCloud{PointCloud: points},
+		}}
+	}
+	update := func(patch *commonpb.Transform) {
+		t.Helper()
+		patch.Uuid = []byte("cloud")
+		_, err := svc.DoCommand(ctx, command(t, DoUpdate, &event{Transform: patch}))
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	cloud := boxTransform("cloud", 1)
+	cloud.PhysicalObject = withPoints([]byte{1, 2, 3, 4})
+	metadata, err := structpb.NewStruct(map[string]interface{}{"color": "red"})
+	test.That(t, err, test.ShouldBeNil)
+	cloud.Metadata = metadata
+	_, err = svc.DoCommand(ctx, command(t, DoAdd, &event{Transform: cloud}))
+	test.That(t, err, test.ShouldBeNil)
+	stream, err := svc.StreamTransformChanges(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	nextChange(t, stream)
+
+	// Move the transform. The store holds a new transform, and the old one is exactly as it was.
+	original := stored()
+	originalCopy := proto.Clone(original)
+	update(&commonpb.Transform{PoseInObserverFrame: &commonpb.PoseInFrame{Pose: &commonpb.Pose{X: 50}}})
+	moved := stored()
+	test.That(t, moved != original, test.ShouldBeTrue)
+	test.That(t, original, test.ShouldResembleProto, originalCopy)
+	test.That(t, moved.GetPoseInObserverFrame().GetPose().GetX(), test.ShouldEqual, 50)
+	test.That(t, moved.GetPoseInObserverFrame().GetPose().GetY(), test.ShouldEqual, 2)
+
+	// Only the pose was reached, so only the pose is new. The point cloud and the metadata are
+	// the very same memory as before: moving a transform does not copy its geometry.
+	test.That(t, moved.GetPoseInObserverFrame() != original.GetPoseInObserverFrame(), test.ShouldBeTrue)
+	test.That(t, moved.GetPhysicalObject() == original.GetPhysicalObject(), test.ShouldBeTrue)
+	test.That(t, moved.GetMetadata() == original.GetMetadata(), test.ShouldBeTrue)
+
+	// Move it again, twice in one command. Neither the transform stored after the first move nor
+	// the event published for it changes, though both shared memory with the store.
+	movedEvent := nextChange(t, stream).Transform
+	movedCopy, movedEventCopy := proto.Clone(moved), proto.Clone(movedEvent)
+	_, err = svc.DoCommand(ctx, command(t, DoUpdate,
+		&event{Transform: &commonpb.Transform{
+			Uuid:                []byte("cloud"),
+			PoseInObserverFrame: &commonpb.PoseInFrame{Pose: &commonpb.Pose{X: 60}},
+		}},
+		&event{Transform: &commonpb.Transform{
+			Uuid:                []byte("cloud"),
+			PoseInObserverFrame: &commonpb.PoseInFrame{Pose: &commonpb.Pose{Y: 70}},
+		}},
+	))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, moved, test.ShouldResembleProto, movedCopy)
+	test.That(t, movedEvent, test.ShouldResembleProto, movedEventCopy)
+	movedTwice := stored()
+	test.That(t, movedTwice.GetPoseInObserverFrame().GetPose().GetX(), test.ShouldEqual, 60)
+	test.That(t, movedTwice.GetPoseInObserverFrame().GetPose().GetY(), test.ShouldEqual, 70)
+	test.That(t, movedTwice.GetPhysicalObject() == original.GetPhysicalObject(), test.ShouldBeTrue)
+
+	// Replace the points, which reaches inside the geometry. Now the geometry is new, the
+	// transforms stored earlier keep the old points, and the metadata is still shared.
+	update(&commonpb.Transform{PhysicalObject: withPoints([]byte{9, 9})})
+	repointed := stored()
+	test.That(t, repointed.GetPhysicalObject() != original.GetPhysicalObject(), test.ShouldBeTrue)
+	test.That(t, repointed.GetPhysicalObject().GetPointcloud().GetPointCloud(), test.ShouldResemble, []byte{9, 9})
+	test.That(t, original, test.ShouldResembleProto, originalCopy)
+	test.That(t, movedTwice.GetPhysicalObject().GetPointcloud().GetPointCloud(), test.ShouldResemble, []byte{1, 2, 3, 4})
+	test.That(t, repointed.GetMetadata() == original.GetMetadata(), test.ShouldBeTrue)
+	test.That(t, repointed.GetPoseInObserverFrame().GetPose().GetX(), test.ShouldEqual, 60)
+
+	// A caller's copy is still its own: changing it reaches nothing in the store.
+	got, err := svc.GetTransform(ctx, []byte("cloud"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	got.GetPhysicalObject().GetPointcloud().PointCloud[0] = 0
+	test.That(t, stored().GetPhysicalObject().GetPointcloud().GetPointCloud(), test.ShouldResemble, []byte{9, 9})
 }
 
 // TestInvalidCommands asserts that every kind of invalid event is rejected, and that a rejected
