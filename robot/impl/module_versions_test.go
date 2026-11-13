@@ -91,7 +91,11 @@ func TestModuleVersionInfos(t *testing.T) {
 			s := status("cam", state, "1.0.0")
 			infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
 			test.That(t, infos, test.ShouldHaveLength, 1)
-			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam", ModuleName: "cam", State: s.ToProto().State})
+			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
+				ModuleId:   "viam:cam",
+				ModuleName: "cam",
+				State:      s.ToProto().State,
+			})
 		}
 
 		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, nil, now)
