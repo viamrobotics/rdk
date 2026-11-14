@@ -138,7 +138,12 @@ func (ac *AssociatedConfig) Equals(other resource.AssociatedConfig) bool {
 // UpdateResourceNames allows the caller to modify the resource names of data capture in place.
 func (ac *AssociatedConfig) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
 	for idx := range ac.CaptureMethods {
-		ac.CaptureMethods[idx].Name = updater(ac.CaptureMethods[idx].Name)
+		old := ac.CaptureMethods[idx].Name
+		// A user-written API is a real pin. Keep it before the updater overwrites Name.
+		if old.API.Validate() == nil {
+			ac.CaptureMethods[idx].PinnedAPI = old.API
+		}
+		ac.CaptureMethods[idx].Name = updater(old)
 	}
 }
 
@@ -148,8 +153,9 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 		return
 	}
 
-	// infer name from first index in CaptureMethods
+	// Key by the resource's simple name so a pinned API in the capture config name can't make the key stale.
 	name := ac.CaptureMethods[0].Name
+	name.API = resource.API{}
 	captureMethodCopies := make([]DataCaptureConfig, 0, len(ac.CaptureMethods))
 	for _, method := range ac.CaptureMethods {
 		methodCopy := method
@@ -163,7 +169,10 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Name               resource.Name          `json:"name"`
+	Name resource.Name `json:"name"`
+	// PinnedAPI holds the API the user explicitly wrote in the capture config name, if any, so it is not
+	// overwritten by the configured resource's API.
+	PinnedAPI          resource.API           `json:"-"`
 	Method             string                 `json:"method"`
 	CaptureFrequencyHz float32                `json:"capture_frequency_hz"`
 	CaptureQueueSize   int                    `json:"capture_queue_size"`
@@ -177,6 +186,7 @@ type DataCaptureConfig struct {
 // Equals checks if one capture config is equal to another.
 func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 	return c.Name.String() == other.Name.String() &&
+		c.PinnedAPI == other.PinnedAPI &&
 		c.Method == other.Method &&
 		c.CaptureFrequencyHz == other.CaptureFrequencyHz &&
 		c.CaptureQueueSize == other.CaptureQueueSize &&

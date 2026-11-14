@@ -72,9 +72,9 @@ type Capture struct {
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
 
-	// resourcesByShortName keeps track of every weak-dep resource by short name, so the capture
-	// control sensor can auto enable capture for resources that do not have it specified in the machine config.
-	resourcesByShortName map[string]resource.Resource
+	// deps is every weak-dep resource keyed by (API, name), so the capture control sensor can auto-enable
+	// capture for resources not specified in the machine config.
+	deps resource.Dependencies
 
 	// defaultTags is the service-level tags from the data manager service config.
 	defaultTags []string
@@ -93,9 +93,10 @@ type captureMongo struct {
 
 type (
 	collectors map[collectorMetadata]*collectorAndConfig
-	// CollectorConfigsByResource describes the data capture configuration of the
-	// resources/mathod pairs which data capture should capture data from.
-	CollectorConfigsByResource map[resource.Resource][]datamanager.DataCaptureConfig
+	// CollectorConfigsByResource describes the data capture configuration of the resource/method pairs data
+	// capture should capture from. Each carries metadata produced once by ResolveCollector, so no later path
+	// re-resolves or re-keys from a raw config.
+	CollectorConfigsByResource map[resource.Resource][]ResolvedCollector
 )
 
 // Parameters stored for each collector.
@@ -133,9 +134,10 @@ func (c *Capture) newCollectors(
 ) collectors {
 	// Initialize or add collectors based on changes to the component configurations.
 	newCollectors := make(map[collectorMetadata]*collectorAndConfig)
-	for res, cfgs := range collectorConfigsByResource {
-		for _, cfg := range cfgs {
-			md := newCollectorMetadata(cfg)
+	for res, resolvedCollectors := range collectorConfigsByResource {
+		for _, resolved := range resolvedCollectors {
+			md := resolved.Metadata
+			cfg := resolved.Config
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
@@ -229,7 +231,7 @@ func (c *Capture) Reconfigure(
 	ctx context.Context,
 	frameSystem framesystem.Service,
 	collectorConfigsByResource CollectorConfigsByResource,
-	resourcesByShortName map[string]resource.Resource,
+	deps resource.Dependencies,
 	config Config,
 ) {
 	c.logger.Debug("Reconfigure START")
@@ -266,7 +268,7 @@ func (c *Capture) Reconfigure(
 	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
 	c.defaultCollectorConfigs = collectorConfigsByResource
-	c.resourcesByShortName = resourcesByShortName
+	c.deps = deps
 	c.defaultTags = config.Tags
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes

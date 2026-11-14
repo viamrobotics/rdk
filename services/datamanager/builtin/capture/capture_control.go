@@ -33,9 +33,9 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // Passing nil or an empty map reverts all collectors to their default machine configs.
 //
 // Overrides may target resource/method pairs that are not in the static config. When that happens,
-// the resource is looked up by short name in c.resourcesByShortName and a collector is built from
-// the sensor reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios)
-// cannot be enabled this way.
+// the owning resource for the method is resolved from c.deps and a collector is built from the sensor
+// reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios) cannot be
+// enabled this way.
 func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager.CaptureConfigReading) {
 	effectiveCollectors := c.buildEffectiveCollectors(captureConfigReadings)
 	c.updateCollectors(effectiveCollectors)
@@ -50,8 +50,9 @@ func (c *Capture) buildEffectiveCollectors(
 	defaultKeys := map[string]struct{}{}
 
 	// 1. iterate through all resources with data capture configured, apply sensor reading overrides.
-	for res, defaultCollectorConfigsByResource := range c.defaultCollectorConfigs {
-		for _, defaultCfg := range defaultCollectorConfigsByResource {
+	for res, resolvedCollectors := range c.defaultCollectorConfigs {
+		for _, resolved := range resolvedCollectors {
+			defaultCfg := resolved.Config
 			key := DataCaptureConfigKey(defaultCfg.Name.ShortName(), defaultCfg.Method)
 			defaultKeys[key] = struct{}{}
 
@@ -62,33 +63,29 @@ func (c *Capture) buildEffectiveCollectors(
 			if result == nil {
 				continue
 			}
-			effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
+			// Reuse the metadata resolved at config time; the override only changes freq/tags, not the key.
+			effectiveCollectors[resolved.Metadata] = effectiveCollectorConfig{res, *result, key}
 		}
 	}
 
 	// 2. iterate through sensor readings to override resources that don't have data capture configured.
+	resolver := NewCollectorResolver(c.deps)
 	for key, override := range captureConfigReadings {
 		// Skip readings whose key matches a static default — those were already merged in step 1.
 		if _, seen := defaultKeys[key]; seen {
 			continue
 		}
 
-		res, ok := c.shouldAutoEnable(override)
+		resolved, res, ok := c.shouldAutoEnable(resolver, override)
 		if !ok {
 			continue
 		}
 
-		// create a fresh data capture config from the resolved resource.
-		result := applyOverride(datamanager.DataCaptureConfig{
-			Name:             res.Name().PopRemote(),
-			Method:           override.MethodName,
-			CaptureDirectory: c.captureDir,
-			Tags:             c.defaultTags,
-		}, override)
+		result := applyOverride(resolved.Config, override)
 		if result == nil {
 			continue
 		}
-		effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
+		effectiveCollectors[resolved.Metadata] = effectiveCollectorConfig{res, *result, key}
 	}
 
 	return effectiveCollectors
@@ -200,25 +197,38 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 }
 
 // shouldAutoEnable validates that the sensor's override can produce a running collector when
-// data capture is not configured on the machine config for that resource/method pair
-func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, bool) {
-	res, ok := c.resourcesByShortName[override.ResourceName]
-	if !ok {
-		c.logger.Warnw("capture control sensor referenced unknown resource",
-			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, false
+// data capture is not configured on the machine config for that resource/method pair. It returns the
+// resolved collector, the resource that owns the method, and whether it resolved.
+//
+// The reading carries no API, so a method a composite's APIs share (e.g. DoCommand) can't be resolved
+// here and won't auto-enable. A method one API owns (e.g. Readings on a sensor composite) resolves fine.
+func (c *Capture) shouldAutoEnable(
+	resolver *CollectorResolver, override datamanager.CaptureConfigReading,
+) (ResolvedCollector, resource.Resource, bool) {
+	// Leave the name unpinned and let the resolver infer the owner from the resource's served APIs.
+	resolved, res, err := resolver.Resolve(datamanager.DataCaptureConfig{
+		Name:             resource.NewName(resource.API{}, override.ResourceName),
+		Method:           override.MethodName,
+		CaptureDirectory: c.captureDir,
+		Tags:             c.defaultTags,
+	})
+	if err != nil {
+		c.logger.Warnw("capture control sensor cannot enable capture for resource/method",
+			"resource", override.ResourceName, "method", override.MethodName, "error", err)
+		return ResolvedCollector{}, nil, false
 	}
 
-	if data.CollectorLookup(data.MethodMetadata{API: res.Name().API, MethodName: override.MethodName}) == nil {
+	api := resolved.Metadata.MethodMetadata.API
+	if data.CollectorLookup(data.MethodMetadata{API: api, MethodName: override.MethodName}) == nil {
 		c.logger.Warnw("capture control sensor referenced unknown method for resource",
-			"resource", override.ResourceName, "method", override.MethodName, "api", res.Name().API)
-		return nil, false
+			"resource", override.ResourceName, "method", override.MethodName, "api", api)
+		return ResolvedCollector{}, nil, false
 	}
 
-	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(res.Name().API.String(), override.MethodName)]; needsParams {
+	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(api.String(), override.MethodName)]; needsParams {
 		c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
 			"resource", override.ResourceName, "method", override.MethodName)
-		return nil, false
+		return ResolvedCollector{}, nil, false
 	}
-	return res, true
+	return resolved, res, true
 }
