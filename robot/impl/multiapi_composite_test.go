@@ -9,15 +9,19 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
@@ -516,4 +520,87 @@ func TestCompositeStopAllInProcess(t *testing.T) {
 	// Every actuator API is stopped (safety). The gripper and servo facades are distinct objects, so
 	// each is stopped; a repeat Stop on a shared core is safe because Stop must be idempotent.
 	test.That(t, stopCount.Load(), test.ShouldEqual, 2)
+}
+
+// TestModularCompositeResource exercises the combomodule, a composite serving camera.Camera and
+// movementsensor.MovementSensor from one module identity where the two APIs have colliding method
+// names. Both declare a Properties method with different return types. camera sorts before
+// movement_sensor, so camera is canonical.
+func TestModularCompositeResource(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	modPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule")
+
+	model := resource.NewModel("acme", "demo", "combodevice")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{Name: "combo-mod", ExePath: modPath},
+		},
+		Components: []resource.Config{
+			{Name: "combo", API: camera.API, Model: model},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	// 1) An api-less name resolves to the one composite handle serving every API; AsType extracts each
+	// served API's sub-client.
+	res, err := r.ResourceByName(resource.SimpleName("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	cam, err := resource.AsType[camera.Camera](res)
+	test.That(t, err, test.ShouldBeNil)
+	ms, err := resource.AsType[movementsensor.MovementSensor](res)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = resource.AsType[gizmoapi.Gizmo](res)
+	test.That(t, err, test.ShouldBeNil)
+
+	// camera and movement_sensor both declare a Properties method with different return types. Calling each
+	// must route to its own facade over the module: camera.Properties from the camera sub, a
+	// *movementsensor.Properties from the movement-sensor sub.
+	camProps, err := cam.Properties(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camProps.SupportsPCD, test.ShouldBeTrue)
+	msProps, err := ms.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, msProps.AngularVelocitySupported, test.ShouldBeTrue)
+
+	// The modular composite handle is a resource.MultiAPIResource, so APIsOf reports its full set —
+	// the two colliding builtin APIs plus the custom gizmo API.
+	apisOf := resource.APIsOf(res)
+	test.That(t, apisOf, test.ShouldContain, camera.API)
+	test.That(t, apisOf, test.ShouldContain, movementsensor.API)
+	test.That(t, apisOf, test.ShouldContain, gizmoapi.API)
+
+	// 2) A per-API lookup returns that API's sub, reachable under each API the module serves.
+	byMS, err := r.ResourceByName(movementsensor.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, byMS, test.ShouldNotBeNil)
+
+	byGiz, err := r.ResourceByName(gizmoapi.Named("combo"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, byGiz, test.ShouldNotBeNil)
+
+	// 3) Advertised as N same-named ResourceNames, one per API.
+	var apis []resource.API
+	for _, n := range r.ResourceNames() {
+		if n.Name == "combo" {
+			apis = append(apis, n.API)
+		}
+	}
+	test.That(t, apis, test.ShouldContain, camera.API)
+	test.That(t, apis, test.ShouldContain, movementsensor.API)
+	test.That(t, apis, test.ShouldContain, gizmoapi.API)
+
+	// 4) Remove the composite (keep the module up). This tears down its module sub-clients. The composite
+	// wrapper's Close closes every distinct sub-client, so none leak goroutines. Assert the resource is
+	// gone under every API.
+	r.Reconfigure(ctx, &config.Config{
+		Modules: []config.Module{{Name: "combo-mod", ExePath: modPath}},
+	})
+	for _, n := range []resource.Name{
+		resource.SimpleName("combo"), camera.Named("combo"), movementsensor.Named("combo"), gizmoapi.Named("combo"),
+	} {
+		_, err := r.ResourceByName(n)
+		test.That(t, err, test.ShouldNotBeNil)
+	}
 }

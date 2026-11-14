@@ -1,0 +1,20 @@
+{
+	"modules": [
+		{
+			"name": "ComboModule",
+			"executable_path": "./complexcombomodule"
+		}
+	],
+	"components": [
+		{
+			"_comment": "type must name one API this composite serves (camera, movement_sensor, or gizmo); the full set comes from the model.",
+			"namespace": "rdk",
+			"type": "camera",
+			"name": "combo",
+			"model": "acme:demo:combodevice"
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}
