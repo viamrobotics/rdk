@@ -1370,8 +1370,7 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 		if err != nil {
 			return nil, err
 		}
-		inputEnabled, ok := res.(framesystem.InputEnabled)
-		if ok {
+		if inputEnabled, ok := res.(framesystem.InputEnabled); ok {
 			pos, err := inputEnabled.CurrentInputs(ctx)
 			if err != nil {
 				return nil, err

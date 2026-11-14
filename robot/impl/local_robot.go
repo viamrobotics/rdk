@@ -1142,31 +1142,29 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 	// completeConfig.
 	r.lastWeakAndOptionalDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
+	// Build the dependency sets for the internal services from every advertised per-API name, so a composite
+	// contributes under each API it serves: allResources (every component/service) for the web service,
+	// internalResources (rdk-internal resources) to reconfigure, and frameSystemDeps (just components) for the frame system.
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
-	components := map[resource.Name]resource.Resource{}
+	frameSystemDeps := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.AllNonCollidingResourceNames() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}
-		res, err := r.ResourceByName(n)
+		res, err := r.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().CDebugw(
-					ctx,
-					"error finding resource during weak/optional dependent update",
-					"resource", n,
-					"error", err,
-				)
+				r.Logger().CDebugw(ctx, "error finding resource during weak/optional dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
 		allResources[n] = res
 		switch {
-		case n.API.IsComponent():
-			components[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
+		case n.API.IsComponent():
+			frameSystemDeps[n] = res
 		}
 	}
 
@@ -1221,7 +1219,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 						)
 						break
 					}
-					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, frameSystemDeps, resource.Config{ConvertedAttributes: fsCfg})
 					if err != nil {
 						r.Logger().CErrorw(
 							ctx,
@@ -1402,8 +1400,24 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
 }
 
-// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
-// excluding remote robots and services, etc from the robot's config.Config.
+// isKinematicSubtype reports whether an API subtype is one with multiple degrees of freedom that the
+// frame system represents with a kinematics model (arm, gantry, gripper).
+func isKinematicSubtype(subtype string) bool {
+	return subtype == arm.SubtypeName || subtype == gantry.SubtypeName || subtype == gripper.SubtypeName
+}
+
+// modelMayBeKinematic reports whether any API the config is served under is a kinematic subtype.
+func modelMayBeKinematic(resConfig resource.Config) bool {
+	for _, api := range resource.APIsForConfig(resConfig) {
+		if isKinematicSubtype(api.SubtypeName) {
+			return true
+		}
+	}
+	return false
+}
+
+// getLocalFrameSystemParts collects and returns the robot's physical parts that may carry frame info, from
+// components and services in config.Config, excluding remote robots.
 func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
@@ -1414,8 +1428,11 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// fetched from `InputEnabled` resources; other resources may offer a model through
 	// `ModelFramer`. Geometries can be specified in the robot config. If none exists, we will
 	// perform a `Geometries` query on the resource; a single geometry is attached to the frame
-	// directly and several are wrapped in a zero-DoF model.
-	for _, resConfig := range cfg.Components {
+	// directly and several are wrapped in a zero-DoF model. Services are walked alongside components, so a
+	// composite configured under a service API still contributes a frame when one of its subs is
+	// kinematic; the body finds that sub across every API the resource serves, so the configured kind does
+	// not matter.
+	for _, resConfig := range append(append([]resource.Config{}, cfg.Components...), cfg.Services...) {
 		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
@@ -1444,8 +1461,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		res, resErr := r.ResourceByName(resConfig.ResourceName())
-		isAvailable := resErr == nil
+		// The api-less lookup returns the resource itself, which for a composite is the wrapper, so the frame
+		// helpers below see it under every API it serves. resErr covers a missing or unavailable resource.
+		rawRes, resErr := r.resourceBySimpleName(resConfig.Name)
 		resType := resConfig.ResourceName().API.SubtypeName
 		linkInFrame, err := (&referenceframe.LinkConfig{
 			ID:          frameName,
@@ -1459,22 +1477,23 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
-			// Components that have multiple degrees of freedom are required to be available and
-			// implement the `Kinematics` method to be used in the frame system.
-			if !isAvailable {
+		// An unavailable resource can't be asked anything, so handle it up front. If any API its model
+		// could serve is kinematic, omit it rather than give a jointed device a rigid frame; otherwise add
+		// it with whatever the frame config itself describes (a geometry, or nothing).
+		if resErr != nil {
+			if modelMayBeKinematic(resConfig) {
 				logger.Warnw("InputEnabled component is not available. Omitting from FrameSystem.", "err", resErr)
 				continue
 			}
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
+			continue
+		}
 
-			ie, ok := res.(framesystem.InputEnabled)
-			if !ok {
-				logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
-					"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", res))
-				continue
-			}
-
-			model, err := ie.Kinematics(ctx)
+		// Add the richest frame contribution available, in priority: a kinematic model, else a model-framer
+		// model, else a geometry, else the bare frame config.
+		kinematic, modelFramer, shaped := framesystem.FrameContribution(rawRes)
+		if kinematic != nil {
+			model, err := kinematic.Kinematics(ctx)
 			if err != nil {
 				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
 				// errors, as this code does, would not add an item to the FrameSystem. But errors
@@ -1499,10 +1518,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
+		// A resource configured under a kinematic API (arm/gantry/gripper) is expected to be InputEnabled;
+		// if it isn't, omit it rather than give a jointed device a rigid frame.
+		if isKinematicSubtype(resType) {
+			logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
+				"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", rawRes))
+			continue
+		}
+
 		// Any other resource may still describe itself with a kinematic model, e.g. a static
 		// obstacle assembled from several frames. That is preferred over a flat `Geometries`
 		// query because it keeps the resource's internal frame hierarchy.
-		if modelFramer, ok := res.(framesystem.ModelFramer); isAvailable && ok {
+		if modelFramer != nil {
 			model, err := modelFramer.Kinematics(ctx)
 			if err != nil {
 				logger.Warnw("Error getting kinematics for resource. Falling back to its geometries.", "err", err)
@@ -1518,19 +1545,15 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			}
 		}
 
-		// If the frame config included a geometry, prefer that to asking the resource. If the frame
-		// config does not include a geometry and the resource happens to be unavailable we won't be
-		// able to ask for a geometry, create a frame with what we have.
-		if linkInFrame.Geometry() != nil || !isAvailable {
+		// If the frame config already gave a geometry, prefer that to asking the resource.
+		if linkInFrame.Geometry() != nil {
 			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
 			continue
 		}
 
-		// If the resource is available and the config didn't explicitly give a geometry, ask the
-		// resource if it has one.
-		shaper, isShaped := res.(resource.Shaped)
-		if isShaped {
-			resGeometries, err := shaper.Geometries(ctx, nil)
+		// The config gave no geometry, so ask the resource for one.
+		if shaped != nil {
+			resGeometries, err := shaped.Geometries(ctx, nil)
 			// Dan: I'm concerned that `Geometries` will return unimplemented errors? Leaving as
 			// Debug due to FUD.
 			if err != nil {
@@ -1564,7 +1587,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			// it unimplemented. This log implies programmer error within the viam-server. For
 			// example, sensors do not seem to be `Shaped`.
 			logger.Debugw("Resource missing `Geometries` method.",
-				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", res))
+				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", rawRes))
 		}
 
 		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})

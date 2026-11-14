@@ -116,6 +116,33 @@ func GeometriesFromKinematics(ctx context.Context, res InputEnabled) ([]spatialm
 	return gifs.Geometries(), nil
 }
 
+// FrameContribution reports the frame-system capabilities a resource offers: its kinematic (InputEnabled),
+// model (ModelFramer), and geometry (Shaped) handles, any of which may be nil. For an ordinary resource each is
+// the resource itself when it implements that interface; for a composite each is resolved across the
+// several APIs it serves.
+func FrameContribution(res resource.Resource) (kinematic InputEnabled, model ModelFramer, shaped resource.Shaped) {
+	// A composite is one physical device, so each handle takes the first sub that provides it.
+	for _, api := range resource.APIsOf(res) {
+		sub := resource.SubresourceForAPI(res, api)
+		if kinematic == nil {
+			if ie, ok := sub.(InputEnabled); ok {
+				kinematic = ie
+			}
+		}
+		if model == nil {
+			if mf, ok := sub.(ModelFramer); ok {
+				model = mf
+			}
+		}
+		if shaped == nil {
+			if sh, ok := sub.(resource.Shaped); ok {
+				shaped = sh
+			}
+		}
+	}
+	return kinematic, model, shaped
+}
+
 // Service is an interface that wraps a RobotFrameSystem in a Resource.
 type Service interface {
 	resource.Resource
@@ -199,7 +226,7 @@ func FromProvider(provider resource.Provider) (Service, error) {
 func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger) (Service, error) {
 	fs := &frameSystemService{
 		Named:      InternalServiceName.AsNamed(),
-		components: make(map[string]resource.Resource),
+		components: make(map[string]InputEnabled),
 		logger:     logger,
 	}
 	if err := fs.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
@@ -261,7 +288,7 @@ func (cfg Config) String() string {
 type frameSystemService struct {
 	resource.Named
 	resource.TriviallyCloseable
-	components map[string]resource.Resource
+	components map[string]InputEnabled
 	logger     logging.Logger
 
 	partsMu sync.RWMutex
@@ -280,14 +307,15 @@ func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps reso
 	_, span := trace.StartSpan(ctx, "services::framesystem::Reconfigure")
 	defer span.End()
 
-	components := make(map[string]resource.Resource)
-	for name, r := range deps {
-		if _, present := components[name.Name]; present {
-			return DuplicateResourceNameError(name.Name)
+	// svc.components maps a short resource name to its kinematic handle for CurrentInputs.
+	svc.components = make(map[string]InputEnabled)
+	for name, dep := range deps {
+		kinematic, ok := dep.(InputEnabled)
+		if !ok {
+			continue
 		}
-		components[name.Name] = r
+		svc.components[name.Name] = kinematic
 	}
-	svc.components = components
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
@@ -410,13 +438,9 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 		}
 
 		// add component to map
-		component, ok := svc.components[name]
+		inputEnabled, ok := svc.components[name]
 		if !ok {
 			return nil, DependencyNotFoundError(name)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, NotInputEnabledError(component)
 		}
 
 		// add input to map
