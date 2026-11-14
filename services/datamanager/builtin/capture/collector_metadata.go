@@ -86,12 +86,14 @@ func resolveOwningAPI(apis []resource.API, cfg datamanager.DataCaptureConfig) (r
 		pin := cfg.PinnedAPI
 		if len(apis) > 0 && !slices.Contains(apis, pin) {
 			return resource.API{}, errors.Errorf(
-				"capture config for %q pins API %q, which it does not serve (serves %v)", short, pin, apis)
+				"capture config for %q pins API %q, which it does not serve (serves %v)", short, pin, apis,
+			)
 		}
 		if len(apis) > 1 && !slices.Contains(owners, pin) {
 			return resource.API{}, errors.Errorf(
 				"capture config for %q pins API %q, which does not capture method %q (captured by %v)",
-				short, pin, cfg.Method, owners)
+				short, pin, cfg.Method, owners,
+			)
 		}
 		return pin, nil
 	}
@@ -105,7 +107,8 @@ func resolveOwningAPI(apis []resource.API, cfg datamanager.DataCaptureConfig) (r
 		return owners[0], nil
 	case len(owners) == 0:
 		return resource.API{}, errors.Errorf(
-			"composite %q serves no API that captures method %q", short, cfg.Method)
+			"composite %q serves no API that captures method %q", short, cfg.Method,
+		)
 	default:
 		// Several of the composite's APIs capture the method (e.g. DoCommand). Keep it under the
 		// configured API that name resolution filled into cfg.Name when that API is one of them;
@@ -115,7 +118,8 @@ func resolveOwningAPI(apis []resource.API, cfg datamanager.DataCaptureConfig) (r
 		}
 		return resource.API{}, errors.Errorf(
 			"capture method %q on composite %q is captured by multiple APIs (%v); pin the name to one",
-			cfg.Method, short, owners)
+			cfg.Method, short, owners,
+		)
 	}
 }
 

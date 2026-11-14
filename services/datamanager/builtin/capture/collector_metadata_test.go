@@ -196,10 +196,12 @@ func TestNewCollectorsPinnedAPIDisambiguatesCollidingMethod(t *testing.T) {
 	captureDir := t.TempDir()
 	// Same method ("Shared", owned by both APIs), each capture config name pinned to a different owner.
 	cfgAlpha := datamanager.DataCaptureConfig{
-		Name: resource.NewName(capAlphaAPI, "combo"), PinnedAPI: capAlphaAPI, Method: "Shared", CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
+		Name: resource.NewName(capAlphaAPI, "combo"), PinnedAPI: capAlphaAPI, Method: "Shared",
+		CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
 	}
 	cfgBeta := datamanager.DataCaptureConfig{
-		Name: resource.NewName(capBetaAPI, "combo"), PinnedAPI: capBetaAPI, Method: "Shared", CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
+		Name: resource.NewName(capBetaAPI, "combo"), PinnedAPI: capBetaAPI, Method: "Shared",
+		CaptureFrequencyHz: 1, CaptureDirectory: captureDir,
 	}
 
 	// A pinned name resolves to that owner's sub, even though the method is served by both APIs.
