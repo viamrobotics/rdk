@@ -268,30 +268,32 @@ func TestComplexModule(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		nav := res.(navigation.Service)
-		geoPose, err := nav.Location(context.Background(), nil)
+		pos, err := nav.GetPosition(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, geoPose.Location().Lat(), test.ShouldAlmostEqual, 63.0691739667009)
-		test.That(t, geoPose.Location().Lng(), test.ShouldAlmostEqual, -151.00698515692034)
+		test.That(t, pos.GeoPose.Location.Lat(), test.ShouldAlmostEqual, 63.0691739667009)
+		test.That(t, pos.GeoPose.Location.Lng(), test.ShouldAlmostEqual, -151.00698515692034)
 
-		err = nav.AddWaypoint(context.Background(), geo.NewPoint(55.1, 22.2), nil)
+		heading := 0.0
+		_, err = nav.AddLocation(context.Background(), navigation.AddLocationReq{
+			Name: "a",
+			Position: &navigation.Position{GeoPose: &navigation.GeoPose{
+				Location: geo.NewPoint(55.1, 22.2),
+				Heading:  &heading,
+			}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		_, err = nav.AddLocation(context.Background(), navigation.AddLocationReq{
+			Name: "b",
+			Position: &navigation.Position{GeoPose: &navigation.GeoPose{
+				Location: geo.NewPoint(10.77, 17.88),
+				Heading:  &heading,
+			}},
+		})
 		test.That(t, err, test.ShouldBeNil)
 
-		err = nav.AddWaypoint(context.Background(), geo.NewPoint(10.77, 17.88), nil)
+		locs, err := nav.ListLocations(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
-
-		err = nav.AddWaypoint(context.Background(), geo.NewPoint(42.0, 42.0), nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		waypoints, err := nav.Waypoints(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		expected := []navigation.Waypoint{
-			{Lat: 55.1, Long: 22.2},
-			{Lat: 10.77, Long: 17.88},
-			{Lat: 42.0, Long: 42.0},
-		}
-
-		test.That(t, waypoints, test.ShouldResemble, expected)
+		test.That(t, len(locs), test.ShouldEqual, 2)
 	})
 }
 

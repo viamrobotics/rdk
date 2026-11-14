@@ -39,6 +39,8 @@ var (
 const (
 	defaultFrameRate = float32(30.0)
 	resWarnInterval  = 10 * time.Minute
+	// defaultMonitorInterval is how often the monitor worker probes connectivity and retries reconnects.
+	defaultMonitorInterval = 500 * time.Millisecond
 	// defaultWakeTimeout bounds how long Images waits for a paused camera to deliver a fresh frame.
 	defaultWakeTimeout = 15 * time.Second
 	// idleStaleFrames is how many frames wake drops before buffering one. The mediadevices drivers hold
@@ -121,6 +123,8 @@ type webcam struct {
 
 	reader video.Reader
 	driver driverutils.Driver
+	// detaches counts detachLocked calls so a read in flight across one knows its camera is gone.
+	detaches uint64
 
 	// This is returned to us as a label in mediadevices but our config
 	// treats it as a video path.
@@ -132,6 +136,7 @@ type webcam struct {
 	// is disabled for the life of this instance rather than risk attaching to the wrong device.
 	sawOtherSameName bool
 	conf             WebcamConfig
+	monitorInterval  time.Duration
 
 	closed       bool // set by Close method
 	disconnected bool // set by monitor worker
@@ -202,12 +207,15 @@ func NewWebcam(
 	if targetPath == "" {
 		targetPath = label
 	}
-	logger = logger.WithFields("camera_label", targetPath)
+	// WithFields replaces a logger's fields rather than adding to them, so camera_name is repeated.
+	logger = logger.WithFields("camera_name", name.ShortName(), "camera_label", targetPath)
 
-	return newWebcam(name, *nativeConf, targetPath, reader, driver, findReaderAndDriver, logger), nil
+	c := newWebcam(name, *nativeConf, targetPath, reader, driver, findReaderAndDriver, logger)
+	c.start()
+	return c, nil
 }
 
-// newWebcam wraps an already-open camera and starts the monitor and buffer workers.
+// newWebcam wraps an already-open camera. Call start to launch its workers.
 func newWebcam(
 	name resource.Name,
 	conf WebcamConfig,
@@ -220,26 +228,30 @@ func newWebcam(
 	if conf.FrameRate == 0.0 {
 		conf.FrameRate = defaultFrameRate
 	}
-	c := &webcam{
-		Named:       name.AsNamed(),
-		workers:     goutils.NewBackgroundStoppableWorkers(),
-		cameraModel: camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters),
-		reader:      reader,
-		driver:      driver,
-		targetPath:  targetPath,
-		targetName:  driver.Info().Name,
-		conf:        conf,
-		idleTimeout: time.Duration(conf.IdleTimeoutMs) * time.Millisecond,
-		wakeTimeout: defaultWakeTimeout,
-		lastAccess:  time.Now(),
-		wakeCh:      make(chan struct{}, 1),
-		openCamera:  openCamera,
-		logger:      logger,
-		buffer:      newWebcamBuffer(),
+	return &webcam{
+		Named:           name.AsNamed(),
+		workers:         goutils.NewBackgroundStoppableWorkers(),
+		cameraModel:     camera.NewPinholeModelWithBrownConradyDistortion(conf.CameraParameters, conf.DistortionParameters),
+		reader:          reader,
+		driver:          driver,
+		targetPath:      targetPath,
+		targetName:      driver.Info().Name,
+		conf:            conf,
+		monitorInterval: defaultMonitorInterval,
+		idleTimeout:     time.Duration(conf.IdleTimeoutMs) * time.Millisecond,
+		wakeTimeout:     defaultWakeTimeout,
+		lastAccess:      time.Now(),
+		wakeCh:          make(chan struct{}, 1),
+		openCamera:      openCamera,
+		logger:          logger,
+		buffer:          newWebcamBuffer(),
 	}
+}
+
+// start launches the monitor and buffer workers.
+func (c *webcam) start() {
 	c.startMonitorWorker()
 	c.startBufferWorker()
-	return c
 }
 
 // ensureActive checks the camera's state and returns the appropriate error if it is not active.
@@ -258,6 +270,7 @@ func (c *webcam) ensureActive() error {
 // closeCamera outside the lock. Must be called with mu held.
 func (c *webcam) detachLocked() (driverutils.Driver, func()) {
 	driver, release := c.driver, c.buffer.release
+	c.detaches++
 	c.driver = nil
 	c.reader = nil
 	c.buffer.release = nil
@@ -303,8 +316,12 @@ func isCameraConnected(driver driverutils.Driver) (bool, error) {
 // Upon successful reconnection, it resets the buffer state and flags to resume healthy operation.
 // The driver stays open while reads are paused for idle, so probing continues throughout.
 func (c *webcam) startMonitorWorker() {
+	c.mu.Lock()
+	interval := c.monitorInterval
+	c.mu.Unlock()
+
 	c.workers.Add(func(ctx context.Context) {
-		ticker := time.NewTicker(500 * time.Millisecond)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		for {
@@ -413,7 +430,10 @@ func (c *webcam) startBufferWorker() {
 		for {
 			select {
 			case <-ctx.Done():
-				c.logger.Debug("buffer worker context done")
+				c.mu.Lock()
+				logger := c.logger
+				c.mu.Unlock()
+				logger.Debug("buffer worker context done")
 				return
 			case <-c.wakeCh:
 				c.wake()
@@ -452,7 +472,7 @@ func (c *webcam) readFrame() {
 		c.mu.Unlock()
 		return
 	}
-	reader := c.reader
+	reader, detaches := c.reader, c.detaches
 	// Release and read happen outside the lock to avoid holding it during I/O.
 	oldRelease := c.buffer.release
 	c.buffer.release = nil
@@ -464,6 +484,13 @@ func (c *webcam) readFrame() {
 	img, release, err := reader.Read()
 
 	c.mu.Lock()
+	if c.detaches != detaches {
+		c.mu.Unlock()
+		if release != nil {
+			release()
+		}
+		return
+	}
 	defer c.mu.Unlock()
 	c.buffer.err = err
 	if err != nil {

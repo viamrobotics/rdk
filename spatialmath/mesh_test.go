@@ -695,19 +695,19 @@ func TestLazyBVHConstruction(t *testing.T) {
 
 	t.Run("BVH not built at construction time", func(t *testing.T) {
 		mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "test")
-		test.That(t, mesh.bvh, test.ShouldBeNil)
+		test.That(t, mesh.bvh.Load(), test.ShouldBeNil)
 	})
 
 	t.Run("BVH built on first collision check", func(t *testing.T) {
 		mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "test")
-		test.That(t, mesh.bvh, test.ShouldBeNil)
+		test.That(t, mesh.bvh.Load(), test.ShouldBeNil)
 
 		sphere, err := NewSphere(NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 5}), 1, "")
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = mesh.CollidesWith(sphere, 0)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mesh.bvh, test.ShouldNotBeNil)
+		test.That(t, mesh.bvh.Load(), test.ShouldNotBeNil)
 	})
 
 	t.Run("BVH shared via Transform when already built", func(t *testing.T) {
@@ -716,11 +716,11 @@ func TestLazyBVHConstruction(t *testing.T) {
 		// Build BVH by doing a collision check
 		sphere, _ := NewSphere(NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 5}), 1, "")
 		mesh.CollidesWith(sphere, 0)
-		test.That(t, mesh.bvh, test.ShouldNotBeNil)
+		test.That(t, mesh.bvh.Load(), test.ShouldNotBeNil)
 
 		// Transform should copy the existing BVH pointer
 		transformed := mesh.Transform(NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0})).(*Mesh)
-		test.That(t, transformed.bvh, test.ShouldEqual, mesh.bvh)
+		test.That(t, transformed.bvh.Load(), test.ShouldEqual, mesh.bvh.Load())
 	})
 
 	t.Run("BVH not rebuilt on transformed mesh when copied", func(t *testing.T) {
@@ -729,14 +729,14 @@ func TestLazyBVHConstruction(t *testing.T) {
 		// Build BVH on original
 		sphere, _ := NewSphere(NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 5}), 1, "")
 		mesh.CollidesWith(sphere, 0)
-		originalBVH := mesh.bvh
+		originalBVH := mesh.bvh.Load()
 
 		// Transform and do collision on transformed mesh
 		transformed := mesh.Transform(NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0})).(*Mesh)
 		transformed.CollidesWith(sphere, 0)
 
 		// Should still be the same BVH pointer (not rebuilt)
-		test.That(t, transformed.bvh, test.ShouldEqual, originalBVH)
+		test.That(t, transformed.bvh.Load(), test.ShouldEqual, originalBVH)
 	})
 }
 

@@ -125,6 +125,9 @@ type PlanSegmentContext struct {
 	origGoal referenceframe.FrameSystemPoses // goals are defined in frames willy nilly
 	goal     referenceframe.FrameSystemPoses // all in world
 
+	// Used to reject solutions that come from IK at the `process` stage.
+	rejectedSolutions []referenceframe.FrameSystemInputs
+
 	startPoses referenceframe.FrameSystemPoses
 
 	motionChains *motionChains
@@ -198,6 +201,17 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if pc.planOpts.CableConstraint {
+		err = psc.Checker.AddCableConstraint(pc.fs, start, motionplan.CableConstraint{
+			MaxTwistDegs:  pc.planOpts.MaxCableTwistDegs,
+			ReferenceDegs: pc.planOpts.CableTwistReferenceDegs,
+			Frames:        pc.planOpts.CableConstraintFrames,
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return psc, nil

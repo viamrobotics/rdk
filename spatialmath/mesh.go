@@ -60,13 +60,16 @@ type Mesh struct {
 
 	// bvh is the bounding volume hierarchy for accelerated collision detection.
 	// Built lazily on first collision check via ensureBVH().
-	bvh     *bvhNode
-	bvhOnce sync.Once
+	//
+	// An atomic pointer, rather than a sync.Once guarded field, so ResetCache can clear it while
+	// collision checks run. A reader keeps the tree it loaded even if a reset follows.
+	bvh        atomic.Pointer[bvhNode]
+	bvhBuildMu sync.Mutex
 
 	// uniqueVerts is a deduplicated list of triangle vertices in local space.
 	// Built lazily via ensureUniqueVertices(). Shared across Transform() copies.
-	uniqueVerts     []r3.Vector
-	uniqueVertsOnce sync.Once
+	uniqueVerts        atomic.Pointer[[]r3.Vector]
+	uniqueVertsBuildMu sync.Mutex
 
 	// poseCache is the mesh's pose pre-decomposed for BVH traversal. A Mesh's
 	// pose is immutable, but one Mesh copy is collision-checked against many
@@ -558,18 +561,22 @@ func (m *Mesh) Triangles() []*Triangle {
 // Transform transforms the mesh. As triangles are in the mesh's frame, they are unchanged.
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
-	return &Mesh{
+	transformed := &Mesh{
 		pose:             Compose(pose, m.pose),
 		triangles:        m.triangles,
 		label:            m.label,
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
-		bvh:              m.ensureBVH(),
-		uniqueVerts:      m.ensureUniqueVertices(),
 		// Share state across transforms so the witness cache survives per-config clones.
 		state: m.state,
 	}
+	transformed.bvh.Store(m.ensureBVH())
+	if uniqueVerts := m.ensureUniqueVertices(); uniqueVerts != nil {
+		transformed.uniqueVerts.Store(&uniqueVerts)
+	}
+
+	return transformed
 }
 
 // CollidesWith checks if the given mesh collides with the given geometry and returns true if it
@@ -694,23 +701,34 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 
 // ensureUniqueVertices lazily computes the deduplicated vertex list.
 func (m *Mesh) ensureUniqueVertices() []r3.Vector {
-	m.uniqueVertsOnce.Do(func() {
-		if m.uniqueVerts == nil && len(m.triangles) > 0 {
-			seen := make(map[r3.Vector]struct{})
-			verts := []r3.Vector{}
-			for _, tri := range m.triangles {
-				for _, pt := range tri.Points() {
-					if _, ok := seen[pt]; ok {
-						continue
-					}
-					seen[pt] = struct{}{}
-					verts = append(verts, pt)
-				}
+	if built := m.uniqueVerts.Load(); built != nil {
+		return *built
+	}
+
+	m.uniqueVertsBuildMu.Lock()
+	defer m.uniqueVertsBuildMu.Unlock()
+
+	if built := m.uniqueVerts.Load(); built != nil {
+		return *built
+	}
+	if len(m.triangles) == 0 {
+		return nil
+	}
+
+	seen := make(map[r3.Vector]struct{})
+	verts := []r3.Vector{}
+	for _, tri := range m.triangles {
+		for _, pt := range tri.Points() {
+			if _, ok := seen[pt]; ok {
+				continue
 			}
-			m.uniqueVerts = verts
+			seen[pt] = struct{}{}
+			verts = append(verts, pt)
 		}
-	})
-	return m.uniqueVerts
+	}
+	m.uniqueVerts.Store(&verts)
+
+	return verts
 }
 
 // Returns true if any triangle vertex of the mesh intersects the box.
@@ -799,13 +817,24 @@ func (m *Mesh) ensurePoseCache() *bvhPoseCache {
 // ensureBVH builds the BVH if it hasn't been built yet (thread-safe).
 // Returns nil for empty meshes (no triangles).
 func (m *Mesh) ensureBVH() *bvhNode {
-	m.bvhOnce.Do(func() {
-		// Check if bvh was already set (e.g., copied from another mesh via Transform)
-		if m.bvh == nil && len(m.triangles) > 0 {
-			m.bvh = buildBVH(trianglesToGeoms(m.triangles))
-		}
-	})
-	return m.bvh
+	if built := m.bvh.Load(); built != nil {
+		return built
+	}
+
+	m.bvhBuildMu.Lock()
+	defer m.bvhBuildMu.Unlock()
+
+	if built := m.bvh.Load(); built != nil {
+		return built
+	}
+	if len(m.triangles) == 0 {
+		return nil
+	}
+
+	built := buildBVH(trianglesToGeoms(m.triangles))
+	m.bvh.Store(built)
+
+	return built
 }
 
 // collidesWithMesh checks if this mesh collides with another mesh.
@@ -1020,14 +1049,12 @@ func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
 // optimization, so racing readers may observe a torn view but cannot return a
 // wrong answer (they fall back to the BVH walk).
 func (m *Mesh) ResetCache() {
-	m.bvh = nil
-	m.bvhOnce = sync.Once{}
-	m.uniqueVerts = nil
-	m.uniqueVertsOnce = sync.Once{}
+	m.bvh.Store(nil)
+	m.uniqueVerts.Store(nil)
 	if m.state != nil {
-		m.state.witnesses = sync.Map{}
-		m.state.geomWitness = sync.Map{}
-		m.state.negCache = sync.Map{}
+		m.state.witnesses.Clear()
+		m.state.geomWitness.Clear()
+		m.state.negCache.Clear()
 	}
 }
 
@@ -1119,8 +1146,7 @@ func (m *Mesh) UnmarshalJSON(data []byte) error {
 	m.rawBytes = mesh.rawBytes
 	m.rawBytesOnce = sync.Once{}
 	m.originalFilePath = mesh.originalFilePath
-	m.bvh = nil
-	m.bvhOnce = sync.Once{}
+	m.bvh.Store(nil)
 	return nil
 }
 

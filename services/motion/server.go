@@ -282,8 +282,7 @@ func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService
 		}()
 
 		for resp := range responsesCh {
-			_ = resp // TempStreamResponse carries no fields yet.
-			if err = stream.Send(&pb.TempStreamArmJointPositionsResponse{}); err != nil {
+			if err = stream.Send(tempStreamResponseToProto(resp)); err != nil {
 				return
 			}
 		}

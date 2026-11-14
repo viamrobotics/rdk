@@ -152,7 +152,7 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 		return c.model, nil
 	}
 	// attempt to get kinematics the correct way
-	resp, err := c.client.GetKinematics(ctx, &commonpb.GetKinematicsRequest{Name: c.name})
+	resp, err := c.client.GetKinematics(ctx, referenceframe.KinematicsRequest(c.name))
 	if err == nil {
 		model, err := referenceframe.KinematicModelFromProtobuf(c.name, resp)
 		if err != nil {

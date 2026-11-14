@@ -1365,3 +1365,17 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoteValidateRefusesSeveralFrameGeometries(t *testing.T) {
+	remote := config.Remote{
+		Name:    "remote",
+		Address: "address",
+		Frame: &referenceframe.LinkConfig{
+			Parent:     "world",
+			Geometries: []spatialmath.GeometryConfig{{Type: spatialmath.SphereType, R: 1}},
+		},
+	}
+	_, _, err := remote.Validate("path")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "frame.geometries")
+}

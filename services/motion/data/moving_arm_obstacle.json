@@ -1,0 +1,33 @@
+{
+    "components": [
+        {
+            "name": "pieceArm",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "arm-model": "ur5e"
+            },
+            "frame": {
+                "parent": "world"
+            }
+        },
+        {
+            "name": "cage",
+            "type": "generic",
+            "model": "obstacle",
+            "attributes": {
+                "geometries": [
+                    {"label": "x_max", "type": "box", "x": 10, "y": 1820, "z": 620, "translation": {"x": 905, "y": 0, "z": 0}},
+                    {"label": "x_min", "type": "box", "x": 10, "y": 1820, "z": 620, "translation": {"x": -905, "y": 0, "z": 0}},
+                    {"label": "y_max", "type": "box", "x": 1820, "y": 10, "z": 620, "translation": {"x": 0, "y": 905, "z": 0}},
+                    {"label": "y_min", "type": "box", "x": 1820, "y": 10, "z": 620, "translation": {"x": 0, "y": -905, "z": 0}},
+                    {"label": "floor", "type": "box", "x": 1820, "y": 1820, "z": 10, "translation": {"x": 0, "y": 0, "z": -305}},
+                    {"label": "ceiling", "type": "box", "x": 1820, "y": 1820, "z": 10, "translation": {"x": 0, "y": 0, "z": 305}}
+                ]
+            },
+            "frame": {
+                "parent": "world"
+            }
+        }
+    ]
+}

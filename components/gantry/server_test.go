@@ -246,6 +246,7 @@ func TestServer(t *testing.T) {
 		resp, err := gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
+		//nolint:staticcheck // SA1019: Format stays until clients read KinematicModel.
 		test.That(t, resp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
 
 		_, err = gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failGantryName})
@@ -255,8 +256,8 @@ func TestServer(t *testing.T) {
 
 	t.Run("geometries", func(t *testing.T) {
 		// geometries only works for single axis (multi-axis is a controller of multiple single-axis gantries)
-		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
-			return []float64{51.0}, nil
+		injectGantry.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
+			return []referenceframe.Input{51.0}, nil
 		}
 		geometries, err := gantryServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldBeNil)

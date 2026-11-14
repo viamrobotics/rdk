@@ -2,6 +2,9 @@ BUILD_CHANNEL?=local
 # note: UNAME_M is overrideable because it is wrong in 32-bit arm container executing natively on 64-bit arm
 UNAME_M ?= $(shell uname -m)
 
+# Include mise and its shims in path.
+export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
+
 PRERELEASE_PATH := $(if $(findstring -dev,$(BUILD_CHANNEL)),"prerelease/","")
 
 static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
@@ -22,7 +25,7 @@ static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
-	CGO_ENABLED=1 CC="$(WINDOWS_CC)" CXX="$(WINDOWS_CXX)" GOOS=windows GOARCH=amd64 go build -tags no_cgo $(LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 go build -tags no_cgo $(WINDOWS_LDFLAGS) -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
@@ -34,20 +37,13 @@ static-release-win:
 		cp bin/static/viam-server-windows.exe etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-windows-${UNAME_M}.exe; \
 	fi
 
-	# note: GOOS=windows would break this on a linux runner
-	# viam_windows_resource_dump + CGO_ENABLED=1 make this native run register the same camera
-	# set as the Windows binary above; webcam is otherwise gated on `windows && cgo`, which a
-	# linux run can never satisfy, and the manifest would omit a model the binary ships.
-	CGO_ENABLED=1 go run -tags no_cgo,viam_windows_resource_dump ./web/cmd/server --dump-resources win-resources.json
-
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
 	go run ./etc/subsystem_manifest \
-		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
+		--binary-path bin/static/viam-server-windows.exe \
 		--upload-path packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-windows-${UNAME_M} \
 		--version ${BUILD_CHANNEL} \
 		--arch ${UNAME_M} \
-		--resources-json win-resources.json \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M}.json
 
 static-release-macos:

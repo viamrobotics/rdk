@@ -17,8 +17,10 @@
 #include <llvm/Support/Path.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <algorithm>
+#include <array>
 #include <string_view>
-#include <unordered_map>
+#include <utility>
 
 // NOTE: the llvm::formatv templates below use asymmetric brace escaping. `{{`
 // collapses to a single `{`, but `}}` is NOT an escape -- it is copied
@@ -93,6 +95,19 @@ Generator::Generator(GeneratorCompDB db,
             (resourceType_ == ResourceType::component) ? "Component" : "Service";
     }
 
+    // SDK class names that are not the PascalCase of the header stem. Keep in sync with
+    // cppResourceSubtypePascal in cli/module_generate.go, which fills main.cpp.in.
+    static constexpr std::array<std::pair<std::string_view, std::string_view>, 2> pascalOverrides{{
+        {"framesystem", "FrameSystem"},
+        {"mlmodel", "MLModelService"},
+    }};
+    auto it = std::find_if(pascalOverrides.begin(), pascalOverrides.end(), [this](const auto& p) {
+        return p.first == resourceSubtypeSnake_;
+    });
+    if (it != pascalOverrides.end()) {
+        resourceSubtypePascal_ = it->second;
+    }
+
     // getAbsolutePath normalizes as ClangTool does before a database lookup, so that a relative
     // command line path matches the absolute filenames a database records.
     llvm::SmallString<256> path(clang::tooling::getAbsolutePath(resourceHeaderPath_));
@@ -139,7 +154,7 @@ namespace {1} {
 
     const char* ctorFmt = R"--(
 {0}::{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg)
-    : {1}(cfg.name()) {{
+    : {1}(cfg) {{
     // TODO: initialize your resource here.
     // `deps` provides access to other resources this component depends on.
     // `cfg` contains the resource configuration from the robot config.

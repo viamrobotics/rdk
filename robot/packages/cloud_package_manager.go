@@ -141,11 +141,14 @@ func (m *cloudManager) PackageStatuses() []PackageStatus {
 func (m *cloudManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
 	m.statusMu.Lock()
 	defer m.statusMu.Unlock()
-	if s, ok := m.packageStatuses[name]; ok {
-		s.State = state
-		s.Error = errMsg
-		s.LastUpdated = time.Now()
+	s, ok := m.packageStatuses[name]
+	if !ok {
+		m.logger.Warnw("cannot set state of unknown package", "package", name, "state", state)
+		return
 	}
+	s.State = state
+	s.Error = errMsg
+	s.LastUpdated = time.Now()
 }
 
 // setPackageStatus sets the full status entry for a package. Download progress is preserved
@@ -601,6 +604,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
 	}
+	checksumStart := time.Now()
 
 	hash := crc32Hash()
 	destFile, err := os.Open(downloadPath) //nolint:gosec
@@ -633,6 +637,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 			trimmedChecksumBytes, trimmedOutHashBytes,
 		)
 	}
+	m.logger.Debugf("Package %s checksum verification complete after %v", name, time.Since(checksumStart))
 
 	return checksum, contentType, nil
 }

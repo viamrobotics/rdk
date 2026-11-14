@@ -513,12 +513,17 @@ func (conf *Remote) validate(path string) error {
 		if conf.Frame.Parent == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "frame.parent")
 		}
+		// as for a component, pb.Frame carries one geometry
+		if len(conf.Frame.Geometries) > 0 {
+			return resource.NewConfigValidationError(path,
+				errors.New("frame.geometries is not supported in a machine config, a frame holds one geometry under frame.geometry"))
+		}
 	}
 
 	if conf.Secret != "" {
 		conf.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
+				Type:    rutils.CredentialsTypeRobotLocationSecret, //nolint:staticcheck // kept for outbound-dial compatibility
 				Payload: conf.Secret,
 			},
 		}
@@ -531,8 +536,6 @@ func (conf *Remote) validate(path string) error {
 type Cloud struct {
 	ID               string
 	Secret           string
-	LocationSecret   string // Deprecated: Use LocationSecrets
-	LocationSecrets  []LocationSecret
 	APIKey           APIKey
 	LocationID       string
 	PrimaryOrgID     string
@@ -564,18 +567,16 @@ type cloudData struct {
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
 
-	LocationSecret    string           `json:"location_secret"`
-	LocationSecrets   []LocationSecret `json:"location_secrets"`
-	APIKey            APIKey           `json:"api_key"`
-	LocationID        string           `json:"location_id"`
-	PrimaryOrgID      string           `json:"primary_org_id"`
-	MachineID         string           `json:"machine_id"`
-	ManagedBy         string           `json:"managed_by"`
-	FQDN              string           `json:"fqdn"`
-	LocalFQDN         string           `json:"local_fqdn"`
-	SignalingAddress  string           `json:"signaling_address"`
-	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	RefreshInterval   string           `json:"refresh_interval,omitempty"`
+	APIKey            APIKey `json:"api_key"`
+	LocationID        string `json:"location_id"`
+	PrimaryOrgID      string `json:"primary_org_id"`
+	MachineID         string `json:"machine_id"`
+	ManagedBy         string `json:"managed_by"`
+	FQDN              string `json:"fqdn"`
+	LocalFQDN         string `json:"local_fqdn"`
+	SignalingAddress  string `json:"signaling_address"`
+	SignalingInsecure bool   `json:"signaling_insecure,omitempty"`
+	RefreshInterval   string `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
@@ -618,8 +619,6 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 	*config = Cloud{
 		ID:                temp.ID,
 		Secret:            temp.Secret,
-		LocationSecret:    temp.LocationSecret,
-		LocationSecrets:   temp.LocationSecrets,
 		APIKey:            temp.APIKey,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
@@ -648,8 +647,6 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 	temp := cloudData{
 		ID:                config.ID,
 		Secret:            config.Secret,
-		LocationSecret:    config.LocationSecret,
-		LocationSecrets:   config.LocationSecrets,
 		APIKey:            config.APIKey,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
@@ -727,15 +724,7 @@ func (config *Cloud) Copy() *Cloud {
 		return nil
 	}
 	cloudCopy := *config
-	cloudCopy.LocationSecrets = slices.Clone(config.LocationSecrets)
 	return &cloudCopy
-}
-
-// LocationSecret describes a location secret that can be used to authenticate to the rdk.
-type LocationSecret struct {
-	ID string `json:"id"`
-	// Payload of the secret
-	Secret string `json:"secret"`
 }
 
 // NetworkConfig describes networking settings for the web server.
@@ -934,13 +923,17 @@ const (
 	UserTypeDefault = "default"
 )
 
-// A UserPermission describes a User and the permissions granted to that user. If
-// no UserPermissions are configured, all users are unrestricted. If any are, users
+// A UserPermission describes the Users a set of permissions is granted to. If no
+// UserPermissions are configured, all users are unrestricted. If any are, users
 // are allowed only the methods their UserPermission (or the default user's, if
 // they have none) explicitly grants.
 type UserPermission struct {
-	// User is the User this UserPermission applies to. A User can only be listed
-	// in a single UserPermission for a set of UserPermissions.
+	// Users are the Users this UserPermission applies to. A User can only be listed
+	// in a single UserPermission for a set of UserPermissions, counting both Users
+	// and User.
+	Users []User `json:"users,omitempty"`
+	// User is a single User this UserPermission applies to. Superseded by Users,
+	// which takes precedence when set.
 	User        User         `json:"user"`
 	Permissions []Permission `json:"permissions"`
 }
@@ -1053,8 +1046,7 @@ type AuthHandlerConfig struct {
 
 // Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
 // A sample AuthConfig in JSON form is shown below, where "handlers" contains a list of auth handlers. The only accepted credential
-// type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
-// later by the RDK during processing.
+// type for the RDK in the config is "api-key" currently.
 //
 //	"auth": {
 //			"handlers": [
@@ -1175,6 +1167,10 @@ const (
 	PackageTypeSlamMap PackageType = "slam_map"
 	// PackageTypeArchive represents a generic archive.
 	PackageTypeArchive PackageType = "archive"
+	// PackageTypeUnspecified is the zero value for package type.
+	PackageTypeUnspecified PackageType = ""
+	// PackageTypeMlTraining is ML training
+	PackageTypeMlTraining PackageType = "ml_training"
 )
 
 // SupportedPackageTypes is a list of all of the valid package types.

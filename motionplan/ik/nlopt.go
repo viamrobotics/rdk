@@ -3,8 +3,10 @@
 package ik
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -26,6 +28,14 @@ const (
 	nloptStepsPerIter = 4001
 	defaultMaxIter    = 5000
 	defaultJump       = 1e-8
+
+	// An exact solver with no solution yet gives up after stallAttempts consecutive descents that
+	// fail to improve its best cost by stallImprovement: restarts that keep landing on the same
+	// nonzero floor mean the goal is out of reach within the limits. Successful solves seldom go
+	// more than a few dozen descents without improving, so 500 leaves wide margin. Counted in
+	// descents rather than time so the cutoff doesn't depend on machine speed.
+	stallAttempts    = 500
+	stallImprovement = 0.01
 )
 
 // NloptIK can solve IK problems with nlopt.
@@ -108,18 +118,11 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	// bounds.
 	for idx, seedVal := range ss.seed {
 		if seedVal < ss.lowerBound[idx] {
-			ss.seed[idx] = ss.lowerBound[idx] + defaultGoalThreshold
+			ss.seed[idx] = ss.lowerBound[idx]
 		}
 
 		if seedVal > ss.upperBound[idx] {
-			ss.seed[idx] = ss.upperBound[idx] - defaultGoalThreshold
-		}
-	}
-
-	// nlopt returns INVALID_ARGS for zero-range variables - nudge the upper bound by a small epsilon.
-	for i := range ss.lowerBound {
-		if ss.lowerBound[i] == ss.upperBound[i] {
-			ss.upperBound[i] += defaultGoalThreshold
+			ss.seed[idx] = ss.upperBound[idx]
 		}
 	}
 
@@ -170,21 +173,17 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 			// if statement is faster.
 			for i := range gradient {
 				jumpVal := nss.jump[i]
-				flip := false
+				orig := checkVals[i]
 				checkVals[i] += jumpVal
 				ub := nss.upperBound[i]
 				for checkVals[i] >= ub {
-					flip = true
 					checkVals[i] -= 10 * jumpVal
 				}
 				dist2 := minFunc(ctx, checkVals)
-				gradient[i] = (dist2 - dist) / jumpVal
-				if flip {
-					checkVals[i] += jumpVal
-					gradient[i] *= -1
-				} else {
-					checkVals[i] -= jumpVal
-				}
+				// Divide by the step actually taken and put back the exact value: a probe stepped down
+				// off the upper bound is not -jumpVal, and anything left over corrupts every later component.
+				gradient[i] = (dist2 - dist) / (checkVals[i] - orig)
+				checkVals[i] = orig
 			}
 		}
 		if nss.logger.GetLevel() <= logging.DEBUG {
@@ -220,14 +219,11 @@ func (ik *NloptIK) SolveOnce(ctx context.Context, minFunc CostFunc,
 		}
 		return nil, errors.New("unable to solve for position")
 	}
+
 	if ik.exact && result >= defaultGoalThreshold {
 		return nil, errors.New("unable to solve for position")
 	}
-	// clamp back to the real limits - the zero-range nudge in newSeedState
-	// (and general fp drift) can leave solutions epsilon outside them
-	for i, l := range limits {
-		solutionRaw[i] = min(max(solutionRaw[i], l.Min), l.Max)
-	}
+
 	return solutionRaw, nil
 }
 
@@ -276,6 +272,11 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	solutionsFound := 0
 	seedNumber := rseed // start randomly in the list
 
+	attempts := 0
+	exactFound := false
+	bestCost := math.Inf(1)
+	lastImprovement := 0
+
 	itStart := time.Now()
 	// maxIterations < 10 opts out of the time-based extension, running to exactly that many
 	// iterations regardless of machine speed. This ensures deterministic behavior on slow or
@@ -291,6 +292,14 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
+		attempts++
+		if nloptErr == nil {
+			if result < bestCost*(1-stallImprovement) {
+				bestCost = result
+				lastImprovement = attempts
+			}
+			exactFound = exactFound || result < defaultGoalThreshold
+		}
 		if ik.logger.GetLevel() <= logging.DEBUG {
 			ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
 				seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
@@ -305,17 +314,17 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			// I (Eliot) think this is caused by a bug in how we compute the gradient
 			// When the absolute value of the gradient is too high, it blows up
 			if nloptErr.Error() != "nlopt: FAILURE" {
+				builder := bytes.NewBuffer(nil)
+				for idx, val := range ss.seed {
+					builder.WriteString(fmt.Sprintf("  Min: %v Max: %v Seed: %v\n", ss.lowerBound[idx], ss.upperBound[idx], val))
+				}
+				ik.logger.Warnf("Error: %v\nSeeds:\n%v", nloptErr, builder.String())
 				return solutionsFound, nil, nloptErr
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
 		} else if result < defaultGoalThreshold || !ik.exact {
 			meta[seedNumberRanged].Valid++
-			// clamp back to the real limits - the zero-range nudge above (and general fp
-			// drift) can leave solutions epsilon outside them
-			for i, l := range limits[seedNumberRanged] {
-				solutionRaw[i] = min(max(solutionRaw[i], l.Min), l.Max)
-			}
 			solution := &Solution{
 				Configuration: solutionRaw,
 				Score:         result,
@@ -332,6 +341,12 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		ss.seed = generateRandomPositions(ik.rng, ss.lowerBound, ss.upperBound)
 
 		seedNumber++
+
+		if ik.exact && !exactFound && attempts-lastImprovement >= stallAttempts {
+			ik.logger.Debugf("giving up after %d descents without improving on cost %g; the goal looks unreachable",
+				attempts-lastImprovement, bestCost)
+			break
+		}
 	}
 
 	return solutionsFound, meta, nil

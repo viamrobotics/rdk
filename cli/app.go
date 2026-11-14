@@ -46,7 +46,6 @@ const (
 	runFlagComponent = "component"
 
 	loginFlagDisableBrowser = "disable-browser-open"
-	loginFlagKeyID          = "key-id"
 	loginFlagKey            = "key"
 
 	// Flags shared by logs, api-key, module, ml-training, package, and data subcommands.
@@ -68,6 +67,7 @@ const (
 	generalFlagPartID            = "part-id"
 	generalFlagFragment          = "fragment"
 	generalFlagID                = "id"
+	generalFlagKeyID             = "key-id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
 	generalFlagModelName         = "model-name"
@@ -128,6 +128,7 @@ const (
 
 	mlTrainingFlagName           = "script-name"
 	mlTrainingFlagFramework      = "framework"
+	mlTrainingFlagModuleResource = "module-resource"
 	mlTrainingFlagDraft          = "draft"
 	mlTrainingFlagVisibility     = "visibility"
 	mlTrainingFlagDescription    = "description"
@@ -194,6 +195,11 @@ const (
 	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
 	xacroFlagInstallPackages   = "install-packages"
 	xacroFlagROSDistro         = "ros-distro"
+
+	kinematicsFlagInputFile   = "input-file"
+	kinematicsFlagOutputFile  = "output-file"
+	kinematicsFlagPackageRoot = "package-root"
+	kinematicsFlagDecimate    = "decimate"
 
 	// Printing every revision of a frequently-edited part takes minutes and scrolls past anything
 	// useful, so cap the listing by default. --count=0 still walks the whole range.
@@ -679,10 +685,10 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "api-key",
 					Usage:     "authenticate with an api key",
-					UsageText: createUsageText("login api-key", []string{loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("login api-key", []string{generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the key to authenticate with",
 						},
@@ -1247,6 +1253,19 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
+						{
+							Name:      "delete",
+							Usage:     "delete an api key for your location",
+							UsageText: createUsageText("locations api-key delete", []string{generalFlagKeyID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagKeyID,
+									Required: true,
+									Usage:    "id of the api-key to delete",
+								},
+							},
+							Action: createActionCommandWithT[apiKeyDeleteArgs](APIKeyDeleteAction),
+						},
 					},
 				},
 			},
@@ -1260,7 +1279,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "update",
 					Usage:     "update an existing profile for authentication, or add it if it doesn't exist",
-					UsageText: createUsageText("profiles update", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("profiles update", []string{profileFlagName, generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -1268,7 +1287,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to update",
 						},
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the profile's API key",
 						},
@@ -1283,7 +1302,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "add",
 					Usage:     "add a new profile for authentication (errors if the profile already exists)",
-					UsageText: createUsageText("profiles add", []string{profileFlagName, loginFlagKeyID, loginFlagKey}, false, false),
+					UsageText: createUsageText("profiles add", []string{profileFlagName, generalFlagKeyID, loginFlagKey}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     profileFlagName,
@@ -1291,7 +1310,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to add",
 						},
 						&cli.StringFlag{
-							Name:     loginFlagKeyID,
+							Name:     generalFlagKeyID,
 							Required: true,
 							Usage:    "id of the profile's API key",
 						},
@@ -1658,6 +1677,107 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
+					Name:            "sequence",
+					Usage:           "work with sequences of captured data",
+					UsageText:       createUsageText("data sequence", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:  "create",
+							Usage: "create a sequence spanning a time range of data captured on a part",
+							UsageText: createUsageText("data sequence create",
+								[]string{generalFlagPartID, sequenceFlagResources, generalFlagStart, generalFlagEnd}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagPartID,
+									Required: true,
+									Usage:    "part ID the sequence's data was captured on",
+								},
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagResources,
+									Required: true,
+									Usage: "resources in the sequence, each as <resource-name>:<method> " +
+										"(e.g. camera-1:ReadImage, or remote1:camera-1:ReadImage for a remote resource); " +
+										"repeat the flag or comma-separate values",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagStart,
+									Required: true,
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the start of the sequence",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagEnd,
+									Required: true,
+									Usage:    "ISO-8601 timestamp in RFC3339 format indicating the end of the sequence",
+								},
+								&cli.StringSliceFlag{
+									Name:  generalFlagTags,
+									Usage: "tags to apply to the sequence",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceCreateArgs](DataSequenceCreateAction),
+						},
+						{
+							Name:      "get",
+							Usage:     "get a sequence by ID",
+							UsageText: createUsageText("data sequence get", []string{sequenceFlagSequenceID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     sequenceFlagSequenceID,
+									Required: true,
+									Usage:    "ID of the sequence",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceGetArgs](DataSequenceGetAction),
+						},
+						{
+							Name:  "update",
+							Usage: "update a sequence; only the fields whose flags are passed are changed",
+							UsageText: createUsageText("data sequence update",
+								[]string{sequenceFlagSequenceID}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     sequenceFlagSequenceID,
+									Required: true,
+									Usage:    "ID of the sequence to update",
+								},
+								&cli.StringSliceFlag{
+									Name: sequenceFlagResources,
+									Usage: "replaces the sequence's full resource list, each as <resource-name>:<method> " +
+										"(remote resources as <remote>:<resource-name>:<method>); " +
+										"repeat the flag or comma-separate values",
+								},
+								&cli.StringSliceFlag{
+									Name:  generalFlagTags,
+									Usage: "replaces the sequence's tags; pass \"\" to clear them",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagStart,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the new start of the sequence",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagEnd,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the new end of the sequence",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceUpdateArgs](DataSequenceUpdateAction),
+						},
+						{
+							Name:      "delete",
+							Usage:     "delete sequences by ID",
+							UsageText: createUsageText("data sequence delete", []string{sequenceFlagSequenceIDs}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagSequenceIDs,
+									Required: true,
+									Usage:    "IDs of the sequences to delete",
+								},
+							},
+							Action: createActionCommandWithT[dataSequenceDeleteArgs](DataSequenceDeleteAction),
+						},
+					},
+				},
+				{
 					Name:            "database",
 					Usage:           "interact with a MongoDB Atlas Data Federation instance",
 					UsageText:       createUsageText("data database", nil, false, true),
@@ -1848,7 +1968,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "create",
 					Usage:     "create a new dataset",
-					UsageText: createUsageText("dataset create", []string{generalFlagOrgID, datasetFlagName}, false, false),
+					UsageText: createUsageText("dataset create", []string{generalFlagOrgID, datasetFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
@@ -1858,6 +1978,11 @@ Note: There is no progress meter while copying is in progress.
 							Name:     datasetFlagName,
 							Required: true,
 							Usage:    "name of the new dataset",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagType,
+							Usage: formatAcceptedValues("type of data the dataset holds", datasetTypeBinary, datasetTypeSequence),
+							Value: datasetTypeBinary,
 						},
 					},
 					Action: createActionCommandWithT[datasetCreateArgs](DatasetCreateAction),
@@ -2097,6 +2222,52 @@ Note: There is no progress meter while copying is in progress.
 									Action: createActionCommandWithT[dataRemoveFromDatasetByFilterArgs](DataRemoveFromDatasetByFilter),
 								},
 							},
+						},
+					},
+				},
+				{
+					Name:            "sequence",
+					Usage:           "add or remove sequences from a sequence dataset",
+					UsageText:       createUsageText("dataset sequence", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:  "add",
+							Usage: "adds sequences to a sequence dataset",
+							UsageText: createUsageText("dataset sequence add",
+								[]string{datasetFlagDatasetID, sequenceFlagSequenceIDs}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Required: true,
+									Usage:    "ID of the sequence dataset to which sequences will be added",
+								},
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagSequenceIDs,
+									Required: true,
+									Usage:    "IDs of the sequences to add",
+								},
+							},
+							Action: createActionCommandWithT[datasetSequenceArgs](DatasetSequenceAddAction),
+						},
+						{
+							Name:  "remove",
+							Usage: "removes sequences from a sequence dataset",
+							UsageText: createUsageText("dataset sequence remove",
+								[]string{datasetFlagDatasetID, sequenceFlagSequenceIDs}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     datasetFlagDatasetID,
+									Required: true,
+									Usage:    "ID of the sequence dataset from which sequences will be removed",
+								},
+								&cli.StringSliceFlag{
+									Name:     sequenceFlagSequenceIDs,
+									Required: true,
+									Usage:    "IDs of the sequences to remove",
+								},
+							},
+							Action: createActionCommandWithT[datasetSequenceArgs](DatasetSequenceRemoveAction),
 						},
 					},
 				},
@@ -2480,6 +2651,10 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 											Required: true,
 										},
+										&cli.StringSliceFlag{
+											Name:  mlTrainingFlagModuleResource,
+											Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
 											Usage: formatAcceptedValues("task type of the ML training script to upload", modelTypes...),
@@ -2708,6 +2883,19 @@ Note: There is no progress meter while copying is in progress.
 							},
 							Action: createActionCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
 						},
+						{
+							Name:      "delete",
+							Usage:     "delete an api-key for your machine",
+							UsageText: createUsageText("machines api-key delete", []string{generalFlagKeyID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagKeyID,
+									Required: true,
+									Usage:    "id of the api-key to delete",
+								},
+							},
+							Action: createActionCommandWithT[apiKeyDeleteArgs](APIKeyDeleteAction),
+						},
 					},
 				},
 				{
@@ -2783,9 +2971,10 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "filter logs by levels (e.g., info, warn, error)",
 						},
 						&cli.StringFlag{
-							Name:        generalFlagStart,
-							Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
-							DefaultText: "24 hours ago, unless --" + logsFlagRange + " is set",
+							Name:  generalFlagStart,
+							Usage: "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+							DefaultText: "24 hours before --" + generalFlagEnd + " when it is set, 24 hours ago otherwise, " +
+								"unless --" + logsFlagRange + " is set",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagEnd,
@@ -3337,7 +3526,7 @@ Note: There is no progress meter while copying is in progress.
 							Description: `Tunnel connections from a local port to a destination port on a machine part.
 
 By default the tunnel resolves the machine and authenticates through app.viam.com. To tunnel
-directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + loginFlagKeyID + `,
+directly (useful in situations with unreliable internet), provide all three of --` + generalFlagAddress + `, --` + generalFlagKeyID + `,
 and --` + loginFlagKey + `.`,
 							UsageText: createUsageText("machines part tunnel", []string{
 								generalFlagPart, tunnelFlagLocalPort, tunnelFlagDestinationPort,
@@ -3353,10 +3542,10 @@ and --` + loginFlagKey + `.`,
 								},
 								&cli.StringFlag{
 									Name:  generalFlagAddress,
-									Usage: "machine FQDN to dial directly,  (requires --" + loginFlagKeyID + "/--" + loginFlagKey + ")",
+									Usage: "machine FQDN to dial directly,  (requires --" + generalFlagKeyID + "/--" + loginFlagKey + ")",
 								},
 								&cli.StringFlag{
-									Name:  loginFlagKeyID,
+									Name:  generalFlagKeyID,
 									Usage: "id of the machine api-key to authenticate directly (requires --" + generalFlagAddress + ")",
 								},
 								&cli.StringFlag{
@@ -3721,6 +3910,42 @@ Examples:
 			},
 		},
 		{
+			Name:            "kinematics",
+			Usage:           "tools for working with kinematic model files",
+			UsageText:       createUsageText("kinematics", nil, false, true),
+			HideHelpCommand: true,
+			Commands: []*cli.Command{
+				{
+					Name:  "convert",
+					Usage: "convert a URDF, SVA or DH file to a kinematic model file with its meshes beside it",
+					UsageText: createUsageText("kinematics convert",
+						[]string{kinematicsFlagInputFile, kinematicsFlagOutputFile}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     kinematicsFlagInputFile,
+							Required: true,
+							Usage:    "URDF, SVA or DH file to convert",
+						},
+						&cli.StringFlag{
+							Name:     kinematicsFlagOutputFile,
+							Required: true,
+							Usage:    "kinematic model file to write, with its meshes written beside it under meshes/",
+						},
+						&cli.StringFlag{
+							Name:  kinematicsFlagPackageRoot,
+							Usage: "directory that package:// mesh paths resolve under, for a URDF that is not at its package root",
+						},
+						&cli.FloatFlag{
+							Name:        kinematicsFlagDecimate,
+							Usage:       "fraction of triangles to keep in each collision mesh, in (0, 1]",
+							DefaultText: "1, no decimation",
+						},
+					},
+					Action: createActionCommandWithT[kinematicsConvertArgs](KinematicsConvertAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
@@ -3905,6 +4130,21 @@ Run this command from within the module directory.`,
 						},
 					},
 					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
+				},
+				{
+					Name: "lint-manifest",
+					Usage: "check meta.json for format errors and registry limits offline; " +
+						"passing does not guarantee an upload will succeed",
+					UsageText: createUsageText("module lint-manifest", nil, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      moduleFlagPath,
+							Usage:     "path to meta.json",
+							Value:     "./meta.json",
+							TakesFile: true,
+						},
+					},
+					Action: createActionCommandWithT[lintManifestArgs](LintManifestAction),
 				},
 				{
 					Name:      "update-models",
@@ -4243,7 +4483,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload-local --model-name acme:module-name:mybase --name my-resource
+	viam module reload-local --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Build and configure a module running on your local machine without shipping a tarball.
 	viam module reload-local --local
@@ -4258,16 +4498,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Usage: "path to a meta.json. its module ID is the module that is configured and restarted",
 							Value: "meta.json",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagName,
-							Usage: "name of module to restart. pass at most one of --name, --id",
-						},
-						&cli.StringFlag{
-							Name:  generalFlagID,
-							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
 						&cli.BoolFlag{
 							Name:  moduleBuildFlagNoBuild,
@@ -4331,7 +4563,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource
+	viam module reload --model-name acme:module-name:mybase --resource-name my-resource
 
 	# Trigger a reload build of a module located in a different directory than the current workdir
 	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
@@ -4343,7 +4575,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
+							Usage: "relative path to a meta.json from workdir (default: ./). its module ID identifies the module to reload",
 							Value: "meta.json",
 						},
 						&cli.StringFlag{
@@ -4522,6 +4754,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 								"type of the model for an ml_model being uploaded. Required if packages is of type 'ml_model'", modelTypes...,
 							),
 						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
+						},
 					},
 					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
@@ -4561,6 +4797,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:     mlTrainingFlagFramework,
 							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
 							Required: true,
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -4610,6 +4850,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
+						},
+						&cli.StringFlag{
+							Name:  mlTrainingFlagFramework,
+							Usage: formatAcceptedValues("framework of the ML training script", modelFrameworks...),
+						},
+						&cli.StringSliceFlag{
+							Name:  mlTrainingFlagModuleResource,
+							Usage: "module resource to deploy along with the ML model, as a model triple (namespace:module:model).",
 						},
 					},
 					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),

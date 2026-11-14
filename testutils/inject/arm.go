@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -38,6 +40,7 @@ type Arm struct {
 	CurrentInputsFunc  func(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputsFunc     func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
 	GeometriesFunc     func(ctx context.Context) ([]spatialmath.Geometry, error)
+	Get3DModelsFunc    func(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)
 	StatusFunc         func(ctx context.Context) (map[string]interface{}, error)
 	PropertiesFunc     func(ctx context.Context, extra map[string]interface{}) (arm.Properties, error)
 	SetManualModeFunc  func(ctx context.Context, manualMode bool, enabledFor time.Duration, extra map[string]interface{}) error
@@ -182,6 +185,14 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 		return a.Arm.Geometries(ctx, extra)
 	}
 	return a.GeometriesFunc(ctx)
+}
+
+// Get3DModels calls the injected Get3DModels or the real version.
+func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+	if a.Get3DModelsFunc == nil {
+		return a.Arm.Get3DModels(ctx, extra)
+	}
+	return a.Get3DModelsFunc(ctx, extra)
 }
 
 // Properties calls the injected Properties or the real version.

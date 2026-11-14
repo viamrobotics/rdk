@@ -72,6 +72,8 @@ func TestFilterSlice(t *testing.T) {
 
 func TestSanitizePath(t *testing.T) {
 	test.That(t, SanitizePath("../.123"), test.ShouldResemble, "..-.123")
+	test.That(t, SanitizePath(`..\.123`), test.ShouldResemble, "..-.123")
+	test.That(t, SanitizePath(`a/b\c`), test.ShouldResemble, "a-b-c")
 }
 
 func TestRIndex(t *testing.T) {

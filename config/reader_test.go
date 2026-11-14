@@ -37,6 +37,11 @@ func TestFromReader(t *testing.T) {
 		ctx    = context.Background()
 	)
 
+	// The cloud server these reads talk to runs in this process, so the production config read
+	// timeout only ever turns a stalled CI machine into a failed read (RSDK-14774). Pin a generous
+	// one so the test asserts what is read, not how fast the machine ran.
+	t.Setenv(utils.ConfigReadTimeoutEnvVar, "1m")
+
 	// clear cache
 	setupClearCache := func(t *testing.T) {
 		t.Helper()
@@ -58,7 +63,6 @@ func TestFromReader(t *testing.T) {
 			Secret:           secret,
 			FQDN:             "fqdn",
 			LocalFQDN:        "localFqdn",
-			LocationSecrets:  []LocationSecret{},
 			LocationID:       "the-location",
 			PrimaryOrgID:     "the-primary-org",
 			MachineID:        "the-machine",
@@ -155,7 +159,6 @@ func TestFromReader(t *testing.T) {
 			Secret:            secret,
 			FQDN:              "fqdn",
 			LocalFQDN:         "localFqdn",
-			LocationSecrets:   []LocationSecret{},
 			LocationID:        "the-location",
 			PrimaryOrgID:      "the-primary-org",
 			MachineID:         "the-machine",
@@ -359,7 +362,7 @@ func TestGetFromCloudGRPCProtoDecodeFailureIsMalformed(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
-	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, logger, appConn)
+	cfg, err := getFromCloudGRPC(ctx, cloudCfg.ID, false, logger, appConn)
 	test.That(t, cfg, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, IsMalformedConfigError(err), test.ShouldBeTrue)
@@ -536,8 +539,6 @@ func fullyPopulatedCloud() *Cloud {
 	return &Cloud{
 		ID:                "id-1",
 		Secret:            "secret-1",
-		LocationSecret:    "locsecret-1",
-		LocationSecrets:   []LocationSecret{{ID: "ls-id-1", Secret: "ls-secret-1"}},
 		APIKey:            APIKey{ID: "key-id-1", Key: "key-secret-1"},
 		LocationID:        "loc-1",
 		PrimaryOrgID:      "org-1",
@@ -564,7 +565,7 @@ func fullyPopulatedCloud() *Cloud {
 func TestCloudFieldsAreAccountedFor(t *testing.T) {
 	// Fields the cloud sends back; CloudConfigFromProto populates these.
 	fromCloud := []string{
-		"LocationSecret", "LocationSecrets", "LocationID", "PrimaryOrgID", "MachineID",
+		"LocationID", "PrimaryOrgID", "MachineID",
 		"ManagedBy", "FQDN", "LocalFQDN", "SignalingAddress", "SignalingInsecure",
 	}
 	// Fields only the on-disk config has; restoreLocalOnlyFields must put these back.
@@ -642,11 +643,6 @@ func TestCloudFieldsAreAccountedFor(t *testing.T) {
 			}
 		}
 	}
-	// And prove the clone is independent: mutating the copy leaves the original alone.
-	dst.LocationSecrets[0].Secret = "mutated"
-	dst.LocationSecrets = append(dst.LocationSecrets, LocationSecret{ID: "extra"})
-	test.That(t, src.LocationSecrets, test.ShouldResemble, fullyPopulatedCloud().LocationSecrets)
-
 	// Every field must round-trip through cloudData/MarshalJSON/UnmarshalJSON, or the on-disk cache
 	// silently drops it. A new Cloud field not wired into cloudData is caught here.
 	full := fullyPopulatedCloud()
@@ -670,27 +666,12 @@ func TestShouldCheckForCert(t *testing.T) {
 		LocationID:       "the-location",
 		PrimaryOrgID:     "the-primary-org",
 		MachineID:        "the-machine",
-		LocationSecrets: []LocationSecret{
-			{ID: "id1", Secret: "secret1"},
-			{ID: "id2", Secret: "secret2"},
-		},
 	}
 	cloud2 := cloud1
 	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeFalse)
 
 	cloud2.TLSCertificate = "abc"
 	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeFalse)
-
-	cloud2 = cloud1
-	cloud2.LocationSecret = "something else"
-	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
-
-	cloud2 = cloud1
-	cloud2.LocationSecrets = []LocationSecret{
-		{ID: "id1", Secret: "secret1"},
-		{ID: "id2", Secret: "secret3"},
-	}
-	test.That(t, shouldCheckForCert(&cloud1, &cloud2), test.ShouldBeTrue)
 
 	// certs are scoped to a location, so a location change must force a refetch.
 	cloud2 = cloud1
@@ -739,7 +720,6 @@ func TestReadFromCloudCertStaleCache(t *testing.T) {
 		Secret:           secret,
 		FQDN:             "fqdn",
 		LocalFQDN:        "localFqdn",
-		LocationSecrets:  []LocationSecret{},
 		LocationID:       "the-location",
 		PrimaryOrgID:     "the-primary-org",
 		MachineID:        "the-machine",
@@ -962,7 +942,6 @@ func TestFirstReadFromCloudRequiresCert(t *testing.T) {
 			Secret:            secret,
 			FQDN:              "fqdn",
 			LocalFQDN:         "localFqdn",
-			LocationSecrets:   []LocationSecret{},
 			SignalingInsecure: signalingInsecure,
 		}
 		cloudConfProto, err := CloudConfigToProto(cloudResponse)

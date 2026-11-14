@@ -796,7 +796,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					)
 					continue
 				}
-				rc.Logger().CErrorw(ctx,
+				// Warn rather than error: the reconnect loop usually restores the connection within
+				// reconnectEvery, and each failed reconnect attempt is logged as an error.
+				rc.Logger().CWarnw(ctx,
 					"lost connection to remote",
 					"error", outerError,
 					"address", rc.address,
@@ -1121,7 +1123,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
+		rc.Logger().Warnw("failed to get remote resource names", "error", err.Error())
 		return nil
 	}
 	rc.mu.RLock()
@@ -1134,7 +1136,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 // ResourceRPCAPIs returns a list of all known resource APIs.
 func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource types", "error", err)
+		rc.Logger().Warnw("failed to get remote resource types", "error", err)
 		return nil
 	}
 
@@ -1451,6 +1453,20 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			},
 			CloudMetadata: rprotoutils.MetadataFromProto(pbResStatus.CloudMetadata),
 		}
+		resStatus.Name.Remote = pbResStatus.GetRemote()
+
+		switch pbResStatus.Reachability {
+		case pb.ResourceStatus_REACHABILITY_UNSPECIFIED:
+			resStatus.Reachability = resource.ReachabilityUnknown
+		case pb.ResourceStatus_REACHABILITY_REACHABLE:
+			resStatus.Reachability = resource.ReachabilityReachable
+		case pb.ResourceStatus_REACHABILITY_REMOTE_DISCONNECTED:
+			resStatus.Reachability = resource.ReachabilityRemoteDisconnected
+		case pb.ResourceStatus_REACHABILITY_SHADOWED_BY_LOCAL:
+			resStatus.Reachability = resource.ReachabilityShadowedByLocal
+		case pb.ResourceStatus_REACHABILITY_AMBIGUOUS_REMOTE:
+			resStatus.Reachability = resource.ReachabilityAmbiguousRemote
+		}
 
 		switch pbResStatus.State {
 		case pb.ResourceStatus_STATE_UNSPECIFIED:
@@ -1526,6 +1542,17 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 				RecentSuccessfulRuns: lo.Map(js.GetRecentSuccessfulRuns(), tspbToTime),
 				RecentFailedRuns:     lo.Map(js.GetRecentFailedRuns(), tspbToTime),
 			}
+		}
+	}
+
+	if resp.GetPackages() != nil {
+		mStatus.Packages = make([]packages.PackageStatus, 0, len(resp.GetPackages()))
+		for _, pbPkgStatus := range resp.GetPackages() {
+			pkgStatus, err := packages.PackageStatusFromProto(pbPkgStatus)
+			if err != nil {
+				rc.logger.CWarnw(ctx, "invalid package status from server", "package", pkgStatus.Name, "error", err)
+			}
+			mStatus.Packages = append(mStatus.Packages, pkgStatus)
 		}
 	}
 

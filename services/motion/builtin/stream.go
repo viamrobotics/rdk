@@ -2,7 +2,11 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"go.viam.com/rdk/components/arm"
@@ -11,6 +15,7 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/streaming"
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils/metadata"
 )
 
 const (
@@ -87,8 +92,18 @@ func (ms *builtIn) TempStreamArmJointPositions(
 	extra map[string]interface{},
 ) (err error) {
 	opts := streaming.NewStreamOptions(streamOpts)
+	if opts.MaxTargetsDroppedInARowDueToTrajexExtendError, err = streaming.MaxTargetsDroppedInARowDueToTrajexExtendError(extra); err != nil {
+		return fmt.Errorf("invalid streaming options: %w", err)
+	}
+	if opts.ForceRebaseIfExtendLatencyExceeds, err = streaming.ForceRebaseIfExtendLatencyExceeds(extra); err != nil {
+		return fmt.Errorf("invalid streaming options: %w", err)
+	}
 	if err := opts.Validate(); err != nil {
 		return fmt.Errorf("invalid streaming options: %w", err)
+	}
+	metadataTags, err := ms.streamDiagnosticsMetadataTags(ctx)
+	if err != nil {
+		return fmt.Errorf("invalid request metadata: %w", err)
 	}
 
 	ms.mu.RLock()
@@ -107,7 +122,7 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		return fmt.Errorf("failed to read seed joint positions from %q: %w", armName, err)
 	}
 
-	diag := diagnostics.New(time.Duration(opts.DiagnosticsWindowSecs) * time.Second)
+	diag := diagnostics.New(opts.DiagnosticsWindow)
 
 	// A cancelable ctx lets Close end the session from another goroutine (via s.cancel), even
 	// though this call otherwise just runs to completion on the caller's own ctx.
@@ -129,12 +144,90 @@ func (ms *builtIn) TempStreamArmJointPositions(
 		close(s.done)
 	}()
 
-	err = streaming.Run(streamCtx, a, opts, targets, seed, diag)
+	sessionStart := time.Now()
+	err = streaming.Run(streamCtx, ms.logger, a, opts, targets, seed, diag, responses)
 	if err != nil {
 		ms.logger.CWarnf(streamCtx, "arm streaming session for %q ended with error: %v", armName, err)
 	}
 	ms.logger.Infow("arm streaming session stats", "arm", armName, "options", opts, "stats", diag.Stats())
+	if werr := ms.writeStreamDiagnostics(armName, opts, diag, sessionStart, metadataTags, err); werr != nil {
+		ms.logger.Warnf("couldn't write arm streaming diagnostics: %v", werr)
+	}
 	return err
+}
+
+// StreamDiagnosticsFile is the JSON written for each arm-streaming session when it ends.
+type StreamDiagnosticsFile struct {
+	Arm               string                                     `json:"arm"`
+	StartTime         time.Time                                  `json:"start_time"`
+	EndTime           time.Time                                  `json:"end_time"`
+	Error             string                                     `json:"error,omitempty"`
+	Options           streaming.StreamOptions                    `json:"options"`
+	Stats             diagnostics.SingleSessionStats             `json:"stats"`
+	LastWindowDetails diagnostics.SingleSessionLastWindowDetails `json:"last_window_details"`
+}
+
+func (ms *builtIn) writeStreamDiagnostics(
+	armName string,
+	opts streaming.StreamOptions,
+	diag *diagnostics.SingleSessionDiagnostics,
+	start time.Time,
+	metadataTags []string,
+	sessionErr error,
+) error {
+	if ms.conf == nil || ms.conf.StreamDiagnosticsFilePath == "" {
+		return nil
+	}
+
+	end := time.Now()
+	doc := StreamDiagnosticsFile{
+		Arm:               armName,
+		StartTime:         start,
+		EndTime:           end,
+		Options:           opts,
+		Stats:             diag.Stats(),
+		LastWindowDetails: diag.LastWindowDetails(),
+	}
+	typeTag := "tag=arm-stream-diagnostics"
+	errSuffix := ""
+	if sessionErr != nil {
+		doc.Error = sessionErr.Error()
+		typeTag += "-err"
+		errSuffix = "-err"
+	}
+	bytes, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	dirParts := append([]string{ms.conf.StreamDiagnosticsFilePath, typeTag, "tag=" + armName}, metadataTags...)
+	dir := filepath.Join(dirParts...)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	fn := filepath.Join(dir, fmt.Sprintf("stream-diagnostics-%s-%s-ms-%d%s.json",
+		armName, end.Format(time.RFC3339), end.Sub(start).Milliseconds(), errSuffix))
+
+	ms.logger.Infof("writing arm streaming diagnostics to %s", fn)
+	return os.WriteFile(fn, bytes, 0o600)
+}
+
+func (ms *builtIn) streamDiagnosticsMetadataTags(ctx context.Context) ([]string, error) {
+	if ms.conf == nil {
+		return nil, nil
+	}
+	var tags []string
+	for _, key := range ms.conf.StreamDiagnosticsMetadataKeysToUseAsFileTags {
+		value, ok := metadata.Get(ctx, key)
+		if !ok || value == "" {
+			continue
+		}
+		if strings.ContainsAny(value, "/\\\x00") {
+			return nil, fmt.Errorf("value of metadata key %q contains a path separator", key)
+		}
+		tags = append(tags, "tag="+value)
+	}
+	return tags, nil
 }
 
 func (ms *builtIn) streamStatus(armName string) map[string]any {
@@ -144,8 +237,8 @@ func (ms *builtIn) streamStatus(armName string) map[string]any {
 	if !ok {
 		return map[string]any{}
 	}
-	status := map[string]any{streamKeyDiagnosticsWindowSecs: s.opts.DiagnosticsWindowSecs}
-	if s.opts.DiagnosticsWindowSecs > 0 {
+	status := map[string]any{streamKeyDiagnosticsWindowSecs: int(s.opts.DiagnosticsWindow / time.Second)}
+	if s.opts.DiagnosticsWindow > 0 {
 		status[streamKeyLastWindowDetails] = s.diagnostics.LastWindowDetails()
 	}
 	return status

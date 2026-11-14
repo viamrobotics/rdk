@@ -3,7 +3,10 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
+	"path/filepath"
+	"sort"
 
 	"github.com/pkg/errors"
 )
@@ -41,15 +44,29 @@ type ModelFile struct {
 }
 
 // UnmarshalModelJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
-// will use the name from the JSON if string is empty.
+// will use the name from the JSON if string is empty. The data may be an SVA or DH document or the proto JSON of a
+// KinematicModel, see ReadKinematicModelFile. A kinematic model whose meshes live in files beside it has to be read
+// through ParseModelJSONFile, since bytes alone give no directory to find them in.
 func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
-	m := &ModelConfigJSON{OriginalFile: &ModelFile{Bytes: jsonData, Extension: "json"}}
+	return unmarshalModelJSON(jsonData, modelName, "")
+}
 
+// unmarshalModelJSON reads either encoding. dir is where a kinematic model's mesh files are
+// looked for, and is empty when the caller has nothing but bytes.
+func unmarshalModelJSON(jsonData []byte, modelName, dir string) (Model, error) {
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
 		return nil, ErrNoModelInformation
 	}
+	if isKinematicModelDocument(jsonData) {
+		pb, err := unmarshalKinematicModel(jsonData, dir)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to parse kinematic model")
+		}
+		return ModelFromProto(pb, modelName)
+	}
 
+	m := &ModelConfigJSON{OriginalFile: &ModelFile{Bytes: jsonData, Extension: "json"}}
 	err := json.Unmarshal(jsonData, m)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal json file")
@@ -84,12 +101,8 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		}
 
 		for _, link := range cfg.Links {
-			lif, err := link.ParseConfig()
-			if err != nil {
-				return nil, err
-			}
 			parentMap[link.ID] = link.Parent
-			transforms[link.ID], err = lif.ToStaticFrame(link.ID)
+			transforms[link.ID], err = link.ToFrame()
 			if err != nil {
 				return nil, err
 			}
@@ -123,6 +136,10 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 
 	default:
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
+	}
+
+	if err := validateGeometryLabels(transforms); err != nil {
+		return nil, err
 	}
 
 	// Build the internal frame system from the transforms and parent map.
@@ -242,14 +259,19 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 	return result, nil
 }
 
-// ParseModelJSONFile will read a given file and then parse the contained JSON data.
+// ParseModelJSONFile will read a given file and then parse the contained JSON data, which may be an SVA or DH
+// document or the proto JSON of a KinematicModel. Mesh files a kinematic model names are read relative to the file.
 func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	jsonData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	return UnmarshalModelJSON(jsonData, modelName)
+	model, err := unmarshalModelJSON(jsonData, modelName, filepath.Dir(filename))
+	if err != nil {
+		return nil, errors.Wrapf(err, "model file %s", filename)
+	}
+	return model, nil
 }
 
 // buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
@@ -327,4 +349,55 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 	}
 
 	return fs, leaves, nil
+}
+
+// validateGeometryLabels refuses a model whose geometry labels could be mistaken for one another.
+// Collision checking resolves a label to a frame by name first and by geometry label second, so a
+// duplicate label, or a label that names a different frame, would charge a collision to the wrong
+// link or lose it.
+func validateGeometryLabels(transforms map[string]Frame) error {
+	names := make([]string, 0, len(transforms))
+	for name := range transforms {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	owner := map[string]string{}
+	for _, name := range names {
+		frame := transforms[name]
+		gif, err := frame.Geometries(inputsWithinLimits(frame.DoF()))
+		if err != nil {
+			return err
+		}
+		for _, g := range gif.Geometries() {
+			label := g.Label()
+			if label == World {
+				return errors.Errorf("geometry on frame %q is labelled %q, which is reserved", name, World)
+			}
+			if other, ok := transforms[label]; ok && other != frame {
+				return errors.Errorf("geometry on frame %q is labelled %q, the name of another frame", name, label)
+			}
+			if prev, dup := owner[label]; dup {
+				return errors.Errorf("geometry label %q is used on frames %q and %q", label, prev, name)
+			}
+			owner[label] = name
+		}
+	}
+	return nil
+}
+
+// inputsWithinLimits returns one input per degree of freedom that the frame accepts, since a frame
+// refuses inputs outside its limits and zero is not always inside them.
+func inputsWithinLimits(limits []Limit) []Input {
+	inputs := make([]Input, len(limits))
+	for i, l := range limits {
+		switch {
+		case !math.IsInf(l.Min, 0) && !math.IsInf(l.Max, 0):
+			inputs[i] = (l.Min + l.Max) / 2
+		case !math.IsInf(l.Min, 0):
+			inputs[i] = l.Min
+		case !math.IsInf(l.Max, 0):
+			inputs[i] = l.Max
+		}
+	}
+	return inputs
 }

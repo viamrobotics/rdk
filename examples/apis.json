@@ -73,11 +73,6 @@
     "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
-  "audio": {
-    "func": "MediaProperties",
-    "packagePath": "go.viam.com/rdk/components",
-    "args": ["context.Background()"]
-  },
   "gantry": {
     "func": "Lengths",
     "packagePath": "go.viam.com/rdk/components",
@@ -112,7 +107,7 @@
   "pose_tracker": {
     "func": "Poses",
     "packagePath": "go.viam.com/rdk/components",
-    "args": []
+    "args": ["context.Background()", "[]string{}", "map[string]interface{}{}"]
   },
   "genericservice": {
     "func": "DoCommand",
@@ -124,7 +119,8 @@
   "motion": {
     "func": "GetPose",
     "packagePath": "go.viam.com/rdk/services",
-    "args": []
+    "args": ["context.Background()", "\"world\"", "\"world\"", "nil", "map[string]interface{}{}"],
+    "comment": "Note that this gets the pose of the world frame itself, which is always zero. Change the component name from \"world\" to one of your components to get its pose."
   },
   "vision": {
     "func": "GetProperties",
