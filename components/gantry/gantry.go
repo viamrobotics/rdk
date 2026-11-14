@@ -22,6 +22,7 @@ func init() {
 		RPCServiceDesc:              &pb.GantryService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	resource.RegisterKinematicAPI(API)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: position.String(),
@@ -50,6 +51,9 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
+
+// AsSub tags r as the gantry sub-resource of a composite, for resource.Compose.
+func AsSub(r Gantry) resource.Sub { return resource.AsSub(API, r) }
 
 // Gantry is used for controlling gantries of N axis.
 // For more information, see the [gantry component docs].

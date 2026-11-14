@@ -24,6 +24,7 @@ func init() {
 		RPCServiceDesc:              &pb.GripperService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	resource.RegisterKinematicAPI(API)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
 		MethodName: doCommand.String(),
@@ -48,6 +49,9 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
+
+// AsSub tags r as the gripper sub-resource of a composite, for resource.Compose.
+func AsSub(r Gripper) resource.Sub { return resource.AsSub(API, r) }
 
 // HoldingStatus represents whether the gripper is currently holding onto
 // an object as well as any additional contextual information (stored in `Meta`).
