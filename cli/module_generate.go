@@ -1838,7 +1838,7 @@ func renderManifest(
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
-			Build: "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
+			Build: "conan build . --build missing -s:a compiler.cppstd=20 --lockfile-partial",
 			Path:  "build/Release/module.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
