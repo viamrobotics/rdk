@@ -1575,6 +1575,30 @@ func errorWithCommandStderr(err error) error {
 	return err
 }
 
+// pythonGeneratorCommand writes the generator to a temp file and returns a command that runs it.
+// python -c puts the script on the command line, and Windows CreateProcess rejects a command
+// line longer than 32767 characters ("The filename or extension is too long.").
+func pythonGeneratorCommand(pythonPath string, script []byte, args ...string) (*exec.Cmd, func() error, error) {
+	f, err := os.CreateTemp("", "viam-generate-stubs-*.py")
+	if err != nil {
+		return nil, nil, err
+	}
+	scriptPath := f.Name()
+	cleanup := func() error { return os.Remove(scriptPath) }
+	if _, err := f.Write(script); err != nil {
+		utils.UncheckedError(f.Close())
+		utils.UncheckedError(cleanup())
+		return nil, nil, err
+	}
+	if err := f.Close(); err != nil {
+		utils.UncheckedError(cleanup())
+		return nil, nil, err
+	}
+	cmdArgs := append([]string{scriptPath}, args...)
+	//nolint:gosec,noctx
+	return exec.Command(pythonPath, cmdArgs...), cleanup, nil
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
@@ -1595,9 +1619,12 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint: gosec,noctx
-	cmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	cmd, cleanup, err := pythonGeneratorCommand(pythonVenvPath, script, module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- unable to write generator script")
+	}
+	defer utils.UncheckedErrorFunc(cleanup)
 	out, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(errorWithCommandStderr(err), "cannot generate python stubs -- generator script encountered an error")
@@ -1975,9 +2002,12 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint: gosec,noctx
-	stubCmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	stubCmd, cleanup, err := pythonGeneratorCommand(pythonVenvPath, script, module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
+	if err != nil {
+		return errors.Wrap(err, "unable to write generator script")
+	}
+	defer utils.UncheckedErrorFunc(cleanup)
 	out, err := stubCmd.Output()
 	if err != nil {
 		return errors.Wrap(errorWithCommandStderr(err), "generator script encountered an error")
