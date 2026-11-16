@@ -254,7 +254,7 @@ void Generator::do_stubs() {
 
                 if (paramCount > 1) {
                     for (const clang::ParmVarDecl* parm :
-                         llvm::makeArrayRef(++param_begin, method->param_end())) {
+                         llvm::ArrayRef(++param_begin, method->param_end())) {
                         os << ",";
                         printParamBreak();
                         printParm(os, *parm);
