@@ -5518,6 +5518,45 @@ func TestMaintenanceConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorUnBlocked, test.ShouldNotBeNil)
 	})
+
+	t.Run("blocked reconfigure keeps mostRecentCfg stable but refreshes mostRecentMaintenanceCfg", func(t *testing.T) {
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor1,
+		}
+		r := setupLocalRobot(t, context.Background(), cfg, logger)
+
+		// Reconfigure to a new resource plus a changed maintenance key. The gate blocks.
+		blockedCfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ADifferentKey"},
+			Components:        sensor2,
+		}
+		r.Reconfigure(ctx, blockedCfg)
+
+		lRobot := r.(*localRobot)
+		// mostRecentCfg still reflects the originally applied cfg.
+		mostRecent := lRobot.mostRecentCfg.Load().(config.Config)
+		test.That(t, mostRecent.MaintenanceConfig, test.ShouldNotBeNil)
+		test.That(t, mostRecent.MaintenanceConfig.MaintenanceAllowedKey, test.ShouldEqual, "ThatsMyWallet")
+
+		// BUT mostRecentMaintenanceCfg reflects the _latest_ observed config, so
+		// RestartModule and RestartAllowed see the newest block.
+		observed := lRobot.mostRecentMaintenanceCfg.Load()
+		test.That(t, observed, test.ShouldNotBeNil)
+		test.That(t, observed.MaintenanceAllowedKey, test.ShouldEqual, "ADifferentKey")
+
+		// Once the gate opens (same resource change, key the valid sensor now reads as true), the
+		// previously-blocked reconfigure goes through.
+		reopenedCfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet"},
+			Components:        sensor2,
+		}
+		r.Reconfigure(ctx, reopenedCfg)
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
 }
 
 // TestMaintenanceConfigFollowPart exercises the `follow_part` path, where a subpart defers its
