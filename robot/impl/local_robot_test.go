@@ -5619,12 +5619,14 @@ func TestMaintenanceConfigFollowPart(t *testing.T) {
 			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
 		})
 
-		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		subLogger, logs := logging.NewObservedTestLogger(t)
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), subLogger)
 		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
 
 		got, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, got, test.ShouldNotBeNil)
+		test.That(t, logs.FilterMessage("Reconfigure allowed by followed part").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 
 	t.Run("main blocks → subpart reconfigure blocked", func(t *testing.T) {

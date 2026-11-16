@@ -2086,6 +2086,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				"error",
 				reconfigureAllowedErr.Error(),
 			)
+		} else if fp := newConfig.MaintenanceConfig.FollowPart; fp != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed by followed part",
+				"address",
+				fp.Address,
+			)
 		} else {
 			r.logger.CInfow(
 				ctx,
