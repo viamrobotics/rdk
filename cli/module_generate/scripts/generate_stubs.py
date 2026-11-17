@@ -903,10 +903,10 @@ if __name__ == "__main__":
         "typing-extensions",
         "ruff",
         "python-slugify",
-        "packaging",
     ]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
+        packages.append("packaging")
     install_requirements(packages)
     result = main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     print(result, end="")
