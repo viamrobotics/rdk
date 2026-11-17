@@ -56,7 +56,7 @@ func EncodePlanCommand(name string, req MoveReq) (map[string]interface{}, error)
 // or deserialized from the wire.
 func DecodePlanResponse(resp map[string]interface{}) (PlanResult, error) {
 	raw, ok := resp[DoPlan]
-	if !ok {
+	if !ok || raw == nil {
 		return PlanResult{}, errors.Errorf("DoCommand response missing %q key; motion service may not support planning via DoCommand", DoPlan)
 	}
 	var result PlanResult
