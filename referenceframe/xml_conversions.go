@@ -92,6 +92,11 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 		urdf.Geometry.Mesh = &mesh{Filename: cfg.MeshFilePath}
 	case spatialmath.CapsuleType:
 		return nil, errors.New("use newCollisions for capsule geometries")
+	case spatialmath.CylinderType:
+		if cfg.Capped != nil && !*cfg.Capped {
+			return nil, errors.New("open (uncapped) cylinders cannot be represented in URDF")
+		}
+		urdf.Geometry.Cylinder = &cylinder{Radius: utils.MMToMeters(cfg.R), Length: utils.MMToMeters(cfg.L)}
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
 	}
@@ -282,9 +287,12 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh, decimationRati
 	case c.Geometry.Sphere != nil:
 		return spatialmath.NewSphere(origin, utils.MetersToMM(c.Geometry.Sphere.Radius), "")
 	case c.Geometry.Cylinder != nil:
-		// Standalone cylinders are not natively supported in spatialmath.
-		// Use the cylinder+two-spheres pattern to represent a capsule instead.
-		return nil, errors.New("standalone cylinder geometry not supported; use cylinder + two spheres pattern for capsule")
+		return spatialmath.NewCylinder(
+			origin,
+			utils.MetersToMM(c.Geometry.Cylinder.Radius),
+			utils.MetersToMM(c.Geometry.Cylinder.Length),
+			"",
+		)
 	case c.Geometry.Mesh != nil:
 		meshPath := normalizeURDFMeshPath(c.Geometry.Mesh.Filename)
 

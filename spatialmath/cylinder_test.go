@@ -272,13 +272,21 @@ func TestCylinderJSONRoundTrip(t *testing.T) {
 	test.That(t, orig.almostEqual(rc), test.ShouldBeTrue)
 }
 
-func TestCylinderToProtobufPanics(t *testing.T) {
-	c := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 1, 1, "")
-	defer func() {
-		r := recover()
-		test.That(t, r, test.ShouldNotBeNil)
-	}()
-	_ = c.ToProtobuf()
+func TestCylinderToProtobuf(t *testing.T) {
+	pose := NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &OrientationVectorDegrees{OX: 1, OZ: 1, Theta: 10})
+
+	solid := makeTestCylinder(pose.Orientation(), pose.Point(), 7, 11, "solid")
+	pb := solid.ToProtobuf()
+	test.That(t, pb.Label, test.ShouldEqual, "solid")
+	test.That(t, PoseAlmostEqual(NewPoseFromProtobuf(pb.Center), pose), test.ShouldBeTrue)
+	cyl := pb.GetCylinder()
+	test.That(t, cyl, test.ShouldNotBeNil)
+	test.That(t, cyl.RadiusMm, test.ShouldEqual, 7)
+	test.That(t, cyl.LengthMm, test.ShouldEqual, 11)
+	test.That(t, cyl.Uncapped, test.ShouldBeFalse)
+
+	open := makeOpenTestCylinder(pose.Orientation(), pose.Point(), 7, 11, "open")
+	test.That(t, open.ToProtobuf().GetCylinder().Uncapped, test.ShouldBeTrue)
 }
 
 // --- Collision / distance / encompass ---

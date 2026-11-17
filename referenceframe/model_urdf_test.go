@@ -97,6 +97,72 @@ func TestCapsuleWorldStateRoundTrip(t *testing.T) {
 	test.That(t, parsedLink.Geometry.L, test.ShouldAlmostEqual, 260, 0.1)
 }
 
+func TestParseCylinderURDF(t *testing.T) {
+	xmlData, err := os.ReadFile(utils.ResolveFile("referenceframe/testfiles/cylinder.urdf"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelConfig, err := UnmarshalModelXML(xmlData, "cylinder_bot", nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	var cylinderLink *LinkConfig
+	for i := range modelConfig.Links {
+		if modelConfig.Links[i].ID == "cylinder_link" {
+			cylinderLink = &modelConfig.Links[i]
+			break
+		}
+	}
+	test.That(t, cylinderLink, test.ShouldNotBeNil)
+	test.That(t, cylinderLink.Geometry, test.ShouldNotBeNil)
+	test.That(t, cylinderLink.Geometry.Type, test.ShouldEqual, spatialmath.CylinderType)
+	test.That(t, cylinderLink.Geometry.R, test.ShouldAlmostEqual, 50, 1e-6)
+	test.That(t, cylinderLink.Geometry.L, test.ShouldAlmostEqual, 400, 1e-6)
+
+	// The origin's 90 degree pitch lays the cylinder's axis along the link's +X.
+	geom, err := cylinderLink.Geometry.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geom.Pose().Point(), test.ShouldResemble, r3.Vector{X: 100, Z: 300})
+	axis := spatialmath.TransformPointByPose(
+		spatialmath.NewPoseFromOrientation(geom.Pose().Orientation()), r3.Vector{Z: 1},
+	)
+	test.That(t, axis.X, test.ShouldAlmostEqual, 1, 1e-6)
+}
+
+func TestCylinderWorldStateRoundTrip(t *testing.T) {
+	cylinder, err := spatialmath.NewCylinder(
+		spatialmath.NewPose(r3.Vector{X: 50, Y: -20, Z: 75}, &spatialmath.OrientationVectorDegrees{OY: 1, OZ: 1, Theta: 30}),
+		35,
+		150,
+		"test_cylinder",
+	)
+	test.That(t, err, test.ShouldBeNil)
+	ws, err := NewWorldState(
+		[]*GeometriesInFrame{NewGeometriesInFrame(World, []spatialmath.Geometry{cylinder})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	urdfConfig, err := NewModelFromWorldState(ws, "cylinder_test")
+	test.That(t, err, test.ShouldBeNil)
+	xmlBytes, err := xml.MarshalIndent(urdfConfig, "", "  ")
+	test.That(t, err, test.ShouldBeNil)
+
+	modelConfig, err := UnmarshalModelXML(xmlBytes, "cylinder_test", nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	var parsedLink *LinkConfig
+	for i := range modelConfig.Links {
+		if modelConfig.Links[i].ID == "test_cylinder" {
+			parsedLink = &modelConfig.Links[i]
+			break
+		}
+	}
+	test.That(t, parsedLink, test.ShouldNotBeNil)
+	test.That(t, parsedLink.Geometry, test.ShouldNotBeNil)
+	parsed, err := parsedLink.Geometry.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	parsed.SetLabel(cylinder.Label())
+	test.That(t, spatialmath.GeometriesAlmostEqual(cylinder, parsed), test.ShouldBeTrue)
+}
+
 func TestParseURDFFile(t *testing.T) {
 	// Test a URDF which has prismatic joints
 	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.xml"), "", nil)
