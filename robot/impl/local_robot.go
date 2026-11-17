@@ -1790,6 +1790,14 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	r.reconfigure(ctx, newConfig, false)
 }
 
+// updateMostRecentCfg applies update to a copy of the most recent config and stores the
+// result. Callers must hold reconfigurationLock.
+func (r *localRobot) updateMostRecentCfg(update func(cfg *config.Config)) {
+	cfg := r.mostRecentCfg.Load().(config.Config)
+	update(&cfg)
+	r.mostRecentCfg.Store(cfg)
+}
+
 // set Module.LocalVersion on Type=local modules. Call this before localPackages.Sync and in RestartModule.
 func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 	for i := range cfg.Modules {
@@ -1813,8 +1821,17 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// Also always update the most recent maintenance config. Even if we are blocked from
 		// reconfiguring due to this new maintenance window, we want `RestartSingleModule` and
 		// `RestartModule` to be aware of the latest maintenance config.
+		//
+		// Cloud/Auth/Network are likewise always recorded: the entrypoint applies them to the
+		// web service before calling `Reconfigure`, whether or not this pass is blocked or
+		// aborts early. This runs at exit so the diffs in this function still see them as changed.
 		r.initializing.Store(newConfig.Initial)
 		r.mostRecentMaintenanceCfg.Store(newConfig.MaintenanceConfig)
+		r.updateMostRecentCfg(func(cfg *config.Config) {
+			cfg.Cloud = newConfig.Cloud
+			cfg.Auth = newConfig.Auth
+			cfg.Network = newConfig.Network
+		})
 	}()
 
 	// No need to check whether reconfiguring is allowed if this is initialization.
@@ -1886,6 +1903,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// steps in the reconfigure code path.
 	if !initialDiff.TracingEqual {
 		r.reconfigureTracing(ctx, newConfig)
+		// Tracing is live from here even if a later step aborts this reconfigure. Record it
+		// so the next pass diffs against what is actually running.
+		r.updateMostRecentCfg(func(cfg *config.Config) {
+			cfg.Tracing = newConfig.Tracing
+		})
 	}
 
 	// Mark all new modules as pending now, before packagemanager starts doing anything.
