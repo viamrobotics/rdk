@@ -419,44 +419,6 @@ func (ms *builtIn) PlanHistory(
 //	               "last_window_details": {...}         // diagnostics.SingleSessionLastWindowDetails;
 //	                                                     // present only when the window is positive
 //	             }
-func planRequestFromCommand(req interface{}) (motion.MoveReq, error) {
-	// In-process MoveReqs go through proto so Extra has the same JSON shape as a wire request,
-	// which is what the extras parsers (e.g. armplanning.DeserializePlanState) expect.
-	fromMoveReq := func(r motion.MoveReq) (motion.MoveReq, error) {
-		reqPB, err := r.ToProto("")
-		if err != nil {
-			return motion.MoveReq{}, err
-		}
-		return motion.MoveReqFromProto(reqPB)
-	}
-	switch v := req.(type) {
-	case motion.MoveReq:
-		return fromMoveReq(v)
-	case *motion.MoveReq:
-		if v == nil {
-			return motion.MoveReq{}, errors.New("nil MoveReq for DoPlan")
-		}
-		return fromMoveReq(*v)
-	}
-	s, err := utils.AssertType[string](req)
-	if err != nil {
-		return motion.MoveReq{}, err
-	}
-	var moveReqProto pb.MoveRequest
-	if err := protojson.Unmarshal([]byte(s), &moveReqProto); err != nil {
-		return motion.MoveReq{}, err
-	}
-	fields := moveReqProto.Extra.AsMap()
-	if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
-		v, err := structpb.NewStruct(extra)
-		if err != nil {
-			return motion.MoveReq{}, err
-		}
-		moveReqProto.Extra = v
-	}
-	return motion.MoveReqFromProto(&moveReqProto)
-}
-
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	// Handle teleop commands first (they manage their own locking).
 	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
@@ -509,6 +471,44 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 		resp[DoExecute] = true
 	}
 	return resp, nil
+}
+
+func planRequestFromCommand(req interface{}) (motion.MoveReq, error) {
+	// In-process MoveReqs go through proto so Extra has the same JSON shape as a wire request,
+	// which is what the extras parsers (e.g. armplanning.DeserializePlanState) expect.
+	fromMoveReq := func(r motion.MoveReq) (motion.MoveReq, error) {
+		reqPB, err := r.ToProto("")
+		if err != nil {
+			return motion.MoveReq{}, err
+		}
+		return motion.MoveReqFromProto(reqPB)
+	}
+	switch v := req.(type) {
+	case motion.MoveReq:
+		return fromMoveReq(v)
+	case *motion.MoveReq:
+		if v == nil {
+			return motion.MoveReq{}, errors.New("nil MoveReq for DoPlan")
+		}
+		return fromMoveReq(*v)
+	}
+	s, err := utils.AssertType[string](req)
+	if err != nil {
+		return motion.MoveReq{}, err
+	}
+	var moveReqProto pb.MoveRequest
+	if err := protojson.Unmarshal([]byte(s), &moveReqProto); err != nil {
+		return motion.MoveReq{}, err
+	}
+	fields := moveReqProto.Extra.AsMap()
+	if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
+		v, err := structpb.NewStruct(extra)
+		if err != nil {
+			return motion.MoveReq{}, err
+		}
+		moveReqProto.Extra = v
+	}
+	return motion.MoveReqFromProto(&moveReqProto)
 }
 
 func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {

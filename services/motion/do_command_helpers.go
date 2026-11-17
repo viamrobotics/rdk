@@ -1,6 +1,7 @@
 package motion
 
 import (
+	"errors"
 	"maps"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -34,7 +35,7 @@ func encodePlanCommand(name string, cmd map[string]interface{}) (map[string]inte
 		req = v
 	case *MoveReq:
 		if v == nil {
-			return cmd, nil
+			return nil, errors.New("nil MoveReq for DoPlan")
 		}
 		req = *v
 	default:
