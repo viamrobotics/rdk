@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -243,6 +244,9 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, after, test.ShouldResemble, initial)
 
+	// Give the trace's sampler time to read the arm at least once.
+	time.Sleep(5 * teleopTraceSampleInterval)
+
 	// Stopping closes the stream gracefully: the target channel is closed, not the context.
 	teleopStop(t, ms)
 	waitFor(t, "arm stream to drain and return", func() bool {
@@ -250,6 +254,16 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	})
 	test.That(t, fake.snapshot().closedCleanly, test.ShouldEqual, 1)
 	test.That(t, teleopStatus(t, ms)["running"], test.ShouldBeFalse)
+
+	// The teleop trace holds the goals sent and the targets commanded.
+	traces, err := filepath.Glob(filepath.Join(diagDir, "tag=teleop-trace", "teleop-trace-streamed-*.jsonl"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(traces), test.ShouldEqual, 1)
+	traceBytes, err := os.ReadFile(traces[0])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(traceBytes), test.ShouldContainSubstring, `"k":"goal","n":"`+teleopTestComponent+`"`)
+	test.That(t, string(traceBytes), test.ShouldContainSubstring, `"k":"cmd","n":"`+teleopTestArm+`"`)
+	test.That(t, string(traceBytes), test.ShouldContainSubstring, `"k":"act","n":"`+teleopTestArm+`"`)
 
 	// The stream's diagnostics file is written when it ends.
 	pattern := filepath.Join(diagDir, "tag=teleop-arm-stream-diagnostics", "tag="+teleopTestArm, "*.json")

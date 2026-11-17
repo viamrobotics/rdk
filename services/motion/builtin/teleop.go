@@ -340,6 +340,8 @@ type teleopPipeline struct {
 	runArmStream teleopArmStreamRunner
 	// diagDir is where each arm stream writes its diagnostics file when it ends; empty disables it.
 	diagDir string
+	// trace records goals, commands and measured arm positions when diagDir is set; nil otherwise.
+	trace *teleopTrace
 
 	// Arm streams outlive the worker goroutines so stop() can drain them gracefully after the
 	// executor has halted. streamCancel is the hard stop (Run then stops the arm); streamWG
@@ -638,6 +640,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			default:
 				if sent {
 					tp.commandedJoints[name] = steps[len(steps)-1]
+					tp.trace.cmd(name, armComp, steps[len(steps)-1])
 				}
 				continue
 			}
@@ -677,6 +680,9 @@ func (tp *teleopPipeline) executeUnary(ctx context.Context, ms *builtIn, jobs []
 			prev = smoothed[k]
 		}
 		tp.commandedJoints[job.name] = prev
+		if armComp, ok := job.ie.(arm.Arm); ok {
+			tp.trace.cmd(job.name, armComp, prev)
+		}
 
 		wg.Add(1)
 		go func(i int, job unaryJob, smoothed [][]referenceframe.Input) {
@@ -1014,6 +1020,7 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
 	tp.closeStreams(ctx)
+	tp.trace.close()
 }
 
 // closeStreams ends every open arm stream. Each is first half-closed so Run sends trajex's
@@ -1150,6 +1157,11 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			commandedJoints:  make(map[string][]referenceframe.Input),
 			arms:             make(map[string]*teleopArmState),
 		}
+		executorName := TeleopExecutorUnary
+		if streamed {
+			executorName = TeleopExecutorStreamed
+		}
+		tp.trace = newTeleopTrace(tp.logger, diagDir, executorName)
 
 		comp := &teleopComponent{
 			name:        req.ComponentName,
@@ -1307,6 +1319,7 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		comp.latestPose.Store(pif)
+		tp.trace.goal(comp.name, pif)
 		trySendNotify(tp.notify)
 
 		resp[DoTeleopMove] = true
