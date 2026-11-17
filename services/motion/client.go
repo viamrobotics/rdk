@@ -382,8 +382,21 @@ func (c *client) TempStreamArmJointPositions(
 	return nil
 }
 
+// DoCommand sends cmd to the remote motion service. For DoPlan, it encodes a MoveReq request for
+// the wire and decodes the response into a motionplan.Trajectory, matching in-process behavior.
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	cmd, err := encodePlanCommand(c.name, cmd)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := cmd[DoPlan]; ok {
+		decodePlanResponse(resp)
+	}
+	return resp, nil
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {

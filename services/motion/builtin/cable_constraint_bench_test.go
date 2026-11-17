@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
-	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -56,12 +55,7 @@ func BenchmarkDoCommandPlan(b *testing.B) {
 			Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
 			Extra:         extra,
 		}
-		cmd, err := motion.EncodePlanCommand(svc.Name().Name, moveReq)
-		test.That(b, err, test.ShouldBeNil)
-		command, err := protoutils.StructToStructPb(cmd)
-		test.That(b, err, test.ShouldBeNil)
-
-		return command.AsMap()
+		return map[string]interface{}{motion.DoPlan: moveReq}
 	}
 
 	disabled := false

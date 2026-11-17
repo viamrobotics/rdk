@@ -1,10 +1,9 @@
 package motion
 
 import (
-	"context"
+	"maps"
 
 	"github.com/go-viper/mapstructure/v2"
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/motionplan"
@@ -12,35 +11,35 @@ import (
 
 // DoCommand keys understood by the builtin motion service.
 const (
-	DoPlan                = "plan"
+	// DoPlan plans a motion without executing it. The request value is a MoveReq (or, for
+	// non-Go callers, a protojson-encoded pb.MoveRequest string). The response value is a
+	// motionplan.Trajectory, both in-process and through the Go gRPC client:
+	//
+	//	resp, err := svc.DoCommand(ctx, map[string]interface{}{motion.DoPlan: req})
+	//	traj := resp[motion.DoPlan].(motionplan.Trajectory)
+	DoPlan = "plan"
+	// DoPlanPartialWaypoint is set in a DoPlan response, as an int, when the planner returned a
+	// partial plan. Its value is the number of goals the trajectory reaches.
 	DoPlanPartialWaypoint = "plan_partialwp"
 	DoExecute             = "execute"
 	DoExecuteCheckStart   = "executeCheckStart"
 )
 
-// PlanResult is the decoded response of a DoPlan DoCommand.
-type PlanResult struct {
-	Trajectory motionplan.Trajectory
-	// PartialWaypoint is non-nil when the planner returned a partial plan, and holds the
-	// number of goals the trajectory reaches.
-	PartialWaypoint *int
-}
-
-// Plan asks svc to generate a trajectory for req without executing it, using the DoPlan DoCommand.
-func Plan(ctx context.Context, svc Service, req MoveReq) (PlanResult, error) {
-	cmd, err := EncodePlanCommand(svc.Name().ShortName(), req)
-	if err != nil {
-		return PlanResult{}, err
+// encodePlanCommand returns cmd with a MoveReq under DoPlan replaced by the protojson string the
+// builtin service expects over the wire. cmd is returned unchanged if it holds no MoveReq.
+func encodePlanCommand(name string, cmd map[string]interface{}) (map[string]interface{}, error) {
+	var req MoveReq
+	switch v := cmd[DoPlan].(type) {
+	case MoveReq:
+		req = v
+	case *MoveReq:
+		if v == nil {
+			return cmd, nil
+		}
+		req = *v
+	default:
+		return cmd, nil
 	}
-	resp, err := svc.DoCommand(ctx, cmd)
-	if err != nil {
-		return PlanResult{}, err
-	}
-	return DecodePlanResponse(resp)
-}
-
-// EncodePlanCommand builds the DoCommand map for a DoPlan request.
-func EncodePlanCommand(name string, req MoveReq) (map[string]interface{}, error) {
 	reqPB, err := req.ToProto(name)
 	if err != nil {
 		return nil, err
@@ -49,26 +48,25 @@ func EncodePlanCommand(name string, req MoveReq) (map[string]interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{DoPlan: string(bytes)}, nil
+	out := maps.Clone(cmd)
+	out[DoPlan] = string(bytes)
+	return out, nil
 }
 
-// DecodePlanResponse decodes a DoPlan DoCommand response, whether it was produced in-process
-// or deserialized from the wire.
-func DecodePlanResponse(resp map[string]interface{}) (PlanResult, error) {
-	raw, ok := resp[DoPlan]
-	if !ok || raw == nil {
-		return PlanResult{}, errors.Errorf("DoCommand response missing %q key; motion service may not support planning via DoCommand", DoPlan)
-	}
-	var result PlanResult
-	if err := mapstructure.Decode(raw, &result.Trajectory); err != nil {
-		return PlanResult{}, errors.Wrap(err, "decoding trajectory")
-	}
-	if rawWP, ok := resp[DoPlanPartialWaypoint]; ok {
-		var wp int
-		if err := mapstructure.Decode(rawWP, &wp); err != nil {
-			return PlanResult{}, errors.Wrap(err, "decoding partial waypoint")
+// decodePlanResponse converts the wire-shaped DoPlan response values in resp back into a
+// motionplan.Trajectory and an int, in place. Values that don't decode are left as they are, so
+// motion services with their own "plan" command are unaffected.
+func decodePlanResponse(resp map[string]interface{}) {
+	if raw, ok := resp[DoPlan]; ok && raw != nil {
+		var traj motionplan.Trajectory
+		if err := mapstructure.Decode(raw, &traj); err == nil {
+			resp[DoPlan] = traj
 		}
-		result.PartialWaypoint = &wp
 	}
-	return result, nil
+	if raw, ok := resp[DoPlanPartialWaypoint]; ok && raw != nil {
+		var wp int
+		if err := mapstructure.Decode(raw, &wp); err == nil {
+			resp[DoPlanPartialWaypoint] = wp
+		}
+	}
 }

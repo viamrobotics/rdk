@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,11 +15,13 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
+	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -28,7 +31,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
-	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -44,6 +46,32 @@ func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.S
 	return svc, func() {
 		myRobot.Close(context.Background())
 	}
+}
+
+// dialMotionClient serves ms over gRPC and returns a motion client connected to it.
+func dialMotionClient(t *testing.T, ms motion.Service) motion.Service {
+	t.Helper()
+	logger := logging.NewTestLogger(t)
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
+	coll, err := resource.NewAPIResourceCollection(motion.API, map[resource.Name]motion.Service{ms.Name(): ms})
+	test.That(t, err, test.ShouldBeNil)
+	resourceAPI, ok, err := resource.LookupAPIRegistration[motion.Service](motion.API)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, coll, logger), test.ShouldBeNil)
+	go rpcServer.Serve(listener)
+	t.Cleanup(func() { test.That(t, rpcServer.Stop(), test.ShouldBeNil) })
+
+	conn, err := viamgrpc.Dial(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	t.Cleanup(func() { test.That(t, conn.Close(), test.ShouldBeNil) })
+	client, err := motion.NewClientFromConn(context.Background(), conn, "", ms.Name(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	return client
 }
 
 func TestMoveFailures(t *testing.T) {
@@ -285,28 +313,29 @@ func TestDoCommand(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
-		wire := injectmotion.NewMotionService(ms.Name().ShortName())
-		wire.Service = ms
-		wire.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-			return doOverWire(ms, cmd)
-		}
-
-		result, err := motion.Plan(ctx, wire, moveReq)
+		resp, err := dialMotionClient(t, ms).DoCommand(ctx, map[string]interface{}{motion.DoPlan: moveReq})
 		if err != nil {
 			return nil, err
 		}
-		test.That(t, result.PartialWaypoint, test.ShouldBeNil)
-		return result.Trajectory, nil
+		test.That(t, resp, test.ShouldNotContainKey, motion.DoPlanPartialWaypoint)
+		trajectory, ok := resp[motion.DoPlan].(motionplan.Trajectory)
+		test.That(t, ok, test.ShouldBeTrue)
+		return trajectory, nil
 	}
+
+	t.Run("DoPlan in-process", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+		resp, err := ms.DoCommand(ctx, map[string]interface{}{motion.DoPlan: moveReq})
+		test.That(t, err, test.ShouldBeNil)
+		trajectory, ok := resp[motion.DoPlan].(motionplan.Trajectory)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, len(trajectory), test.ShouldEqual, 2)
+	})
 
 	t.Run("DoPlan partial", func(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
-		wire := injectmotion.NewMotionService(ms.Name().ShortName())
-		wire.Service = ms
-		wire.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-			return doOverWire(ms, cmd)
-		}
 
 		reachable := armplanning.NewPlanState(referenceframe.FrameSystemPoses{
 			"pieceGripper": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 30})),
@@ -320,11 +349,12 @@ func TestDoCommand(t *testing.T) {
 				"timeout":             5.0,
 			},
 		}
-		result, err := motion.Plan(ctx, wire, partialReq)
+		resp, err := dialMotionClient(t, ms).DoCommand(ctx, map[string]interface{}{motion.DoPlan: partialReq})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(result.Trajectory), test.ShouldBeGreaterThan, 0)
-		test.That(t, result.PartialWaypoint, test.ShouldNotBeNil)
-		test.That(t, *result.PartialWaypoint, test.ShouldEqual, 1)
+		trajectory, ok := resp[motion.DoPlan].(motionplan.Trajectory)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, len(trajectory), test.ShouldBeGreaterThan, 0)
+		test.That(t, resp[motion.DoPlanPartialWaypoint], test.ShouldEqual, 1)
 	})
 
 	t.Run("DoPlan", func(t *testing.T) {
@@ -394,9 +424,11 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	// Helper function to extract plan from Move call using DoCommand
 	getPlanFromMove := func(t *testing.T, req motion.MoveReq) motionplan.Trajectory {
 		t.Helper()
-		result, err := motion.Plan(ctx, ms, req)
+		resp, err := ms.DoCommand(ctx, map[string]interface{}{motion.DoPlan: req})
 		test.That(t, err, test.ShouldBeNil)
-		return result.Trajectory
+		plan, ok := resp[motion.DoPlan].(motionplan.Trajectory)
+		test.That(t, ok, test.ShouldBeTrue)
+		return plan
 	}
 
 	t.Run("plan through multiple pose waypoints", func(t *testing.T) {
