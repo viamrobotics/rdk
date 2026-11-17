@@ -42,25 +42,21 @@ type PrismaticFrame interface {
 	TranslationAxis() r3.Vector
 }
 
-// Chain returns the frames from the model's base to outputFrame in order. An empty outputFrame
-// means the frame Transform reports, and the world frame or a model with no frames gives an empty
-// chain. A frame holding another model, as a model built over a frame system of parts has, is
-// replaced by that model's chain with its offsets shifted, so the frames come back under the
-// names the part's model gives them, and a frame renamed with NewNamedFrame comes back as the
-// frame underneath so that the axis interfaces assert on it. The error names a frame the model
-// does not have.
-func (m *SimpleModel) Chain(outputFrame string) ([]ChainFrame, error) {
-	if outputFrame == "" {
-		outputFrame = m.primaryOutputFrame
-	}
-	if outputFrame == World {
+// Chain returns the frames from the model's base to the frame Transform reports, in order. A
+// model with no frames, or one whose output frame is the world frame, gives an empty chain. A
+// frame holding another model, as a model built over a frame system of parts has, is replaced by
+// that model's chain with its offsets shifted, so the frames come back under the names the part's
+// model gives them, and a frame renamed with NewNamedFrame comes back as the frame underneath so
+// that the axis interfaces assert on it.
+func (m *SimpleModel) Chain() ([]ChainFrame, error) {
+	if m.primaryOutputFrame == World {
 		return nil, nil
 	}
-	if m.internalFS == nil || m.internalFS.lookupFrame(outputFrame) == nil {
-		return nil, NewFrameMissingError(outputFrame)
+	if m.internalFS == nil || m.internalFS.lookupFrame(m.primaryOutputFrame) == nil {
+		return nil, NewFrameMissingError(m.primaryOutputFrame)
 	}
 	w := &chainWalk{offsets: map[*SimpleModel]map[string]int{}}
-	return w.chain(m, outputFrame)
+	return w.chain(m, m.primaryOutputFrame)
 }
 
 // chainWalk memoizes where each model's frames start in its input vector.
