@@ -589,3 +589,32 @@ func TestCylinderTransformShiftsMesh(t *testing.T) {
 		}
 	}
 }
+
+// TestCapsuleVsCylinderCollisionOrder checks that a capsule and a Cylinder agree on collision
+// and separation distance regardless of which one is the receiver.
+func TestCapsuleVsCylinderCollisionOrder(t *testing.T) {
+	cyl, err := NewCylinder(NewZeroPose(), 50, 120, "")
+	test.That(t, err, test.ShouldBeNil)
+	for _, tc := range []struct {
+		name    string
+		x       float64
+		collide bool
+	}{
+		{"far", 400, false},
+		{"near_miss", 80, false},
+		{"penetrating", 60, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Parallel capsule beside the wall: r=20, so the gap to the true wall is x-70.
+			c, err := NewCapsule(NewPoseFromPoint(r3.Vector{X: tc.x}), 20, 100, "")
+			test.That(t, err, test.ShouldBeNil)
+			hitCap, distCap, err := c.CollidesWith(cyl, defaultCollisionBufferMM)
+			test.That(t, err, test.ShouldBeNil)
+			hitCyl, distCyl, err := cyl.CollidesWith(c, defaultCollisionBufferMM)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, hitCap, test.ShouldEqual, tc.collide)
+			test.That(t, hitCyl, test.ShouldEqual, tc.collide)
+			test.That(t, distCap, test.ShouldAlmostEqual, distCyl)
+		})
+	}
+}
