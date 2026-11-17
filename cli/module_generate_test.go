@@ -7,6 +7,7 @@ import (
 	"fmt"
 	gobuild "go/build"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -482,6 +483,16 @@ func TestGoModelFileName(t *testing.T) {
 			test.That(t, match, test.ShouldBeTrue)
 		}
 	}
+}
+
+func TestRenderedTemplatePath(t *testing.T) {
+	pyModule := modulegen.ModuleInputs{Language: python, ModelSnake: "my_model"}
+	test.That(t, renderedTemplatePath(pythonResourceTemplate, pyModule), test.ShouldEqual, "src/models/my_model.py")
+	test.That(t, renderedTemplatePath("src/tmpl-main.py", pyModule), test.ShouldEqual, "src/main.py")
+	test.That(t, renderedTemplatePath("tmpl-requirements.txt", pyModule), test.ShouldEqual, "requirements.txt")
+
+	_, err := fs.Stat(templates, path.Join(templatesPath, python, pythonResourceTemplate))
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestGenerateModuleAction(t *testing.T) {

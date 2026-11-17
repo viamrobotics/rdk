@@ -1250,7 +1250,7 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 	}
 	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
-			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(filePath, templatePrefix, ""))
+			destPath := filepath.Join(module.ModuleName, renderedTemplatePath(filePath, module))
 			debugf(cmd.Root().Writer, globalArgs.Debug, "\tRendering file %s", destPath)
 
 			tFile, err := templates.Open(path.Join(languagePath, filePath))
@@ -1286,6 +1286,19 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 		return nil
 	})
 	return err
+}
+
+// pythonResourceTemplate is the fallback Python model, kept for when stub generation fails.
+const pythonResourceTemplate = "src/models/tmpl-resource.py"
+
+// renderedTemplatePath maps a template's path to the path it renders to, relative to the module root.
+// The Python fallback model renders to the model's own filename so main.py's import resolves and
+// successful stub generation overwrites it.
+func renderedTemplatePath(filePath string, module modulegen.ModuleInputs) string {
+	if module.Language == python && filePath == pythonResourceTemplate {
+		return path.Join("src", "models", module.ModelSnake+".py")
+	}
+	return strings.ReplaceAll(filePath, templatePrefix, "")
 }
 
 // Generate stubs for the resource.
