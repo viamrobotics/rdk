@@ -104,7 +104,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.28.0
-	go.viam.com/api v0.1.607-0.20261117193632-02d83e46fb67
+	go.viam.com/api v0.1.607-0.20261117195222-81711b608c72
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.16.0
 	goji.io v2.0.2+incompatible
