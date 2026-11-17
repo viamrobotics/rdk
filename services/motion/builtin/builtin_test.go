@@ -299,6 +299,34 @@ func TestDoCommand(t *testing.T) {
 		return result.Trajectory, nil
 	}
 
+	t.Run("DoPlan partial", func(t *testing.T) {
+		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
+		defer teardown()
+		wire := injectmotion.NewMotionService(ms.Name().ShortName())
+		wire.Service = ms
+		wire.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+			return doOverWire(ms, cmd)
+		}
+
+		reachable := armplanning.NewPlanState(referenceframe.FrameSystemPoses{
+			"pieceGripper": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: -800, Y: -180, Z: 30})),
+		}, nil)
+		partialReq := motion.MoveReq{
+			ComponentName: "pieceGripper",
+			Destination:   referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 50000})),
+			Extra: map[string]interface{}{
+				"waypoints":           []interface{}{reachable.Serialize()},
+				"return_partial_plan": true,
+				"timeout":             5.0,
+			},
+		}
+		result, err := motion.Plan(ctx, wire, partialReq)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(result.Trajectory), test.ShouldBeGreaterThan, 0)
+		test.That(t, result.PartialWaypoint, test.ShouldNotBeNil)
+		test.That(t, *result.PartialWaypoint, test.ShouldEqual, 1)
+	})
+
 	t.Run("DoPlan", func(t *testing.T) {
 		trajectory, err := testDoPlan(moveReq)
 		test.That(t, err, test.ShouldBeNil)
@@ -310,7 +338,7 @@ func TestDoCommand(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
-		plan, err := ms.(*builtIn).plan(ctx, moveReq, logger)
+		plan, _, err := ms.(*builtIn).plan(ctx, moveReq, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		// format the command to sent DoCommand

@@ -9,16 +9,12 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -344,7 +340,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
-	plan, err := ms.plan(ctx, req, ms.logger)
+	plan, _, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
 	}
@@ -400,7 +396,8 @@ func (ms *builtIn) PlanHistory(
 //   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
 //     required key: DoPlan
 //     input value: a motionpb.MoveRequest which will be used to create a Trajectory
-//     output value: a motionplan.Trajectory, plus motion.DoPlanPartialWaypoint if the plan is partial.
+//     output value: a motionplan.Trajectory, plus motion.DoPlanPartialWaypoint (the number of goals
+//     solved) if the plan is partial.
 //     Use motion.Plan (or motion.EncodePlanCommand / motion.DecodePlanResponse) rather than building this by hand.
 //
 //   - DoExecute takes a Trajectory and executes it
@@ -455,41 +452,17 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 			}
 			moveReqProto.Extra = v
 		}
-		// Special handling: we want to observe the logs just for the DoCommand
-		obsLogger := ms.logger.Sublogger("observed-" + uuid.New().String())
-		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
-		obsLogger.AddAppender(observerCore)
-
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
 			return nil, err
 		}
-		plan, err := ms.plan(ctx, moveReq, obsLogger)
+		plan, meta, err := ms.plan(ctx, moveReq, ms.logger)
 		if err != nil {
 			return nil, err
 		}
-
-		partialLogString := "returning partial plan up to waypoint"
-		partialLogs := observedLogs.FilterMessageSnippet(partialLogString).All()
-		if len(partialLogs) > 0 {
-			// Extract the waypoint number from the partial log
-			if len(partialLogs) == 1 {
-				logMsg := partialLogs[0].Message
-				// Find the waypoint number after the partial log string
-				waypointStr := strings.TrimPrefix(logMsg, partialLogString)
-				// Extract just the number
-				waypointNum, err := strconv.Atoi(strings.Split(strings.TrimSpace(waypointStr), " ")[0])
-				if err == nil {
-					resp[motion.DoPlanPartialWaypoint] = waypointNum
-				} else {
-					obsLogger.CWarnf(ctx, "error parsing log string: %s", logMsg)
-					obsLogger.CWarn(ctx, err)
-				}
-			} else {
-				obsLogger.CWarnf(ctx, "Unexpected number of partial logs: %d", len(partialLogs))
-			}
+		if meta != nil && meta.Partial {
+			resp[motion.DoPlanPartialWaypoint] = meta.GoalsProcessed
 		}
-
 		resp[DoPlan] = plan.Trajectory()
 	}
 	if req, ok := cmd[DoExecute]; ok {
@@ -568,30 +541,32 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 	return frameSys, nil
 }
 
-func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
+func (ms *builtIn) plan(
+	ctx context.Context, req motion.MoveReq, logger logging.Logger,
+) (motionplan.Plan, *armplanning.PlanMeta, error) {
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// build maps of relevant components and inputs from initial inputs
 	fsInputs, err := ms.fsService.CurrentInputs(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
 
 	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
+		return nil, nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
 	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(waypoints) == 0 {
-		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+		return nil, nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
 
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
@@ -614,7 +589,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			for fName, destination := range wp.Poses() {
 				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
 				if err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 				goalPose, _ := tf.(*referenceframe.PoseInFrame)
 				step[fName] = goalPose
@@ -627,7 +602,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var cameraArms []string
 	if ms.conf.CableConstraint == nil {
@@ -643,14 +618,14 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		}
 	}
 	if err := ms.conf.applyCableConstraintDefaults(planOpts, req.Extra, cameraArms); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
 	obstaclesInWorldFrame, err := req.WorldState.ObstaclesInWorldFrame(frameSys, fsInputs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	planRequest := &armplanning.PlanRequest{
@@ -683,7 +658,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
 	}
-	return plan, err
+	return plan, meta, err
 }
 
 // planTeleopMulti plans a trajectory for multiple components simultaneously.

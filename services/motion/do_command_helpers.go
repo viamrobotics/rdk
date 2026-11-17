@@ -22,7 +22,7 @@ const (
 type PlanResult struct {
 	Trajectory motionplan.Trajectory
 	// PartialWaypoint is non-nil when the planner returned a partial plan, and holds the
-	// index of the last waypoint the trajectory reaches.
+	// number of goals the trajectory reaches.
 	PartialWaypoint *int
 }
 
