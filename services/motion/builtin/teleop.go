@@ -11,8 +11,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	goutils "go.viam.com/utils"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -27,20 +25,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const defaultTeleopSmoothAlpha = 0.5
-
-// Values for Config.TeleopExecutor.
+// Defaults and tunables for the teleop executor's arm streams.
 const (
-	// TeleopExecutorStreamed keeps one MoveThroughJointPositionsStreamed stream open per arm for
-	// the life of the teleop session and feeds it a trajex-derived trajectory. This is the default.
-	TeleopExecutorStreamed = "streamed"
-	// TeleopExecutorUnary sends each planned trajectory as one MoveThroughJointPositions call.
-	TeleopExecutorUnary = "unary"
-)
-
-// Defaults and tunables for the streamed teleop executor.
-const (
-	// defaultTeleopStreamRunwayMs is how much trajectory the streamed executor keeps buffered
+	// defaultTeleopStreamRunwayMs is how much trajectory the executor keeps buffered
 	// inside the arm. Every point committed there is motion the operator can no longer retract,
 	// so teleop keeps it far shorter than the 100ms a scripted stream would use.
 	defaultTeleopStreamRunwayMs = 30
@@ -54,8 +41,7 @@ const (
 	// defaultTeleopStreamMaxLeadMs bounds how far the commanded trajectory may run ahead of the
 	// arm. While the not-yet-sent trajectory inside trajex is longer than this, newly planned
 	// trajectories are skipped (and the planning head left in place), so the next plan heads
-	// straight for the operator's latest pose instead of queueing behind stale ones. This is the
-	// streamed analogue of the unary executor dropping trajectories while a move is in flight.
+	// straight for the operator's latest pose instead of queueing behind stale ones.
 	// It has to exceed the time the arm takes to brake from full speed (max velocity over max
 	// acceleration), because the trajectory always ends at rest: a smaller value skips most
 	// trajectories whenever the arm is moving fast, and the arm stops and starts.
@@ -73,26 +59,15 @@ const (
 	// teleopStreamCloseTimeout bounds how long stop() waits for streams to drain gracefully
 	// before cancelling them, and again for the cancelled streams to stop their arms.
 	teleopStreamCloseTimeout = 2 * time.Second
-	// teleopStreamMaxConsecutiveFails is how many times in a row an arm's stream may die and be
-	// reopened before the executor gives up on streaming to that arm and uses the unary path.
-	teleopStreamMaxConsecutiveFails = 3
-	// teleopStreamHealthyAfter is how long a stream must have run for its failure to reset the
-	// consecutive-failure count rather than add to it.
-	teleopStreamHealthyAfter = 10 * time.Second
 	// teleopStreamMinRetry is the shortest delay before a skipped trajectory triggers a replan.
 	teleopStreamMinRetry = 5 * time.Millisecond
 )
 
-var (
-	// errTeleopStreamClosed is returned by teleopArmStream.push when the stream has been closed
-	// or its Run loop has already returned.
-	errTeleopStreamClosed = errors.New("teleop arm stream is closed")
-	// errTeleopStreamFallback tells executeTeleop that streaming is unavailable for a component
-	// and the unary executor should take over for it.
-	errTeleopStreamFallback = errors.New("teleop arm stream unavailable, falling back to unary")
-)
+// errTeleopStreamClosed is returned by teleopArmStream.push when the stream has been closed or
+// its Run loop has already returned.
+var errTeleopStreamClosed = errors.New("teleop arm stream is closed")
 
-// TeleopStreamConfig tunes the streamed teleop executor (Config.TeleopExecutor == "streamed").
+// TeleopStreamConfig tunes the arm streams the teleop executor drives.
 // Every field is optional; zero selects the default noted on it.
 type TeleopStreamConfig struct {
 	// ArmSideTargetRunwayMs is how much trajectory to keep buffered inside the arm. Default 30.
@@ -112,7 +87,7 @@ type TeleopStreamConfig struct {
 	// planned trajectories are skipped. Default 400.
 	MaxTrajexLeadMs int `json:"max_trajex_lead_ms"`
 	// MaxTargetsDroppedInARow is how many targets in a row trajex may reject before the stream
-	// ends. Default 0: the first rejected target ends the stream, and the executor reopens it.
+	// ends. Default 0: the first rejected target ends the stream.
 	MaxTargetsDroppedInARow int `json:"max_targets_dropped_in_a_row"`
 	// ForceRebaseIfExtendLatencyExceedsMs forces trajex to rebase once adding a target takes
 	// longer than this. Default 0: never.
@@ -209,7 +184,6 @@ type teleopArmStream struct {
 	diag    *diagnostics.SingleSessionDiagnostics
 	cancel  context.CancelFunc
 	started time.Time
-	pushed  atomic.Int64
 }
 
 func (s *teleopArmStream) isDone() bool {
@@ -239,7 +213,6 @@ func (s *teleopArmStream) push(ctx context.Context, jp []referenceframe.Input) e
 	}
 	select {
 	case s.targets <- jp:
-		s.pushed.Add(1)
 		return nil
 	case <-s.done:
 		return s.closedErr()
@@ -283,47 +256,30 @@ type teleopComponent struct {
 	latestPose  atomic.Pointer[referenceframe.PoseInFrame]
 }
 
-// teleopArmState is the streamed executor's state for one arm. It is keyed by the arm's name,
+// teleopArmState is the executor's stream state for one arm. It is keyed by the arm's name,
 // which is not the teleop component's name when the component is a frame the arm carries (a
 // gripper, say). The executor goroutine is the only one that opens streams and pushes to them;
 // stop, removal, and the status handler read and close.
 type teleopArmState struct {
 	name string
 
-	mu                   sync.Mutex
-	stream               *teleopArmStream
-	streamFails          int   // consecutive stream failures
-	streamRestarts       int64 // total times the stream has died
-	streamSkipped        int64 // trajectories skipped because the stream was too far ahead of the arm
-	streamFallbackUnary  bool  // streaming has been given up for this arm
-	streamFallbackReason string
-}
-
-// emaSmooth applies an exponential moving average to the commanded joint positions:
-// out = alpha*target + (1-alpha)*previous, per joint. previous is carried across
-// steps and across cycles so the commanded stream stays continuous.
-func emaSmooth(target, previous []referenceframe.Input, alpha float64) []referenceframe.Input {
-	if previous == nil || len(previous) != len(target) || alpha >= 1.0 {
-		result := make([]referenceframe.Input, len(target))
-		copy(result, target)
-		return result
-	}
-	b := 1.0 - alpha
-	result := make([]referenceframe.Input, len(target))
-	for j := range target {
-		result[j] = alpha*target[j] + b*previous[j]
-	}
-	return result
+	mu            sync.Mutex
+	stream        *teleopArmStream
+	streamSkipped int64 // trajectories skipped because the stream was too far ahead of the arm
+	// failed is set once the arm's stream has died. The executor reports it for every later
+	// trajectory rather than reopening the stream: Run stops the arm when a stream dies, and
+	// reopening on each plan would stop it again and again. A new teleop session starts clean.
+	failed error
 }
 
 // teleopPipeline manages the continuous motion pipeline for low-latency teleop.
 // It supports multiple components (arms) planned jointly in a single pipeline
 // to guarantee collision-free trajectories.
 //
-//	notify → Planner goroutine → trajCh → Executor goroutine → arm stream (or arm.MoveThroughJointPositions)
+//	notify → Planner goroutine → trajCh → Executor goroutine → arm stream
 //
-// With the streamed executor, each arm has one MoveThroughJointPositionsStreamed stream open for
-// the life of the session, run by streaming.Run. The executor pushes every planned step into the
+// Each arm has one MoveThroughJointPositionsStreamed stream open for the life of the session,
+// run by streaming.Run. The executor pushes every planned step into the
 // arm's stream as a joint target; Run turns the chain of targets into a velocity- and
 // acceleration-limited trajectory and keeps a short runway of it buffered in the arm.
 type teleopPipeline struct {
@@ -333,8 +289,7 @@ type teleopPipeline struct {
 	cachedFrameSys   *referenceframe.FrameSystem      // built once at pipeline start
 	cachedBaseInputs referenceframe.FrameSystemInputs // snapshot at pipeline start
 
-	// Streamed executor configuration. Immutable after creation.
-	streamed     bool
+	// Arm stream configuration. Immutable after creation.
 	streamOpts   streaming.StreamOptions
 	maxLead      time.Duration
 	runArmStream teleopArmStreamRunner
@@ -349,7 +304,7 @@ type teleopPipeline struct {
 	streamWG     sync.WaitGroup
 	// retryPending dedups the replan timer armed when a trajectory is skipped.
 	retryPending atomic.Bool
-	// Per-arm streamed-executor state, created the first time a trajectory moves the arm.
+	// Per-arm stream state, created the first time a trajectory moves the arm.
 	// streamsStopped is set once the pipeline is stopping; no stream may open after that.
 	armsMu         sync.Mutex
 	arms           map[string]*teleopArmState
@@ -382,8 +337,7 @@ type teleopPipeline struct {
 	planCount         atomic.Int64
 	execCount         atomic.Int64
 
-	// Last joint positions actually commanded per component: the EMA output on the unary path,
-	// the last target pushed on the streamed path. Only accessed by the executor goroutine.
+	// Last joint positions commanded per component. Only accessed by the executor goroutine.
 	commandedJoints map[string][]referenceframe.Input
 
 	// Lifecycle.
@@ -576,17 +530,10 @@ func (tp *teleopPipeline) buildExtra(
 	return extra
 }
 
-// unaryJob is one component's share of a trajectory, destined for the unary executor.
-type unaryJob struct {
-	name  string
-	ie    framesystem.InputEnabled
-	steps [][]referenceframe.Input
-}
-
-// executeTeleop executes a trajectory by sending joint targets to all components.
-// Arms go to their streams when the streamed executor is enabled and available for them;
-// everything else goes through the unary path, in parallel across components. Unlike
-// ms.execute, it skips the step-0 position check (which blocks on CurrentInputs gRPC calls).
+// executeTeleop executes a trajectory by sending joint targets to all components. Arms get
+// theirs through their streams; any other input-enabled component gets a GoToInputs call, in
+// parallel across components. Unlike ms.execute, it skips the step-0 position check (which
+// blocks on CurrentInputs gRPC calls).
 func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj motionplan.Trajectory) error {
 	if len(traj) < 2 {
 		return nil
@@ -603,10 +550,9 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		}
 	}
 
-	// Route each component. Streamed pushes happen inline: they are cheap and mostly
-	// non-blocking, and their bookkeeping is executor-goroutine state.
-	var unary []unaryJob
+	var mu sync.Mutex
 	var errs []error
+	var wg sync.WaitGroup
 	for name, steps := range perComponent {
 		res, ok := ms.components[name]
 		if !ok {
@@ -622,106 +568,49 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			continue
 		}
 
-		if armComp, ok := ie.(arm.Arm); ok && tp.streamed {
+		if armComp, ok := ie.(arm.Arm); ok {
 			if !tp.hasArmState(name) && !stepsMove(traj[0][name], steps) {
 				// The plan covers every arm in the frame system. Do not open a stream to one
 				// that teleop is not moving.
 				continue
 			}
+			// Pushes happen inline: they are cheap and mostly non-blocking, and their
+			// bookkeeping is executor-goroutine state.
 			sent, err := tp.executeStreamed(ctx, name, armComp, steps)
-			switch {
-			case errors.Is(err, errTeleopStreamFallback):
-				// Streaming is not available for this arm; the unary path below takes it.
-			case err != nil:
-				errs = append(errs, fmt.Errorf("teleop stream for %q: %w", name, err))
-				continue
-			default:
-				if sent {
-					tp.commandedJoints[name] = steps[len(steps)-1]
-				}
-				continue
-			}
-		}
-		unary = append(unary, unaryJob{name: name, ie: ie, steps: steps})
-	}
-
-	if len(unary) > 0 {
-		errs = append(errs, tp.executeUnary(ctx, ms, unary)...)
-	}
-	return errors.Join(errs...)
-}
-
-// executeUnary sends each job's steps to its component with one blocking call per component,
-// all components in parallel, after EMA-smoothing the steps. It returns one error per failed
-// component.
-func (tp *teleopPipeline) executeUnary(ctx context.Context, ms *builtIn, jobs []unaryJob) []error {
-	// Read teleop config.
-	// NOTE: caller (runExecutor) already holds ms.mu.RLock, so safe to read ms.conf directly.
-	smoothAlpha := defaultTeleopSmoothAlpha
-	interpolateOverride := false
-	if ms.conf != nil {
-		if ms.conf.TeleopSmoothAlpha > 0 {
-			smoothAlpha = ms.conf.TeleopSmoothAlpha
-		}
-		interpolateOverride = ms.conf.TeleopInterpolateOverride
-	}
-
-	var wg sync.WaitGroup
-	errs := make([]error, len(jobs))
-	for i, job := range jobs {
-		// Apply EMA smoothing to joint positions before sending (executor goroutine only).
-		smoothed := make([][]referenceframe.Input, len(job.steps))
-		prev := tp.commandedJoints[job.name]
-		for k, step := range job.steps {
-			smoothed[k] = emaSmooth(step, prev, smoothAlpha)
-			prev = smoothed[k]
-		}
-		tp.commandedJoints[job.name] = prev
-
-		wg.Add(1)
-		go func(i int, job unaryJob, smoothed [][]referenceframe.Input) {
-			defer wg.Done()
-			var err error
-			if armComp, ok := job.ie.(arm.Arm); ok {
-				if interpolateOverride {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
-						"waitAtEnd":   true,
-						"interpolate": true,
-					})
-				} else {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
-						"waitAtEnd":   false,
-						"interpolate": false,
-					})
-				}
-			} else {
-				err = job.ie.GoToInputs(ctx, smoothed...)
-			}
 			if err != nil {
-				if actuator, ok := job.ie.(inputEnabledActuator); ok {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("teleop stream for %q: %w", name, err))
+				mu.Unlock()
+			} else if sent {
+				tp.commandedJoints[name] = steps[len(steps)-1]
+			}
+			continue
+		}
+
+		tp.commandedJoints[name] = steps[len(steps)-1]
+		wg.Add(1)
+		go func(name string, ie framesystem.InputEnabled, steps [][]referenceframe.Input) {
+			defer wg.Done()
+			if err := ie.GoToInputs(ctx, steps...); err != nil {
+				if actuator, ok := ie.(inputEnabledActuator); ok {
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
-				errs[i] = err
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("teleop move for %q: %w", name, err))
+				mu.Unlock()
 			}
-		}(i, job, smoothed)
+		}(name, ie, steps)
 	}
 	wg.Wait()
-
-	var out []error
-	for _, err := range errs {
-		if err != nil {
-			out = append(out, err)
-		}
-	}
-	return out
+	return errors.Join(errs...)
 }
 
 // executeStreamed pushes one arm's planned steps into its stream as joint targets, opening or
 // reopening the stream first if needed. It returns sent=false with a nil error when the
 // trajectory was deliberately not sent: the stream is already too far ahead of the arm, or the
-// pipeline is stopping. It returns errTeleopStreamFallback once streaming has been
-// given up for this arm, so the caller can use the unary path for it instead.
+// pipeline is stopping. Once the arm's stream has died it returns the stream's error for this
+// and every later trajectory.
 func (tp *teleopPipeline) executeStreamed(
 	ctx context.Context,
 	name string,
@@ -735,20 +624,18 @@ func (tp *teleopPipeline) executeStreamed(
 
 	comp.mu.Lock()
 	defer comp.mu.Unlock()
-	if comp.streamFallbackUnary {
-		return false, errTeleopStreamFallback
+
+	if comp.failed != nil {
+		return false, comp.failed
 	}
 
 	s := comp.stream
 	if s != nil && s.isDone() {
-		// The stream died since the last cycle (arm fault, Stop from elsewhere, transport error).
-		// Run has already stopped the arm; decide whether to reopen or give up.
+		// The stream died since the last cycle (arm fault, Stop from elsewhere, transport error,
+		// an arm or build without streaming support). Run has already stopped the arm.
 		comp.stream = nil
-		tp.noteStreamFailure(ctx, comp, s)
-		if comp.streamFallbackUnary {
-			return false, errTeleopStreamFallback
-		}
-		s = nil
+		comp.failed = s.closedErr()
+		return false, comp.failed
 	}
 	if s == nil {
 		var err error
@@ -773,13 +660,9 @@ func (tp *teleopPipeline) executeStreamed(
 	for _, step := range steps {
 		if err := s.push(ctx, step); err != nil {
 			if errors.Is(err, errTeleopStreamClosed) && s.isDone() {
-				// Run died while we were pushing. Record it now so the next cycle reopens (or
-				// falls back) immediately rather than discovering the dead stream a cycle late.
+				// Run died while we were pushing.
 				comp.stream = nil
-				tp.noteStreamFailure(ctx, comp, s)
-				if comp.streamFallbackUnary {
-					return false, errTeleopStreamFallback
-				}
+				comp.failed = err
 			}
 			return false, err
 		}
@@ -843,38 +726,7 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 	return s, nil
 }
 
-// noteStreamFailure records that comp's stream s has died and decides whether streaming should
-// be retried for this arm or abandoned for the rest of the session. Caller holds comp.mu.
-func (tp *teleopPipeline) noteStreamFailure(ctx context.Context, comp *teleopArmState, s *teleopArmStream) {
-	err := s.err
-	comp.streamRestarts++
-	if time.Since(s.started) >= teleopStreamHealthyAfter {
-		comp.streamFails = 0
-	}
-	comp.streamFails++
-
-	var reason string
-	switch {
-	case status.Code(err) == codes.Unimplemented:
-		reason = "arm does not implement MoveThroughJointPositionsStreamed"
-	case s.pushed.Load() == 0:
-		// Dying before accepting a single target means streaming cannot start at all here
-		// (e.g. a build without trajex), not that the arm hit a transient fault.
-		reason = fmt.Sprintf("stream ended before accepting any target: %v", err)
-	case comp.streamFails >= teleopStreamMaxConsecutiveFails:
-		reason = fmt.Sprintf("%d consecutive stream failures, last: %v", comp.streamFails, err)
-	}
-	if reason != "" {
-		comp.streamFallbackUnary = true
-		comp.streamFallbackReason = reason
-		tp.logger.CWarnf(ctx, "teleop executor: giving up on streaming to %q, using unary moves: %s", comp.name, reason)
-		return
-	}
-	tp.logger.CWarnf(ctx, "teleop executor: arm stream for %q died (%d consecutive), will reopen: %v",
-		comp.name, comp.streamFails, err)
-}
-
-// armState returns the streamed-executor state for the named arm, creating it on first use. It
+// armState returns the stream state for the named arm, creating it on first use. It
 // returns nil once the pipeline is stopping.
 func (tp *teleopPipeline) armState(name string) *teleopArmState {
 	tp.armsMu.Lock()
@@ -976,8 +828,8 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 				tp.resetPlanningHead(ctx, ms)
 			} else {
 				tp.lastErr.Store(nil)
-				// Update planning head to what was actually commanded (EMA output or last
-				// pushed target) so the next plan starts from reality.
+				// Update planning head to what was actually commanded so the next plan starts
+				// from reality.
 				tp.planningHeadMu.Lock()
 				for name, joints := range tp.commandedJoints {
 					tp.planningHead[name] = joints
@@ -1061,20 +913,18 @@ func (tp *teleopPipeline) closeArmStreams() {
 	}
 }
 
-// streamStatus reports the streamed executor's per-arm state for teleop_status.
+// streamStatus reports each arm's stream state for teleop_status.
 func (tp *teleopPipeline) streamStatus() map[string]any {
 	comps := tp.armStates()
 	streams := make(map[string]any, len(comps))
 	for _, comp := range comps {
 		comp.mu.Lock()
 		info := map[string]any{
-			"open":           comp.stream != nil && !comp.stream.isDone(),
-			"restarts":       comp.streamRestarts,
-			"skipped":        comp.streamSkipped,
-			"fallback_unary": comp.streamFallbackUnary,
+			"open":    comp.stream != nil && !comp.stream.isDone(),
+			"skipped": comp.streamSkipped,
 		}
-		if comp.streamFallbackReason != "" {
-			info["fallback_reason"] = comp.streamFallbackReason
+		if comp.failed != nil {
+			info["error"] = comp.failed.Error()
 		}
 		if s := comp.stream; s != nil {
 			info["trajex_runway_ms"] = float64(s.trajexRunway().Microseconds()) / 1e3
@@ -1113,11 +963,9 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			return err
 		}
 
-		streamed := true
 		var streamConf TeleopStreamConfig
 		diagDir := ""
 		if ms.conf != nil {
-			streamed = ms.conf.TeleopExecutor != TeleopExecutorUnary
 			streamConf = ms.conf.TeleopStream
 			diagDir = ms.conf.StreamDiagnosticsFilePath
 		}
@@ -1136,7 +984,6 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			logger:           ms.logger.Sublogger("teleop"),
 			cachedFrameSys:   frameSys,
 			cachedBaseInputs: fsInputs,
-			streamed:         streamed,
 			streamOpts:       streamOpts,
 			diagDir:          diagDir,
 			maxLead:          streamConf.maxLead(),
@@ -1343,13 +1190,8 @@ func (ms *builtIn) handleTeleopCommand(
 			}, true, nil
 		}
 
-		executor := TeleopExecutorUnary
-		if tp.streamed {
-			executor = TeleopExecutorStreamed
-		}
 		status := map[string]any{
 			"running":           true,
-			"executor":          executor,
 			"last_inputs_ms":    float64(tp.lastInputsNanos.Load()) / 1e6,
 			"last_plan_ms":      float64(tp.lastPlanNanos.Load()) / 1e6,
 			"last_exec_ms":      float64(tp.lastExecNanos.Load()) / 1e6,
@@ -1368,9 +1210,7 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 		tp.componentsMu.RUnlock()
 		status["components"] = compNames
-		if tp.streamed {
-			status["streams"] = tp.streamStatus()
-		}
+		status["streams"] = tp.streamStatus()
 
 		resp[DoTeleopStatus] = status
 		return resp, true, nil

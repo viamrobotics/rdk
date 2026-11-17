@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -200,7 +201,7 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
-func TestTeleopStreamedExecutor(t *testing.T) {
+func TestTeleopArmStream(t *testing.T) {
 	ms, a, teardown := setupTeleopTest(t)
 	defer teardown()
 	ctx := context.Background()
@@ -218,7 +219,6 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	pose := teleopStart(t, ms)
 	st := teleopStatus(t, ms)
 	test.That(t, st["running"], test.ShouldBeTrue)
-	test.That(t, st["executor"], test.ShouldEqual, TeleopExecutorStreamed)
 
 	teleopMove(t, ms, offsetPose(pose, 5), 1)
 	waitFor(t, "first target to reach the arm stream", func() bool {
@@ -236,9 +236,9 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	info := armStreamStatus(t, ms)
 	test.That(t, info, test.ShouldNotBeNil)
 	test.That(t, info["open"], test.ShouldBeTrue)
-	test.That(t, info["fallback_unary"], test.ShouldBeFalse)
+	test.That(t, info["error"], test.ShouldBeNil)
 
-	// The streamed path never calls the arm's unary move, so the fake arm has not been teleported.
+	// Teleop only reaches the arm through its stream, so the fake arm has not been teleported.
 	after, err := a.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, after, test.ShouldResemble, initial)
@@ -260,7 +260,7 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	})
 }
 
-func TestTeleopStreamedFallsBackToUnary(t *testing.T) {
+func TestTeleopStreamFailureIsReported(t *testing.T) {
 	ms, a, teardown := setupTeleopTest(t)
 	defer teardown()
 	ctx := context.Background()
@@ -273,57 +273,46 @@ func TestTeleopStreamedFallsBackToUnary(t *testing.T) {
 
 	pose := teleopStart(t, ms)
 
-	// Keep nudging the goal until the executor has seen the stream die and given up on it.
+	// Keep nudging the goal until the executor has seen the stream die.
 	seq := 0
-	waitFor(t, "executor to fall back to unary moves", func() bool {
+	waitFor(t, "executor to report the dead stream", func() bool {
 		seq++
 		teleopMove(t, ms, offsetPose(pose, float64(seq)), seq)
 		info := armStreamStatus(t, ms)
-		return info != nil && info["fallback_unary"] == true
+		return info != nil && info["error"] != nil
 	})
 	info := armStreamStatus(t, ms)
-	test.That(t, info["fallback_reason"], test.ShouldContainSubstring, "does not implement")
+	test.That(t, info["error"], test.ShouldContainSubstring, "no streaming here")
 	test.That(t, info["open"], test.ShouldBeFalse)
-	test.That(t, fake.snapshot().runs, test.ShouldEqual, 1)
 
-	// From here on the unary path drives the arm; the fake arm teleports, so its joints change.
-	execsAtFallback := teleopStatus(t, ms)["exec_count"].(int64)
-	waitFor(t, "a unary move to run after fallback", func() bool {
+	// The failure stays reported, and the stream is not reopened on later trajectories.
+	plansAtFailure := teleopStatus(t, ms)["plan_count"].(int64)
+	waitFor(t, "more plans after the failure", func() bool {
 		seq++
 		teleopMove(t, ms, offsetPose(pose, float64(seq)), seq)
-		return teleopStatus(t, ms)["exec_count"].(int64) > execsAtFallback
+		return teleopStatus(t, ms)["plan_count"].(int64) > plansAtFailure+3
 	})
-	waitFor(t, "arm to have moved via unary path", func() bool {
-		after, err := a.JointPositions(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		return referenceframe.InputsL2Distance(after, initial) > 0
+	waitFor(t, "pipeline to report the stream error", func() bool {
+		seq++
+		teleopMove(t, ms, offsetPose(pose, float64(seq)), seq)
+		pipelineErr, _ := teleopStatus(t, ms)["error"].(string)
+		return strings.Contains(pipelineErr, "no streaming here")
 	})
+	test.That(t, fake.snapshot().runs, test.ShouldEqual, 1)
+
+	// Nothing else moves the arm: there is no other path to it.
+	after, err := a.JointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, after, test.ShouldResemble, initial)
 
 	teleopStop(t, ms)
-}
 
-func TestTeleopUnaryExecutorConfig(t *testing.T) {
-	ms, _, teardown := setupTeleopTest(t)
-	defer teardown()
-
-	fake := &fakeTeleopArmStreamRunner{}
-	ms.teleopRunArmStream = fake.run
-	ms.mu.Lock()
-	ms.conf.TeleopExecutor = TeleopExecutorUnary
-	ms.mu.Unlock()
-
-	pose := teleopStart(t, ms)
-	st := teleopStatus(t, ms)
-	test.That(t, st["executor"], test.ShouldEqual, TeleopExecutorUnary)
-	_, hasStreams := st["streams"]
-	test.That(t, hasStreams, test.ShouldBeFalse)
-
-	teleopMove(t, ms, offsetPose(pose, 5), 1)
-	waitFor(t, "a unary execution", func() bool {
-		return teleopStatus(t, ms)["exec_count"].(int64) > 0
+	// A new session starts clean and opens a stream again.
+	teleopStart(t, ms)
+	teleopMove(t, ms, offsetPose(pose, 50), 1)
+	waitFor(t, "a new session to open a stream", func() bool {
+		return fake.snapshot().runs == 2
 	})
-	test.That(t, fake.snapshot().runs, test.ShouldEqual, 0)
-
 	teleopStop(t, ms)
 }
 
@@ -333,9 +322,6 @@ func TestTeleopConfigValidate(t *testing.T) {
 		return err
 	}
 	test.That(t, valid(Config{}), test.ShouldBeNil)
-	test.That(t, valid(Config{TeleopExecutor: TeleopExecutorStreamed}), test.ShouldBeNil)
-	test.That(t, valid(Config{TeleopExecutor: TeleopExecutorUnary}), test.ShouldBeNil)
-	test.That(t, valid(Config{TeleopExecutor: "sideways"}), test.ShouldNotBeNil)
 
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{MaxTrajexLeadMs: -1}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{ArmSideTargetRunwayMs: 10, SendToArmIntervalMs: 10}}), test.ShouldNotBeNil)
