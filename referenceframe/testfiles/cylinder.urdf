@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<robot name="cylinder_bot">
+
+  <link name="cylinder_link">
+    <collision>
+      <origin xyz="0.1 0 0.3" rpy="0 1.5707963267948966 0"/>
+      <geometry>
+        <cylinder radius="0.05" length="0.4"/>
+      </geometry>
+    </collision>
+  </link>
+</robot>

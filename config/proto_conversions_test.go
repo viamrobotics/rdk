@@ -1416,3 +1416,30 @@ func TestFrameConfigToProtoRefusesSeveralGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "carries one")
 }
+
+func TestFrameConfigProtoRoundTripCylinder(t *testing.T) {
+	open := false
+	for _, geometry := range []*spatial.GeometryConfig{
+		{Type: spatial.CylinderType, R: 25, L: 80, Label: "solid"},
+		{Type: spatial.CylinderType, R: 25, L: 80, Capped: &open, Label: "open"},
+	} {
+		t.Run(geometry.Label, func(t *testing.T) {
+			in := referenceframe.LinkConfig{
+				Parent:      "world",
+				Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+				Geometry:    geometry,
+			}
+			proto, err := FrameConfigToProto(in)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, proto.GetGeometry().GetCylinder(), test.ShouldNotBeNil)
+
+			out, err := FrameConfigFromProto(proto)
+			test.That(t, err, test.ShouldBeNil)
+			want, err := geometry.ParseConfig()
+			test.That(t, err, test.ShouldBeNil)
+			got, err := out.Geometry.ParseConfig()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, spatial.GeometriesAlmostEqual(want, got), test.ShouldBeTrue)
+		})
+	}
+}

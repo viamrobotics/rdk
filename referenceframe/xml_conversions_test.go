@@ -22,6 +22,13 @@ func TestGeometrySerialization(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 3.3, "")
 	test.That(t, err, test.ShouldBeNil)
+	cylinder, err := spatialmath.NewCylinder(
+		spatialmath.NewPose(r3.Vector{X: -4, Y: 7, Z: 1}, &spatialmath.OrientationVectorDegrees{OX: 1, OZ: 1, Theta: 15}),
+		12.5,
+		40,
+		"",
+	)
+	test.That(t, err, test.ShouldBeNil)
 
 	testCases := []struct {
 		name string
@@ -29,6 +36,7 @@ func TestGeometrySerialization(t *testing.T) {
 	}{
 		{"box", box},
 		{"sphere", sphere},
+		{"cylinder", cylinder},
 	}
 
 	for _, tc := range testCases {
@@ -44,6 +52,14 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(tc.g, g2), test.ShouldBeTrue)
 		})
 	}
+}
+
+func TestOpenCylinderSerializationFails(t *testing.T) {
+	open, err := spatialmath.NewCylinderWithCapped(spatialmath.NewZeroPose(), 10, 20, false, "")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newCollision(open)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "open (uncapped) cylinders")
 }
 
 func TestCapsuleSerialization(t *testing.T) {
