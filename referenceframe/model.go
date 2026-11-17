@@ -23,8 +23,8 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfigJSON
-	// Chain is the path from the model's base to one of its frames. See SimpleModel.Chain.
-	Chain(outputFrame string) ([]ChainFrame, error)
+	// Chain is the path from the model's base to the frame Transform reports. See SimpleModel.Chain.
+	Chain() ([]ChainFrame, error)
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it. The typed
@@ -215,7 +215,7 @@ type SimpleModel struct {
 	inputSchema        *LinearInputsSchema // canonical flat-input <-> per-frame mapping
 	modelConfig        *ModelConfigJSON
 
-	// transformChain is Chain("") computed once, so Transform iterates a slice rather than walking
+	// transformChain is Chain() computed once, so Transform iterates a slice rather than walking
 	// the tree per call.
 	transformChain []ChainFrame
 
@@ -341,7 +341,7 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	m.inputSchema = schema
 	m.limits = schema.GetLimits()
 
-	chain, err := m.Chain("")
+	chain, err := m.Chain()
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func NewModelWithMimics(name string, fs *FrameSystem, primaryOutputFrame string,
 		}
 	}
 
-	chain, err := m.Chain("")
+	chain, err := m.Chain()
 	if err != nil {
 		return nil, err
 	}

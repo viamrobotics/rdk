@@ -55,7 +55,7 @@ func assertChainFrames(t *testing.T, chain []ChainFrame) {
 
 func assertChainMatchesTransform(t *testing.T, m Model, seed int64) {
 	t.Helper()
-	chain, err := m.Chain("")
+	chain, err := m.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chain, test.ShouldNotBeEmpty)
 	assertChainFrames(t, chain)
@@ -88,39 +88,20 @@ func TestChainMatchesTransformForShippedModels(t *testing.T) {
 	}
 }
 
-// The gripper's tcp hangs off its base, so neither finger joint is on the model's chain, while a
-// chain to a finger carries its joint, the mimic one with a source instead of an offset.
+// The gripper's tcp hangs off its base, so neither finger joint is on its chain, while the serial
+// model's mimic joint comes with a source instead of an offset.
 func TestChainOffsetsShowBranchesAndMimics(t *testing.T) {
 	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(gripper.DoF()), test.ShouldEqual, 1)
 
-	tcp, err := gripper.Chain("")
+	tcp, err := gripper.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chainNames(tcp), test.ShouldResemble, []string{"base", "tcp"})
 
-	left, err := gripper.Chain("left_finger")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, chainNames(left), test.ShouldResemble, []string{"base", "left_joint", "left_finger"})
-	test.That(t, left[1].Offset, test.ShouldEqual, 0)
-	test.That(t, left[1].Mimic, test.ShouldBeNil)
-	_, prismatic := left[1].Frame.(PrismaticFrame)
-	test.That(t, prismatic, test.ShouldBeTrue)
-
-	right, err := gripper.Chain("right_finger")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, chainNames(right), test.ShouldResemble, []string{"base", "right_joint", "right_finger"})
-	test.That(t, right[1].Offset, test.ShouldEqual, -1)
-	test.That(t, right[1].Mimic, test.ShouldResemble, &MimicInput{Source: 0, ValueMultiplier: 1})
-
-	open := []Input{0.02}
-	leftPose := composeChain(t, left, open)
-	rightPose := composeChain(t, right, open)
-	test.That(t, leftPose.Point().Norm(), test.ShouldAlmostEqual, rightPose.Point().Norm(), 1e-9)
-
 	serial, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	chain, err := serial.Chain("")
+	chain, err := serial.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chainNames(chain), test.ShouldResemble, []string{"link0", "joint1", "link1", "joint2", "link2", "joint3", "link3"})
 	test.That(t, chain[1].Offset, test.ShouldEqual, 0)
@@ -156,7 +137,7 @@ func TestChainExpandsNestedModels(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(composed.DoF()), test.ShouldEqual, 7)
 
-	chain, err := composed.Chain("")
+	chain, err := composed.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	assertChainFrames(t, chain)
 	var revolute, offsets []int
@@ -172,28 +153,6 @@ func TestChainExpandsNestedModels(t *testing.T) {
 	test.That(t, chainNames(chain)[len(chain)-1], test.ShouldEqual, "probe")
 
 	assertChainMatchesTransform(t, composed, 7)
-
-	finger, err := composed.Chain("hand:right_finger")
-	test.That(t, err, test.ShouldBeNil)
-	assertChainFrames(t, finger)
-	test.That(t, chainNames(finger)[len(finger)-3:], test.ShouldResemble, []string{"base", "right_joint", "right_finger"})
-	test.That(t, finger[len(finger)-2].Mimic, test.ShouldResemble, &MimicInput{Source: 6, ValueMultiplier: 1})
-	leftFinger, err := composed.Chain("hand:left_finger")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, leftFinger[len(leftFinger)-2].Offset, test.ShouldEqual, 6)
-
-	// the frame system is the only other forward kinematics for a frame inside a part
-	rng := rand.New(rand.NewSource(11))
-	for range 10 {
-		inputs := RandomFrameInputs(composed, rng)
-		li := NewLinearInputs()
-		li.Put("arm", inputs[:6])
-		li.Put("hand", inputs[6:])
-		want, err := fs.Transform(li, NewPoseInFrame("hand:right_finger", spatial.NewZeroPose()), World)
-		test.That(t, err, test.ShouldBeNil)
-		got := composeChain(t, finger, inputs)
-		test.That(t, spatial.PoseAlmostEqualEps(got, want.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
-	}
 }
 
 // A renamed frame hides the axis methods, which is why Chain unwraps it.
@@ -227,7 +186,7 @@ func TestAxisInterfaces(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	model, err := NewSerialModel("built", []Frame{renamed, static})
 	test.That(t, err, test.ShouldBeNil)
-	chain, err := model.Chain("")
+	chain, err := model.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chainNames(chain), test.ShouldResemble, []string{"rot", "static"})
 	_, ok = chain[0].Frame.(RevoluteFrame)
@@ -235,19 +194,11 @@ func TestAxisInterfaces(t *testing.T) {
 	assertChainMatchesTransform(t, model, 3)
 }
 
-func TestChainRefusesAFrameTheModelLacks(t *testing.T) {
-	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	_, err = arm.Chain("nope")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "nope")
-}
-
 // A gripper without geometry is a model with no frames, and a part with such a model composes
 // like any other.
 func TestChainOfNothingIsEmpty(t *testing.T) {
 	empty := NewSimpleModel("empty")
-	chain, err := empty.Chain("")
+	chain, err := empty.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chain, test.ShouldBeEmpty)
 	pose, err := empty.Transform(nil)
@@ -256,9 +207,6 @@ func TestChainOfNothingIsEmpty(t *testing.T) {
 
 	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	chain, err = arm.Chain(World)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, chain, test.ShouldBeEmpty)
 
 	parts := []*FrameSystemPart{
 		{FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), "arm", nil), ModelFrame: arm},
@@ -271,9 +219,6 @@ func TestChainOfNothingIsEmpty(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(composed.DoF()), test.ShouldEqual, 6)
 	assertChainMatchesTransform(t, composed, 13)
-	toHand, err := composed.Chain("hand")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, chainNames(toHand)[len(toHand)-1], test.ShouldEqual, "hand_origin")
 }
 
 // The frame system flattens a part nested in a part under two prefixes.
@@ -298,16 +243,12 @@ func TestChainReachesAModelInsideAModelInsideAModel(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
 
-	chain, err := model.Chain("")
+	chain, err := model.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	assertChainFrames(t, chain)
 	test.That(t, chainNames(chain), test.ShouldResemble, []string{"wrist", "base", "right_joint", "right_finger", "probe"})
 	test.That(t, chain[0].Offset, test.ShouldEqual, 0)
 	test.That(t, chain[2].Mimic, test.ShouldResemble, &MimicInput{Source: 1, ValueMultiplier: 1})
-	left, err := model.Chain("tool:grip:left_finger")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, chainNames(left), test.ShouldResemble, []string{"wrist", "base", "left_joint", "left_finger"})
-	test.That(t, left[2].Offset, test.ShouldEqual, 1)
 
 	for _, q := range [][]Input{{0, 0}, {0.5, 0.02}, {-1, 0.01}} {
 		want, err := wrist.Transform(q[:1])
@@ -364,7 +305,7 @@ func TestChainCarriesAFrameWithSeveralInputs(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	model, err := NewSerialModel("free", []Frame{free, tip})
 	test.That(t, err, test.ShouldBeNil)
-	chain, err := model.Chain("")
+	chain, err := model.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chainNames(chain), test.ShouldResemble, []string{"free", "tip"})
 	test.That(t, len(chain[0].Frame.DoF()), test.ShouldEqual, 7)
