@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -30,6 +29,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
 func setupMotionServiceFromConfig(t *testing.T, configFilename string) (motion.Service, func()) {
@@ -286,25 +286,18 @@ func TestDoCommand(t *testing.T) {
 		ms, teardown := setupMotionServiceFromConfig(t, "../data/moving_arm.json")
 		defer teardown()
 
-		// format the command to send DoCommand
-		proto, err := moveReq.ToProto(ms.Name().Name)
-		test.That(t, err, test.ShouldBeNil)
-		bytes, err := protojson.Marshal(proto)
-		test.That(t, err, test.ShouldBeNil)
-		cmd := map[string]interface{}{DoPlan: string(bytes)}
+		wire := injectmotion.NewMotionService(ms.Name().ShortName())
+		wire.Service = ms
+		wire.DoCommandFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+			return doOverWire(ms, cmd)
+		}
 
-		// simulate going over the wire
-		respMap, err := doOverWire(ms, cmd)
+		result, err := motion.Plan(ctx, wire, moveReq)
 		if err != nil {
 			return nil, err
 		}
-		resp, ok := respMap[DoPlan]
-		test.That(t, ok, test.ShouldBeTrue)
-
-		// the client will need to decode the response still
-		var trajectory motionplan.Trajectory
-		err = mapstructure.Decode(resp, &trajectory)
-		return trajectory, err
+		test.That(t, result.PartialWaypoint, test.ShouldBeNil)
+		return result.Trajectory, nil
 	}
 
 	t.Run("DoPlan", func(t *testing.T) {

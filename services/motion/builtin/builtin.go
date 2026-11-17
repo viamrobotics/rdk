@@ -56,9 +56,9 @@ func init() {
 
 // export keys to be used with DoCommand so they can be referenced by clients.
 const (
-	DoPlan              = "plan"
-	DoExecute           = "execute"
-	DoExecuteCheckStart = "executeCheckStart"
+	DoPlan              = motion.DoPlan
+	DoExecute           = motion.DoExecute
+	DoExecuteCheckStart = motion.DoExecuteCheckStart
 
 	DoTeleopStart  = "teleop_start"
 	DoTeleopMove   = "teleop_move"
@@ -400,7 +400,8 @@ func (ms *builtIn) PlanHistory(
 //   - DoPlan generates and returns a Trajectory for a given motionpb.MoveRequest without executing it
 //     required key: DoPlan
 //     input value: a motionpb.MoveRequest which will be used to create a Trajectory
-//     output value: a motionplan.Trajectory specified as a map (the mapstructure.Decode function is useful for decoding this)
+//     output value: a motionplan.Trajectory, plus motion.DoPlanPartialWaypoint if the plan is partial.
+//     Use motion.Plan (or motion.EncodePlanCommand / motion.DecodePlanResponse) rather than building this by hand.
 //
 //   - DoExecute takes a Trajectory and executes it
 //     required key: DoExecute
@@ -479,7 +480,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 				// Extract just the number
 				waypointNum, err := strconv.Atoi(strings.Split(strings.TrimSpace(waypointStr), " ")[0])
 				if err == nil {
-					resp[DoPlan+"_partialwp"] = waypointNum
+					resp[motion.DoPlanPartialWaypoint] = waypointNum
 				} else {
 					obsLogger.CWarnf(ctx, "error parsing log string: %s", logMsg)
 					obsLogger.CWarn(ctx, err)
