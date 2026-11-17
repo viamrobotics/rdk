@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/motion/builtin/streaming"
@@ -175,7 +176,26 @@ func (ms *builtIn) writeStreamDiagnostics(
 	metadataTags []string,
 	sessionErr error,
 ) error {
-	if ms.conf == nil || ms.conf.StreamDiagnosticsFilePath == "" {
+	if ms.conf == nil {
+		return nil
+	}
+	dir := ms.conf.StreamDiagnosticsFilePath
+	return writeStreamDiagnosticsFile(ms.logger, dir, "arm-stream-diagnostics", armName, opts, diag, start, metadataTags, sessionErr)
+}
+
+// writeStreamDiagnosticsFile writes one stream's diagnostics as JSON under dir, in a
+// subdirectory named by tag=<typeTag>, tag=<armName> and metadataTags. It does nothing if dir
+// is empty.
+func writeStreamDiagnosticsFile(
+	logger logging.Logger,
+	dir, typeTag, armName string,
+	opts streaming.StreamOptions,
+	diag *diagnostics.SingleSessionDiagnostics,
+	start time.Time,
+	metadataTags []string,
+	sessionErr error,
+) error {
+	if dir == "" {
 		return nil
 	}
 
@@ -188,7 +208,7 @@ func (ms *builtIn) writeStreamDiagnostics(
 		Stats:             diag.Stats(),
 		LastWindowDetails: diag.LastWindowDetails(),
 	}
-	typeTag := "tag=arm-stream-diagnostics"
+	typeTag = "tag=" + typeTag
 	errSuffix := ""
 	if sessionErr != nil {
 		doc.Error = sessionErr.Error()
@@ -200,15 +220,15 @@ func (ms *builtIn) writeStreamDiagnostics(
 		return err
 	}
 
-	dirParts := append([]string{ms.conf.StreamDiagnosticsFilePath, typeTag, "tag=" + armName}, metadataTags...)
-	dir := filepath.Join(dirParts...)
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	dirParts := append([]string{dir, typeTag, "tag=" + armName}, metadataTags...)
+	outDir := filepath.Join(dirParts...)
+	if err := os.MkdirAll(outDir, 0o700); err != nil {
 		return err
 	}
-	fn := filepath.Join(dir, fmt.Sprintf("stream-diagnostics-%s-%s-ms-%d%s.json",
+	fn := filepath.Join(outDir, fmt.Sprintf("stream-diagnostics-%s-%s-ms-%d%s.json",
 		armName, end.Format(time.RFC3339), end.Sub(start).Milliseconds(), errSuffix))
 
-	ms.logger.Infof("writing arm streaming diagnostics to %s", fn)
+	logger.Infof("writing arm streaming diagnostics to %s", fn)
 	return os.WriteFile(fn, bytes, 0o600)
 }
 

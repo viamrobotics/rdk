@@ -17,6 +17,8 @@ type SingleSessionDiagnostics struct {
 
 	details singleSessionLastWindowDetails
 	stats   singleSessionStats
+
+	latestTrajexRunway time.Duration
 }
 
 // New returns empty diagnostics retaining the given window of detail.
@@ -60,7 +62,16 @@ func (t *SingleSessionDiagnostics) RecordTrajexRunway(runway time.Duration) {
 	ms := float64(runway.Microseconds()) / 1000.0
 	t.details.recordTrajexRunway(ms)
 	t.stats.recordTrajexRunway(ms)
+	t.latestTrajexRunway = runway
 	t.mu.Unlock()
+}
+
+// LatestTrajexRunway returns the most recent reading passed to RecordTrajexRunway, or zero if
+// there has been none. Unlike LastWindowDetails it does not depend on the retained window.
+func (t *SingleSessionDiagnostics) LatestTrajexRunway() time.Duration {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.latestTrajexRunway
 }
 
 // RecordTrajexSessionOpenEvent records the trajex session opening.
