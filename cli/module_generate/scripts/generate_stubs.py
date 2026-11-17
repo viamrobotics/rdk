@@ -100,7 +100,9 @@ def is_abstractmethod_decorator(decorator: ast.AST) -> bool:
 def is_abstract_method(node: ast.AST) -> bool:
     if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
         return False
-    return any(is_abstractmethod_decorator(decorator) for decorator in node.decorator_list)
+    return any(
+        is_abstractmethod_decorator(decorator) for decorator in node.decorator_list
+    )
 
 
 def is_abstract_class(cls: ast.ClassDef) -> bool:
@@ -199,9 +201,7 @@ def resource_import_line(
     resource_type: str, resource_subtype: str, resource_name: str
 ) -> str:
     """Named import of the base class. A star import leaves ``Generic`` unbound once removed."""
-    return (
-        f"from viam.{resource_type}s.{resource_subtype} import {resource_name}"
-    )
+    return f"from viam.{resource_type}s.{resource_subtype} import {resource_name}"
 
 
 def with_resource_import(
@@ -437,9 +437,7 @@ def names_bound_by_import(line: str) -> Set[str]:
     return bound
 
 
-def same_file_stub(
-    source: str, resource_name: str, module_name: str
-) -> tuple:
+def same_file_stub(source: str, resource_name: str, module_name: str) -> tuple:
     """Imports, nested classes, and methods copied from one SDK module file.
 
     A class attribute such as ``AudioIn.AudioStream`` is qualified. A name
@@ -515,9 +513,7 @@ def same_file_stub(
     for line in imports:
         bound |= names_bound_by_import(line)
     missing = sorted(
-        name
-        for name in referenced
-        if name in module_types and name not in bound
+        name for name in referenced if name in module_types and name not in bound
     )
     if missing:
         imports.append(f"from {module_name} import {', '.join(missing)}")
@@ -627,7 +623,9 @@ def main(
     subclasses_text = "\n\n".join([subclass for subclass in subclasses])
     methods_text = "\n\n".join([f"{method}" for method in abstract_methods])
     if slots:
-        imports_text = f"/*inline-slot:imports*/\n{imports_text}\n/*inline-slot:imports-end*/"
+        imports_text = (
+            f"/*inline-slot:imports*/\n{imports_text}\n/*inline-slot:imports-end*/"
+        )
         subclasses_text = f"/*inline-slot:methods*/\n{subclasses_text}"
         methods_text = f"{methods_text}\n/*inline-slot:methods-end*/"
     # package, not the resource subtype: world_state_store lives in worldstatestore.
@@ -669,7 +667,15 @@ def main(
                 ]
             )
             subprocess.check_call(
-                [sys.executable, "-m", "ruff", "format", "--isolated", "--quiet", f_name]
+                [
+                    sys.executable,
+                    "-m",
+                    "ruff",
+                    "format",
+                    "--isolated",
+                    "--quiet",
+                    f_name,
+                ]
             )
             with open(f_name, "r") as f:
                 resource_file = f.read()
@@ -839,9 +845,7 @@ class Vision:
     input_imports, _, input_methods = same_file_stub(
         source, "Controller", "viam.components.input.input"
     )
-    input_import = (
-        "from viam.components.input.input import Control, ControlFunction, Event, EventType"
-    )
+    input_import = "from viam.components.input.input import Control, ControlFunction, Event, EventType"
     if input_import not in input_imports:
         raise SystemExit(f"input imports: {input_imports}")
     input_text = "\n".join(input_methods)
@@ -868,9 +872,7 @@ class Vision:
         "    def register_control_callback(\n"
         "        self, control: Control, triggers: List[EventType], function: Optional[ControlFunction]\n"
         "    ): ...\n"
-        "class Model(Controller):\n"
-        + input_text
-        + "\n",
+        "class Model(Controller):\n" + input_text + "\n",
         namespace,
     )
     namespace["Model"]()
@@ -904,6 +906,7 @@ if __name__ == "__main__":
     ]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
+        packages.append("packaging")
     install_requirements(packages)
     result = main(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     print(result, end="")
