@@ -59,12 +59,12 @@ if(NOT EXISTS ${_clang_version_header_path})
 endif()
 
 file(READ ${_clang_version_header_path}  _clang_version_header_contents)
-string(FIND "${_clang_version_header_contents}" "#define CLANG_VERSION_MAJOR 15" _version_match)
+string(FIND "${_clang_version_header_contents}" "#define CLANG_VERSION_MAJOR 16" _version_match)
 
 if (${_version_match} EQUAL -1)
     message(FATAL_ERROR "Incorrect version or no version found in clang version header ${_clang_version_header_path}
     ${_clang_version_header_contents}
-    required version is Clang 15")
+    required version is Clang 16")
 endif()
 
 message(STATUS "Clang include ${CLANG_INCLUDE_DIRS}")
@@ -81,6 +81,14 @@ target_include_directories(generator
     PUBLIC src/
 )
 
+# Distro LLVM packages pull the shared libLLVM into the clang libraries, so also linking the
+# static LLVMSupport registers every cl::opt twice and aborts at startup.
+if (LLVM_LINK_LLVM_DYLIB)
+    set(_llvm_libs LLVM)
+else()
+    set(_llvm_libs LLVMSupport)
+endif()
+
 target_link_libraries(generator PUBLIC
     clangAST
     clangASTMatchers
@@ -91,7 +99,7 @@ target_link_libraries(generator PUBLIC
     clangTooling
     clangToolingCore
     clangToolingInclusions
-    LLVMSupport
+    ${_llvm_libs}
 )
 
 target_compile_features(generator PUBLIC cxx_std_17)
