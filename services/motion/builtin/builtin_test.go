@@ -14,7 +14,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/components/arm"
 	fakearm "go.viam.com/rdk/components/arm/fake"
@@ -367,20 +366,9 @@ func TestMultiWaypointPlanning(t *testing.T) {
 	// Helper function to extract plan from Move call using DoCommand
 	getPlanFromMove := func(t *testing.T, req motion.MoveReq) motionplan.Trajectory {
 		t.Helper()
-		// Convert MoveReq to proto format for DoCommand
-		moveReqProto, err := req.ToProto("")
+		result, err := motion.Plan(ctx, ms, req)
 		test.That(t, err, test.ShouldBeNil)
-		bytes, err := protojson.Marshal(moveReqProto)
-		test.That(t, err, test.ShouldBeNil)
-
-		resp, err := ms.DoCommand(ctx, map[string]interface{}{
-			DoPlan: string(bytes),
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		plan, ok := resp[DoPlan].(motionplan.Trajectory)
-		test.That(t, ok, test.ShouldBeTrue)
-		return plan
+		return result.Trajectory
 	}
 
 	t.Run("plan through multiple pose waypoints", func(t *testing.T) {

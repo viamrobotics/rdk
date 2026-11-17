@@ -8,7 +8,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -57,11 +56,9 @@ func BenchmarkDoCommandPlan(b *testing.B) {
 			Destination:   referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{X: 0, Y: -30, Z: -50})),
 			Extra:         extra,
 		}
-		proto, err := moveReq.ToProto(svc.Name().Name)
+		cmd, err := motion.EncodePlanCommand(svc.Name().Name, moveReq)
 		test.That(b, err, test.ShouldBeNil)
-		bytes, err := protojson.Marshal(proto)
-		test.That(b, err, test.ShouldBeNil)
-		command, err := protoutils.StructToStructPb(map[string]interface{}{DoPlan: string(bytes)})
+		command, err := protoutils.StructToStructPb(cmd)
 		test.That(b, err, test.ShouldBeNil)
 
 		return command.AsMap()
