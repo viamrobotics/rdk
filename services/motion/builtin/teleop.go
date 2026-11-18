@@ -752,7 +752,11 @@ func (tp *teleopPipeline) executeStreamed(
 		comp.stream = nil
 		tp.noteStreamFailure(ctx, comp, s)
 		if comp.streamFallbackUnary {
-			return false, errTeleopStreamFallback
+			// Do not hand this trajectory to the unary path. It was planned from where the
+			// stream was heading, which can be far from where the arm stopped, and the unary
+			// path would command that gap in one step. Failing this cycle makes the executor
+			// reset the planning head to the arm's measured position first.
+			return false, fmt.Errorf("%w; later trajectories use unary moves", s.closedErr())
 		}
 		s = nil
 	}
@@ -783,9 +787,6 @@ func (tp *teleopPipeline) executeStreamed(
 				// falls back) immediately rather than discovering the dead stream a cycle late.
 				comp.stream = nil
 				tp.noteStreamFailure(ctx, comp, s)
-				if comp.streamFallbackUnary {
-					return false, errTeleopStreamFallback
-				}
 			}
 			return false, err
 		}
@@ -1013,6 +1014,11 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 	default:
 	}
 	tp.planningHeadMu.Unlock()
+
+	// What was last commanded no longer describes where anything is. The unary path smooths
+	// from these values, so a stale one would pull its first command toward the old target.
+	// Only the executor goroutine touches commandedJoints, and it is the caller.
+	clear(tp.commandedJoints)
 }
 
 // stop shuts down the pipeline: the planner and executor first, so nothing pushes to a stream
