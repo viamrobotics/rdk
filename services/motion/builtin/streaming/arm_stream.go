@@ -73,6 +73,14 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		})
 	}
 
+	// The arm ran out of trajectory before this batch: it has been idle since, so its position
+	// on the trajectory clock stopped advancing. Move the clock's origin forward by the idle
+	// time, or the estimated runway stays negative for the rest of the stream and every later
+	// top-up sends all the trajectory there is instead of a runway's worth.
+	if idle := -s.currentEstimatedRunwayInArm(); idle > 0 {
+		s.timeFirstBatchWasSent = s.timeFirstBatchWasSent.Add(idle)
+	}
+
 	sendStart := time.Now()
 	select {
 	case <-ctx.Done():
