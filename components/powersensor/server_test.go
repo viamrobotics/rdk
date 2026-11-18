@@ -25,6 +25,8 @@ var (
 	errVoltageFailed       = errors.New("can't get voltage")
 	errCurrentFailed       = errors.New("can't get current")
 	errPowerFailed         = errors.New("can't get power")
+	errBatteryFailed       = errors.New("can't get battery percent")
+	errPropertiesFailed    = errors.New("can't get properties")
 	errPowerSensorNotFound = errors.New("not found")
 	errReadingsFailed      = errors.New("can't get readings")
 	errGetStatusFailed     = errors.New("can't get status")
@@ -142,6 +144,61 @@ func TestServerGetPower(t *testing.T) {
 	// missing power sensor
 	req = &pb.GetPowerRequest{Name: missingPowerSensorName}
 	resp, err = powerSensorServer.GetPower(context.Background(), req)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errPowerSensorNotFound.Error())
+	test.That(t, resp, test.ShouldBeNil)
+}
+
+func TestServerGetBatteryPercent(t *testing.T) {
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	percent := 63.5
+
+	testPowerSensor.BatteryPercentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return percent, nil
+	}
+	req := &pb.GetBatteryPercentRequest{Name: workingPowerSensorName}
+	resp, err := powerSensorServer.GetBatteryPercent(context.Background(), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Percent, test.ShouldEqual, percent)
+
+	failingPowerSensor.BatteryPercentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, errBatteryFailed
+	}
+	req = &pb.GetBatteryPercentRequest{Name: failingPowerSensorName}
+	resp, err = powerSensorServer.GetBatteryPercent(context.Background(), req)
+	test.That(t, err, test.ShouldBeError, errBatteryFailed)
+	test.That(t, resp, test.ShouldBeNil)
+
+	req = &pb.GetBatteryPercentRequest{Name: missingPowerSensorName}
+	resp, err = powerSensorServer.GetBatteryPercent(context.Background(), req)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errPowerSensorNotFound.Error())
+	test.That(t, resp, test.ShouldBeNil)
+}
+
+func TestServerGetProperties(t *testing.T) {
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	testPowerSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*powersensor.Properties, error) {
+		return &powersensor.Properties{IsBatteryPercentSupported: true}, nil
+	}
+	req := &pb.GetPropertiesRequest{Name: workingPowerSensorName}
+	resp, err := powerSensorServer.GetProperties(context.Background(), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.IsBatteryPercentSupported, test.ShouldBeTrue)
+
+	failingPowerSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*powersensor.Properties, error) {
+		return nil, errPropertiesFailed
+	}
+	req = &pb.GetPropertiesRequest{Name: failingPowerSensorName}
+	resp, err = powerSensorServer.GetProperties(context.Background(), req)
+	test.That(t, err, test.ShouldBeError, errPropertiesFailed)
+	test.That(t, resp, test.ShouldBeNil)
+
+	req = &pb.GetPropertiesRequest{Name: missingPowerSensorName}
+	resp, err = powerSensorServer.GetProperties(context.Background(), req)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errPowerSensorNotFound.Error())
 	test.That(t, resp, test.ShouldBeNil)
