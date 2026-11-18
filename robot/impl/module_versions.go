@@ -22,7 +22,6 @@ const localVersion = "local"
 // whose data directory contains its resolved ExePath, and gets no version if none does. Local
 // modules get localVersion.
 func applyModulePackageVersions(cfg *config.Config) {
-	packagesDir := config.DefaultPackagesDir()
 	for i := range cfg.Modules {
 		mod := &cfg.Modules[i]
 		if mod.Type == config.ModuleTypeLocal {
@@ -33,20 +32,28 @@ func applyModulePackageVersions(cfg *config.Config) {
 			continue
 		}
 		mod.PackageVersion = ""
-		for j := range cfg.Packages {
-			p := &cfg.Packages[j]
-			if p.Type == config.PackageTypeModule && inDir(mod.ExePath, p.LocalDataDirectory(packagesDir)) {
-				mod.PackageVersion = p.Version
-				break
-			}
+		if pkg, ok := modulePackage(*mod, cfg.Packages); ok {
+			mod.PackageVersion = pkg.Version
 		}
 	}
 }
 
-// inDir reports whether path is inside dir. A plain prefix check would match a package whose
-// version extends another's (1.2.3 and 1.2.30).
-func inDir(path, dir string) bool {
-	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(dir)+string(filepath.Separator))
+// modulePackage returns the module package whose data directory is or contains mod's resolved
+// ExePath. App names a registry module's package differently from the module, so the ExePath's
+// ${packages.module.<name>} placeholder is the link. The separator check keeps a package whose
+// version extends another's (1.2.3 and 1.2.30) from matching.
+func modulePackage(mod config.Module, pkgs []config.PackageConfig) (config.PackageConfig, bool) {
+	exePath := filepath.Clean(mod.ExePath)
+	for _, pkg := range pkgs {
+		if pkg.Type != config.PackageTypeModule {
+			continue
+		}
+		dir := filepath.Clean(pkg.LocalDataDirectory(config.DefaultPackagesDir()))
+		if exePath == dir || strings.HasPrefix(exePath, dir+string(filepath.Separator)) {
+			return pkg, true
+		}
+	}
+	return config.PackageConfig{}, false
 }
 
 // FillAgentInfo adds the modules of the most recently applied config and whether the

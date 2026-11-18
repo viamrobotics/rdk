@@ -45,6 +45,15 @@ func TestApplyModulePackageVersions(t *testing.T) {
 		test.That(t, cfg.Modules[0].PackageVersion, test.ShouldBeEmpty)
 	})
 
+	t.Run("ExePath is matched after cleaning, including the package directory itself", func(t *testing.T) {
+		dir := pkgs[0].LocalDataDirectory(config.DefaultPackagesDir())
+		for _, p := range []string{dir, dir + "/", dir + "/./bin//run"} {
+			cfg.Modules[0].ExePath = p
+			applyModulePackageVersions(cfg)
+			test.That(t, cfg.Modules[0].PackageVersion, test.ShouldEqual, "1.2.3")
+		}
+	})
+
 	t.Run("package directory must contain the ExePath, not just prefix it", func(t *testing.T) {
 		other := config.PackageConfig{Name: "m_reg", Package: "org/reg", Version: "1.2.30", Type: config.PackageTypeModule}
 		cfg.Modules[0].ExePath = filepath.Join(other.LocalDataDirectory(config.DefaultPackagesDir()), "bin", "run")

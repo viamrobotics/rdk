@@ -2363,16 +2363,8 @@ func (r *localRobot) packageManagerForModule(
 	if mod.Type != config.ModuleTypeRegistry {
 		return packages.NewNoopManager(), ""
 	}
-	// Registry module and package names differ, so match on the package directory that the
-	// ExePath's ${packages.module.<name>} placeholder resolved to.
-	for _, pkg := range pkgs {
-		if pkg.Type != config.PackageTypeModule {
-			continue
-		}
-		dir := pkg.LocalDataDirectory(config.DefaultPackagesDir())
-		if mod.ExePath == dir || strings.HasPrefix(mod.ExePath, dir+string(filepath.Separator)) {
-			return r.packageManager, packages.PackageName(pkg.Name)
-		}
+	if pkg, ok := modulePackage(mod, pkgs); ok {
+		return r.packageManager, packages.PackageName(pkg.Name)
 	}
 	r.logger.Warnw("no package found for registry module; its package state will not be reported",
 		"module", mod.Name, "exe_path", mod.ExePath)
