@@ -1,0 +1,347 @@
+package builtin
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+	"time"
+
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/services/motion/builtin/streaming"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
+)
+
+// Defaults and tunables for the teleop chaser.
+const (
+	// defaultTeleopChaseGainPerSec is how hard the chaser closes the last of a position error:
+	// near the target, velocity is this gain times the error, so the error decays with a time
+	// constant of 1/gain.
+	defaultTeleopChaseGainPerSec = 15.0
+	// defaultTeleopChaseFeedforward is the fraction of the target's own estimated velocity added
+	// to the chaser's velocity. At 1 the chaser matches a steadily moving target with almost no
+	// lag; at 0 it trails by speed/gain.
+	defaultTeleopChaseFeedforward = 1.0
+	// teleopChaseBrakeFraction is the share of the acceleration limit the chaser plans to brake
+	// with. Keeping some in reserve lets it also follow a target that is itself decelerating.
+	teleopChaseBrakeFraction = 0.6
+	// teleopChaseAccelRampTime is how long acceleration takes to go from zero to its limit. It
+	// bounds jerk, so acceleration never steps.
+	teleopChaseAccelRampTime = 40 * time.Millisecond
+	// teleopChaseVelHeadroom is the fraction of a joint's velocity limit the chaser aims for at
+	// most, leaving room for the small overshoot of a discretely ramped acceleration.
+	teleopChaseVelHeadroom = 0.98
+	// teleopChaseTargetVelTau smooths the estimate of the target's velocity, which is a finite
+	// difference of targets that arrive at uneven intervals.
+	teleopChaseTargetVelTau = 60 * time.Millisecond
+	// teleopChaseTargetStale is how long after the last target the chaser starts treating the
+	// target as stationary and bleeds the velocity estimate off.
+	teleopChaseTargetStale = 40 * time.Millisecond
+	// teleopChaseRestVel and teleopChaseRestErr are how slow and how close, in radians, every
+	// joint must be for the chaser to count as at rest on its target.
+	teleopChaseRestVel = 1e-3
+	teleopChaseRestErr = 1e-4
+	// teleopChaseDrainTimeout bounds how long a closing stream waits for the arm to settle on
+	// its last target.
+	teleopChaseDrainTimeout = 3 * time.Second
+	// teleopChaseMaxBatch bounds how many points one batch carries when the loop has fallen
+	// behind and is catching up.
+	teleopChaseMaxBatch       = 50
+	teleopChaseStopArmTimeout = 10 * time.Second
+)
+
+// jointChaser generates joint motion that follows a moving target within per-joint velocity and
+// acceleration limits. Unlike a trajectory planner it never plans to stop at the latest target
+// while that target is moving: it matches the target's estimated velocity and closes the
+// remaining error, coming to rest only when the target does. Each joint is chased independently.
+type jointChaser struct {
+	pos, vel, acc []float64
+	velMax        []float64
+	accMax        []float64
+
+	gain        float64
+	feedforward float64
+
+	target         []float64
+	targetVel      []float64
+	sinceTarget    time.Duration
+	lastTargetTime time.Time
+	haveTarget     bool
+}
+
+func newJointChaser(start, velMax, accMax []float64, gain, feedforward float64) *jointChaser {
+	n := len(start)
+	c := &jointChaser{
+		pos:         append([]float64(nil), start...),
+		vel:         make([]float64, n),
+		acc:         make([]float64, n),
+		velMax:      velMax,
+		accMax:      accMax,
+		gain:        gain,
+		feedforward: feedforward,
+		target:      append([]float64(nil), start...),
+		targetVel:   make([]float64, n),
+	}
+	return c
+}
+
+// setTarget moves the target and updates the estimate of how fast it is moving.
+func (c *jointChaser) setTarget(target []float64, now time.Time) {
+	if c.haveTarget {
+		dt := now.Sub(c.lastTargetTime).Seconds()
+		if dt > 1e-3 {
+			blend := 1 - math.Exp(-dt/teleopChaseTargetVelTau.Seconds())
+			for i := range c.target {
+				raw := (target[i] - c.target[i]) / dt
+				v := c.targetVel[i] + blend*(raw-c.targetVel[i])
+				c.targetVel[i] = math.Max(-c.velMax[i], math.Min(c.velMax[i], v))
+			}
+		}
+	}
+	copy(c.target, target)
+	c.lastTargetTime = now
+	c.haveTarget = true
+	c.sinceTarget = 0
+}
+
+// approachVel is the speed to close a position error with: proportional to the error near the
+// target, and the fastest speed that can still brake to a stop at the target further out.
+func approachVel(err, gain, brake float64) float64 {
+	linear := brake / (gain * gain)
+	mag := math.Abs(err)
+	var v float64
+	if mag > linear {
+		v = math.Sqrt(2 * brake * (mag - linear/2))
+	} else {
+		v = gain * mag
+	}
+	return math.Copysign(v, err)
+}
+
+// step advances the chaser by dt.
+func (c *jointChaser) step(dt time.Duration) {
+	h := dt.Seconds()
+	c.sinceTarget += dt
+	if c.sinceTarget > teleopChaseTargetStale {
+		decay := math.Exp(-h / teleopChaseTargetVelTau.Seconds())
+		for i := range c.targetVel {
+			c.targetVel[i] *= decay
+		}
+	}
+	for i := range c.pos {
+		brake := teleopChaseBrakeFraction * c.accMax[i]
+		want := c.feedforward*c.targetVel[i] + approachVel(c.target[i]-c.pos[i], c.gain, brake)
+		// Aim a little under the velocity limit: acceleration ramps down in discrete steps, so
+		// velocity settles a hair past the value aimed for.
+		wantMax := teleopChaseVelHeadroom * c.velMax[i]
+		want = math.Max(-wantMax, math.Min(wantMax, want))
+
+		// Acceleration is limited three ways: by the arm's limit, by how fast it may change
+		// (jerk), and so that it can ramp back to zero by the time velocity reaches the value
+		// wanted, which keeps velocity from running past it.
+		jerk := c.accMax[i] / teleopChaseAccelRampTime.Seconds()
+		// The ramp-down happens in steps of h, so the largest acceleration that can still be
+		// ramped to zero within the remaining velocity gap is a little less than the continuous
+		// sqrt(2*jerk*gap): this is that bound with the step accounted for.
+		gap := math.Abs(want - c.vel[i])
+		accCap := math.Min(c.accMax[i], math.Sqrt(2*jerk*gap+jerk*jerk*h*h/4)-jerk*h/2)
+		acc := (want - c.vel[i]) / h
+		acc = math.Max(-accCap, math.Min(accCap, acc))
+		maxStep := jerk * h
+		acc = c.acc[i] + math.Max(-maxStep, math.Min(maxStep, acc-c.acc[i]))
+
+		vel := c.vel[i] + acc*h
+		if math.Abs(vel) > c.velMax[i] {
+			// Not expected given the headroom above, but the limit is never to be exceeded.
+			vel = math.Copysign(c.velMax[i], vel)
+			acc = (vel - c.vel[i]) / h
+		}
+		c.acc[i] = acc
+		c.vel[i] = vel
+		c.pos[i] += vel * h
+	}
+}
+
+// atRest reports whether every joint has stopped on its target.
+func (c *jointChaser) atRest() bool {
+	for i := range c.pos {
+		if math.Abs(c.vel[i]) > teleopChaseRestVel || math.Abs(c.target[i]-c.pos[i]) > teleopChaseRestErr {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *jointChaser) point(t time.Duration) arm.TrajectoryPoint {
+	return arm.TrajectoryPoint{
+		Time:      t,
+		Positions: append([]referenceframe.Input(nil), c.pos...),
+		Constraints: &arm.KinematicConstraints{
+			Velocities:    append([]float64(nil), c.vel...),
+			Accelerations: append([]float64(nil), c.acc...),
+		},
+	}
+}
+
+// teleopChase is the tuning of the chaser one teleop pipeline uses.
+type teleopChase struct {
+	gain        float64
+	feedforward float64
+}
+
+// run drives one arm's MoveThroughJointPositionsStreamed stream from a moving joint target. It
+// reads targets, always chasing the most recent one, and every opts.SendToArmInterval sends the
+// arm enough new points to keep opts.ArmSideTargetRunway of motion buffered there. It sends
+// points even while the arm is at rest, so the arm never sees its stream run dry. When targets
+// is closed it settles the arm on the last target and ends the stream; when ctx is cancelled, or
+// on any error, it stops the arm.
+func (tc teleopChase) run(
+	ctx context.Context,
+	logger logging.Logger,
+	a arm.Arm,
+	opts streaming.StreamOptions,
+	targets <-chan []referenceframe.Input,
+	seed []referenceframe.Input,
+	diag *diagnostics.SingleSessionDiagnostics,
+) (err error) {
+	velMax, accMax := opts.MoveOptions.MaxVelRadsJoints, opts.MoveOptions.MaxAccRadsJoints
+	if len(velMax) != len(seed) || len(accMax) != len(seed) {
+		return fmt.Errorf("need one velocity and one acceleration limit per joint: have %d and %d for %d joints",
+			len(velMax), len(accMax), len(seed))
+	}
+	for i := range seed {
+		if velMax[i] <= 0 || accMax[i] <= 0 {
+			return fmt.Errorf("joint %d has a non-positive velocity or acceleration limit", i)
+		}
+	}
+	interval, runway := opts.SendToArmInterval, opts.ArmSideTargetRunway
+	if interval <= 0 || runway <= 0 {
+		return errors.New("send interval and arm-side runway must be positive")
+	}
+
+	rpcCtx, cancelRPC := context.WithCancel(ctx)
+	batches := make(chan []arm.TrajectoryPoint)
+	responses := make(chan arm.Response)
+	rpcDone := make(chan struct{})
+	var rpcErr error
+	diag.RecordArmStreamOpenEvent()
+	go func() {
+		rpcErr = a.MoveThroughJointPositionsStreamed(rpcCtx, batches, responses, nil)
+		diag.RecordArmStreamCloseEvent()
+		close(responses)
+		close(rpcDone)
+	}()
+	go func() {
+		// Drain acknowledgments so the arm never blocks writing them.
+		for range responses { //nolint:revive
+		}
+	}()
+	batchesOpen := true
+	defer func() {
+		if err == nil {
+			cancelRPC()
+			return
+		}
+		// On error, cancel first so the RPC is interrupted, then make sure the arm is stopped.
+		cancelRPC()
+		if batchesOpen {
+			close(batches)
+		}
+		<-rpcDone
+		stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(ctx), teleopChaseStopArmTimeout)
+		defer cancelStop()
+		if stopErr := a.Stop(stopCtx, nil); stopErr != nil {
+			err = errors.Join(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
+		}
+	}()
+
+	chaser := newJointChaser(seed, velMax, accMax, tc.gain, tc.feedforward)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	var (
+		started    time.Time     // when the first batch was sent
+		sentUpTo   time.Duration // trajectory time of the last point sent
+		sentAny    bool
+		draining   bool
+		drainSince time.Time
+	)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-rpcDone:
+			// Cancelling ctx also ends the RPC, and either may be seen first.
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return fmt.Errorf("arm streaming RPC ended while the stream was open: %w", rpcErr)
+		case target, ok := <-targets:
+			if !ok {
+				targets = nil
+				draining = true
+				drainSince = time.Now()
+				continue
+			}
+			if len(target) != len(seed) {
+				return fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(target), len(seed))
+			}
+			diag.RecordReceivedJointPositionTargetEvent()
+			chaser.setTarget(target, time.Now())
+		case <-ticker.C:
+			var elapsed time.Duration
+			if sentAny {
+				elapsed = time.Since(started)
+			}
+			diag.RecordArmRunway(sentUpTo - elapsed)
+
+			var batch []arm.TrajectoryPoint
+			if !sentAny {
+				// The first point of a stream is the arm's starting state at time zero.
+				batch = append(batch, chaser.point(0))
+				diag.RecordSampledPVAT(chaser.pos, chaser.vel, chaser.acc, 0)
+			}
+			for sentUpTo < elapsed+runway && len(batch) < teleopChaseMaxBatch {
+				chaser.step(interval)
+				sentUpTo += interval
+				batch = append(batch, chaser.point(sentUpTo))
+				diag.RecordSampledPVAT(chaser.pos, chaser.vel, chaser.acc, sentUpTo)
+			}
+			if len(batch) > 0 {
+				sendStart := time.Now()
+				select {
+				case batches <- batch:
+				case <-rpcDone:
+					if ctx.Err() != nil {
+						return ctx.Err()
+					}
+					return fmt.Errorf("arm streaming RPC ended before batch could be sent: %w", rpcErr)
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				diag.RecordSendToArmLatency(sendStart, time.Since(sendStart))
+				if !sentAny {
+					sentAny = true
+					started = time.Now()
+				}
+			}
+
+			if draining && (chaser.atRest() || time.Since(drainSince) > teleopChaseDrainTimeout) {
+				if !chaser.atRest() {
+					logger.CWarnf(ctx, "teleop chaser: arm had not settled %s after the stream was closed", teleopChaseDrainTimeout)
+				}
+				// Ending the batches tells the arm the trajectory is complete; it returns once
+				// it has executed what it was sent.
+				batchesOpen = false
+				close(batches)
+				<-rpcDone
+				if rpcErr != nil {
+					return fmt.Errorf("failed to close arm stream: %w", rpcErr)
+				}
+				return nil
+			}
+		}
+	}
+}

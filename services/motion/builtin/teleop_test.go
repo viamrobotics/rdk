@@ -36,7 +36,7 @@ const (
 )
 
 // fakeTeleopArmStreamRunner stands in for streaming.Run. It records the seed and every target
-// it is handed, records a trajex runway of zero per target so the executor never skips, and
+// it is handed, and
 // returns when targets is closed, when ctx is cancelled, or with failErr right after the first
 // target if failErr is set.
 type fakeTeleopArmStreamRunner struct {
@@ -58,7 +58,6 @@ func (f *fakeTeleopArmStreamRunner) run(
 	targets <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diag *diagnostics.SingleSessionDiagnostics,
-	acks chan<- motion.TempStreamResponse,
 ) error {
 	f.mu.Lock()
 	f.runs++
@@ -86,13 +85,6 @@ func (f *fakeTeleopArmStreamRunner) run(
 			f.targets = append(f.targets, jp)
 			f.mu.Unlock()
 			diag.RecordReceivedJointPositionTargetEvent()
-			diag.RecordTrajexRunway(0)
-			runwayMs := int32(0)
-			select {
-			case acks <- motion.TempStreamResponse{MotionSideCurrentRunwayMs: &runwayMs}:
-			case <-ctx.Done():
-				return ctx.Err()
-			}
 			if failErr != nil {
 				return failErr
 			}
@@ -452,21 +444,24 @@ func TestTeleopConfigValidate(t *testing.T) {
 	test.That(t, valid(Config{TeleopExecutor: TeleopExecutorUnary}), test.ShouldBeNil)
 	test.That(t, valid(Config{TeleopExecutor: "sideways"}), test.ShouldNotBeNil)
 
-	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{MaxTrajexLeadMs: -1}}), test.ShouldNotBeNil)
+	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{ChaseGainPerSec: -1}}), test.ShouldNotBeNil)
+	tooMuch := 1.5
+	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{VelocityFeedforward: &tooMuch}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{ArmSideTargetRunwayMs: 10, SendToArmIntervalMs: 10}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{MaxVelDegsPerSecJoints: []float64{90, -1}}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{
-		ArmSideTargetRunwayMs: 40, SendToArmIntervalMs: 10, MaxVelDegsPerSec: 120, MaxAccDegsPerSec2: 500, MaxTrajexLeadMs: 60,
+		ArmSideTargetRunwayMs: 40, SendToArmIntervalMs: 10, MaxVelDegsPerSec: 120, MaxAccDegsPerSec2: 500, ChaseGainPerSec: 20,
 	}}), test.ShouldBeNil)
 
 	// Defaults land in the stream options teleop will run with.
 	opts := TeleopStreamConfig{}.streamOptions()
 	test.That(t, opts.ArmSideTargetRunway, test.ShouldEqual, defaultTeleopStreamRunwayMs*time.Millisecond)
 	test.That(t, opts.SendToArmInterval, test.ShouldEqual, defaultTeleopStreamIntervalMs*time.Millisecond)
-	test.That(t, TeleopStreamConfig{}.maxLead(), test.ShouldEqual, defaultTeleopStreamMaxLeadMs*time.Millisecond)
 
-	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{MaxTargetsDroppedInARow: -1}}), test.ShouldNotBeNil)
-	opts = TeleopStreamConfig{MaxTargetsDroppedInARow: 3, ForceRebaseIfExtendLatencyExceedsMs: 5}.streamOptions()
-	test.That(t, opts.MaxTargetsDroppedInARowDueToTrajexExtendError, test.ShouldEqual, 3)
-	test.That(t, opts.ForceRebaseIfExtendLatencyExceeds, test.ShouldEqual, 5*time.Millisecond)
+	// The chaser tuning defaults, and a feedforward of zero is honored rather than defaulted.
+	test.That(t, TeleopStreamConfig{}.chase(), test.ShouldResemble,
+		teleopChase{gain: defaultTeleopChaseGainPerSec, feedforward: defaultTeleopChaseFeedforward})
+	none := 0.0
+	test.That(t, TeleopStreamConfig{ChaseGainPerSec: 20, VelocityFeedforward: &none}.chase(), test.ShouldResemble,
+		teleopChase{gain: 20, feedforward: 0})
 }

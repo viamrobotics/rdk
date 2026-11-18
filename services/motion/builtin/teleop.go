@@ -32,7 +32,8 @@ const defaultTeleopSmoothAlpha = 0.5
 // Values for Config.TeleopExecutor.
 const (
 	// TeleopExecutorStreamed keeps one MoveThroughJointPositionsStreamed stream open per arm for
-	// the life of the teleop session and feeds it a trajex-derived trajectory. This is the default.
+	// the life of the teleop session and feeds it motion that chases the planned targets within
+	// the arm's limits. This is the default.
 	TeleopExecutorStreamed = "streamed"
 	// TeleopExecutorUnary sends each planned trajectory as one MoveThroughJointPositions call.
 	TeleopExecutorUnary = "unary"
@@ -48,19 +49,9 @@ const (
 	// also the sampling period of the trajectory sent to the arm.
 	defaultTeleopStreamIntervalMs = 10
 	// teleopStreamLimitMargin is the fraction of an arm's own joint velocity and acceleration
-	// limits the trajectory is generated under. The generator's sampled output runs slightly over
-	// the limits it is given, and an arm rejects a stream for any point over its own.
+	// limits the motion is generated under. An arm rejects a stream for any point over its own
+	// limits, so this leaves room for how the arm computes and rounds them.
 	teleopStreamLimitMargin = 0.95
-	// defaultTeleopStreamMaxLeadMs bounds how far the commanded trajectory may run ahead of the
-	// arm. While the not-yet-sent trajectory inside trajex is longer than this, newly planned
-	// trajectories are skipped (and the planning head left in place), so the next plan heads
-	// straight for the operator's latest pose instead of queueing behind stale ones. This is the
-	// streamed analogue of the unary executor dropping trajectories while a move is in flight.
-	// It has to exceed the time the arm takes to brake from full speed (max velocity over max
-	// acceleration), because the trajectory always ends at rest: a smaller value skips most
-	// trajectories whenever the arm is moving fast, and the arm stops and starts.
-	defaultTeleopStreamMaxLeadMs = 400
-
 	// teleopStreamDiagWindow is how much detail each arm stream's diagnostics retain when no
 	// diagnostics file is written; teleopStreamDiagFileWindow is how much they retain when
 	// Config.StreamDiagnosticsFilePath is set, and so how much of a stream's end the file holds.
@@ -79,8 +70,6 @@ const (
 	// teleopStreamHealthyAfter is how long a stream must have run for its failure to reset the
 	// consecutive-failure count rather than add to it.
 	teleopStreamHealthyAfter = 10 * time.Second
-	// teleopStreamMinRetry is the shortest delay before a skipped trajectory triggers a replan.
-	teleopStreamMinRetry = 5 * time.Millisecond
 )
 
 var (
@@ -113,15 +102,15 @@ type TeleopStreamConfig struct {
 	MaxAccDegsPerSec2       float64   `json:"max_acc_degs_per_sec2"`
 	MaxVelDegsPerSecJoints  []float64 `json:"max_vel_degs_per_sec_joints"`
 	MaxAccDegsPerSec2Joints []float64 `json:"max_acc_degs_per_sec2_joints"`
-	// MaxTrajexLeadMs is how far the commanded trajectory may run ahead of the arm before newly
-	// planned trajectories are skipped. Default 400.
-	MaxTrajexLeadMs int `json:"max_trajex_lead_ms"`
-	// MaxTargetsDroppedInARow is how many targets in a row trajex may reject before the stream
-	// ends. Default 0: the first rejected target ends the stream, and the executor reopens it.
-	MaxTargetsDroppedInARow int `json:"max_targets_dropped_in_a_row"`
-	// ForceRebaseIfExtendLatencyExceedsMs forces trajex to rebase once adding a target takes
-	// longer than this. Default 0: never.
-	ForceRebaseIfExtendLatencyExceedsMs int `json:"force_rebase_if_extend_latency_exceeds_ms"`
+	// ChaseGainPerSec is how hard the arm closes the last of the gap to its target: near the
+	// target its speed is this gain times the remaining error. Higher is tighter and more
+	// sensitive to noise in the target. Default 15.
+	ChaseGainPerSec float64 `json:"chase_gain_per_sec"`
+	// VelocityFeedforward is how much of the target's own estimated velocity is added to the
+	// arm's, from 0 to 1. At 1 the arm keeps up with a steadily moving target with almost no lag
+	// but runs on further when the target stops abruptly; lower values trail the target and stop
+	// shorter. Default 1.
+	VelocityFeedforward *float64 `json:"velocity_feedforward"`
 }
 
 func (c TeleopStreamConfig) streamOptions() streaming.StreamOptions {
@@ -141,8 +130,6 @@ func (c TeleopStreamConfig) streamOptions() streaming.StreamOptions {
 		SendToArmIntervalMs:   &interval,
 		DiagnosticsWindowSecs: &window,
 	})
-	opts.MaxTargetsDroppedInARowDueToTrajexExtendError = c.MaxTargetsDroppedInARow
-	opts.ForceRebaseIfExtendLatencyExceeds = time.Duration(c.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
 	return opts
 }
 
@@ -212,16 +199,24 @@ func (c TeleopStreamConfig) jointLimits(armLimits []referenceframe.Limit) (vel, 
 	return vel, acc, nil
 }
 
-func (c TeleopStreamConfig) maxLead() time.Duration {
-	if c.MaxTrajexLeadMs <= 0 {
-		return defaultTeleopStreamMaxLeadMs * time.Millisecond
+// chase returns the chaser tuning the config selects.
+func (c TeleopStreamConfig) chase() teleopChase {
+	tc := teleopChase{gain: defaultTeleopChaseGainPerSec, feedforward: defaultTeleopChaseFeedforward}
+	if c.ChaseGainPerSec > 0 {
+		tc.gain = c.ChaseGainPerSec
 	}
-	return time.Duration(c.MaxTrajexLeadMs) * time.Millisecond
+	if c.VelocityFeedforward != nil {
+		tc.feedforward = *c.VelocityFeedforward
+	}
+	return tc
 }
 
 func (c TeleopStreamConfig) validate() error {
-	if c.MaxTrajexLeadMs < 0 {
-		return fmt.Errorf("teleop_stream.max_trajex_lead_ms must be non-negative (0 selects the default), got %d", c.MaxTrajexLeadMs)
+	if c.ChaseGainPerSec < 0 {
+		return fmt.Errorf("teleop_stream.chase_gain_per_sec must be non-negative (0 selects the default), got %v", c.ChaseGainPerSec)
+	}
+	if ff := c.VelocityFeedforward; ff != nil && (*ff < 0 || *ff > 1) {
+		return fmt.Errorf("teleop_stream.velocity_feedforward must be in [0, 1], got %v", *ff)
 	}
 	for name, v := range map[string]float64{"max_vel_degs_per_sec": c.MaxVelDegsPerSec, "max_acc_degs_per_sec2": c.MaxAccDegsPerSec2} {
 		if v < 0 {
@@ -244,8 +239,8 @@ func (c TeleopStreamConfig) validate() error {
 	return nil
 }
 
-// teleopArmStreamRunner is the signature of streaming.Run, the function that owns one arm's
-// MoveThroughJointPositionsStreamed stream and the trajex session feeding it.
+// teleopArmStreamRunner is the signature of teleopChase.run, the function that owns one arm's
+// MoveThroughJointPositionsStreamed stream and generates the points sent over it.
 type teleopArmStreamRunner func(
 	ctx context.Context,
 	logger logging.Logger,
@@ -254,11 +249,10 @@ type teleopArmStreamRunner func(
 	targets <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diag *diagnostics.SingleSessionDiagnostics,
-	acks chan<- motion.TempStreamResponse,
 ) error
 
-// teleopArmStream is one arm's open stream: the target channel feeding its Run loop plus the
-// bookkeeping the executor needs to decide whether to push to it, skip, or reopen it.
+// teleopArmStream is one arm's open stream: the target channel feeding its run loop plus the
+// bookkeeping the executor needs to decide whether to push to it or reopen it.
 type teleopArmStream struct {
 	// mu serializes push against close so a target is never sent on a closed channel.
 	mu      sync.Mutex
@@ -319,7 +313,7 @@ func (s *teleopArmStream) closedErr() error {
 	return errTeleopStreamClosed
 }
 
-// close ends the stream gracefully: Run sends trajex's remaining trajectory to the arm, waits
+// close ends the stream gracefully: the run loop settles the arm on its last target, waits
 // for the arm to finish executing it, and returns.
 func (s *teleopArmStream) close() {
 	s.mu.Lock()
@@ -329,15 +323,6 @@ func (s *teleopArmStream) close() {
 	}
 	s.closed = true
 	close(s.targets)
-}
-
-// trajexRunway reports how much trajectory the stream's trajex session holds that has not yet
-// been sent to the arm, as of Run's most recent reading (it records one on every target and
-// every send-interval tick). Run's acknowledgments report the same number but only when a target
-// is added, so a value read from them would go stale, and never recover, while trajectories are
-// being skipped.
-func (s *teleopArmStream) trajexRunway() time.Duration {
-	return s.diag.LatestTrajexRunway()
 }
 
 // teleopComponent tracks a single component being teleop'd within the pipeline.
@@ -358,7 +343,6 @@ type teleopArmState struct {
 	stream               *teleopArmStream
 	streamFails          int   // consecutive stream failures
 	streamRestarts       int64 // total times the stream has died
-	streamSkipped        int64 // trajectories skipped because the stream was too far ahead of the arm
 	streamFallbackUnary  bool  // streaming has been given up for this arm
 	streamFallbackReason string
 }
@@ -387,9 +371,9 @@ func emaSmooth(target, previous []referenceframe.Input, alpha float64) []referen
 //	notify → Planner goroutine → trajCh → Executor goroutine → arm stream (or arm.MoveThroughJointPositions)
 //
 // With the streamed executor, each arm has one MoveThroughJointPositionsStreamed stream open for
-// the life of the session, run by streaming.Run. The executor pushes every planned step into the
-// arm's stream as a joint target; Run turns the chain of targets into a velocity- and
-// acceleration-limited trajectory and keeps a short runway of it buffered in the arm.
+// the life of the session, run by teleopChase.run. The executor pushes every planned step into the
+// arm's stream as a joint target; the run loop chases the latest target with velocity- and
+// acceleration-limited motion and keeps a short runway of it buffered in the arm.
 type teleopPipeline struct {
 	logger logging.Logger
 
@@ -401,7 +385,6 @@ type teleopPipeline struct {
 	streamed     bool
 	streamOpts   streaming.StreamOptions
 	streamConf   TeleopStreamConfig
-	maxLead      time.Duration
 	runArmStream teleopArmStreamRunner
 	// diagDir is where each arm stream writes its diagnostics file when it ends; empty disables it.
 	diagDir string
@@ -414,8 +397,6 @@ type teleopPipeline struct {
 	streamCtx    context.Context
 	streamCancel context.CancelFunc
 	streamWG     sync.WaitGroup
-	// retryPending dedups the replan timer armed when a trajectory is skipped.
-	retryPending atomic.Bool
 	// Per-arm streamed-executor state, created the first time a trajectory moves the arm.
 	// streamsStopped is set once the pipeline is stopping; no stream may open after that.
 	armsMu         sync.Mutex
@@ -841,18 +822,6 @@ func (tp *teleopPipeline) executeStreamed(
 		}
 	}
 
-	// Latest-wins: while the stream holds more unsent trajectory than maxLead, pushing more
-	// would only make the arm lag the operator further. Skip this trajectory, leave the planning
-	// head where it is so the next plan still starts from the last committed target, and arm a
-	// replan for when the lead should have shrunk enough (in case no new pose arrives to do it).
-	if lead := s.trajexRunway(); lead > tp.maxLead {
-		comp.streamSkipped++
-		tp.scheduleRetry(lead - tp.maxLead)
-		tp.logger.CDebugf(ctx, "teleop executor: %q stream is %s ahead of the arm (max %s); skipping trajectory",
-			name, lead, tp.maxLead)
-		return false, nil
-	}
-
 	for _, step := range steps {
 		if err := s.push(ctx, step); err != nil {
 			if errors.Is(err, errTeleopStreamClosed) && s.isDone() {
@@ -911,17 +880,7 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 	go func() {
 		defer tp.streamWG.Done()
 		defer cancel()
-		// Run blocks on every acknowledgment, so they are drained even though nothing reads them.
-		acks := make(chan motion.TempStreamResponse)
-		acksDrained := make(chan struct{})
-		go func() {
-			defer close(acksDrained)
-			for range acks {
-			}
-		}()
-		err := tp.runArmStream(streamCtx, tp.logger, a, opts, s.targets, seed, s.diag, acks)
-		close(acks)
-		<-acksDrained
+		err := tp.runArmStream(streamCtx, tp.logger, a, opts, s.targets, seed, s.diag)
 		s.err = err
 		close(s.done)
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -955,7 +914,7 @@ func (tp *teleopPipeline) noteStreamFailure(ctx context.Context, comp *teleopArm
 		reason = "arm does not implement MoveThroughJointPositionsStreamed"
 	case s.pushed.Load() == 0:
 		// Dying before accepting a single target means streaming cannot start at all here
-		// (e.g. a build without trajex), not that the arm hit a transient fault.
+		// (e.g. an arm that rejects streams outright), not that the arm hit a transient fault.
 		reason = fmt.Sprintf("stream ended before accepting any target: %v", err)
 	case comp.streamFails >= teleopStreamMaxConsecutiveFails:
 		reason = fmt.Sprintf("%d consecutive stream failures, last: %v", comp.streamFails, err)
@@ -1011,20 +970,6 @@ func stepsMove(start []referenceframe.Input, steps [][]referenceframe.Input) boo
 		}
 	}
 	return false
-}
-
-// scheduleRetry arms a one-shot replan after `after`, if none is already pending.
-func (tp *teleopPipeline) scheduleRetry(after time.Duration) {
-	if !tp.retryPending.CompareAndSwap(false, true) {
-		return
-	}
-	if after < teleopStreamMinRetry {
-		after = teleopStreamMinRetry
-	}
-	time.AfterFunc(after, func() {
-		tp.retryPending.Store(false)
-		trySendNotify(tp.notify)
-	})
 }
 
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
@@ -1118,8 +1063,8 @@ func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.trace.close()
 }
 
-// closeStreams ends every open arm stream. Each is first half-closed so Run sends trajex's
-// remaining trajectory to the arm and waits for it to finish; streams still running after
+// closeStreams ends every open arm stream. Each is first half-closed so its run loop settles the
+// arm on its last target and waits for it to finish; streams still running after
 // teleopStreamCloseTimeout are cancelled, which makes Run stop their arms instead.
 func (tp *teleopPipeline) closeStreams(ctx context.Context) {
 	tp.armsMu.Lock()
@@ -1172,14 +1117,12 @@ func (tp *teleopPipeline) streamStatus() map[string]any {
 		info := map[string]any{
 			"open":           comp.stream != nil && !comp.stream.isDone(),
 			"restarts":       comp.streamRestarts,
-			"skipped":        comp.streamSkipped,
 			"fallback_unary": comp.streamFallbackUnary,
 		}
 		if comp.streamFallbackReason != "" {
 			info["fallback_reason"] = comp.streamFallbackReason
 		}
 		if s := comp.stream; s != nil {
-			info["trajex_runway_ms"] = float64(s.trajexRunway().Microseconds()) / 1e3
 			info["stats"] = s.diag.Stats()
 		}
 		comp.mu.Unlock()
@@ -1229,7 +1172,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 		}
 		runArmStream := ms.teleopRunArmStream
 		if runArmStream == nil {
-			runArmStream = streaming.Run
+			runArmStream = streamConf.chase().run
 		}
 		ms.mu.RUnlock()
 
@@ -1242,7 +1185,6 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			streamOpts:       streamOpts,
 			streamConf:       streamConf,
 			diagDir:          diagDir,
-			maxLead:          streamConf.maxLead(),
 			runArmStream:     runArmStream,
 			streamCtx:        streamCtx,
 			streamCancel:     streamCancel,

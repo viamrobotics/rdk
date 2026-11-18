@@ -34,7 +34,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin/streaming"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -271,8 +270,8 @@ type builtIn struct {
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
-	// teleopRunArmStream runs one arm's stream for the streamed teleop executor. It is
-	// streaming.Run in production; tests substitute a fake.
+	// teleopRunArmStream, when set, runs each arm's stream for the streamed teleop executor in
+	// place of the chaser. Tests set it to substitute a fake.
 	teleopRunArmStream teleopArmStreamRunner
 
 	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
@@ -286,9 +285,8 @@ func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
 	ms := &builtIn{
-		Named:              conf.ResourceName().AsNamed(),
-		logger:             logger,
-		teleopRunArmStream: streaming.Run,
+		Named:  conf.ResourceName().AsNamed(),
+		logger: logger,
 	}
 
 	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
