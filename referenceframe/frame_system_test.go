@@ -893,6 +893,269 @@ func mustBox(t *testing.T, label string, dims r3.Vector) spatial.Geometry {
 	return b
 }
 
+func TestFrameSystemParts(t *testing.T) {
+	modelJSON, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
+	test.That(t, err, test.ShouldBeNil)
+	armModel, err := UnmarshalModelJSON(modelJSON, "arm")
+	test.That(t, err, test.ShouldBeNil)
+
+	mountPose := spatial.NewPoseFromPoint(r3.Vector{X: 10, Y: 20, Z: 30})
+	gripperGeom := mustBox(t, "gripper", r3.Vector{X: 50, Y: 50, Z: 50})
+
+	original := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, mountPose, "arm", nil), ModelFrame: armModel},
+		{FrameConfig: NewLinkInFrame("arm", spatial.NewZeroPose(), "gripper", gripperGeom)},
+	}
+
+	fs, err := NewFrameSystem("test", original, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	parts, err := fs.Parts()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parts, test.ShouldHaveLength, len(original))
+
+	byName := make(map[string]*FrameSystemPart, len(parts))
+	for _, p := range parts {
+		byName[p.FrameConfig.Name()] = p
+	}
+
+	got := byName["arm"]
+	test.That(t, got, test.ShouldNotBeNil)
+	test.That(t, got.FrameConfig.Parent(), test.ShouldEqual, World)
+	test.That(t, spatial.PoseAlmostEqual(got.FrameConfig.Pose(), mountPose), test.ShouldBeTrue)
+	test.That(t, got.ModelFrame, test.ShouldNotBeNil)
+	test.That(t, got.ModelFrame.Name(), test.ShouldEqual, armModel.Name())
+	test.That(t, got.ModelFrame.DoF(), test.ShouldResemble, armModel.DoF())
+
+	got = byName["gripper"]
+	test.That(t, got, test.ShouldNotBeNil)
+	test.That(t, got.FrameConfig.Parent(), test.ShouldEqual, "arm")
+	test.That(t, got.ModelFrame, test.ShouldBeNil)
+	test.That(t, got.FrameConfig.Geometry(), test.ShouldNotBeNil)
+
+	rebuilt, err := NewFrameSystem("test", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rebuilt.FrameNames(), test.ShouldResemble, fs.FrameNames())
+}
+
+// Guards against silently double-applying the pose on an inline static frame
+// with both a non-identity pose and a geometry: the geom must land at the
+// same world location after round-trip, under translation and rotation.
+func TestFrameSystemPartsInlineStaticWithPoseAndGeom(t *testing.T) {
+	cases := []struct {
+		name  string
+		pose  spatial.Pose
+		geomC r3.Vector
+	}{
+		{"translation only", spatial.NewPoseFromPoint(r3.Vector{X: 100}), r3.Vector{}},
+		{
+			"rotation only",
+			spatial.NewPoseFromOrientation(&spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 0, RZ: 1}),
+			r3.Vector{X: 5},
+		},
+		{
+			"rotation and translation",
+			spatial.NewPose(r3.Vector{X: 10, Y: 20, Z: 30}, &spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 0, RZ: 1}),
+			r3.Vector{X: 5},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			box, err := spatial.NewBox(spatial.NewPoseFromPoint(tc.geomC), r3.Vector{X: 1, Y: 1, Z: 1}, "box")
+			test.That(t, err, test.ShouldBeNil)
+			sf, err := NewStaticFrameWithGeometries("inline", tc.pose, []spatial.Geometry{box})
+			test.That(t, err, test.ShouldBeNil)
+
+			fs := NewEmptyFrameSystem("test")
+			test.That(t, fs.AddFrame(sf, fs.World()), test.ShouldBeNil)
+			origG, err := sf.Geometries([]Input{})
+			test.That(t, err, test.ShouldBeNil)
+			origWorldPose := spatial.Compose(tc.pose, origG.geometries[0].Pose())
+
+			parts, err := fs.Parts()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, parts, test.ShouldHaveLength, 1)
+			rebuilt, err := NewFrameSystem("test2", parts, nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			rebuiltOrigin := rebuilt.Frame("inline_origin")
+			test.That(t, rebuiltOrigin, test.ShouldNotBeNil)
+			frameTF, err := rebuiltOrigin.Transform([]Input{})
+			test.That(t, err, test.ShouldBeNil)
+			g, err := rebuiltOrigin.Geometries([]Input{})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, g.geometries, test.ShouldHaveLength, 1)
+			rebuiltWorldPose := spatial.Compose(frameTF, g.geometries[0].Pose())
+			test.That(t, spatial.PoseAlmostEqual(rebuiltWorldPose, origWorldPose), test.ShouldBeTrue)
+		})
+	}
+}
+
+// A caller that removes a mount frame and re-adds it as a plain staticFrame
+// (common when a module mutates the FS at runtime, e.g. rotating a hinged
+// part) must still round-trip through Parts() with the geometry in the
+// correct world position.
+func TestFrameSystemPartsHandlesSwappedMountFrame(t *testing.T) {
+	box := mustBox(t, "panel", r3.Vector{X: 10, Y: 10, Z: 10})
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 100}), "door", box)},
+	}
+	fs, err := NewFrameSystem("test", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Mimic the runtime swap: capture the child, drop the tail-geometry mount,
+	// add a plain static with a rotated pose and a fresh box geom, re-attach
+	// the child. Represents a module that rotated the mount by 90° about Z.
+	rotated := spatial.NewPose(
+		r3.Vector{X: 50, Y: 60, Z: 0},
+		&spatial.R4AA{Theta: math.Pi / 2, RX: 0, RY: 0, RZ: 1},
+	)
+	swappedGeom := mustBox(t, "panel", r3.Vector{X: 10, Y: 10, Z: 10})
+	parentOfOrigin, err := fs.Parent(fs.Frame("door_origin"))
+	test.That(t, err, test.ShouldBeNil)
+	doorThing := fs.Frame("door")
+	fs.RemoveFrame(fs.Frame("door_origin"))
+	swapped, err := NewStaticFrameWithGeometries("door_origin", rotated, []spatial.Geometry{swappedGeom})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(swapped, parentOfOrigin), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(doorThing, swapped), test.ShouldBeNil)
+
+	// Grab the geom's world pose after the swap, from the mutated FS.
+	mutatedGeoms, err := fs.Frame("door_origin").Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	wantGeomPose := mutatedGeoms.geometries[0].Pose()
+
+	// Round-trip: Parts() must accept the plain-static mount, and the rebuilt
+	// FS must put the geometry back at the same world position.
+	roundTripped, err := fs.Parts()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, roundTripped, test.ShouldHaveLength, 1)
+	rebuilt, err := NewFrameSystem("test2", roundTripped, nil)
+	test.That(t, err, test.ShouldBeNil)
+	rebuiltGeoms, err := rebuilt.Frame("door_origin").Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rebuiltGeoms.geometries, test.ShouldHaveLength, 1)
+	test.That(t, spatial.PoseAlmostEqual(rebuiltGeoms.geometries[0].Pose(), wantGeomPose), test.ShouldBeTrue)
+}
+
+// A caller that freezes a joint by replacing the zero-pose thing frame with a
+// plain static at a non-identity pose must round-trip through Parts() so that
+// children of the frozen frame land at the same world position on rebuild.
+func TestFrameSystemPartsHandlesFrozenThingFrame(t *testing.T) {
+	// Build a Part whose thing frame is then "frozen" to a non-zero pose. A
+	// child frame below it exposes the world-pose shift.
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 100}), "gantry", nil)},
+		{FrameConfig: NewLinkInFrame("gantry", spatial.NewZeroPose(), "arm_mount", nil)},
+	}
+	fs, err := NewFrameSystem("test", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Freeze the gantry by replacing it with a plain static at mid-travel.
+	frozen := spatial.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 300})
+	parentOfGantry, err := fs.Parent(fs.Frame("gantry"))
+	test.That(t, err, test.ShouldBeNil)
+	armMount := fs.Frame("arm_mount")
+	fs.RemoveFrame(fs.Frame("gantry"))
+	frozenGantry, err := NewStaticFrame("gantry", frozen)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(frozenGantry, parentOfGantry), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(armMount, frozenGantry), test.ShouldBeNil)
+
+	// Where is arm_mount in the mutated FS?
+	before, err := fs.Transform(nil, NewPoseInFrame("arm_mount", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	wantPose := before.(*PoseInFrame).Pose()
+
+	roundTripped, err := fs.Parts()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, roundTripped, test.ShouldHaveLength, 2)
+	rebuilt, err := NewFrameSystem("test2", roundTripped, nil)
+	test.That(t, err, test.ShouldBeNil)
+	after, err := rebuilt.Transform(nil, NewPoseInFrame("arm_mount", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(after.(*PoseInFrame).Pose(), wantPose), test.ShouldBeTrue)
+}
+
+// A frozen thing frame that also carries geometry (freezeNonArmFrames style)
+// must round-trip with the geometry at the same world position.
+func TestFrameSystemPartsHandlesFrozenThingFrameWithGeom(t *testing.T) {
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 100}), "gantry", nil)},
+	}
+	fs, err := NewFrameSystem("test", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	frozen := spatial.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 300})
+	parentOfGantry, err := fs.Parent(fs.Frame("gantry"))
+	test.That(t, err, test.ShouldBeNil)
+	fs.RemoveFrame(fs.Frame("gantry"))
+	frozenGeom := mustBox(t, "panel", r3.Vector{X: 10, Y: 10, Z: 10})
+	frozenGantry, err := NewStaticFrameWithGeometries("gantry", frozen, []spatial.Geometry{frozenGeom})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(frozenGantry, parentOfGantry), test.ShouldBeNil)
+
+	mutatedWorld, err := FrameSystemGeometriesLinearInputs(fs, nil)
+	test.That(t, err, test.ShouldBeNil)
+	wantWorld := mutatedWorld["gantry"].geometries[0].Pose()
+
+	roundTripped, err := fs.Parts()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, roundTripped, test.ShouldHaveLength, 1)
+	rebuilt, err := NewFrameSystem("test2", roundTripped, nil)
+	test.That(t, err, test.ShouldBeNil)
+	rebuiltWorld, err := FrameSystemGeometriesLinearInputs(rebuilt, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// Rebuilt geom lives on gantry_origin (the mount), not on the thing frame.
+	gotGeomPose := rebuiltWorld["gantry_origin"].geometries[0].Pose()
+	test.That(t, spatial.PoseAlmostEqual(gotGeomPose, wantWorld), test.ShouldBeTrue)
+}
+
+// Guards against silently losing data when both the mount and the thing frame
+// carry geometries. A Part holds only one.
+func TestFrameSystemPartsErrorsOnMountAndThingBothGeom(t *testing.T) {
+	parts := []*FrameSystemPart{
+		{
+			FrameConfig: NewLinkInFrame(
+				World, spatial.NewPoseFromPoint(r3.Vector{X: 100}), "gantry",
+				mustBox(t, "mount_geom", r3.Vector{X: 10, Y: 10, Z: 10}),
+			),
+		},
+	}
+	fs, err := NewFrameSystem("test", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	parentOfGantry, err := fs.Parent(fs.Frame("gantry"))
+	test.That(t, err, test.ShouldBeNil)
+	fs.RemoveFrame(fs.Frame("gantry"))
+	frozenGeom := mustBox(t, "frozen_geom", r3.Vector{X: 5, Y: 5, Z: 5})
+	frozenGantry, err := NewStaticFrameWithGeometries(
+		"gantry", spatial.NewPoseFromPoint(r3.Vector{Z: 300}), []spatial.Geometry{frozenGeom},
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.AddFrame(frozenGantry, parentOfGantry), test.ShouldBeNil)
+
+	_, err = fs.Parts()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "both carry geometries")
+}
+
+// Guards against a HasSuffix("_origin") rule that silently dropped user-named parts.
+func TestFrameSystemPartsHandlesOriginSuffixedName(t *testing.T) {
+	mountPose := spatial.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
+	original := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, mountPose, "table_origin", nil)},
+	}
+	fs, err := NewFrameSystem("test", original, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	parts, err := fs.Parts()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parts, test.ShouldHaveLength, 1)
+	test.That(t, parts[0].FrameConfig.Name(), test.ShouldEqual, "table_origin")
+	test.That(t, spatial.PoseAlmostEqual(parts[0].FrameConfig.Pose(), mountPose), test.ShouldBeTrue)
+}
+
 // A part carries the typed model beside the Struct, a reader builds the part from the model whenever
 // it is there, and a message with the Struct left out, which is what a server past the deprecation
 // window sends, builds the same part.
