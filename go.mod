@@ -328,3 +328,6 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20260611194520-c48552f49976
 )
+
+// See VAN-230.
+replace github.com/pion/stun => github.com/viamrobotics/stun v0.6.2-viam.1

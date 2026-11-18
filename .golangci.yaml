@@ -67,6 +67,7 @@ linters:
     gomoddirectives:
       replace-allow-list:
         - github.com/hashicorp/go-getter
+        - github.com/pion/stun
     gosec:
       excludes:
         - G104
