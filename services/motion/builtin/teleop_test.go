@@ -30,6 +30,9 @@ const (
 	// teleop component's name differs from the name of the arm that is actuated.
 	teleopTestComponent = "pieceGripper"
 	teleopTestTimeout   = 30 * time.Second
+
+	teleopTestMaxVelDegs = 60.0
+	teleopTestMaxAccDegs = 300.0
 )
 
 // fakeTeleopArmStreamRunner stands in for streaming.Run. It records the seed and every target
@@ -43,6 +46,7 @@ type fakeTeleopArmStreamRunner struct {
 	closedCleanly int
 	seeds         [][]referenceframe.Input
 	targets       [][]referenceframe.Input
+	opts          []streaming.StreamOptions
 	failErr       error
 }
 
@@ -50,7 +54,7 @@ func (f *fakeTeleopArmStreamRunner) run(
 	ctx context.Context,
 	_ logging.Logger,
 	_ arm.Arm,
-	_ streaming.StreamOptions,
+	opts streaming.StreamOptions,
 	targets <-chan []referenceframe.Input,
 	seed []referenceframe.Input,
 	diag *diagnostics.SingleSessionDiagnostics,
@@ -59,6 +63,7 @@ func (f *fakeTeleopArmStreamRunner) run(
 	f.mu.Lock()
 	f.runs++
 	f.seeds = append(f.seeds, seed)
+	f.opts = append(f.opts, opts)
 	failErr := f.failErr
 	f.mu.Unlock()
 	defer func() {
@@ -123,6 +128,12 @@ func setupTeleopTest(t *testing.T) (*builtIn, arm.Arm, func()) {
 	ms.mu.RUnlock()
 	a, ok := r.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
+	// The fake arm publishes no joint velocity or acceleration limits, so give teleop some to
+	// stream under. Tests of the no-limits case clear these.
+	ms.mu.Lock()
+	ms.conf.TeleopStream.MaxVelDegsPerSec = teleopTestMaxVelDegs
+	ms.conf.TeleopStream.MaxAccDegsPerSec2 = teleopTestMaxAccDegs
+	ms.mu.Unlock()
 	return ms, a, teardown
 }
 
@@ -230,6 +241,13 @@ func TestTeleopStreamedExecutor(t *testing.T) {
 	test.That(t, state.runs, test.ShouldEqual, 1)
 	// The stream is seeded from where the arm actually is, and every target has the arm's DoF.
 	test.That(t, state.seeds[0], test.ShouldResemble, initial)
+	// The stream is given one velocity and one acceleration limit per joint.
+	fake.mu.Lock()
+	streamOpts := fake.opts[0]
+	fake.mu.Unlock()
+	test.That(t, len(streamOpts.MoveOptions.MaxVelRadsJoints), test.ShouldEqual, len(initial))
+	test.That(t, streamOpts.MoveOptions.MaxVelRadsJoints[0], test.ShouldAlmostEqual, utils.DegToRad(teleopTestMaxVelDegs), 1e-9)
+	test.That(t, streamOpts.MoveOptions.MaxAccRadsJoints[0], test.ShouldAlmostEqual, utils.DegToRad(teleopTestMaxAccDegs), 1e-9)
 	for _, target := range state.targets {
 		test.That(t, len(target), test.ShouldEqual, len(initial))
 	}
@@ -341,6 +359,89 @@ func TestTeleopUnaryExecutorConfig(t *testing.T) {
 	teleopStop(t, ms)
 }
 
+func TestTeleopStreamJointLimits(t *testing.T) {
+	limit := func(velDegs, accDegs float64) referenceframe.Limit {
+		vel, acc := utils.DegToRad(velDegs), utils.DegToRad(accDegs)
+		return referenceframe.Limit{Min: -3, Max: 3, MaxVelocity: &vel, MaxAcceleration: &acc}
+	}
+	published := []referenceframe.Limit{limit(180, 1000), limit(90, 400)}
+	unpublished := []referenceframe.Limit{{Min: -3, Max: 3}, {Min: -3, Max: 3}}
+	degs := func(rads []float64) []float64 {
+		out := make([]float64, len(rads))
+		for i, r := range rads {
+			out[i] = utils.RadToDeg(r)
+		}
+		return out
+	}
+	shouldBe := func(got []float64, want ...float64) {
+		t.Helper()
+		test.That(t, len(got), test.ShouldEqual, len(want))
+		for i := range want {
+			test.That(t, got[i], test.ShouldAlmostEqual, want[i], 1e-6)
+		}
+	}
+
+	// With nothing configured, the arm's own limits are used, less the margin.
+	vel, acc, err := TeleopStreamConfig{}.jointLimits(published)
+	test.That(t, err, test.ShouldBeNil)
+	shouldBe(degs(vel), 180*teleopStreamLimitMargin, 90*teleopStreamLimitMargin)
+	shouldBe(degs(acc), 1000*teleopStreamLimitMargin, 400*teleopStreamLimitMargin)
+
+	// A configured value lowers a joint's limit but never raises it past the arm's.
+	vel, acc, err = TeleopStreamConfig{MaxVelDegsPerSec: 100, MaxAccDegsPerSec2: 5000}.jointLimits(published)
+	test.That(t, err, test.ShouldBeNil)
+	shouldBe(degs(vel), 100, 90*teleopStreamLimitMargin)
+	shouldBe(degs(acc), 1000*teleopStreamLimitMargin, 400*teleopStreamLimitMargin)
+
+	// Per-joint values take precedence over the scalar and must match the joint count.
+	vel, _, err = TeleopStreamConfig{MaxVelDegsPerSec: 100, MaxVelDegsPerSecJoints: []float64{20, 30}}.jointLimits(published)
+	test.That(t, err, test.ShouldBeNil)
+	shouldBe(degs(vel), 20, 30)
+	_, _, err = TeleopStreamConfig{MaxVelDegsPerSecJoints: []float64{20}}.jointLimits(published)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// An arm that publishes no limits gets the configured ones, and is refused without them.
+	vel, acc, err = TeleopStreamConfig{MaxVelDegsPerSec: 50, MaxAccDegsPerSec2: 200}.jointLimits(unpublished)
+	test.That(t, err, test.ShouldBeNil)
+	shouldBe(degs(vel), 50, 50)
+	shouldBe(degs(acc), 200, 200)
+	_, _, err = TeleopStreamConfig{MaxVelDegsPerSec: 50}.jointLimits(unpublished)
+	test.That(t, err, test.ShouldBeError, errTeleopNoStreamLimits)
+	_, _, err = TeleopStreamConfig{}.jointLimits(unpublished)
+	test.That(t, err, test.ShouldBeError, errTeleopNoStreamLimits)
+}
+
+func TestTeleopArmWithoutLimitsUsesUnary(t *testing.T) {
+	ms, a, teardown := setupTeleopTest(t)
+	defer teardown()
+	ctx := context.Background()
+
+	fake := &fakeTeleopArmStreamRunner{}
+	ms.teleopRunArmStream = fake.run
+	ms.mu.Lock()
+	ms.conf.TeleopStream = TeleopStreamConfig{}
+	ms.mu.Unlock()
+
+	initial, err := a.JointPositions(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	pose := teleopStart(t, ms)
+	seq := 0
+	waitFor(t, "arm to have moved via unary path", func() bool {
+		seq++
+		teleopMove(t, ms, offsetPose(pose, float64(seq)), seq)
+		after, err := a.JointPositions(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		return referenceframe.InputsL2Distance(after, initial) > 0
+	})
+	info := armStreamStatus(t, ms)
+	test.That(t, info["fallback_unary"], test.ShouldBeTrue)
+	test.That(t, info["fallback_reason"], test.ShouldContainSubstring, "publishes no joint velocity")
+	test.That(t, fake.snapshot().runs, test.ShouldEqual, 0)
+
+	teleopStop(t, ms)
+}
+
 func TestTeleopConfigValidate(t *testing.T) {
 	valid := func(c Config) error {
 		_, _, err := c.Validate("")
@@ -362,7 +463,6 @@ func TestTeleopConfigValidate(t *testing.T) {
 	opts := TeleopStreamConfig{}.streamOptions()
 	test.That(t, opts.ArmSideTargetRunway, test.ShouldEqual, defaultTeleopStreamRunwayMs*time.Millisecond)
 	test.That(t, opts.SendToArmInterval, test.ShouldEqual, defaultTeleopStreamIntervalMs*time.Millisecond)
-	test.That(t, opts.MoveOptions.MaxVelRads, test.ShouldAlmostEqual, utils.DegToRad(defaultTeleopStreamMaxVelDegsPerSec), 1e-9)
 	test.That(t, TeleopStreamConfig{}.maxLead(), test.ShouldEqual, defaultTeleopStreamMaxLeadMs*time.Millisecond)
 
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{MaxTargetsDroppedInARow: -1}}), test.ShouldNotBeNil)

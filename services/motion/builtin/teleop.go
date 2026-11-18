@@ -47,10 +47,10 @@ const (
 	// defaultTeleopStreamIntervalMs is the cadence at which the arm's buffer is topped up, and so
 	// also the sampling period of the trajectory sent to the arm.
 	defaultTeleopStreamIntervalMs = 10
-	// defaultTeleopStreamMaxVelDegsPerSec and defaultTeleopStreamMaxAccDegsPerSec2 are the joint
-	// limits the trajectory is generated under when the config does not set them.
-	defaultTeleopStreamMaxVelDegsPerSec  = 90
-	defaultTeleopStreamMaxAccDegsPerSec2 = 360
+	// teleopStreamLimitMargin is the fraction of an arm's own joint velocity and acceleration
+	// limits the trajectory is generated under. The generator's sampled output runs slightly over
+	// the limits it is given, and an arm rejects a stream for any point over its own.
+	teleopStreamLimitMargin = 0.95
 	// defaultTeleopStreamMaxLeadMs bounds how far the commanded trajectory may run ahead of the
 	// arm. While the not-yet-sent trajectory inside trajex is longer than this, newly planned
 	// trajectories are skipped (and the planning head left in place), so the next plan heads
@@ -87,6 +87,9 @@ var (
 	// errTeleopStreamClosed is returned by teleopArmStream.push when the stream has been closed
 	// or its Run loop has already returned.
 	errTeleopStreamClosed = errors.New("teleop arm stream is closed")
+	// errTeleopNoStreamLimits is returned when an arm publishes no joint velocity and
+	// acceleration limits and the config sets none to use in their place.
+	errTeleopNoStreamLimits = errors.New("arm publishes no joint velocity and acceleration limits, and teleop_stream sets none")
 	// errTeleopStreamFallback tells executeTeleop that streaming is unavailable for a component
 	// and the unary executor should take over for it.
 	errTeleopStreamFallback = errors.New("teleop arm stream unavailable, falling back to unary")
@@ -100,12 +103,14 @@ type TeleopStreamConfig struct {
 	// SendToArmIntervalMs is how often the arm's buffer is topped up, and the sampling period of
 	// the trajectory sent to it. Must be less than ArmSideTargetRunwayMs. Default 10.
 	SendToArmIntervalMs int `json:"send_to_arm_interval_ms"`
-	// MaxVelDegsPerSec and MaxAccDegsPerSec2 are the joint limits the trajectory is generated
-	// under, applied to every joint. Defaults 90 and 360.
-	MaxVelDegsPerSec  float64 `json:"max_vel_degs_per_sec"`
-	MaxAccDegsPerSec2 float64 `json:"max_acc_degs_per_sec2"`
-	// MaxVelDegsPerSecJoints and MaxAccDegsPerSec2Joints are per-joint limits. When set they take
-	// precedence over the scalar limits and must have one entry per joint.
+	// The trajectory sent to an arm is generated under that arm's own joint velocity and
+	// acceleration limits, read from its kinematics, less a small margin. The four fields below
+	// can only lower them: each is applied as a ceiling, and none can raise a limit past what the
+	// arm publishes. They are the limits used for an arm that publishes none. MaxVelDegsPerSec
+	// and MaxAccDegsPerSec2 apply to every joint; the Joints variants take precedence and must
+	// have one entry per joint.
+	MaxVelDegsPerSec        float64   `json:"max_vel_degs_per_sec"`
+	MaxAccDegsPerSec2       float64   `json:"max_acc_degs_per_sec2"`
 	MaxVelDegsPerSecJoints  []float64 `json:"max_vel_degs_per_sec_joints"`
 	MaxAccDegsPerSec2Joints []float64 `json:"max_acc_degs_per_sec2_joints"`
 	// MaxTrajexLeadMs is how far the commanded trajectory may run ahead of the arm before newly
@@ -129,38 +134,82 @@ func (c TeleopStreamConfig) streamOptions() streaming.StreamOptions {
 		interval = defaultTeleopStreamIntervalMs
 	}
 	window := int32(teleopStreamDiagWindow / time.Second)
-	maxVel := c.MaxVelDegsPerSec
-	if maxVel <= 0 {
-		maxVel = defaultTeleopStreamMaxVelDegsPerSec
-	}
-	maxAcc := c.MaxAccDegsPerSec2
-	if maxAcc <= 0 {
-		maxAcc = defaultTeleopStreamMaxAccDegsPerSec2
-	}
-	degsToRads := func(degs []float64) []float64 {
-		if len(degs) == 0 {
-			return nil
-		}
-		rads := make([]float64, len(degs))
-		for i, d := range degs {
-			rads[i] = utils.DegToRad(d)
-		}
-		return rads
-	}
+	// The joint limits are not set here: they depend on the arm, and withLimits fills them in
+	// when a stream to a particular arm opens.
 	opts := streaming.NewStreamOptions(motion.TempStreamOptions{
 		ArmSideTargetRunwayMs: &runway,
 		SendToArmIntervalMs:   &interval,
 		DiagnosticsWindowSecs: &window,
-		MoveOptions: &arm.MoveOptions{
-			MaxVelRads:       utils.DegToRad(maxVel),
-			MaxAccRads:       utils.DegToRad(maxAcc),
-			MaxVelRadsJoints: degsToRads(c.MaxVelDegsPerSecJoints),
-			MaxAccRadsJoints: degsToRads(c.MaxAccDegsPerSec2Joints),
-		},
 	})
 	opts.MaxTargetsDroppedInARowDueToTrajexExtendError = c.MaxTargetsDroppedInARow
 	opts.ForceRebaseIfExtendLatencyExceeds = time.Duration(c.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
 	return opts
+}
+
+// configuredLimit returns the per-joint ceiling the config sets, in radians, for an arm with dof
+// joints: perJoint if it is set, else scalar for every joint, else nil.
+func configuredLimit(name string, perJointDegs []float64, scalarDegs float64, dof int) ([]float64, error) {
+	switch {
+	case len(perJointDegs) > 0:
+		if len(perJointDegs) != dof {
+			return nil, fmt.Errorf("teleop_stream.%s_joints has %d entries, but the arm has %d joints", name, len(perJointDegs), dof)
+		}
+		rads := make([]float64, dof)
+		for i, d := range perJointDegs {
+			rads[i] = utils.DegToRad(d)
+		}
+		return rads, nil
+	case scalarDegs > 0:
+		rads := make([]float64, dof)
+		for i := range rads {
+			rads[i] = utils.DegToRad(scalarDegs)
+		}
+		return rads, nil
+	default:
+		return nil, nil
+	}
+}
+
+// jointLimits returns the per-joint velocity and acceleration limits, in radians, to generate an
+// arm's trajectory under. armLimits are the arm's own, from its kinematics. Where the arm
+// publishes limits they are the source of truth: the result is those limits less
+// teleopStreamLimitMargin, lowered further by any ceiling the config sets. An arm that publishes
+// none gets the configured ceilings as its limits, or errTeleopNoStreamLimits if there are none.
+func (c TeleopStreamConfig) jointLimits(armLimits []referenceframe.Limit) (vel, acc []float64, err error) {
+	dof := len(armLimits)
+	cfgVel, err := configuredLimit("max_vel_degs_per_sec", c.MaxVelDegsPerSecJoints, c.MaxVelDegsPerSec, dof)
+	if err != nil {
+		return nil, nil, err
+	}
+	cfgAcc, err := configuredLimit("max_acc_degs_per_sec2", c.MaxAccDegsPerSec2Joints, c.MaxAccDegsPerSec2, dof)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	armVel, armAcc, ok := referenceframe.TrajectoryLimits(armLimits)
+	for i := 0; ok && i < dof; i++ {
+		ok = armVel[i] > 0 && armAcc[i] > 0
+	}
+	if !ok {
+		if cfgVel == nil || cfgAcc == nil {
+			return nil, nil, errTeleopNoStreamLimits
+		}
+		return cfgVel, cfgAcc, nil
+	}
+
+	vel = make([]float64, dof)
+	acc = make([]float64, dof)
+	for i := range dof {
+		vel[i] = armVel[i] * teleopStreamLimitMargin
+		if cfgVel != nil {
+			vel[i] = min(vel[i], cfgVel[i])
+		}
+		acc[i] = armAcc[i] * teleopStreamLimitMargin
+		if cfgAcc != nil {
+			acc[i] = min(acc[i], cfgAcc[i])
+		}
+	}
+	return vel, acc, nil
 }
 
 func (c TeleopStreamConfig) maxLead() time.Duration {
@@ -173,6 +222,20 @@ func (c TeleopStreamConfig) maxLead() time.Duration {
 func (c TeleopStreamConfig) validate() error {
 	if c.MaxTrajexLeadMs < 0 {
 		return fmt.Errorf("teleop_stream.max_trajex_lead_ms must be non-negative (0 selects the default), got %d", c.MaxTrajexLeadMs)
+	}
+	for name, v := range map[string]float64{"max_vel_degs_per_sec": c.MaxVelDegsPerSec, "max_acc_degs_per_sec2": c.MaxAccDegsPerSec2} {
+		if v < 0 {
+			return fmt.Errorf("teleop_stream.%s must be non-negative (0 uses the arm's own limit), got %v", name, v)
+		}
+	}
+	for name, vs := range map[string][]float64{
+		"max_vel_degs_per_sec_joints": c.MaxVelDegsPerSecJoints, "max_acc_degs_per_sec2_joints": c.MaxAccDegsPerSec2Joints,
+	} {
+		for _, v := range vs {
+			if v <= 0 {
+				return fmt.Errorf("teleop_stream.%s entries must be positive, got %v", name, v)
+			}
+		}
 	}
 	opts := c.streamOptions()
 	if err := opts.Validate(); err != nil {
@@ -207,6 +270,7 @@ type teleopArmStream struct {
 	err  error
 
 	diag    *diagnostics.SingleSessionDiagnostics
+	opts    streaming.StreamOptions
 	cancel  context.CancelFunc
 	started time.Time
 	pushed  atomic.Int64
@@ -336,6 +400,7 @@ type teleopPipeline struct {
 	// Streamed executor configuration. Immutable after creation.
 	streamed     bool
 	streamOpts   streaming.StreamOptions
+	streamConf   TeleopStreamConfig
 	maxLead      time.Duration
 	runArmStream teleopArmStreamRunner
 	// diagDir is where each arm stream writes its diagnostics file when it ends; empty disables it.
@@ -763,6 +828,14 @@ func (tp *teleopPipeline) executeStreamed(
 	if s == nil {
 		var err error
 		s, err = tp.openArmStream(ctx, a, comp)
+		if errors.Is(err, errTeleopNoStreamLimits) {
+			// No stream was opened, so the trajectory in hand still starts where the arm is and
+			// the unary path can take it as it stands.
+			comp.streamFallbackUnary = true
+			comp.streamFallbackReason = err.Error()
+			tp.logger.CWarnf(ctx, "teleop executor: not streaming to %q, using unary moves: %v", name, err)
+			return false, errTeleopStreamFallback
+		}
 		if err != nil {
 			return false, fmt.Errorf("opening arm stream: %w", err)
 		}
@@ -798,6 +871,20 @@ func (tp *teleopPipeline) executeStreamed(
 // moves the arm's planning head onto that seed so the next plan starts from where the arm
 // actually is. Caller holds comp.mu and runs on the executor goroutine.
 func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *teleopArmState) (*teleopArmStream, error) {
+	// The arm is the source of truth for how fast it may go. Reading its limits each time a
+	// stream opens means a change to the arm's configured speed takes effect on the next stream.
+	model, err := a.Kinematics(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading arm kinematics for its joint limits: %w", err)
+	}
+	vel, acc, err := tp.streamConf.jointLimits(model.DoF())
+	if err != nil {
+		return nil, err
+	}
+	opts := tp.streamOpts
+	opts.MoveOptions.MaxVelRadsJoints = vel
+	opts.MoveOptions.MaxAccRadsJoints = acc
+
 	seed, err := a.JointPositions(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("reading seed joint positions: %w", err)
@@ -807,7 +894,8 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 	s := &teleopArmStream{
 		targets: make(chan []referenceframe.Input, teleopStreamTargetBuffer),
 		done:    make(chan struct{}),
-		diag:    diagnostics.New(tp.streamOpts.DiagnosticsWindow),
+		diag:    diagnostics.New(opts.DiagnosticsWindow),
+		opts:    opts,
 		cancel:  cancel,
 		started: time.Now(),
 	}
@@ -831,7 +919,7 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 			for range acks {
 			}
 		}()
-		err := tp.runArmStream(streamCtx, tp.logger, a, tp.streamOpts, s.targets, seed, s.diag, acks)
+		err := tp.runArmStream(streamCtx, tp.logger, a, opts, s.targets, seed, s.diag, acks)
 		close(acks)
 		<-acksDrained
 		s.err = err
@@ -839,14 +927,15 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 		if err != nil && !errors.Is(err, context.Canceled) {
 			tp.logger.CWarnf(streamCtx, "teleop arm stream for %q ended: %v", name, err)
 		}
-		tp.logger.Infow("teleop arm stream stats", "component", name, "options", tp.streamOpts, "stats", s.diag.Stats())
+		tp.logger.Infow("teleop arm stream stats", "component", name, "options", opts, "stats", s.diag.Stats())
 		if werr := writeStreamDiagnosticsFile(
-			tp.logger, tp.diagDir, "teleop-arm-stream-diagnostics", name, tp.streamOpts, s.diag, s.started, nil, err,
+			tp.logger, tp.diagDir, "teleop-arm-stream-diagnostics", name, opts, s.diag, s.started, nil, err,
 		); werr != nil {
 			tp.logger.Warnf("couldn't write teleop arm stream diagnostics: %v", werr)
 		}
 	}()
-	tp.logger.CInfof(ctx, "teleop executor: opened arm stream for %q", name)
+	tp.logger.CInfof(ctx, "teleop executor: opened arm stream for %q with joint limits %.0f deg/s, %.0f deg/s^2",
+		name, inputsToDeg(vel), inputsToDeg(acc))
 	return s, nil
 }
 
@@ -1151,6 +1240,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			cachedBaseInputs: fsInputs,
 			streamed:         streamed,
 			streamOpts:       streamOpts,
+			streamConf:       streamConf,
 			diagDir:          diagDir,
 			maxLead:          streamConf.maxLead(),
 			runArmStream:     runArmStream,
