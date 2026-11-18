@@ -14,10 +14,12 @@ import (
 const (
 	// DoPlan plans a motion without executing it. The request value is a MoveReq (or, for
 	// non-Go callers, a protojson-encoded pb.MoveRequest string). When the request is a MoveReq, the
-	// response value is a motionplan.Trajectory, both in-process and through the Go gRPC client:
+	// response value is a motionplan.Trajectory, both in-process and through the Go gRPC client.
+	// If the client can't decode the response (e.g. from a non-builtin motion service), the value
+	// is left as the raw wire data, so check the assertion:
 	//
 	//	resp, err := svc.DoCommand(ctx, map[string]interface{}{motion.DoPlan: req})
-	//	traj := resp[motion.DoPlan].(motionplan.Trajectory)
+	//	traj, ok := resp[motion.DoPlan].(motionplan.Trajectory)
 	DoPlan = "plan"
 	// DoPlanPartialWaypoint is set in a DoPlan response, as an int, when the planner returned a
 	// partial plan. Its value is the number of goals the trajectory reaches.
