@@ -118,6 +118,7 @@ func TestServerGetCurrent(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestServerGetPower(t *testing.T) {
 	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
@@ -149,6 +150,7 @@ func TestServerGetPower(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 }
 
+//nolint:dupl
 func TestServerGetBatteryPercent(t *testing.T) {
 	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
