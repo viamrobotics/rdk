@@ -88,8 +88,8 @@ func TestChainMatchesTransformForShippedModels(t *testing.T) {
 	}
 }
 
-// The gripper's tcp hangs off its base, so neither finger joint is on its chain, while the serial
-// model's mimic joint comes with a source instead of an offset.
+// The gripper's tcp hangs off its base, so neither finger joint is on its chain, while a chain to
+// a finger carries its joint, the mimic one with a source instead of an offset.
 func TestChainOffsetsShowBranchesAndMimics(t *testing.T) {
 	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -98,6 +98,25 @@ func TestChainOffsetsShowBranchesAndMimics(t *testing.T) {
 	tcp, err := gripper.Chain()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, chainNames(tcp), test.ShouldResemble, []string{"base", "tcp"})
+
+	left, err := gripper.ChainFrom(World, "left_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(left), test.ShouldResemble, []string{"base", "left_joint", "left_finger"})
+	test.That(t, left[1].Offset, test.ShouldEqual, 0)
+	test.That(t, left[1].Mimic, test.ShouldBeNil)
+	_, prismatic := left[1].Frame.(PrismaticFrame)
+	test.That(t, prismatic, test.ShouldBeTrue)
+
+	right, err := gripper.ChainFrom(World, "right_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(right), test.ShouldResemble, []string{"base", "right_joint", "right_finger"})
+	test.That(t, right[1].Offset, test.ShouldEqual, -1)
+	test.That(t, right[1].Mimic, test.ShouldResemble, &MimicInput{Source: 0, ValueMultiplier: 1})
+
+	open := []Input{0.02}
+	leftPose := composeChain(t, left, open)
+	rightPose := composeChain(t, right, open)
+	test.That(t, leftPose.Point().Norm(), test.ShouldAlmostEqual, rightPose.Point().Norm(), 1e-9)
 
 	serial, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.json"), "")
 	test.That(t, err, test.ShouldBeNil)
@@ -153,6 +172,28 @@ func TestChainExpandsNestedModels(t *testing.T) {
 	test.That(t, chainNames(chain)[len(chain)-1], test.ShouldEqual, "probe")
 
 	assertChainMatchesTransform(t, composed, 7)
+
+	finger, err := composed.ChainFrom(World, "hand:right_finger")
+	test.That(t, err, test.ShouldBeNil)
+	assertChainFrames(t, finger)
+	test.That(t, chainNames(finger)[len(finger)-3:], test.ShouldResemble, []string{"base", "right_joint", "right_finger"})
+	test.That(t, finger[len(finger)-2].Mimic, test.ShouldResemble, &MimicInput{Source: 6, ValueMultiplier: 1})
+	leftFinger, err := composed.ChainFrom(World, "hand:left_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, leftFinger[len(leftFinger)-2].Offset, test.ShouldEqual, 6)
+
+	// the frame system is the only other forward kinematics for a frame inside a part
+	rng := rand.New(rand.NewSource(11))
+	for range 10 {
+		inputs := RandomFrameInputs(composed, rng)
+		li := NewLinearInputs()
+		li.Put("arm", inputs[:6])
+		li.Put("hand", inputs[6:])
+		want, err := fs.Transform(li, NewPoseInFrame("hand:right_finger", spatial.NewZeroPose()), World)
+		test.That(t, err, test.ShouldBeNil)
+		got := composeChain(t, finger, inputs)
+		test.That(t, spatial.PoseAlmostEqualEps(got, want.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
+	}
 }
 
 // A renamed frame hides the axis methods, which is why Chain unwraps it.
@@ -194,6 +235,14 @@ func TestAxisInterfaces(t *testing.T) {
 	assertChainMatchesTransform(t, model, 3)
 }
 
+func TestChainRefusesAFrameTheModelLacks(t *testing.T) {
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = arm.ChainFrom(World, "nope")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "nope")
+}
+
 // A gripper without geometry is a model with no frames, and a part with such a model composes
 // like any other.
 func TestChainOfNothingIsEmpty(t *testing.T) {
@@ -207,6 +256,9 @@ func TestChainOfNothingIsEmpty(t *testing.T) {
 
 	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	chain, err = arm.ChainFrom(World, World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chain, test.ShouldBeEmpty)
 
 	parts := []*FrameSystemPart{
 		{FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), "arm", nil), ModelFrame: arm},
@@ -219,6 +271,9 @@ func TestChainOfNothingIsEmpty(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(composed.DoF()), test.ShouldEqual, 6)
 	assertChainMatchesTransform(t, composed, 13)
+	toHand, err := composed.ChainFrom(World, "hand")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(toHand)[len(toHand)-1], test.ShouldEqual, "hand_origin")
 }
 
 // The frame system flattens a part nested in a part under two prefixes.
@@ -249,6 +304,10 @@ func TestChainReachesAModelInsideAModelInsideAModel(t *testing.T) {
 	test.That(t, chainNames(chain), test.ShouldResemble, []string{"wrist", "base", "right_joint", "right_finger", "probe"})
 	test.That(t, chain[0].Offset, test.ShouldEqual, 0)
 	test.That(t, chain[2].Mimic, test.ShouldResemble, &MimicInput{Source: 1, ValueMultiplier: 1})
+	left, err := model.ChainFrom(World, "tool:grip:left_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(left), test.ShouldResemble, []string{"wrist", "base", "left_joint", "left_finger"})
+	test.That(t, left[2].Offset, test.ShouldEqual, 1)
 
 	for _, q := range [][]Input{{0, 0}, {0.5, 0.02}, {-1, 0.01}} {
 		want, err := wrist.Transform(q[:1])
@@ -320,4 +379,92 @@ func TestChainCarriesAFrameWithSeveralInputs(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqualEps(composeChain(t, chain, inputs), want, 1e-6), test.ShouldBeTrue)
 	}
+}
+
+// ChainFrom cuts the chain at a base frame, so composing it gives the end in that frame rather
+// than in world, which is what a tool speed cap relative to a moving carriage wants.
+func TestChainFromABaseFrame(t *testing.T) {
+	gantry, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/kinematics/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	mountPose := spatial.NewPose(r3.Vector{X: 120, Y: -40, Z: 25}, &spatial.EulerAngles{Roll: 0.4, Pitch: -0.2, Yaw: 2.1})
+	parts := []*FrameSystemPart{
+		{FrameConfig: NewLinkInFrame(World, spatial.NewZeroPose(), "gantry", nil), ModelFrame: gantry},
+		{FrameConfig: NewLinkInFrame("gantry", mountPose, "mount", nil)},
+		{FrameConfig: NewLinkInFrame("mount", spatial.NewPoseFromPoint(r3.Vector{Z: 60}), "arm", nil), ModelFrame: arm},
+		{FrameConfig: NewLinkInFrame("arm", spatial.NewPoseFromPoint(r3.Vector{Z: 20}), "hand", nil), ModelFrame: gripper},
+		{FrameConfig: NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 2000}), "other", nil), ModelFrame: arm},
+	}
+	fs, err := NewFrameSystem("machine", parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	machine, err := NewModel("machine", fs, "hand")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(machine.DoF()), test.ShouldEqual, len(gantry.DoF())+2*len(arm.DoF())+1)
+
+	whole, err := machine.Chain()
+	test.That(t, err, test.ShouldBeNil)
+	fromWorld, err := machine.ChainFrom("", "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(fromWorld), test.ShouldResemble, chainNames(whole))
+
+	rng := rand.New(rand.NewSource(23))
+	for _, tc := range []struct {
+		base  string
+		first string
+	}{
+		{"gantry", "mount_origin"},
+		{"mount", "arm_origin"},
+		{"arm_origin", "base_link"},
+		{"arm", "hand_origin"},
+	} {
+		t.Run(tc.base, func(t *testing.T) {
+			chain, err := machine.ChainFrom(tc.base, "")
+			test.That(t, err, test.ShouldBeNil)
+			assertChainFrames(t, chain)
+			test.That(t, chainNames(chain)[0], test.ShouldEqual, tc.first)
+			for range 10 {
+				inputs := RandomFrameInputs(machine, rng)
+				want, err := fs.Transform(linearInputsOf(machine, inputs), NewPoseInFrame("hand", spatial.NewZeroPose()), tc.base)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, spatial.PoseAlmostEqualEps(composeChain(t, chain, inputs), want.(*PoseInFrame).Pose(), 1e-6), test.ShouldBeTrue)
+			}
+		})
+	}
+
+	// a base inside a part cuts that part's expanded chain, and so does one the walk climbs
+	// through on its way out of a part
+	inside, err := machine.ChainFrom("arm:wrist_3_joint", "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(inside)[:2], test.ShouldResemble, []string{"ee_link", "hand_origin"})
+	test.That(t, chainNames(inside)[len(inside)-1], test.ShouldEqual, "tcp")
+	finger, err := machine.ChainFrom("hand:base", "hand:right_finger")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, chainNames(finger), test.ShouldResemble, []string{"right_joint", "right_finger"})
+	handOffset, err := (&chainWalk{offsets: map[*SimpleModel]map[string]int{}}).offset(machine, "hand", gripper)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, finger[0].Mimic, test.ShouldResemble, &MimicInput{Source: handOffset, ValueMultiplier: 1})
+
+	same, err := machine.ChainFrom("hand", "hand")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, same, test.ShouldBeEmpty)
+
+	_, err = machine.ChainFrom("other", "hand")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"other" of model "machine" is not between "hand" and the world frame`)
+	_, err = machine.ChainFrom("nowhere", "hand")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "nowhere")
+}
+
+// linearInputsOf keys a model's flat input vector by the frames of the frame system it was built
+// over, which is how the frame system takes them.
+func linearInputsOf(m *SimpleModel, inputs []Input) *LinearInputs {
+	li := NewLinearInputs()
+	for _, meta := range m.inputSchema.metas {
+		li.Put(meta.frameName, inputs[meta.offset:meta.offset+meta.dof])
+	}
+	return li
 }
