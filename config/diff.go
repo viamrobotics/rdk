@@ -165,6 +165,14 @@ func prettyDiff(left, right Config) (string, error) {
 				rem.Auth.SignalingCreds.Payload = mask
 			}
 		}
+		if mc := conf.MaintenanceConfig; mc != nil && mc.FollowPart != nil {
+			if mc.FollowPart.Auth.Credentials != nil {
+				mc.FollowPart.Auth.Credentials.Payload = mask
+			}
+			if mc.FollowPart.Auth.SignalingCreds != nil {
+				mc.FollowPart.Auth.SignalingCreds.Payload = mask
+			}
+		}
 	}
 	sanitizeConfig(&left)
 	sanitizeConfig(&right)
