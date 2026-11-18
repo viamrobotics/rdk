@@ -397,7 +397,8 @@ func (ms *builtIn) PlanHistory(
 //     required key: DoPlan
 //     input value: a motion.MoveReq, or a protojson-encoded motionpb.MoveRequest string
 //     output value: a motionplan.Trajectory, plus motion.DoPlanPartialWaypoint (the number of goals
-//     solved) if the plan is partial. The Go motion client decodes these to the same types.
+//     solved) if the plan is partial. For MoveReq requests, the Go motion client decodes these to the
+//     same types.
 //
 //   - DoExecute takes a Trajectory and executes it
 //     required key: DoExecute

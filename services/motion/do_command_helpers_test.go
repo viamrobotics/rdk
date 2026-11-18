@@ -93,12 +93,16 @@ func TestClientDoPlan(t *testing.T) {
 		test.That(t, resp[motion.DoPlanPartialWaypoint], test.ShouldEqual, 3)
 	})
 
-	t.Run("string request passes through and the response is typed", func(t *testing.T) {
-		respondWith(map[string]interface{}{motion.DoPlan: traj})
+	t.Run("string request and its response pass through unchanged", func(t *testing.T) {
+		respondWith(map[string]interface{}{motion.DoPlan: traj, motion.DoPlanPartialWaypoint: 3})
 		resp, err := client.DoCommand(ctx, map[string]interface{}{motion.DoPlan: "raw"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gotCmd[motion.DoPlan], test.ShouldEqual, "raw")
-		test.That(t, resp[motion.DoPlan], test.ShouldResemble, traj)
+		_, isTyped := resp[motion.DoPlan].(motionplan.Trajectory)
+		test.That(t, isTyped, test.ShouldBeFalse)
+		_, isList := resp[motion.DoPlan].([]interface{})
+		test.That(t, isList, test.ShouldBeTrue)
+		test.That(t, resp[motion.DoPlanPartialWaypoint], test.ShouldEqual, 3.0)
 	})
 
 	t.Run("undecodable response values are left as is", func(t *testing.T) {

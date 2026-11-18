@@ -13,8 +13,8 @@ import (
 // DoCommand keys understood by the builtin motion service.
 const (
 	// DoPlan plans a motion without executing it. The request value is a MoveReq (or, for
-	// non-Go callers, a protojson-encoded pb.MoveRequest string). The response value is a
-	// motionplan.Trajectory, both in-process and through the Go gRPC client:
+	// non-Go callers, a protojson-encoded pb.MoveRequest string). When the request is a MoveReq, the
+	// response value is a motionplan.Trajectory, both in-process and through the Go gRPC client:
 	//
 	//	resp, err := svc.DoCommand(ctx, map[string]interface{}{motion.DoPlan: req})
 	//	traj := resp[motion.DoPlan].(motionplan.Trajectory)
@@ -27,31 +27,32 @@ const (
 )
 
 // encodePlanCommand returns cmd with a MoveReq under DoPlan replaced by the protojson string the
-// builtin service expects over the wire. cmd is returned unchanged if it holds no MoveReq.
-func encodePlanCommand(name string, cmd map[string]interface{}) (map[string]interface{}, error) {
+// builtin service expects over the wire, and reports whether it did so. cmd is returned unchanged
+// if it holds no MoveReq.
+func encodePlanCommand(name string, cmd map[string]interface{}) (map[string]interface{}, bool, error) {
 	var req MoveReq
 	switch v := cmd[DoPlan].(type) {
 	case MoveReq:
 		req = v
 	case *MoveReq:
 		if v == nil {
-			return nil, errors.New("nil MoveReq for DoPlan")
+			return nil, false, errors.New("nil MoveReq for DoPlan")
 		}
 		req = *v
 	default:
-		return cmd, nil
+		return cmd, false, nil
 	}
 	reqPB, err := req.ToProto(name)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	bytes, err := protojson.Marshal(reqPB)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	out := maps.Clone(cmd)
 	out[DoPlan] = string(bytes)
-	return out, nil
+	return out, true, nil
 }
 
 // decodePlanResponse converts the wire-shaped DoPlan response values in resp back into a

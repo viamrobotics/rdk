@@ -382,10 +382,11 @@ func (c *client) TempStreamArmJointPositions(
 	return nil
 }
 
-// DoCommand sends cmd to the remote motion service. For DoPlan, it encodes a MoveReq request for
-// the wire and decodes the response into a motionplan.Trajectory, matching in-process behavior.
+// DoCommand sends cmd to the remote motion service. When DoPlan holds a MoveReq, it encodes the
+// request for the wire and decodes the response into a motionplan.Trajectory, matching in-process
+// behavior. Other commands, including DoPlan with a protojson string, are passed through unchanged.
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	cmd, err := encodePlanCommand(c.name, cmd)
+	cmd, encoded, err := encodePlanCommand(c.name, cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +394,7 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := cmd[DoPlan]; ok {
+	if encoded {
 		decodePlanResponse(resp)
 	}
 	return resp, nil
