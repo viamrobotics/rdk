@@ -796,8 +796,6 @@ github.com/pion/srtp/v2 v2.0.20 h1:HNNny4s+OUmG280ETrCdgFndp4ufx3/uy85EawYEhTk=
 github.com/pion/srtp/v2 v2.0.20/go.mod h1:0KJQjA99A6/a0DOVTu1PhDSw0CXF2jTkqOoMg3ODqdA=
 github.com/pion/srtp/v3 v3.1.3 h1:O3sfbfWfq/OyEaXRbX02Z0SNQRijS9nDdc/DEb8jxlU=
 github.com/pion/srtp/v3 v3.1.3/go.mod h1:v3uQtrCz9LH3aahau0jtzRDsWGwKkh4a0BiBwzzxhtQ=
-github.com/pion/stun v0.6.1 h1:8lp6YejULeHBF8NmV8e2787BogQhduZugh5PdhDyyN4=
-github.com/pion/stun v0.6.1/go.mod h1:/hO7APkX4hZKu/D0f2lHzNyvdkTGtIy3NDmLR7kSz/8=
 github.com/pion/stun/v4 v4.0.1 h1:S2ggK4hsUJJKoZfpL90uIqIRTj6xJ0NOIEkXgcpQif0=
 github.com/pion/stun/v4 v4.0.1/go.mod h1:byktbPA8U7HjJ2H8w3moP7nzq0Q+kYNulvMLPaubQL4=
 github.com/pion/transport/v2 v2.2.1/go.mod h1:cXXWavvCnFF6McHTft3DWS9iic2Mftcz1Aq29pGcU5g=
@@ -989,6 +987,8 @@ github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWj
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=
 github.com/viamrobotics/ice/v2 v2.3.40/go.mod h1:MFqB81U1pliDKaXJx2hGHvYKg1PepyEYwEY10828Ve0=
+github.com/viamrobotics/stun v0.6.2-viam.1 h1:rpuG47BYeUbgc7/j++53/YJKdeojNjgWzR0OBRyrRq8=
+github.com/viamrobotics/stun v0.6.2-viam.1/go.mod h1:/hO7APkX4hZKu/D0f2lHzNyvdkTGtIy3NDmLR7kSz/8=
 github.com/viamrobotics/webrtc/v3 v3.99.16 h1:N3OQoWnV9Zg68mTDOq8ymsx2AMpbEjuo1gHWaVd7wB0=
 github.com/viamrobotics/webrtc/v3 v3.99.16/go.mod h1:w1LmHsQFaq7vqLh06ybQ5kmYXo8myQq+3Pj073RL0f0=
 github.com/viamrobotics/zeroconf v1.1.0 h1:ASyB/dekUh3PPb55u9wPjUduaWGgyxDOWVj3/Kgiz/Y=
