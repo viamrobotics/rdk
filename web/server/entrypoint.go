@@ -16,7 +16,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
-	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
@@ -713,13 +712,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// config file path, so give it a config of its own: `NewWatcher` calls `Ensure`, which mutates
 	// what it is given, and the robot is already running on every other config here.
 	watcherConfig := &config.Config{ConfigFilePath: cfg.ConfigFilePath, Cloud: cfg.Cloud.Copy()}
-	var fillAgentInfo config.AgentInfoFunc
-	if f, ok := myRobot.(interface {
-		FillAgentInfo(info *apppb.AgentInfo)
-	}); ok {
-		fillAgentInfo = f.FillAgentInfo
-	}
-	watcher, err := config.NewWatcher(ctx, watcherConfig, s.configLogger, s.conn, fillAgentInfo)
+	watcher, err := config.NewWatcher(ctx, watcherConfig, s.configLogger, s.conn, myRobot.FillAgentInfo)
 	if err != nil {
 		cancel()
 		return err
