@@ -142,10 +142,10 @@ func TestConfigCacheMaintenanceBlocked(t *testing.T) {
 	})
 
 	t.Run("blocked tracing change is still applied once unblocked", func(t *testing.T) {
-		// TODO: a tracing (or jobs) change pushed while reconfigure is blocked is stored as
-		// the most recent config without being applied, so the identical push after the gate
-		// opens diffs as a no-op and the change never takes effect.
-		t.Skip("blocked tracing changes are lost once unblocked")
+		// TODO(RSDK-14955): a tracing (or jobs) change pushed while reconfigure is blocked is
+		// stored as the most recent config without being applied, so the identical push after
+		// the gate opens diffs as a no-op and the change never takes effect.
+		t.Skip("RSDK-14955: blocked tracing changes are lost once unblocked")
 		allowed.Store(true)
 		// localRobot.Close shuts down the global trace objects.
 		trace.SetProvider(t.Context())
@@ -174,7 +174,7 @@ func TestConfigCacheMaintenanceBlocked(t *testing.T) {
 		test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 1)
 	})
 
-	t.Run("blocked maintenance config change still gates module restarts", func(t *testing.T) {
+	t.Run("blocked maintenance config change still gates viam-server restarts", func(t *testing.T) {
 		allowed.Store(true)
 		logger := logging.NewTestLogger(t)
 		r := setupLocalRobot(t, ctx, &config.Config{
@@ -188,6 +188,7 @@ func TestConfigCacheMaintenanceBlocked(t *testing.T) {
 			MaintenanceConfig: maintenanceCfg,
 			Components:        []resource.Config{maintSensor, otherSensor},
 		})
+		// RestartAllowed is inspected by viam-agent to see if viam-server can be updated.
 		test.That(t, r.RestartAllowed(), test.ShouldBeFalse)
 		mStatus, err := r.MachineStatus(ctx)
 		test.That(t, err, test.ShouldBeNil)
