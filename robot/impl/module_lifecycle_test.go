@@ -1291,3 +1291,30 @@ func TestModuleStatus(t *testing.T) {
 	// reset the module startup timeout so it doesn't interfere with other tests
 	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "")
 }
+
+func TestModuleCrashOnBuildRestartRateLimited(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	cfg := &config.Config{
+		Modules: []config.Module{{
+			Name:        "mod",
+			ExePath:     rtestutils.BuildTempModule(t, "module/testmodule"),
+			Environment: map[string]string{"VIAM_TESTMODULE_CRASH_ON_BUILD": "1"},
+		}},
+		Components: []resource.Config{{
+			Name:  "h",
+			API:   generic.API,
+			Model: resource.NewModel("rdk", "test", "helper"),
+		}},
+	}
+	setupLocalRobot(t, ctx, cfg, logger)
+
+	const msg = "Attempting to restart crashed module"
+	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 200, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet(msg).Len(), test.ShouldBeGreaterThanOrEqualTo, 2)
+	})
+	restarts := logs.FilterMessageSnippet(msg).All()
+	test.That(t, restarts[1].Time.Sub(restarts[0].Time), test.ShouldBeGreaterThanOrEqualTo, 5*time.Second)
+}
