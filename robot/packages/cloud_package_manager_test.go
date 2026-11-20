@@ -75,6 +75,24 @@ func TestCloud(t *testing.T) {
 		validatePackageDir(t, packageDir, []config.PackageConfig{})
 	})
 
+	t.Run("resync keeps first-run failure", func(t *testing.T) {
+		_, pm := newPackageManager(t, client, fakeServer, logger, "")
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+
+		input := []config.PackageConfig{{Name: "some-name", Package: "org1/test-module", Version: "v1", Type: "module"}}
+		fakeServer.StorePackage(input...)
+		test.That(t, pm.Sync(ctx, input, []config.Module{}), test.ShouldBeNil)
+
+		pm.SetPackageState("some-name", PackageStateFailed, "first run failed")
+		test.That(t, pm.Sync(ctx, input, []config.Module{}), test.ShouldBeNil)
+
+		statuses := pm.PackageStatuses()
+		test.That(t, len(statuses), test.ShouldEqual, 1)
+		test.That(t, statuses[0].State, test.ShouldEqual, PackageStateFailed)
+		test.That(t, statuses[0].Error, test.ShouldEqual, "first run failed")
+		test.That(t, statuses[0].ConsecutiveFailures, test.ShouldEqual, 1)
+	})
+
 	t.Run("valid packages on server", func(t *testing.T) {
 		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
 		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })

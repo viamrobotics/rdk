@@ -331,3 +331,5 @@ require (
 
 // See VAN-230.
 replace github.com/pion/stun => github.com/viamrobotics/stun v0.6.2-viam.1
+
+replace go.viam.com/api => github.com/cheukt/api v0.0.0-20261120175907-c2ae924c5e83

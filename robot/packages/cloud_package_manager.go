@@ -146,30 +146,23 @@ func (m *cloudManager) SetPackageState(name PackageName, state PackageState, err
 		m.logger.Warnw("cannot set state of unknown package", "package", name, "state", state)
 		return
 	}
-	s.State = state
-	s.Error = errMsg
-	s.LastUpdated = time.Now()
+	s.setFirstRunState(state, errMsg)
 }
 
-// setPackageStatus sets the full status entry for a package. Download progress is preserved
-// when updating an existing entry for the same package version.
+// setPackageStatus sets the full status entry for a package.
 func (m *cloudManager) setPackageStatus(p config.PackageConfig, state PackageState, errMsg string) {
 	m.statusMu.Lock()
 	defer m.statusMu.Unlock()
-	status := &PackageStatus{
-		Name:        p.Name,
-		Type:        p.Type,
-		State:       state,
-		Error:       errMsg,
-		LastUpdated: time.Now(),
-		Version:     p.Version,
-	}
 	name := PackageName(p.Name)
-	if prev, ok := m.packageStatuses[name]; ok && prev.Version == p.Version {
-		status.BytesDownloaded = prev.BytesDownloaded
-		status.TotalBytes = prev.TotalBytes
-	}
-	m.packageStatuses[name] = status
+	m.packageStatuses[name] = newPackageStatus(p, state, errMsg, m.packageStatuses[name])
+}
+
+// firstRunFailing reports whether p's current version has a failed first run being retried.
+func (m *cloudManager) firstRunFailing(p config.PackageConfig) bool {
+	m.statusMu.Lock()
+	defer m.statusMu.Unlock()
+	prev, ok := m.packageStatuses[PackageName(p.Name)]
+	return ok && prev.Version == p.Version && prev.ConsecutiveFailures > 0
 }
 
 // setDownloadProgress records how many bytes of the package tarball have been downloaded
@@ -215,8 +208,13 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			m.setPackageStatus(p, PackageStateFailed, "failed to unzip, please try a different version")
 			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
 		}
-		// Seed in-memory status from the on-disk status file.
-		m.setPackageStatus(p, PackageStateReady, "")
+		// Seed in-memory status from the on-disk status file, unless first run is failing:
+		// reporting READY would hide the failure between retries. If the failing module is
+		// removed but its package stays configured, nothing reruns first run, so the stale
+		// FAILED status remains until the version changes or viam-server restarts.
+		if !m.firstRunFailing(p) {
+			m.setPackageStatus(p, PackageStateReady, "")
+		}
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 

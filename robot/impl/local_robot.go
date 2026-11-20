@@ -2443,7 +2443,7 @@ func (r *localRobot) packageManagerForModule(
 		if pkg.Type != config.PackageTypeModule {
 			continue
 		}
-		dir := pkg.LocalDataDirectory(config.DefaultPackagesDir())
+		dir := pkg.LocalDataDirectory(filepath.Join(r.homeDir, config.PackagesDirName))
 		if mod.ExePath == dir || strings.HasPrefix(mod.ExePath, dir+string(filepath.Separator)) {
 			return r.packageManager, packages.PackageName(pkg.Name)
 		}

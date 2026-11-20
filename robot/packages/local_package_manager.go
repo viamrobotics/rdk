@@ -314,29 +314,14 @@ func (m *localManager) SetPackageState(name PackageName, state PackageState, err
 		m.logger.Warnw("cannot set state of unknown package", "package", name, "state", state)
 		return
 	}
-	s.State = state
-	s.Error = errMsg
-	s.LastUpdated = time.Now()
+	s.setFirstRunState(state, errMsg)
 }
 
 // setPackageStatusLocked sets the full status entry for a package. Must be called with
-// m.mu held (write). Tarball byte counts are preserved when updating an existing entry
-// for the same package version.
+// m.mu held (write).
 func (m *localManager) setPackageStatusLocked(p config.PackageConfig, state PackageState, errMsg string) {
 	name := PackageName(p.Name)
-	status := &PackageStatus{
-		Name:        p.Name,
-		Type:        p.Type,
-		State:       state,
-		Error:       errMsg,
-		LastUpdated: time.Now(),
-		Version:     p.Version,
-	}
-	if prev, ok := m.packageStatuses[name]; ok && prev.Version == p.Version {
-		status.BytesDownloaded = prev.BytesDownloaded
-		status.TotalBytes = prev.TotalBytes
-	}
-	m.packageStatuses[name] = status
+	m.packageStatuses[name] = newPackageStatus(p, state, errMsg, m.packageStatuses[name])
 }
 
 // newerOrMissing takes two file paths. It returns true if src path is newer than dest, or if dest is missing.

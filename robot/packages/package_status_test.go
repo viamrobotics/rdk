@@ -22,14 +22,15 @@ func TestPackageStatusProtoRoundTrip(t *testing.T) {
 		PackageStateFailed,
 	} {
 		status := PackageStatus{
-			Name:            "package",
-			Type:            config.PackageTypeModule,
-			State:           state,
-			Error:           "error",
-			LastUpdated:     time.Unix(1700000000, 123).UTC(),
-			Version:         "1.2.3",
-			BytesDownloaded: 1024,
-			TotalBytes:      4096,
+			Name:                "package",
+			Type:                config.PackageTypeModule,
+			State:               state,
+			Error:               "error",
+			LastUpdated:         time.Unix(1700000000, 123).UTC(),
+			Version:             "1.2.3",
+			BytesDownloaded:     1024,
+			TotalBytes:          4096,
+			ConsecutiveFailures: 2,
 		}
 
 		protoStatus, err := PackageStatusToProto(status)
@@ -84,4 +85,38 @@ func TestPackageStatusToProtoInvalidValues(t *testing.T) {
 	test.That(t, protoStatus.GetType(), test.ShouldEqual, packagespb.PackageType_PACKAGE_TYPE_UNSPECIFIED)
 	test.That(t, protoStatus.GetState(), test.ShouldEqual, robotpb.PackageStatus_STATE_UNSPECIFIED)
 	test.That(t, protoStatus.GetLastUpdated().CheckValid(), test.ShouldNotBeNil)
+}
+
+func TestPackageStatusFirstRunFailures(t *testing.T) {
+	v1 := config.PackageConfig{Name: "package", Type: config.PackageTypeModule, Version: "v1"}
+	status := newPackageStatus(v1, PackageStateReady, "", nil)
+
+	status.setFirstRunState(PackageStateFirstRun, "")
+	status.setFirstRunState(PackageStateFailed, "boom")
+	test.That(t, status.ConsecutiveFailures, test.ShouldEqual, 1)
+
+	// The error survives the retry, including a resync of the same version.
+	status = newPackageStatus(v1, PackageStateLoading, "", status)
+	status.setFirstRunState(PackageStateFirstRun, "")
+	test.That(t, status.Error, test.ShouldEqual, "boom")
+	test.That(t, status.ConsecutiveFailures, test.ShouldEqual, 1)
+
+	status.setFirstRunState(PackageStateFailed, "boom again")
+	test.That(t, status.Error, test.ShouldEqual, "boom again")
+	test.That(t, status.ConsecutiveFailures, test.ShouldEqual, 2)
+
+	t.Run("new version resets", func(t *testing.T) {
+		v2 := v1
+		v2.Version = "v2"
+		fresh := newPackageStatus(v2, PackageStateDownloading, "", status)
+		test.That(t, fresh.Error, test.ShouldBeEmpty)
+		test.That(t, fresh.ConsecutiveFailures, test.ShouldEqual, 0)
+	})
+
+	t.Run("ready resets", func(t *testing.T) {
+		ready := *status
+		ready.setFirstRunState(PackageStateReady, "")
+		test.That(t, ready.Error, test.ShouldBeEmpty)
+		test.That(t, ready.ConsecutiveFailures, test.ShouldEqual, 0)
+	})
 }

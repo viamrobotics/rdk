@@ -302,6 +302,20 @@ func (c *FakePackagesClientAndGCSServer) Clear() {
 	c.getRequestCount = 0
 }
 
+// SetPackageTarball serves the tarball at path for every package instead of the default
+// example package.
+func (c *FakePackagesClientAndGCSServer) SetPackageTarball(path string) error {
+	checksum, err := checksumFile(path)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.testPackagePath = path
+	c.testPackageChecksum = checksum
+	return nil
+}
+
 // StorePackage store pacakges to known to fake server.
 func (c *FakePackagesClientAndGCSServer) StorePackage(all ...config.PackageConfig) {
 	c.mu.Lock()

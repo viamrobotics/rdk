@@ -1705,6 +1705,114 @@ exit 0
 	test.That(t, mStatus.Packages[0].Error, test.ShouldBeEmpty)
 }
 
+func TestMachineStatusPackageFirstRunFailure(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// The first_run script reports in, waits for the test, then exits with the status the
+	// test sends, so each attempt's in-progress state can be observed.
+	//nolint: noctx
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	defer listener.Close()
+	firstRunScript := fmt.Sprintf(`#!/usr/bin/env bash
+exec 3<>/dev/tcp/127.0.0.1/%d
+read code <&3
+exit "$code"
+`, listener.Addr().(*net.TCPAddr).Port)
+	tarballPath := createTarballModule(t, firstRunScript)
+
+	fakePackageServer, err := putils.NewFakePackageServer(ctx, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
+	test.That(t, fakePackageServer.SetPackageTarball(tarballPath), test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		name string
+		cfg  func(homeDir string) *config.Config
+	}{
+		{
+			name: "local tarball",
+			cfg: func(string) *config.Config {
+				return &config.Config{Modules: []config.Module{
+					{Name: "tarball-module", Type: config.ModuleTypeLocal, ExePath: tarballPath},
+				}}
+			},
+		},
+		{
+			name: "registry",
+			cfg: func(homeDir string) *config.Config {
+				pkg := config.PackageConfig{Name: "m_org_test", Package: "org/test", Version: "0.0.1", Type: config.PackageTypeModule}
+				fakePackageServer.StorePackage(pkg)
+				pkgDir := pkg.LocalDataDirectory(filepath.Join(homeDir, config.PackagesDirName))
+				return &config.Config{
+					Packages: []config.PackageConfig{pkg},
+					Modules: []config.Module{
+						{Name: "org_test", Type: config.ModuleTypeRegistry, ExePath: filepath.Join(pkgDir, "testmodule")},
+					},
+					Cloud: &config.Cloud{AppAddress: fmt.Sprintf("http://%s", fakePackageServer.Addr().String())},
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			homeDir := t.TempDir()
+			cfg := tc.cfg(homeDir)
+			r := setupLocalRobot(t, ctx, &config.Config{Cloud: cfg.Cloud}, logger, WithViamHomeDir(homeDir))
+
+			packageStatus := func() packages.PackageStatus {
+				t.Helper()
+				mStatus, err := r.MachineStatus(ctx)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, len(mStatus.Packages), test.ShouldEqual, 1)
+				return mStatus.Packages[0]
+			}
+
+			// attempt runs one reconfigure; check sees the status while first run is executing.
+			attempt := func(exitCode string, check func(packages.PackageStatus)) {
+				t.Helper()
+				reconfigureDone := make(chan struct{})
+				go func() {
+					defer close(reconfigureDone)
+					r.Reconfigure(ctx, cfg)
+				}()
+				conn, err := listener.Accept()
+				test.That(t, err, test.ShouldBeNil)
+				// Closing unblocks the script if check fails, so the test fails instead of hanging.
+				defer conn.Close()
+				check(packageStatus())
+				_, err = conn.Write([]byte(exitCode + "\n"))
+				test.That(t, err, test.ShouldBeNil)
+				<-reconfigureDone
+			}
+
+			attempt("1", func(s packages.PackageStatus) {
+				test.That(t, s.State, test.ShouldEqual, packages.PackageStateFirstRun)
+				test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 0)
+			})
+			s := packageStatus()
+			test.That(t, s.State, test.ShouldEqual, packages.PackageStateFailed)
+			test.That(t, s.Error, test.ShouldNotBeEmpty)
+			test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 1)
+			firstErr := s.Error
+
+			// The retry keeps the previous error while first run executes.
+			attempt("1", func(s packages.PackageStatus) {
+				test.That(t, s.State, test.ShouldEqual, packages.PackageStateFirstRun)
+				test.That(t, s.Error, test.ShouldEqual, firstErr)
+				test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 1)
+			})
+			test.That(t, packageStatus().ConsecutiveFailures, test.ShouldEqual, 2)
+
+			attempt("0", func(packages.PackageStatus) {})
+			s = packageStatus()
+			test.That(t, s.State, test.ShouldEqual, packages.PackageStateReady)
+			test.That(t, s.Error, test.ShouldBeEmpty)
+			test.That(t, s.ConsecutiveFailures, test.ShouldEqual, 0)
+		})
+	}
+}
+
 // removeDefaultServices removes default services and returns the removed
 // services for testing purposes.
 func removeDefaultServices(cfg *config.Config) []resource.Config {
@@ -6545,7 +6653,7 @@ func TestPackageManagerForModule(t *testing.T) {
 		{Name: "some-model", Package: "org/some-model", Version: "1.0.0", Type: config.PackageTypeMlModel},
 		{Name: "m_org_foo", Package: "org/foo", Version: "1.0.0", Type: config.PackageTypeModule},
 	}
-	pkgDir := pkgs[1].LocalDataDirectory(config.DefaultPackagesDir())
+	pkgDir := pkgs[1].LocalDataDirectory(filepath.Join(r.homeDir, config.PackagesDirName))
 
 	for _, tc := range []struct {
 		name    string
