@@ -999,6 +999,14 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 				mod.cleanupAfterCrash(mgr)
 				cleanupPerformed = true
+
+				// A module that crashes right after restarting (e.g. while its resources are
+				// re-added) would otherwise restart in a tight loop.
+				if since := time.Since(mod.lastRestart); since < oueRestartInterval {
+					unlock()
+					utils.SelectContextOrWait(ctx, oueRestartInterval-since)
+					continue
+				}
 			}
 
 			err := mgr.attemptRestart(ctx, mod)
@@ -1121,6 +1129,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	// so activity observers can tell recovery from a module that stayed down
 	mod.logger.Activity("module", "start", "module", mod.cfg.Name, "reason", "restart")
+	mod.lastRestart = time.Now()
 	mgr.setModuleStatusReady(mod.cfg.Name)
 	success = true
 	return nil
