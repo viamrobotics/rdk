@@ -37,7 +37,8 @@ type PackageStatus struct {
 	Type config.PackageType
 	// State is the current lifecycle state.
 	State PackageState
-	// Error contains details when State == PackageStateFailed.
+	// Error is the most recent failure. It is kept through retries of the same version and
+	// cleared once the package is ready.
 	Error string
 	// LastUpdated is when this status was last changed.
 	LastUpdated time.Time
@@ -49,6 +50,48 @@ type PackageStatus struct {
 	BytesDownloaded uint64
 	// TotalBytes is the total size of the package tarball in bytes. Zero if unknown.
 	TotalBytes uint64
+	// ConsecutiveFailures is the number of failed first runs for this version. Reset when
+	// the package is ready or its version changes.
+	ConsecutiveFailures uint
+}
+
+// newPackageStatus builds the status for p. Download progress and first-run failure history
+// carry over from prev when the version is unchanged.
+func newPackageStatus(p config.PackageConfig, state PackageState, errMsg string, prev *PackageStatus) *PackageStatus {
+	status := &PackageStatus{
+		Name:    p.Name,
+		Type:    p.Type,
+		Version: p.Version,
+	}
+	if prev != nil && prev.Version == p.Version {
+		status.BytesDownloaded = prev.BytesDownloaded
+		status.TotalBytes = prev.TotalBytes
+		status.Error = prev.Error
+		status.ConsecutiveFailures = prev.ConsecutiveFailures
+	}
+	status.setState(state, errMsg)
+	return status
+}
+
+// setState mirrors module status: the last error survives intermediate states so pollers
+// still see it while a failure is retried.
+func (s *PackageStatus) setState(state PackageState, errMsg string) {
+	s.State = state
+	s.LastUpdated = time.Now()
+	if state == PackageStateFailed {
+		s.Error = errMsg
+	} else if state == PackageStateReady {
+		s.Error = ""
+		s.ConsecutiveFailures = 0
+	}
+}
+
+// setFirstRunState is setState for the first-run stage, where failures are counted.
+func (s *PackageStatus) setFirstRunState(state PackageState, errMsg string) {
+	if state == PackageStateFailed {
+		s.ConsecutiveFailures++
+	}
+	s.setState(state, errMsg)
 }
 
 // PackageStatusToProto converts a package status to its protobuf equivalent. The returned
@@ -59,14 +102,15 @@ func PackageStatusToProto(status PackageStatus) (*robotpb.PackageStatus, error) 
 	lastUpdated := timestamppb.New(status.LastUpdated)
 
 	return &robotpb.PackageStatus{
-		Name:            status.Name,
-		Type:            *pkgType,
-		State:           state,
-		Error:           status.Error,
-		LastUpdated:     lastUpdated,
-		Version:         status.Version,
-		BytesDownloaded: status.BytesDownloaded,
-		TotalBytes:      status.TotalBytes,
+		Name:                status.Name,
+		Type:                *pkgType,
+		State:               state,
+		Error:               status.Error,
+		LastUpdated:         lastUpdated,
+		Version:             status.Version,
+		BytesDownloaded:     status.BytesDownloaded,
+		TotalBytes:          status.TotalBytes,
+		ConsecutiveFailures: uint32(status.ConsecutiveFailures),
 	}, errors.Join(typeErr, stateErr, lastUpdated.CheckValid())
 }
 
@@ -89,14 +133,15 @@ func PackageStatusFromProto(status *robotpb.PackageStatus) (PackageStatus, error
 	}
 
 	return PackageStatus{
-		Name:            status.GetName(),
-		Type:            pkgType,
-		State:           state,
-		Error:           status.GetError(),
-		LastUpdated:     lastUpdated,
-		Version:         status.GetVersion(),
-		BytesDownloaded: status.GetBytesDownloaded(),
-		TotalBytes:      status.GetTotalBytes(),
+		Name:                status.GetName(),
+		Type:                pkgType,
+		State:               state,
+		Error:               status.GetError(),
+		LastUpdated:         lastUpdated,
+		Version:             status.GetVersion(),
+		BytesDownloaded:     status.GetBytesDownloaded(),
+		TotalBytes:          status.GetTotalBytes(),
+		ConsecutiveFailures: uint(status.GetConsecutiveFailures()),
 	}, errors.Join(typeErr, stateErr, timestampErr)
 }
 
