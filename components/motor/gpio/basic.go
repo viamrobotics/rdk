@@ -216,7 +216,11 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 		}
 	}
 
-	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
+	// min_power_pct was already applied above. For A/B, powerPct is now the inverted duty,
+	// so applying the minimum again would cap the drive at 1 - min_power_pct.
+	if m.motorType != AB {
+		powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
+	}
 	return multierr.Combine(
 		errs,
 		pwmPin.SetPWMFreq(ctx, m.pwmFreq, extra),
