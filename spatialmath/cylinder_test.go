@@ -272,13 +272,38 @@ func TestCylinderJSONRoundTrip(t *testing.T) {
 	test.That(t, orig.almostEqual(rc), test.ShouldBeTrue)
 }
 
-func TestCylinderToProtobufPanics(t *testing.T) {
-	c := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 1, 1, "")
-	defer func() {
-		r := recover()
-		test.That(t, r, test.ShouldNotBeNil)
-	}()
-	_ = c.ToProtobuf()
+func TestCylinderToProtobuf(t *testing.T) {
+	c := makeTestCylinder(NewZeroOrientation(), r3.Vector{X: 1, Y: -2, Z: 3}, 35.5, 129, "body")
+
+	pb := c.ToProtobuf()
+	test.That(t, pb.GetCylinder(), test.ShouldNotBeNil)
+	test.That(t, pb.GetCylinder().GetRadiusMm(), test.ShouldAlmostEqual, 35.5)
+	test.That(t, pb.GetCylinder().GetHeightMm(), test.ShouldAlmostEqual, 129.0)
+	test.That(t, pb.GetLabel(), test.ShouldEqual, "body")
+	test.That(t, pb.GetCenter(), test.ShouldNotBeNil)
+
+	// A solid cylinder is the proto3 default, so uncapped stays false. A consumer
+	// that ignores the field entirely still reads it as solid, which is the
+	// conservative interpretation.
+	test.That(t, pb.GetCylinder().GetUncapped(), test.ShouldBeFalse)
+}
+
+// An open tube must not decode as a solid: the caps are the difference between
+// a surface something can reach inside and a volume it cannot.
+func TestCylinderToProtobufCarriesUncapped(t *testing.T) {
+	open, err := NewCylinderWithCapped(NewZeroPose(), 50, 100, false, "tube")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, open.ToProtobuf().GetCylinder().GetUncapped(), test.ShouldBeTrue)
+
+	solid, err := NewCylinderWithCapped(NewZeroPose(), 50, 100, true, "solid")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, solid.ToProtobuf().GetCylinder().GetUncapped(), test.ShouldBeFalse)
+
+	// The tessellations must differ, or the flag is not describing anything.
+	test.That(t,
+		len(open.(*Cylinder).ToMesh().Triangles()),
+		test.ShouldBeLessThan,
+		len(solid.(*Cylinder).ToMesh().Triangles()))
 }
 
 // --- Collision / distance / encompass ---
