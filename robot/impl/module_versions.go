@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -56,40 +57,52 @@ func modulePackage(mod config.Module, pkgs []config.PackageConfig) (config.Packa
 	return config.PackageConfig{}, false
 }
 
-// FillAgentInfo adds the modules of the most recently applied config and whether the
-// maintenance sensor is holding back a config change to info. It reads in-memory state on every
-// cloud config fetch and does not block on an in-progress reconfigure.
+// FillAgentInfo adds the modules the module manager is handling and whether the maintenance sensor
+// is holding back a config change to info. Modules come from the module statuses rather than the
+// last config received, so a blocked change doesn't add or drop modules before it's applied. It
+// reads in-memory state on every cloud config fetch and does not block on an in-progress reconfigure.
 func (r *localRobot) FillAgentInfo(info *apppb.AgentInfo) {
 	info.ReconfigureBlocked = r.reconfigureBlocked.Load()
-	cfg, ok := r.mostRecentCfg.Load().(config.Config)
-	if !ok || len(cfg.Modules) == 0 {
+	statuses := r.manager.moduleManager.Status()
+	if len(statuses) == 0 {
 		return
 	}
-	info.ModuleVersions = moduleVersionInfos(cfg.Modules, r.manager.moduleManager.Status(), time.Now())
+	cfg, _ := r.mostRecentCfg.Load().(config.Config)
+	info.ModuleVersions = moduleVersionInfos(r.manager.moduleManager.Configs(), cfg.Modules, statuses, time.Now())
 }
 
-// moduleVersionInfos builds one entry per registry or local module from the configured modules and
-// the current module statuses. Local modules without a registry module ID are identified by name.
-func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, now time.Time) []*apppb.ModuleVersionInfo {
-	byName := make(map[string]modulestatus.Status, len(statuses))
-	for _, s := range statuses {
-		byName[s.Name] = s
+// moduleVersionInfos builds one entry per registry or local module with a status, sorted by name.
+// running holds modules that have started and configured the last config received; a module that
+// never started is only in configured. Local modules without a registry module ID are identified
+// by name.
+func moduleVersionInfos(
+	running, configured []config.Module, statuses []modulestatus.Status, now time.Time,
+) []*apppb.ModuleVersionInfo {
+	modsByName := make(map[string]config.Module, len(running)+len(configured))
+	for _, mod := range configured {
+		modsByName[mod.Name] = mod
 	}
+	for _, mod := range running {
+		modsByName[mod.Name] = mod
+	}
+	statuses = slices.Clone(statuses)
+	slices.SortFunc(statuses, func(a, b modulestatus.Status) int { return strings.Compare(a.Name, b.Name) })
 
 	var infos []*apppb.ModuleVersionInfo
-	for _, mod := range mods {
-		if mod.Type != config.ModuleTypeRegistry && mod.Type != config.ModuleTypeLocal {
+	for _, s := range statuses {
+		mod, ok := modsByName[s.Name]
+		if !ok || (mod.Type != config.ModuleTypeRegistry && mod.Type != config.ModuleTypeLocal) {
 			continue
 		}
-		info := &apppb.ModuleVersionInfo{ModuleId: mod.ModuleID, ModuleName: mod.Name}
-		s, ok := byName[mod.Name]
-		if ok {
-			pbStatus := s.ToProto()
-			info.State = pbStatus.State
-			info.ConsecutiveFailures = pbStatus.ConsecutiveFailures
-			info.ReadyCount = uint32(s.ReadyCount)
+		pbStatus := s.ToProto()
+		info := &apppb.ModuleVersionInfo{
+			ModuleId:            mod.ModuleID,
+			ModuleName:          mod.Name,
+			State:               pbStatus.State,
+			ConsecutiveFailures: pbStatus.ConsecutiveFailures,
+			ReadyCount:          uint32(s.ReadyCount),
 		}
-		if ok && s.State == modulestatus.ModuleStateReady && s.Version != "" {
+		if s.State == modulestatus.ModuleStateReady && s.Version != "" {
 			info.RunningVersion = s.Version
 			info.RunningFor = durationpb.New(now.Sub(s.LastUpdated))
 		}

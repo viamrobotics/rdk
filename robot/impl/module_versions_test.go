@@ -75,6 +75,7 @@ func TestModuleVersionInfos(t *testing.T) {
 	t.Run("ready module reports running version and duration", func(t *testing.T) {
 		infos := moduleVersionInfos(
 			[]config.Module{registry("cam", "1.0.0")},
+			nil,
 			[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "1.0.0")},
 			now,
 		)
@@ -97,7 +98,7 @@ func TestModuleVersionInfos(t *testing.T) {
 			modulestatus.ModuleStateClosing,
 		} {
 			s := status("cam", state, "1.0.0")
-			infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
+			infos := moduleVersionInfos(nil, []config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
 			test.That(t, infos, test.ShouldHaveLength, 1)
 			test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 				ModuleId:   "viam:cam",
@@ -105,17 +106,52 @@ func TestModuleVersionInfos(t *testing.T) {
 				State:      s.ToProto().State,
 			})
 		}
+	})
 
-		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, nil, now)
+	t.Run("module without a status is not reported", func(t *testing.T) {
+		infos := moduleVersionInfos(nil, []config.Module{registry("cam", "1.0.0")}, nil, now)
+		test.That(t, infos, test.ShouldBeEmpty)
+	})
+
+	t.Run("blocked config change does not add or drop modules", func(t *testing.T) {
+		// "old" was removed and "new" added in the last config received, but the maintenance sensor
+		// blocked the reconfigure, so "old" is still running and "new" never got a status.
+		infos := moduleVersionInfos(
+			[]config.Module{registry("old", "1.0.0")},
+			[]config.Module{registry("new", "1.0.0")},
+			[]modulestatus.Status{status("old", modulestatus.ModuleStateReady, "1.0.0")},
+			now,
+		)
 		test.That(t, infos, test.ShouldHaveLength, 1)
-		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{ModuleId: "viam:cam", ModuleName: "cam"})
+		test.That(t, infos[0].ModuleId, test.ShouldEqual, "viam:old")
+		test.That(t, infos[0].RunningVersion, test.ShouldEqual, "1.0.0")
+	})
+
+	t.Run("module that never started is identified from the last config received", func(t *testing.T) {
+		s := status("cam", modulestatus.ModuleStateUnhealthy, "")
+		s.ConsecutiveFailures = 1
+		infos := moduleVersionInfos(nil, []config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
+		test.That(t, infos, test.ShouldHaveLength, 1)
+		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
+			ModuleId:            "viam:cam",
+			ModuleName:          "cam",
+			State:               robotpb.ModuleStatus_STATE_UNHEALTHY,
+			ConsecutiveFailures: 1,
+		})
+	})
+
+	t.Run("status without a module config is not reported", func(t *testing.T) {
+		infos := moduleVersionInfos(
+			nil, nil, []modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "1.0.0")}, now,
+		)
+		test.That(t, infos, test.ShouldBeEmpty)
 	})
 
 	t.Run("module status is reported", func(t *testing.T) {
 		s := status("cam", modulestatus.ModuleStateUnhealthy, "1.0.0")
 		s.ConsecutiveFailures = 3
 		s.ReadyCount = 4
-		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
+		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, nil, []modulestatus.Status{s}, now)
 		test.That(t, infos, test.ShouldHaveLength, 1)
 		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 			ModuleId:            "viam:cam",
@@ -128,6 +164,7 @@ func TestModuleVersionInfos(t *testing.T) {
 
 	t.Run("update in flight reports the version that is still running", func(t *testing.T) {
 		infos := moduleVersionInfos(
+			[]config.Module{registry("cam", "1.0.0")},
 			[]config.Module{registry("cam", "2.0.0")},
 			[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, "1.0.0")},
 			now,
@@ -143,6 +180,7 @@ func TestModuleVersionInfos(t *testing.T) {
 				{Name: "reloaded", Type: config.ModuleTypeLocal, ModuleID: "viam:reloaded", PackageVersion: localVersion},
 				registry("cam", "1.0.0"),
 			},
+			nil,
 			[]modulestatus.Status{
 				status("local", modulestatus.ModuleStateReady, localVersion),
 				status("reloaded", modulestatus.ModuleStateReady, localVersion),
@@ -151,15 +189,15 @@ func TestModuleVersionInfos(t *testing.T) {
 			now,
 		)
 		test.That(t, infos, test.ShouldHaveLength, 3)
-		test.That(t, infos[0], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
+		test.That(t, infos[0].ModuleId, test.ShouldEqual, "viam:cam")
+		test.That(t, infos[1], test.ShouldResembleProto, &apppb.ModuleVersionInfo{
 			ModuleName:     "local",
 			RunningVersion: localVersion,
 			RunningFor:     durationpb.New(time.Hour),
 			State:          robotpb.ModuleStatus_STATE_READY,
 		})
-		test.That(t, infos[1].ModuleId, test.ShouldEqual, "viam:reloaded")
-		test.That(t, infos[1].RunningVersion, test.ShouldEqual, localVersion)
-		test.That(t, infos[2].ModuleId, test.ShouldEqual, "viam:cam")
+		test.That(t, infos[2].ModuleId, test.ShouldEqual, "viam:reloaded")
+		test.That(t, infos[2].RunningVersion, test.ShouldEqual, localVersion)
 	})
 
 	t.Run("cloud reload builds report their reload version", func(t *testing.T) {
@@ -169,6 +207,7 @@ func TestModuleVersionInfos(t *testing.T) {
 		} {
 			infos := moduleVersionInfos(
 				[]config.Module{registry("cam", version)},
+				nil,
 				[]modulestatus.Status{status("cam", modulestatus.ModuleStateReady, version)},
 				now,
 			)
