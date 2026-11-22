@@ -86,7 +86,6 @@ func moduleVersionInfos(mods []config.Module, statuses []modulestatus.Status, no
 		if ok {
 			pbStatus := s.ToProto()
 			info.State = pbStatus.State
-			info.Error = pbStatus.Error
 			info.ConsecutiveFailures = pbStatus.ConsecutiveFailures
 			info.ReadyCount = uint32(s.ReadyCount)
 		}

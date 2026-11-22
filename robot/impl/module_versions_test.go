@@ -1,7 +1,6 @@
 package robotimpl
 
 import (
-	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -114,7 +113,6 @@ func TestModuleVersionInfos(t *testing.T) {
 
 	t.Run("module status is reported", func(t *testing.T) {
 		s := status("cam", modulestatus.ModuleStateUnhealthy, "1.0.0")
-		s.Error = errors.New("exit status 2")
 		s.ConsecutiveFailures = 3
 		s.ReadyCount = 4
 		infos := moduleVersionInfos([]config.Module{registry("cam", "1.0.0")}, []modulestatus.Status{s}, now)
@@ -123,7 +121,6 @@ func TestModuleVersionInfos(t *testing.T) {
 			ModuleId:            "viam:cam",
 			ModuleName:          "cam",
 			State:               robotpb.ModuleStatus_STATE_UNHEALTHY,
-			Error:               "exit status 2",
 			ConsecutiveFailures: 3,
 			ReadyCount:          4,
 		})
