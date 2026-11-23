@@ -121,6 +121,8 @@ func mutateModuleConfig(
 	var absEntrypoint string
 	var err error
 	switch {
+	case cloudReload:
+		// the machine runs the cloud-built package, so there is no reload_path to resolve
 	case local:
 		// This flag means that viam server is running on the same machine running the CLI
 		// Does not indicate module type (registry vs local)
@@ -131,8 +133,6 @@ func mutateModuleConfig(
 	case remoteDest != "":
 		absEntrypoint = remoteDest
 	default:
-		// cloud reload: never written to the config (reload_path is deleted below),
-		// only compared against a stale reload_path, so don't consult the machine.
 		absEntrypoint = reloadingDestination(&manifest, legacyViamHomeDir)
 	}
 
@@ -152,6 +152,11 @@ func mutateModuleConfig(
 			return "", false, err
 		}
 		switch {
+		case cloudReload:
+			// a stale reload_path from reload-local would shadow the cloud build, and the config change itself triggers the reload
+			debugf(cmd.Root().Writer, args.Debug, "cloud reload, removing ReloadPath and setting ReloadEnabled true")
+			editor.del(prefix + "reload_path")
+			editor.set(prefix+"reload_enabled", true)
 		case same && foundMod.Get("reload_enabled").Bool():
 			debugf(cmd.Root().Writer, args.Debug, "ReloadPath is up to date and ReloadEnabled, updating user and time")
 			needsRestart = true
@@ -160,11 +165,7 @@ func mutateModuleConfig(
 			editor.set(prefix+"reload_enabled", true)
 		default:
 			debugf(cmd.Root().Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
-			if cloudReload {
-				editor.del(prefix + "reload_path")
-			} else {
-				editor.set(prefix+"reload_path", absEntrypoint)
-			}
+			editor.set(prefix+"reload_path", absEntrypoint)
 			editor.set(prefix+"reload_enabled", true)
 		}
 		editor.set(prefix+"reload_user", reloadUser)

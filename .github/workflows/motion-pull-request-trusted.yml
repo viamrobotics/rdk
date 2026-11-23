@@ -8,10 +8,6 @@ on:
   pull_request_target:
     branches: [ main ]
     types: [ labeled ]
-    paths:
-      - 'motionplan/**'
-      - 'referenceframe/**'
-      - 'spatialmath/**'
 
 # To test workflow updates you need to work in a branch directly on viamrobotics/rdk
 # and tag your working branch instead of @main in any viamrobotics/rdk "uses" below.
@@ -19,10 +15,10 @@ on:
 
 jobs:
   motion_benchmarks:
+    # 'safe to test' gates fork PRs, since this job checks out PR code under pull_request_target.
     if: |
       github.event_name == 'workflow_dispatch' || 
-      (github.event_name == 'pull_request_target' && github.event.label.name == 'safe to test' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
+      (github.event_name == 'pull_request_target' && github.event.label.name == 'motion-benchmark' && contains(github.event.pull_request.labels.*.name, 'safe to test'))
     uses: viamrobotics/rdk/.github/workflows/motion-benchmarks.yml@main
     with:
       pr_number: ${{ github.event.pull_request.number }}
-

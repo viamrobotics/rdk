@@ -7,10 +7,12 @@ import (
 	"fmt"
 	gobuild "go/build"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -481,6 +483,16 @@ func TestGoModelFileName(t *testing.T) {
 			test.That(t, match, test.ShouldBeTrue)
 		}
 	}
+}
+
+func TestRenderedTemplatePath(t *testing.T) {
+	pyModule := modulegen.ModuleInputs{Language: python, ModelSnake: "my_model"}
+	test.That(t, renderedTemplatePath(pythonResourceTemplate, pyModule), test.ShouldEqual, "src/models/my_model.py")
+	test.That(t, renderedTemplatePath("src/tmpl-main.py", pyModule), test.ShouldEqual, "src/main.py")
+	test.That(t, renderedTemplatePath("tmpl-requirements.txt", pyModule), test.ShouldEqual, "requirements.txt")
+
+	_, err := fs.Stat(templates, path.Join(templatesPath, python, pythonResourceTemplate))
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestGenerateModuleAction(t *testing.T) {
@@ -1260,6 +1272,43 @@ func TestTransientGoFetchFailure(t *testing.T) {
 			test.That(t, transientGoFetchFailure([]byte(tc.output)), test.ShouldEqual, tc.expected)
 		})
 	}
+}
+
+// windowsCommandLineLimit is CreateProcess's lpCommandLine limit, including the terminating NUL.
+const windowsCommandLineLimit = 32767
+
+func TestPythonGeneratorCommandFitsOnWindows(t *testing.T) {
+	t.Parallel()
+	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
+	test.That(t, err, test.ShouldBeNil)
+
+	pythonPath := filepath.Join(".venv", "Scripts", "python.exe")
+	args := []string{"component", "arm", "org", "mod", "model"}
+	cmd, cleanup, err := pythonGeneratorCommand(pythonPath, script, args...)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, cleanup(), test.ShouldBeNil) }()
+
+	test.That(t, windowsCommandLineUpperBound(cmd.Args), test.ShouldBeLessThan, windowsCommandLineLimit)
+	for _, arg := range cmd.Args {
+		test.That(t, arg, test.ShouldNotEqual, string(script))
+	}
+	written, err := os.ReadFile(cmd.Args[1])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(written), test.ShouldEqual, string(script))
+}
+
+// windowsCommandLineUpperBound overestimates the command line Go passes to CreateProcess.
+// Quoting wraps an argument in quotes and may insert a backslash before a quote or
+// backslash, so two bytes per input byte plus the quotes covers every argument.
+func windowsCommandLineUpperBound(args []string) int {
+	n := 1
+	for i, arg := range args {
+		if i > 0 {
+			n++
+		}
+		n += 2 + len(arg)*2
+	}
+	return n
 }
 
 func TestResourceSubtypeArgRoundTrip(t *testing.T) {

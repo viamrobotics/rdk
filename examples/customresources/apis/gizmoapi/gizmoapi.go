@@ -22,6 +22,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags g as the gizmo sub-resource of a composite, for resource.Compose.
+func AsSub(g Gizmo) resource.Sub { return resource.AsSub(API, g) }
+
 // FromProvider is a helper for getting the named Gizmo
 // from a resource Provider (collection of Dependencies or a Robot).
 func FromProvider(provider resource.Provider, name string) (Gizmo, error) {

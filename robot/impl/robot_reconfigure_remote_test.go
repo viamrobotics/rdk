@@ -555,8 +555,8 @@ func testRemoteCaptureMethodsName(t *testing.T, machineAPrefix string) {
 	test.That(t, err, test.ShouldBeNil)
 	_ = setupLocalRobot(t, ctx, machineBCfg, logger)
 
-	// Assert that there were no logs about datamanager failing to lookup the resource from
-	// dependencies.
-	test.That(t, logs.FilterMessageSnippet("datamanager failed to lookup resource from config").Len(),
+	// Assert that there were no logs about datamanager failing to resolve the capture resource from
+	// its config.
+	test.That(t, logs.FilterMessageSnippet("datamanager failed to resolve capture resource from config").Len(),
 		test.ShouldEqual, 0)
 }

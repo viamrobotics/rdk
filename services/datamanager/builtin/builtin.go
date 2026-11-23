@@ -219,13 +219,6 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 		return err
 	}
 
-	// Catalog of every weak-dep resource keyed by short name. Lets the capture control sensor
-	// enable capture on resources the user did not pre-configure for data manager.
-	resourcesByShortName := make(map[string]resource.Resource, len(deps))
-	for name, res := range deps {
-		resourcesByShortName[name.ShortName()] = res
-	}
-
 	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
 		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
 	}
@@ -260,7 +253,7 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 	}
 
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
-	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, resourcesByShortName, captureConfig)
+	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, deps, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
@@ -524,25 +517,24 @@ func lookupCollectorConfigsByResource(
 	logger logging.Logger,
 ) (capture.CollectorConfigsByResource, error) {
 	collectorConfigsByResource := capture.CollectorConfigsByResource{}
-	for name, rawAssocCfg := range resConfig.AssociatedAttributes {
+	resolver := capture.NewCollectorResolver(deps)
+	for _, rawAssocCfg := range resConfig.AssociatedAttributes {
 		assocCfg, err := utils.AssertType[*datamanager.AssociatedConfig](rawAssocCfg)
 		if err != nil {
 			// This would only happen if there is a bug in resource graph
 			return nil, err
 		}
-		res, err := deps.Lookup(name)
-		if err != nil {
-			logger.Warnw("datamanager failed to lookup resource from config", "error", err)
-			continue
-		}
 
-		collectorConfigs := []datamanager.DataCaptureConfig{}
 		for _, collectorConfig := range assocCfg.CaptureMethods {
 			// we need to set the CaptureDirectory to that in the data manager config
 			collectorConfig.CaptureDirectory = captureDir
-			collectorConfigs = append(collectorConfigs, collectorConfig)
+			resolved, res, err := resolver.Resolve(collectorConfig)
+			if err != nil {
+				logger.Warnw("datamanager failed to resolve capture resource from config", "error", err)
+				continue
+			}
+			collectorConfigsByResource[res] = append(collectorConfigsByResource[res], resolved)
 		}
-		collectorConfigsByResource[res] = collectorConfigs
 	}
 	return collectorConfigsByResource, nil
 }

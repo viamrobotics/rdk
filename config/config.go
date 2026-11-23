@@ -109,11 +109,22 @@ func (cfg TracingConfig) IsEnabled() bool {
 	return cfg.Enabled && (cfg.Disk || cfg.Console || cfg.OTLPEndpoint != "")
 }
 
-// MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
-// This Config is not validated during config processing but it will be validated during reconfiguration.
+// MaintenanceConfig specifies how a machine decides whether it is allowed to reconfigure.
+// Either SensorName+MaintenanceAllowedKey is set (the machine reads a local/remote
+// sensor) or FollowPart is set (the machine defers the decision to another part). The two
+// are mutually exclusive; if both are set, FollowPart wins and the sensor fields are
+// ignored.
 type MaintenanceConfig struct {
-	SensorName            string `json:"sensor_name"`
-	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
+	SensorName            string         `json:"sensor_name,omitempty"`
+	MaintenanceAllowedKey string         `json:"maintenance_allowed_key,omitempty"`
+	FollowPart            *FollowPartRef `json:"follow_part,omitempty"`
+}
+
+// FollowPartRef points at another part whose maintenance status governs this machine's
+// reconfigure decision.
+type FollowPartRef struct {
+	Address string     `json:"address"`
+	Auth    RemoteAuth `json:"auth,omitempty"`
 }
 
 // NOTE: This data must be maintained with what is in [Config].
@@ -1292,7 +1303,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	for _, serv := range cfg.Services {
 		if serv.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Pattern: "rdk.resource_manager." + resource.LogName(serv.ResourceName(), resource.APIsForModel(serv.Model)),
 				Level:   serv.LogConfiguration.Level.String(),
 			}
 			combinedLogCfg = append(combinedLogCfg, resLogCfg)
@@ -1301,7 +1312,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	for _, comp := range cfg.Components {
 		if comp.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Pattern: "rdk.resource_manager." + resource.LogName(comp.ResourceName(), resource.APIsForModel(comp.Model)),
 				Level:   comp.LogConfiguration.Level.String(),
 			}
 			combinedLogCfg = append(combinedLogCfg, resLogCfg)

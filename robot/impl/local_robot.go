@@ -101,6 +101,11 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
+	// followPartClient caches the robot client for the current follow_part target.
+	followPartClientMu      sync.Mutex
+	followPartClient        *client.RobotClient
+	followPartClientAddress string
+
 	operations              *operation.Manager
 	sessionManager          session.Manager
 	packageManager          packages.ManagerSyncer
@@ -215,12 +220,13 @@ func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *da
 	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }
 
-// FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
-// through the resourceGetterForAPI for _all_ incoming gRPC requests related to a
-// resource. A nil resource and an error is returned in the case of no resource found, or
-// multiple matching remote resources found.
+// FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried through the
+// resourceGetterForAPI for all incoming gRPC requests related to a resource. It returns a nil resource
+// and an error when no resource, or multiple matching remote resources, are found. It unwraps a composite
+// to the sub-resource serving that API, so a caller that type-asserts sees the real typed instance rather
+// than the composite wrapper.
 func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
-	n, err := r.manager.resources.FindBySimpleNameAndAPI(name, api)
+	n, err := r.manager.resources.NodeBySimpleNameAndAPI(name, api)
 	if err != nil {
 		return nil, err
 	}
@@ -228,15 +234,46 @@ func (r *localRobot) FindBySimpleNameAndAPI(name string, api resource.API) (reso
 	if err != nil {
 		return nil, resource.NewNotAvailableError(resource.NewName(api, name), err)
 	}
-	return res, nil
+	return resource.SubresourceForAPI(res, api), nil
 }
 
-// ResourceByName returns a resource by name. It now re-routes all calls to
-// FindBySimpleNameAndAPI. All incoming gRPC requests related to a resource go through
-// FindBySimpleNameAndAPI. ResourceByName is only called internally for some dependency
-// calculation and session code.
+// ResourceByName returns a resource by name. It routes an api-specific name to FindBySimpleNameAndAPI
+// and a simple, API-less name to resourceBySimpleName. It is only called internally, for some
+// dependency calculation and session code.
 func (r *localRobot) ResourceByName(name resource.Name) (resource.Resource, error) {
+	if name.API == (resource.API{}) {
+		return r.resourceBySimpleName(name.Name)
+	}
 	return r.FindBySimpleNameAndAPI(name.Name, name.API)
+}
+
+// resourceBySimpleName resolves a simple (API-less) name to its single resource. A composite serves
+// several APIs but is one identity, so it resolves to one match, the multi-API handle. A genuine same-name
+// collision across distinct resources returns several matches and is an error.
+func (r *localRobot) resourceBySimpleName(name string) (resource.Resource, error) {
+	matches := r.manager.resources.FindAllBySimpleName(name)
+	switch len(matches) {
+	case 0:
+		return nil, resource.NewNotFoundError(resource.SimpleName(name))
+	case 1:
+		// Resolve the raw graph node (not the localRobot FindBySimpleNameAndAPI, which unwraps a
+		// composite to one API's sub) so the full multi-API handle is returned.
+		match := matches[0]
+		n, err := r.manager.resources.NodeBySimpleNameAndAPI(name, match.API)
+		if err != nil {
+			return nil, err
+		}
+		res, err := n.Resource()
+		if err != nil {
+			return nil, resource.NewNotAvailableError(match, err)
+		}
+		return res, nil
+	default:
+		return nil, errors.Errorf(
+			"multiple resources share the simple name %q across distinct APIs (%s); look it up by its fully qualified name instead",
+			name, resource.NamesToStrings(matches),
+		)
+	}
 }
 
 // RemoteNames returns the names of all known remote robots.
@@ -289,6 +326,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	r.activeBackgroundWorkers.Wait()
 	r.diskMonitor.stop() // nil-safe
 	r.sessionManager.Close()
+	r.evictFollowPartClient(ctx)
 
 	var err error
 	if r.cloudConnSvc != nil {
@@ -340,19 +378,32 @@ func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[st
 	// disconnect, or any residual cancellation). Matches motion's stop-on-error pattern.
 	stopCtx := context.WithoutCancel(ctx)
 
-	// Stop all stoppable resources
+	// Stop all stoppable resources. A composite surfaces as N names (one per API); unwrap each to its sub
+	// and dedup on the sub, so a shared impl stops once but separate per-API controllers each stop.
 	resourceErrs := make(map[string]error)
+	stopped := make(map[resource.Resource]bool)
 	for _, name := range r.ResourceNames() {
-		res, err := r.ResourceByName(name)
+		node, err := r.manager.resources.NodeBySimpleNameAndAPI(name.Name, name.API)
 		if err != nil {
 			resourceErrs[name.Name] = err
 			continue
 		}
-
-		if actuator, ok := res.(resource.Actuator); ok {
-			if err := actuator.Stop(stopCtx, extra[name]); err != nil {
-				resourceErrs[name.Name] = err
-			}
+		raw, err := node.Resource()
+		if err != nil {
+			resourceErrs[name.Name] = err
+			continue
+		}
+		sub := resource.SubresourceForAPI(raw, name.API)
+		actuator, ok := sub.(resource.Actuator)
+		if !ok {
+			continue
+		}
+		if stopped[sub] {
+			continue
+		}
+		stopped[sub] = true
+		if err := actuator.Stop(stopCtx, extra[name]); err != nil {
+			resourceErrs[name.Name] = err
 		}
 	}
 
@@ -691,22 +742,13 @@ func newWithResources(
 
 	// getResource is passed in to the jobmanager to have access to the resource graph.
 	getResource := func(res string) (resource.Resource, error) {
-		var found bool
-		var match resource.Name
-		names := r.manager.AllNonCollidingResourceNames()
-		for _, name := range names {
+		for _, name := range r.manager.AllNonCollidingResourceNames() {
 			if name.Name == res {
-				if found {
-					return nil, errors.Errorf("found duplicate entries for name %s: %s and %s", res, name.String(), match.String())
-				}
-				match = name
-				found = true
+				// SimpleName so a composite resolves to its whole handle, not one API's sub, for the job manager to dispatch.
+				return r.ResourceByName(resource.SimpleName(name.Name))
 			}
 		}
-		if !found {
-			return nil, errors.Errorf("could not find the resource for name %s", res)
-		}
-		return r.ResourceByName(match)
+		return nil, errors.Errorf("could not find the resource for name %s", res)
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -840,7 +882,11 @@ func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
 		if err != nil {
 			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[prefixedName] = res
+		// Key a composite dependency under each API it serves, with that API's unwrapped sub, so a dependent
+		// resolves it by whichever API it expects. An ordinary resource is the single (name, res) pair.
+		for aliased, sub := range resource.SubsByName(prefixedName, res) {
+			allDeps[aliased] = sub
+		}
 	}
 	nodeConf := gNode.Config()
 	weakDeps, weakSnap := r.getWeakDependenciesAndSnapshot(rName, nodeConf.API, nodeConf.Model)
@@ -920,9 +966,9 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 
-		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// Resolve through NodeBySimpleNameAndAPI so the Resource and its UpdatedAt
 		// come from one *GraphNode, keeping deps and snapshot in lockstep.
-		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
+		node, err := r.manager.resources.NodeBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
 		if err != nil {
 			r.logger.Infow(
 				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
@@ -943,9 +989,13 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			continue
 		}
 
-		optDeps[resolvedOptionalDepName] = optionalDep
-		found = append(found, resolvedOptionalDepName)
-		snapshot[resolvedOptionalDepName] = node.UpdatedAt()
+		// A composite serves several APIs, so key it under each with that API's sub. For an
+		// ordinary resource this is the single (name, res) pair.
+		for aliased, sub := range resource.SubsByName(resolvedOptionalDepName, optionalDep) {
+			optDeps[aliased] = sub
+			found = append(found, aliased)
+			snapshot[aliased] = node.UpdatedAt()
+		}
 	}
 	if len(conf.ImplicitOptionalDependsOn) > 0 {
 		r.logger.Infow(
@@ -995,9 +1045,9 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// Resolve through NodeBySimpleNameAndAPI so the Resource and its UpdatedAt
 		// come from one *GraphNode, keeping deps and snapshot in lockstep.
-		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
+		node, err := r.manager.resources.NodeBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
@@ -1013,12 +1063,15 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 			}
 			continue
 		}
+		// res is the whole resource; for a composite that is the wrapper, so unwrap to the sub serving n's API.
+		// A non-composite is its own sub.
+		sub := resource.SubresourceForAPI(res, n.API)
 		for _, matcher := range weakDepMatchers {
-			if matcher.IsMatch(res) {
-				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
-				// dependency map in a resource constructor.
+			if matcher.IsMatch(sub) {
+				// Pop the remote name off since callers won't be expecting it when accessing it in the
+				// resource dependency map in a resource constructor.
 				popped := n.PopRemote()
-				deps[popped] = res
+				deps[popped] = sub
 				snapshot[popped] = node.UpdatedAt()
 				break
 			}
@@ -1101,31 +1154,29 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 	// completeConfig.
 	r.lastWeakAndOptionalDependentsRound.Store(r.manager.resources.CurrLogicalClockValue())
 
+	// Build the dependency sets for the internal services from every advertised per-API name, so a composite
+	// contributes under each API it serves: allResources (every component/service) for the web service,
+	// internalResources (rdk-internal resources) to reconfigure, and frameSystemDeps (just components) for the frame system.
 	allResources := map[resource.Name]resource.Resource{}
 	internalResources := map[resource.Name]resource.Resource{}
-	components := map[resource.Name]resource.Resource{}
+	frameSystemDeps := map[resource.Name]resource.Resource{}
 	for _, n := range r.manager.AllNonCollidingResourceNames() {
 		if !(n.API.IsComponent() || n.API.IsService()) {
 			continue
 		}
-		res, err := r.ResourceByName(n)
+		res, err := r.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
-				r.Logger().CDebugw(
-					ctx,
-					"error finding resource during weak/optional dependent update",
-					"resource", n,
-					"error", err,
-				)
+				r.Logger().CDebugw(ctx, "error finding resource during weak/optional dependent update", "resource", n, "error", err)
 			}
 			continue
 		}
 		allResources[n] = res
 		switch {
-		case n.API.IsComponent():
-			components[n] = res
 		case n.API.Type.Namespace == resource.APINamespaceRDKInternal:
 			internalResources[n] = res
+		case n.API.IsComponent():
+			frameSystemDeps[n] = res
 		}
 	}
 
@@ -1180,7 +1231,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 						)
 						break
 					}
-					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, frameSystemDeps, resource.Config{ConvertedAttributes: fsCfg})
 					if err != nil {
 						r.Logger().CErrorw(
 							ctx,
@@ -1361,8 +1412,24 @@ func (r *localRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config
 	return &framesystem.Config{Parts: append(localParts, remoteParts...)}, nil
 }
 
-// getLocalFrameSystemParts collects and returns the physical parts of the robot that may have frame info,
-// excluding remote robots and services, etc from the robot's config.Config.
+// isKinematicSubtype reports whether an API subtype is one with multiple degrees of freedom that the
+// frame system represents with a kinematics model (arm, gantry, gripper).
+func isKinematicSubtype(subtype string) bool {
+	return subtype == arm.SubtypeName || subtype == gantry.SubtypeName || subtype == gripper.SubtypeName
+}
+
+// modelMayBeKinematic reports whether any API the config is served under is a kinematic subtype.
+func modelMayBeKinematic(resConfig resource.Config) bool {
+	for _, api := range resource.APIsForConfig(resConfig) {
+		if isKinematicSubtype(api.SubtypeName) {
+			return true
+		}
+	}
+	return false
+}
+
+// getLocalFrameSystemParts collects and returns the robot's physical parts that may carry frame info, from
+// components and services in config.Config, excluding remote robots.
 func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*referenceframe.FrameSystemPart, error) {
 	cfg := r.Config()
 
@@ -1373,8 +1440,11 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	// fetched from `InputEnabled` resources; other resources may offer a model through
 	// `ModelFramer`. Geometries can be specified in the robot config. If none exists, we will
 	// perform a `Geometries` query on the resource; a single geometry is attached to the frame
-	// directly and several are wrapped in a zero-DoF model.
-	for _, resConfig := range cfg.Components {
+	// directly and several are wrapped in a zero-DoF model. Services are walked alongside components, so a
+	// composite configured under a service API still contributes a frame when one of its subs is
+	// kinematic; the body finds that sub across every API the resource serves, so the configured kind does
+	// not matter.
+	for _, resConfig := range append(append([]resource.Config{}, cfg.Components...), cfg.Services...) {
 		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
@@ -1403,8 +1473,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		res, resErr := r.ResourceByName(resConfig.ResourceName())
-		isAvailable := resErr == nil
+		// The api-less lookup returns the resource itself, which for a composite is the wrapper, so the frame
+		// helpers below see it under every API it serves. resErr covers a missing or unavailable resource.
+		rawRes, resErr := r.resourceBySimpleName(resConfig.Name)
 		resType := resConfig.ResourceName().API.SubtypeName
 		linkInFrame, err := (&referenceframe.LinkConfig{
 			ID:          frameName,
@@ -1418,22 +1489,23 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
-		if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
-			// Components that have multiple degrees of freedom are required to be available and
-			// implement the `Kinematics` method to be used in the frame system.
-			if !isAvailable {
+		// An unavailable resource can't be asked anything, so handle it up front. If any API its model
+		// could serve is kinematic, omit it rather than give a jointed device a rigid frame; otherwise add
+		// it with whatever the frame config itself describes (a geometry, or nothing).
+		if resErr != nil {
+			if modelMayBeKinematic(resConfig) {
 				logger.Warnw("InputEnabled component is not available. Omitting from FrameSystem.", "err", resErr)
 				continue
 			}
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
+			continue
+		}
 
-			ie, ok := res.(framesystem.InputEnabled)
-			if !ok {
-				logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
-					"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", res))
-				continue
-			}
-
-			model, err := ie.Kinematics(ctx)
+		// Add the richest frame contribution available, in priority: a kinematic model, else a model-framer
+		// model, else a geometry, else the bare frame config.
+		kinematic, modelFramer, shaped := framesystem.FrameContribution(rawRes)
+		if kinematic != nil {
+			model, err := kinematic.Kinematics(ctx)
 			if err != nil {
 				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
 				// errors, as this code does, would not add an item to the FrameSystem. But errors
@@ -1458,10 +1530,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			continue
 		}
 
+		// A resource configured under a kinematic API (arm/gantry/gripper) is expected to be InputEnabled;
+		// if it isn't, omit it rather than give a jointed device a rigid frame.
+		if isKinematicSubtype(resType) {
+			logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
+				"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", rawRes))
+			continue
+		}
+
 		// Any other resource may still describe itself with a kinematic model, e.g. a static
 		// obstacle assembled from several frames. That is preferred over a flat `Geometries`
 		// query because it keeps the resource's internal frame hierarchy.
-		if modelFramer, ok := res.(framesystem.ModelFramer); isAvailable && ok {
+		if modelFramer != nil {
 			model, err := modelFramer.Kinematics(ctx)
 			if err != nil {
 				logger.Warnw("Error getting kinematics for resource. Falling back to its geometries.", "err", err)
@@ -1477,19 +1557,15 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			}
 		}
 
-		// If the frame config included a geometry, prefer that to asking the resource. If the frame
-		// config does not include a geometry and the resource happens to be unavailable we won't be
-		// able to ask for a geometry, create a frame with what we have.
-		if linkInFrame.Geometry() != nil || !isAvailable {
+		// If the frame config already gave a geometry, prefer that to asking the resource.
+		if linkInFrame.Geometry() != nil {
 			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
 			continue
 		}
 
-		// If the resource is available and the config didn't explicitly give a geometry, ask the
-		// resource if it has one.
-		shaper, isShaped := res.(resource.Shaped)
-		if isShaped {
-			resGeometries, err := shaper.Geometries(ctx, nil)
+		// The config gave no geometry, so ask the resource for one.
+		if shaped != nil {
+			resGeometries, err := shaped.Geometries(ctx, nil)
 			// Dan: I'm concerned that `Geometries` will return unimplemented errors? Leaving as
 			// Debug due to FUD.
 			if err != nil {
@@ -1523,7 +1599,7 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			// it unimplemented. This log implies programmer error within the viam-server. For
 			// example, sensors do not seem to be `Shaped`.
 			logger.Debugw("Resource missing `Geometries` method.",
-				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", res))
+				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", rawRes))
 		}
 
 		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
@@ -2044,6 +2120,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				"error",
 				reconfigureAllowedErr.Error(),
 			)
+		} else if fp := newConfig.MaintenanceConfig.FollowPart; fp != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed by followed part",
+				"address",
+				fp.Address,
+			)
 		} else {
 			r.logger.CInfow(
 				ctx,
@@ -2463,7 +2546,35 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Packages = append(result.Packages, r.packageManager.PackageStatuses()...)
 	result.Packages = append(result.Packages, r.localPackages.PackageStatuses()...)
 
+	result.MaintenanceStatus = r.maintenanceStatus(ctx)
+
 	return result, nil
+}
+
+// maintenanceStatus repots the current maintenance status.
+func (r *localRobot) maintenanceStatus(ctx context.Context) *robot.MaintenanceStatus {
+	mCfg := r.mostRecentCfg.Load().(config.Config).MaintenanceConfig
+	// No maintenance config means allowed.
+	if mCfg == nil {
+		return &robot.MaintenanceStatus{Allowed: true}
+	}
+
+	// Don't cascade: when this machine itself follows another part, report allowed with a
+	// prefix-tagged reason. That lets a follower detect the chain and surface a
+	// configuration error. Follow chains can otherwise introduce cycles.
+	if mCfg.FollowPart != nil {
+		return &robot.MaintenanceStatus{
+			Allowed: true,
+			Reason:  robot.FollowingReasonPrefix + mCfg.FollowPart.Address,
+		}
+	}
+
+	allowed, err := r.reconfigureAllowed(ctx, mCfg)
+	status := &robot.MaintenanceStatus{Allowed: allowed}
+	if err != nil {
+		status.Reason = err.Error()
+	}
+	return status
 }
 
 // Version returns version information about the robot.
@@ -2477,6 +2588,19 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
 	if mCfg == nil {
 		return true, nil
+	}
+
+	// Ignore SensorName and MaintenanceAllowedKey if FollowPart is set.
+	if mCfg.FollowPart != nil {
+		if mCfg.SensorName != "" || mCfg.MaintenanceAllowedKey != "" {
+			r.logger.CWarnw(ctx,
+				"maintenance config sets both follow_part and sensor fields; follow_part wins and "+
+					"sensor_name / maintenance_allowed_key are ignored. Remove one to clear this warning",
+				"sensor_name", mCfg.SensorName,
+				"maintenance_allowed_key", mCfg.MaintenanceAllowedKey,
+				"follow_part_address", mCfg.FollowPart.Address)
+		}
+		return r.reconfigureAllowedFollowPart(ctx, mCfg.FollowPart)
 	}
 
 	// If the sensor name cannot be parsed or found on the machine, return true (reconfigure
@@ -2497,6 +2621,99 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
 	}
 	return canReconfigure, nil
+}
+
+var maintenanceProbeTimeout = 10 * time.Second
+
+// reconfigureAllowedFollowPart reads the MaintenanceStatus field from the listed part's
+// MachineStatus response and returns whether this machine is allowed to reconfigure.
+//   - Probe fails to dial/call: reconfigure blocked
+//   - Response says Allowed=true: reconfigure allowed
+//   - Response says Allowed=false: reconfigure blocked
+//   - Response has no MaintenanceStatus (older viam-server): reconfigure allowed with an
+//     error log saying upgrade viam-server
+//
+// A cached client is used where possible.
+func (r *localRobot) reconfigureAllowedFollowPart(ctx context.Context, ref *config.FollowPartRef) (bool, error) {
+	callCtx, cancel := context.WithTimeout(ctx, maintenanceProbeTimeout)
+	defer cancel()
+
+	followClient, err := r.getOrDialFollowPartClient(callCtx, ref)
+	if err != nil {
+		return false, fmt.Errorf("failed to dial follow_part %q: %w", ref.Address, err)
+	}
+
+	mStatus, err := followClient.MachineStatus(callCtx)
+	if err != nil {
+		// Drop the cached client so the next probe can redial.
+		r.evictFollowPartClient(ctx)
+		return false, fmt.Errorf("MachineStatus probe to follow_part %q failed: %w", ref.Address, err)
+	}
+	if mStatus.MaintenanceStatus == nil {
+		r.logger.CErrorw(ctx,
+			"follow_part reported no MaintenanceStatus; the followed viam-server is likely "+
+				"an older build that does not report maintenance status and should be upgraded. "+
+				"Treating as allowed", "address", ref.Address)
+		return true, nil
+	}
+	if strings.HasPrefix(mStatus.MaintenanceStatus.Reason, robot.FollowingReasonPrefix) {
+		chainedAddr := strings.TrimPrefix(mStatus.MaintenanceStatus.Reason, robot.FollowingReasonPrefix)
+		r.logger.CErrorw(ctx,
+			"follow_part target is itself following another part; follow chains are not supported. "+
+				"Reconfigure this machine's maintenance config to follow "+chainedAddr+" directly instead",
+			"address", ref.Address, "chained_address", chainedAddr)
+		// Fall through: still honor the target's reported Allowed.
+	}
+	if !mStatus.MaintenanceStatus.Allowed {
+		return false, fmt.Errorf("reconfigure blocked by follow_part %q: %s", ref.Address, mStatus.MaintenanceStatus.Reason)
+	}
+	return true, nil
+}
+
+// getOrDialFollowPartClient returns the cached follow_part client or makes a new one.
+func (r *localRobot) getOrDialFollowPartClient(ctx context.Context, ref *config.FollowPartRef) (*client.RobotClient, error) {
+	r.followPartClientMu.Lock()
+	defer r.followPartClientMu.Unlock()
+
+	if r.followPartClient != nil && r.followPartClientAddress == ref.Address {
+		return r.followPartClient, nil
+	}
+	if r.followPartClient != nil {
+		if err := r.followPartClient.Close(ctx); err != nil {
+			r.logger.CDebugw(ctx, "closing stale follow_part sideband client", "err", err)
+		}
+		r.followPartClient = nil
+		r.followPartClientAddress = ""
+	}
+
+	followedPart := config.Remote{
+		Name:    "maintenance-follow-part",
+		Address: ref.Address,
+		Auth:    ref.Auth,
+	}
+	dialOpts := remoteDialOptions(followedPart, r.manager.opts)
+	newClient, err := dialRobotClient(ctx, followedPart, r.logger.Sublogger("maintenance_follow_part"), dialOpts...)
+	if err != nil {
+		return nil, err
+	}
+	r.followPartClient = newClient
+	r.followPartClientAddress = ref.Address
+	return newClient, nil
+}
+
+// evictFollowPartClient closes the cached follow_part client, if any. The next probe will
+// dial afresh.
+func (r *localRobot) evictFollowPartClient(ctx context.Context) {
+	r.followPartClientMu.Lock()
+	defer r.followPartClientMu.Unlock()
+	if r.followPartClient == nil {
+		return
+	}
+	if err := r.followPartClient.Close(ctx); err != nil {
+		r.logger.CDebugw(ctx, "closing evicted follow_part sideband client", "err", err)
+	}
+	r.followPartClient = nil
+	r.followPartClientAddress = ""
 }
 
 func (r *localRobot) logReconfigureNotAllowed(ctx context.Context, mCfg *config.MaintenanceConfig, err error) {

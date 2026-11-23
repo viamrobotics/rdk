@@ -1,22 +1,32 @@
 package {{.Module.ModuleLowercase}}
 
 import (
-  {{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
-  {{.Imports}}
-)
+{{if .CaptureSlots}}/*inline-slot:imports*/
+{{end}}	{{.Module.ResourceSubtypeAlias}} "go.viam.com/rdk/{{ .Module.ResourceType }}s/{{ .Module.ResourceSubtype}}"
+{{.Imports}}{{if .CaptureSlots}}
+/*inline-slot:imports-end*/{{end}}
+{{if .CaptureSlots}}	// inline-example:imports
+	// inline-example:imports-end
+{{end}})
 
-var (
-	{{.Module.ModelPascal}} = resource.NewModel("{{ .Module.Namespace}}", "{{ .Module.ModuleName}}", "{{.Module.ModelName}}"){{if not .IsAdditionalModel}}
+{{if .CaptureSlots}}// IMPORTANT: Do not change the model name triplet, the struct names, or the public function names below.
+// The platform uses these auto-generated values to identify your module.
+// Changing them will break your inline module.
+{{end}}var (
+	{{if .CaptureSlots}}/*inline-slot:registration*/{{end}}{{.Module.ModelPascal}} = resource.NewModel("{{ .Module.Namespace}}", "{{ .Module.ModuleName}}", "{{.Module.ModelName}}"){{if .CaptureSlots}}
+/*inline-slot:registration-end*/{{end}}{{if not .IsAdditionalModel}}
 	errUnimplemented = errors.New("unimplemented"){{end}}
 )
 
+{{if .CaptureSlots}}/*inline-slot:init*/{{end}}
 func init() {
 	resource.Register{{ .Module.ResourceTypePascal}}({{.Module.ResourceSubtypeAlias}}.API, {{.Module.ModelPascal}},
 		resource.Registration[{{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, {{.ConfigType}}]{
 			Constructor: new{{.Module.ModulePascal}}{{.Module.ModelPascal}},
 		},
 	)
-}
+}{{if .CaptureSlots}}
+/*inline-slot:init-end*/{{end}}
 
 type {{.ConfigType}} struct {
 	/*
@@ -33,7 +43,9 @@ type {{.ConfigType}} struct {
 	If your model does not need a config, replace {{.ConfigType}} in the init
 	function with resource.NoNativeConfig
 	*/
-}
+{{if .CaptureSlots}}	// inline-example:config
+	// inline-example:config-end
+{{end}}}
 
 // Validate ensures all parts of the config are valid and important fields exist.
 // Returns three values:
@@ -50,9 +62,11 @@ type {{.ConfigType}} struct {
 // nothing. Fill in any default values in your resource's constructor function
 // instead.
 func (cfg {{.ConfigType}}) Validate(path string) ([]string, []string, error) {
-	// Add config validation code here
-	 return nil, nil, nil
-}
+{{if .CaptureSlots}}	// inline-example:validate
+{{end}}	// Add config validation code here
+	return nil, nil, nil
+{{if .CaptureSlots}}	// inline-example:validate-end
+{{end}}}
 
 type {{.ModelType}} struct {
 	resource.AlwaysRebuild
@@ -65,29 +79,35 @@ type {{.ModelType}} struct {
 
 	cancelCtx  context.Context
 	cancelFunc func()
-}
+{{if .CaptureSlots}}	// inline-example:fields
+	// inline-example:fields-end
+{{end}}}
 
-func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+func new{{.Module.ModulePascal}}{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) ({{if .CaptureSlots}}/*inline-slot:return*/{{end}}{{.ReturnType}}{{if .CaptureSlots}}/*inline-slot:return-end*/{{end}}, error) {
 	conf, err := resource.NativeConfig[{{.ConfigType}}](rawConf)
 	if err != nil {
 		return nil, err
 	}
 
-    return New{{.Module.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
+	return New{{.Module.ModelPascal}}(ctx, deps, rawConf.ResourceName(), conf, logger)
 
 }
 
-func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf {{.ConfigType}}, logger logging.Logger) ({{if eq .Module.ResourceSubtype "generic"}}resource.Resource{{else}}{{if eq .Module.ResourceType "component"}}{{.Module.ResourceSubtypeAlias}}.{{.Module.ResourceSubtypePascal}}{{else}}{{.Module.ResourceSubtype}}.Service{{end}}{{end}}, error) {
+func New{{.Module.ModelPascal}}(ctx context.Context, deps resource.Dependencies, name resource.Name, conf {{.ConfigType}}, logger logging.Logger) ({{if .CaptureSlots}}/*inline-slot:return*/{{end}}{{.ReturnType}}{{if .CaptureSlots}}/*inline-slot:return-end*/{{end}}, error) {
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	s := &{{.ModelType}}{
+{{if .CaptureSlots}}	// inline-example:init
+	// inline-example:init-end
+{{end}}	s := &{{.ModelType}}{
 		name:       name,
 		logger:     logger,
 		cfg:        conf,
 		cancelCtx:  cancelCtx,
 		cancelFunc: cancelFunc,
-	}
+{{if .CaptureSlots}}		// inline-example:struct
+		// inline-example:struct-end
+{{end}}	}
 	return s, nil
 }
 
@@ -95,7 +115,7 @@ func (s *{{.ModelType}}) Name() resource.Name {
 	return s.name
 }
 
-{{.Functions}}
+{{if .CaptureSlots}}/*inline-slot:methods*/{{end}}{{.Functions}}{{if .CaptureSlots}}/*inline-slot:methods-end*/{{end}}
 
 func (s *{{.ModelType}}) Close(context.Context) error {
 	// Put close code here

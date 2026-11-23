@@ -1250,7 +1250,7 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 	}
 	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
-			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(filePath, templatePrefix, ""))
+			destPath := filepath.Join(module.ModuleName, renderedTemplatePath(filePath, module))
 			debugf(cmd.Root().Writer, globalArgs.Debug, "\tRendering file %s", destPath)
 
 			tFile, err := templates.Open(path.Join(languagePath, filePath))
@@ -1286,6 +1286,19 @@ func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs 
 		return nil
 	})
 	return err
+}
+
+// pythonResourceTemplate is the fallback Python model, kept for when stub generation fails.
+const pythonResourceTemplate = "src/models/tmpl-resource.py"
+
+// renderedTemplatePath maps a template's path to the path it renders to, relative to the module root.
+// The Python fallback model renders to the model's own filename so main.py's import resolves and
+// successful stub generation overwrites it.
+func renderedTemplatePath(filePath string, module modulegen.ModuleInputs) string {
+	if module.Language == python && filePath == pythonResourceTemplate {
+		return path.Join("src", "models", module.ModelSnake+".py")
+	}
+	return strings.ReplaceAll(filePath, templatePrefix, "")
 }
 
 // Generate stubs for the resource.
@@ -1575,6 +1588,30 @@ func errorWithCommandStderr(err error) error {
 	return err
 }
 
+// pythonGeneratorCommand writes the generator to a temp file and returns a command that runs it.
+// python -c puts the script on the command line, and Windows CreateProcess rejects a command
+// line longer than 32767 characters ("The filename or extension is too long.").
+func pythonGeneratorCommand(pythonPath string, script []byte, args ...string) (*exec.Cmd, func() error, error) {
+	f, err := os.CreateTemp("", "viam-generate-stubs-*.py")
+	if err != nil {
+		return nil, nil, err
+	}
+	scriptPath := f.Name()
+	cleanup := func() error { return os.Remove(scriptPath) }
+	if _, err := f.Write(script); err != nil {
+		utils.UncheckedError(f.Close())
+		utils.UncheckedError(cleanup())
+		return nil, nil, err
+	}
+	if err := f.Close(); err != nil {
+		utils.UncheckedError(cleanup())
+		return nil, nil, err
+	}
+	cmdArgs := append([]string{scriptPath}, args...)
+	//nolint:gosec,noctx
+	return exec.Command(pythonPath, cmdArgs...), cleanup, nil
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := findPythonCommand()
@@ -1595,9 +1632,12 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint: gosec,noctx
-	cmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	cmd, cleanup, err := pythonGeneratorCommand(pythonVenvPath, script, module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate python stubs -- unable to write generator script")
+	}
+	defer utils.UncheckedErrorFunc(cleanup)
 	out, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(errorWithCommandStderr(err), "cannot generate python stubs -- generator script encountered an error")
@@ -1838,7 +1878,7 @@ func renderManifest(
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
-			Build: "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
+			Build: "conan build . --build missing -s:a compiler.cppstd=20 --lockfile-partial",
 			Path:  "build/Release/module.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
@@ -1975,9 +2015,12 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
-	//nolint: gosec,noctx
-	stubCmd := exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	stubCmd, cleanup, err := pythonGeneratorCommand(pythonVenvPath, script, module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
+	if err != nil {
+		return errors.Wrap(err, "unable to write generator script")
+	}
+	defer utils.UncheckedErrorFunc(cleanup)
 	out, err := stubCmd.Output()
 	if err != nil {
 		return errors.Wrap(errorWithCommandStderr(err), "generator script encountered an error")

@@ -319,8 +319,9 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	if ftdc != nil {
 		// We call `Remove` followed by `Add` instead of only calling `Add`. Only calling `Add`
 		// would result in a warning that we're overriding an existing ftdc "system".
-		ftdc.Remove(newRes.Name().String())
-		ftdc.Add(newRes.Name().String(), w)
+		logName := LogName(newRes.Name(), compositeAPIsForResource(newRes, newModel))
+		ftdc.Remove(logName)
+		ftdc.Add(logName, w)
 	}
 }
 
