@@ -151,6 +151,9 @@ type localRobot struct {
 
 	// whether the maintenance sensor is holding back a config change that would change resources
 	reconfigureBlocked atomic.Bool
+	// resources of the last incoming config that got past the maintenance sensor, copied before default
+	// services are added, so reconfigureBlocked compares like with like
+	allowedResources atomic.Pointer[config.Config]
 
 	// whether the robot is still initializing. this value controls what state will be
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
@@ -1730,6 +1733,30 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 	}
 }
 
+// resourcesOf copies the resource sections of cfg. The slices are cloned because reconfigure edits
+// newConfig's modules and services in place.
+func resourcesOf(cfg *config.Config) *config.Config {
+	return &config.Config{
+		Remotes:    slices.Clone(cfg.Remotes),
+		Components: slices.Clone(cfg.Components),
+		Services:   slices.Clone(cfg.Services),
+		Processes:  slices.Clone(cfg.Processes),
+		Packages:   slices.Clone(cfg.Packages),
+		Modules:    slices.Clone(cfg.Modules),
+	}
+}
+
+// resourcesChangedSinceAllowed reports whether incoming changes resources compared to the last config
+// that got past the maintenance sensor. r.Config() can't be used here: it includes default services.
+func (r *localRobot) resourcesChangedSinceAllowed(incoming *config.Config) bool {
+	allowed := r.allowedResources.Load()
+	if allowed == nil {
+		return true
+	}
+	diff, err := config.DiffConfigs(*allowed, *incoming, false)
+	return err != nil || !diff.ResourcesEqual
+}
+
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	defer func() {
 		// Always update the `initializing` value at the end of this function. Resources may
@@ -1739,6 +1766,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.initializing.Store(newConfig.Initial)
 		r.mostRecentCfg.Store(*newConfig)
 	}()
+
+	incomingResources := resourcesOf(newConfig)
 
 	// No need to check whether reconfiguring is allowed if this is initialization.
 	var reconfigureAllowedErr error
@@ -1755,7 +1784,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 				return
 			}
-			r.reconfigureBlocked.Store(diff != nil && !diff.ResourcesEqual)
+			r.reconfigureBlocked.Store(r.resourcesChangedSinceAllowed(incomingResources))
 			if diff != nil && !diff.NetworkEqual {
 				if reconfigureAllowedErr != nil {
 					r.logger.CInfow(
@@ -1882,12 +1911,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
-		r.reconfigureBlocked.Store(!reconfigureAllowed)
+		r.reconfigureBlocked.Store(!reconfigureAllowed && r.resourcesChangedSinceAllowed(incomingResources))
 		if !reconfigureAllowed {
 			r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
 			return
 		}
 	}
+	r.allowedResources.Store(incomingResources)
 
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
