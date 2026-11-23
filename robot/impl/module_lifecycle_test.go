@@ -1010,6 +1010,59 @@ func TestModuleAndResourceRemoval(t *testing.T) {
 	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
 }
 
+func TestModuleDataSurvivesFailedReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define model, as importing it can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithViamHomeDir(t.TempDir()), WithDisableCompleteConfigWorker())
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := h.DoCommand(ctx, map[string]any{
+		"command":  "write_data_file",
+		"filename": "state.json",
+		"contents": "state",
+	})
+	test.That(t, err, test.ShouldBeNil)
+	dataFile, ok := resp["fullpath"].(string)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Reconfigure the module to a process that never responds to the ready request.
+	t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "100ms")
+	cfg.Modules[0].ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+	r.Reconfigure(ctx, &cfg)
+	test.That(t, getModuleStatus(t, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+
+	contents, err := os.ReadFile(dataFile)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(contents), test.ShouldEqual, "state")
+
+	cfg = config.Config{}
+	r.Reconfigure(ctx, &cfg)
+	_, err = os.Stat(dataFile)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
 func TestModuleStatus(t *testing.T) {
 	if runtime.GOARCH == "arm" {
 		// Skipped on qemu-emulated 32-bit arm, where userspace runs several times slower and two

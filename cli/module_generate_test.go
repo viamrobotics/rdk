@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	gobuild "go/build"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -105,7 +108,7 @@ func TestAddModel(t *testing.T) {
 		result, err := os.ReadFile(mainPy)
 		test.That(t, err, test.ShouldBeNil)
 		content := string(result)
-		test.That(t, content, test.ShouldContainSubstring, "from models.second_model import SecondModel as SecondModelModel\n")
+		test.That(t, content, test.ShouldContainSubstring, "from models.second_model import SecondModel as SecondModelModel  # noqa: F401\n")
 		// new import must appear before the main guard
 		importIdx := strings.Index(content, "from models.second_model")
 		guardIdx := strings.Index(content, "if __name__")
@@ -229,12 +232,12 @@ func TestAddModel(t *testing.T) {
 
 		test.That(t, addGolangModelFile(dir, goModule), test.ShouldBeNil)
 
-		expectedPath := filepath.Join(dir, goModule.ModelSnake+".go")
+		expectedPath := filepath.Join(dir, goModelFileName(goModule.ModelSnake))
 		b, err := os.ReadFile(expectedPath)
 		test.That(t, err, test.ShouldBeNil)
 		content := string(b)
 		// Additional model must not redeclare package-level errUnimplemented.
-		test.That(t, content, test.ShouldNotContainSubstring, "errUnimplemented")
+		test.That(t, content, test.ShouldNotContainSubstring, "errUnimplemented =")
 		// Config type must be model-scoped, not the bare "Config".
 		test.That(t, content, test.ShouldContainSubstring, "MyModelConfig")
 		// Top-level "type Config" declaration must not be present (the comment example is tab-indented).
@@ -274,7 +277,7 @@ func main() {
 		content := string(result)
 
 		// New APIModel entry must be present.
-		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{board.API, mymodule.MyBoard}`)
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{API: board.API, Model: mymodule.MyBoard}`)
 		// New subtype import must be present.
 		test.That(t, content, test.ShouldContainSubstring, `board "go.viam.com/rdk/components/board"`)
 		// Original model must still be registered.
@@ -313,7 +316,7 @@ func main() {
 		test.That(t, err, test.ShouldBeNil)
 		content := string(result)
 
-		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{arm.API, mymodule.MySecondArm}`)
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{API: arm.API, Model: mymodule.MySecondArm}`)
 		// Import must appear exactly once.
 		test.That(t, strings.Count(content, `"go.viam.com/rdk/components/arm"`), test.ShouldEqual, 1)
 	})
@@ -461,6 +464,37 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 	})
 }
 
+func TestGoModelFileName(t *testing.T) {
+	test.That(t, goModelFileName("my_model"), test.ShouldEqual, "my_model_model.go")
+	test.That(t, goModelFileName("my_arm"), test.ShouldEqual, "my_arm_model.go")
+
+	// Model names ending in an OS, an architecture or "test" would otherwise be build-constrained.
+	dir := t.TempDir()
+	platforms := [][2]string{{"linux", "amd64"}, {"linux", "arm"}, {"darwin", "arm64"}, {"windows", "386"}, {"js", "wasm"}}
+	for _, modelSnake := range []string{"my_sensor", "my_arm", "ur5_arm64", "my_linux", "my_linux_arm", "my_wasm", "my_test"} {
+		fileName := goModelFileName(modelSnake)
+		test.That(t, os.WriteFile(filepath.Join(dir, fileName), []byte("package p\n"), 0o600), test.ShouldBeNil)
+		test.That(t, fileName, test.ShouldNotEndWith, "_test.go")
+		for _, p := range platforms {
+			ctx := gobuild.Default
+			ctx.GOOS, ctx.GOARCH = p[0], p[1]
+			match, err := ctx.MatchFile(dir, fileName)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, match, test.ShouldBeTrue)
+		}
+	}
+}
+
+func TestRenderedTemplatePath(t *testing.T) {
+	pyModule := modulegen.ModuleInputs{Language: python, ModelSnake: "my_model"}
+	test.That(t, renderedTemplatePath(pythonResourceTemplate, pyModule), test.ShouldEqual, "src/models/my_model.py")
+	test.That(t, renderedTemplatePath("src/tmpl-main.py", pyModule), test.ShouldEqual, "src/main.py")
+	test.That(t, renderedTemplatePath("tmpl-requirements.txt", pyModule), test.ShouldEqual, "requirements.txt")
+
+	_, err := fs.Stat(templates, path.Join(templatesPath, python, pythonResourceTemplate))
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestGenerateModuleAction(t *testing.T) {
 	// No t.Parallel(): subtests use relative paths that depend on CWD (set by t.Chdir),
 	// so this test must run sequentially to avoid races with TestAddModel's t.Chdir calls.
@@ -482,7 +516,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		API:                   "rdk:component:arm",
 		ResourceSubtypePascal: "Arm",
 		ModelPascal:           "MyModel",
-		ModelSnake:            "my-model",
+		ModelSnake:            "my_model",
 		ModelTriple:           "my-org:my-module:my-model",
 		ModelReadmeLink:       "my-org_my-module_my-model.md",
 
@@ -1238,6 +1272,43 @@ func TestTransientGoFetchFailure(t *testing.T) {
 			test.That(t, transientGoFetchFailure([]byte(tc.output)), test.ShouldEqual, tc.expected)
 		})
 	}
+}
+
+// windowsCommandLineLimit is CreateProcess's lpCommandLine limit, including the terminating NUL.
+const windowsCommandLineLimit = 32767
+
+func TestPythonGeneratorCommandFitsOnWindows(t *testing.T) {
+	t.Parallel()
+	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
+	test.That(t, err, test.ShouldBeNil)
+
+	pythonPath := filepath.Join(".venv", "Scripts", "python.exe")
+	args := []string{"component", "arm", "org", "mod", "model"}
+	cmd, cleanup, err := pythonGeneratorCommand(pythonPath, script, args...)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() { test.That(t, cleanup(), test.ShouldBeNil) }()
+
+	test.That(t, windowsCommandLineUpperBound(cmd.Args), test.ShouldBeLessThan, windowsCommandLineLimit)
+	for _, arg := range cmd.Args {
+		test.That(t, arg, test.ShouldNotEqual, string(script))
+	}
+	written, err := os.ReadFile(cmd.Args[1])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(written), test.ShouldEqual, string(script))
+}
+
+// windowsCommandLineUpperBound overestimates the command line Go passes to CreateProcess.
+// Quoting wraps an argument in quotes and may insert a backslash before a quote or
+// backslash, so two bytes per input byte plus the quotes covers every argument.
+func windowsCommandLineUpperBound(args []string) int {
+	n := 1
+	for i, arg := range args {
+		if i > 0 {
+			n++
+		}
+		n += 2 + len(arg)*2
+	}
+	return n
 }
 
 func TestResourceSubtypeArgRoundTrip(t *testing.T) {

@@ -309,11 +309,14 @@ func (m *localManager) PackageStatuses() []PackageStatus {
 func (m *localManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if s, ok := m.packageStatuses[name]; ok {
-		s.State = state
-		s.Error = errMsg
-		s.LastUpdated = time.Now()
+	s, ok := m.packageStatuses[name]
+	if !ok {
+		m.logger.Warnw("cannot set state of unknown package", "package", name, "state", state)
+		return
 	}
+	s.State = state
+	s.Error = errMsg
+	s.LastUpdated = time.Now()
 }
 
 // setPackageStatusLocked sets the full status entry for a package. Must be called with

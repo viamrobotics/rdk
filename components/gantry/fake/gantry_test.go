@@ -89,3 +89,29 @@ func TestValidateLengthMm(t *testing.T) {
 	_, _, err = (&Config{LengthMm: 500}).Validate("")
 	test.That(t, err, test.ShouldBeNil)
 }
+
+// Every way of building the fake gantry's model has to come out as a typed model, since that is
+// what a client reads first.
+func TestTypedModel(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		conf *Config
+	}{
+		{"embedded", &Config{}},
+		{"length", &Config{LengthMm: 500}},
+		{"file", &Config{ModelFilePath: "../../../referenceframe/testfiles/example_gantry.json"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model, err := buildModel(resource.Config{Name: "g"}, tc.conf)
+			test.That(t, err, test.ShouldBeNil)
+			pb, err := referenceframe.ModelToProto(model)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pb.GetName(), test.ShouldEqual, "g")
+			test.That(t, pb.GetJoints(), test.ShouldNotBeEmpty)
+			back, err := referenceframe.ModelFromProto(pb, "g")
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(back.DoF()), test.ShouldEqual, len(model.DoF()))
+			test.That(t, back.DoF()[0].Max, test.ShouldAlmostEqual, model.DoF()[0].Max)
+		})
+	}
+}

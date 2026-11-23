@@ -105,6 +105,7 @@ go.viam.com/rdk/services/vision/colordetector
 go.viam.com/rdk/services/vision/fake
 go.viam.com/rdk/services/vision/mlvision
 go.viam.com/rdk/services/worldstatestore
+go.viam.com/rdk/services/worldstatestore/builtin
 go.viam.com/rdk/services/worldstatestore/fake
 go.viam.com/rdk/session
 go.viam.com/rdk/spatialmath

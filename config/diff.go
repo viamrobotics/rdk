@@ -137,14 +137,6 @@ func prettyDiff(left, right Config) (string, error) {
 			if conf.Cloud.Secret != "" {
 				conf.Cloud.Secret = mask
 			}
-			if conf.Cloud.LocationSecret != "" {
-				conf.Cloud.LocationSecret = mask
-			}
-			for i := range conf.Cloud.LocationSecrets {
-				if conf.Cloud.LocationSecrets[i].Secret != "" {
-					conf.Cloud.LocationSecrets[i].Secret = mask
-				}
-			}
 			if conf.Cloud.APIKey.Key != "" {
 				conf.Cloud.APIKey.Key = mask
 			}
@@ -171,6 +163,14 @@ func prettyDiff(left, right Config) (string, error) {
 			}
 			if rem.Auth.SignalingCreds != nil {
 				rem.Auth.SignalingCreds.Payload = mask
+			}
+		}
+		if mc := conf.MaintenanceConfig; mc != nil && mc.FollowPart != nil {
+			if mc.FollowPart.Auth.Credentials != nil {
+				mc.FollowPart.Auth.Credentials.Payload = mask
+			}
+			if mc.FollowPart.Auth.SignalingCreds != nil {
+				mc.FollowPart.Auth.SignalingCreds.Payload = mask
 			}
 		}
 	}

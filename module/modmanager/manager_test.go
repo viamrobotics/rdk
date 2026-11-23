@@ -30,7 +30,9 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/config"
+	gizmoapi "go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
@@ -247,8 +249,11 @@ func TestModManagerFunctions(t *testing.T) {
 			oldAddr := mod.addr
 			oldClient := mod.client
 
-			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			test.That(t, err, test.ShouldBeNil)
 			err = mod.dial()
+			test.That(t, err, test.ShouldBeNil)
+			err = mod.checkReady(ctx, parentAddr)
 			test.That(t, err, test.ShouldBeNil)
 
 			if mode == "unix" {
@@ -423,7 +428,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 			t.Log("test empty dir for CleanModuleDataDirectory")
 			mgr = setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: ""})
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "cannot clean a root level module data directory")
 
 			t.Log("test CleanModuleDataDirectory")
@@ -438,7 +443,7 @@ func TestModManagerFunctions(t *testing.T) {
 				modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp, RobotCloudID: robotCloudID},
 			)
 			// check that premature clean is okay
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, err, test.ShouldBeNil)
 			// create a module and add it to the modmanager
 			modCfg = config.Module{
@@ -456,7 +461,7 @@ func TestModManagerFunctions(t *testing.T) {
 			err = os.MkdirAll(litterDataDir, os.ModePerm)
 			test.That(t, err, test.ShouldBeNil)
 			// clean
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, err, test.ShouldBeNil)
 			// check that the module directory still exists
 			_, err = os.Stat(moduleDataDir)
@@ -468,7 +473,7 @@ func TestModManagerFunctions(t *testing.T) {
 			_, err = mgr.Remove("simple-module")
 			test.That(t, err, test.ShouldBeNil)
 			// clean
-			err = mgr.CleanModuleDataDirectory()
+			err = mgr.CleanModuleDataDirectory(nil)
 			test.That(t, err, test.ShouldBeNil)
 			_, err = os.Stat(expectedDataDir)
 			test.That(t, err, test.ShouldBeError)
@@ -1082,7 +1087,7 @@ func TestModuleMisc(t *testing.T) {
 			ViamHomeDir:  testViamHomeDir,
 		})
 		// Test that cleaning the data directory before it has been created does not produce log messages
-		err := mgr.CleanModuleDataDirectory()
+		err := mgr.CleanModuleDataDirectory(nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 0)
 
@@ -1122,11 +1127,42 @@ func TestModuleMisc(t *testing.T) {
 		_, err = mgr.Remove("test-module")
 		test.That(t, err, test.ShouldBeNil)
 		// test that the data directory is cleaned up
-		err = mgr.CleanModuleDataDirectory()
+		err = mgr.CleanModuleDataDirectory(nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, logs.FilterMessageSnippet("Removing module data").Len(), test.ShouldEqual, 1)
 		_, err = os.Stat(filepath.Join(testViamHomeDir, "module-data", "local"))
 		test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "no such file or directory")
+	})
+	t.Run("data directory survives failed reconfigure", func(t *testing.T) {
+		logger := logging.NewTestLogger(t)
+		viamHomeDir := t.TempDir()
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeDir,
+			RobotCloudID: "a-b-c-d",
+		})
+		modCfg := modCfg
+		test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+		robotDataDir := filepath.Join(viamHomeDir, parentModuleDataFolderName, "a-b-c-d")
+		dataFile := filepath.Join(robotDataDir, modCfg.Name, "state.json")
+		test.That(t, os.WriteFile(dataFile, []byte("state"), 0o600), test.ShouldBeNil)
+		litterDir := filepath.Join(robotDataDir, "litter")
+		test.That(t, os.MkdirAll(litterDir, 0o750), test.ShouldBeNil)
+
+		// Reconfigure to a process that never responds to the ready request.
+		t.Setenv(rutils.ModuleStartupTimeoutEnvVar, "10ms")
+		modCfg.ExePath = rutils.ResolveFile("module/testmodule/fakemodule.sh")
+		_, err := mgr.Reconfigure(ctx, modCfg)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, mgr.Configs(), test.ShouldBeEmpty)
+
+		test.That(t, mgr.CleanModuleDataDirectory([]config.Module{modCfg}), test.ShouldBeNil)
+		contents, err := os.ReadFile(dataFile)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(contents), test.ShouldEqual, "state")
+		_, err = os.Stat(litterDir)
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("module working directory", func(t *testing.T) {
 		logger := logging.NewTestLogger(t)
@@ -1984,4 +2020,107 @@ func TestHangModuleSIGQUIT(t *testing.T) {
 	// Each of the three hangingGoroutine goroutines should appear in the dump.
 	test.That(t, logs.FilterMessageSnippet("main.hangingGoroutine").Len(),
 		test.ShouldBeGreaterThanOrEqualTo, 3)
+}
+
+// TestModularCompositeRemoveClearsAllState verifies that removing a modular composite fully clears the
+// module manager's state for it: every per-API sub-client is closed, every route is dropped from rMap,
+// and no addedResource entry lingers, so the module can be torn down. The combodevice composite serves
+// camera, movement_sensor, and the custom gizmo API.
+func TestModularCompositeRemoveClearsAllState(t *testing.T) {
+	// Use TCP sockets so the long test name does not overflow the Unix-socket path limit.
+	t.Setenv(rutils.ViamTCPSocketsEnvVar, "true")
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	parentAddr := setupSocketWithRobot(t)
+
+	modCfg := config.Module{
+		Name:    "combo-module",
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule"),
+	}
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	comboModel := resource.NewModel("acme", "demo", "combodevice")
+	cfgCombo := resource.Config{Name: "combo", API: camera.API, Model: comboModel}
+
+	res, err := mgr.AddResource(ctx, cfgCombo, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// The wrapper carries the configured api (camera), matching the graph node and mod.resources keys,
+	// not the canonical (gizmo) api.
+	test.That(t, res.Name().API, test.ShouldResemble, camera.API)
+
+	// Reachable under each api before removal.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+
+	// Removing the composite by its single name must drop all the APIs it served.
+	test.That(t, mgr.RemoveResource(ctx, res.Name()), test.ShouldBeNil)
+
+	// No ghost addedResource remains (so the module can be torn down), and no route lingers.
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		test.That(t, mod.resources, test.ShouldBeEmpty)
+		return true
+	})
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
+}
+
+// TestModuleReloadingComposite asserts that after a composite module crashes and restarts, the composite
+// is modularly managed again under every one of its APIs, with no stale route left behind.
+func TestModuleReloadingComposite(t *testing.T) {
+	ctx := context.Background()
+	comboModel := resource.NewModel("acme", "demo", "combodevice")
+	comboCfg := resource.Config{Name: "combo", API: camera.API, Model: comboModel}
+	_, _, err := comboCfg.Validate("test", resource.APITypeComponentName)
+	test.That(t, err, test.ShouldBeNil)
+
+	parentAddr := setupSocketWithRobot(t)
+	logger, logs := logging.NewObservedTestLogger(t)
+	modCfg := config.Module{
+		Name:    "combo-module",
+		ExePath: rtestutils.BuildTempModule(t, "examples/customresources/demos/complexcombomodule"),
+	}
+
+	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
+	test.That(t, mgr.Add(ctx, modCfg), test.ShouldBeNil)
+
+	h, err := mgr.AddResource(ctx, comboCfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	// The composite is modularly managed under every API.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+
+	// Crash the module via the canonical sub's DoCommand.
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	// The crash dropped every route, not just the configured one, so none stays routed to the dead module.
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeFalse)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeFalse)
+
+	// Re-add after restart; every API is modularly managed again.
+	h, err = mgr.AddResource(ctx, comboCfg, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mgr.IsModularResource(camera.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(movementsensor.Named("combo")), test.ShouldBeTrue)
+	test.That(t, mgr.IsModularResource(gizmoapi.Named("combo")), test.ShouldBeTrue)
+	test.That(t, logs.FilterMessageSnippet("Error while restarting crashed module").Len(), test.ShouldEqual, 0)
+
+	// A movement_sensor call round-trips, so a non-canonical API routes to the live restarted module.
+	ms, err := resource.AsType[movementsensor.MovementSensor](h)
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = ms.Position(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
 }

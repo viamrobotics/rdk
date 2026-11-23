@@ -774,7 +774,8 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 			acm.CaptureDirectory = captureDir
 			updatedArmCaptureMethods = append(updatedArmCaptureMethods, acm)
 		}
-		test.That(t, collectorConfigsByResource, test.ShouldResemble, capture.CollectorConfigsByResource{arm1: updatedArmCaptureMethods})
+		test.That(t, configsByResource(collectorConfigsByResource), test.ShouldResemble,
+			map[resource.Resource][]datamanager.DataCaptureConfig{arm1: updatedArmCaptureMethods})
 	})
 
 	t.Run("adds the capture directory to the collector configs returned of all resources in deps", func(t *testing.T) {
@@ -825,11 +826,22 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 			acm.CaptureDirectory = captureDir
 			updatedCamereaCaptureMethods = append(updatedCamereaCaptureMethods, acm)
 		}
-		test.That(t, collectorConfigsByResource, test.ShouldResemble, capture.CollectorConfigsByResource{
+		test.That(t, configsByResource(collectorConfigsByResource), test.ShouldResemble, map[resource.Resource][]datamanager.DataCaptureConfig{
 			arm1:    updatedArmCaptureMethods,
 			camera1: updatedCamereaCaptureMethods,
 		})
 	})
+}
+
+// configsByResource flattens a CollectorConfigsByResource to its configs for comparison.
+func configsByResource(ccbr capture.CollectorConfigsByResource) map[resource.Resource][]datamanager.DataCaptureConfig {
+	out := map[resource.Resource][]datamanager.DataCaptureConfig{}
+	for res, rcs := range ccbr {
+		for _, rc := range rcs {
+			out[res] = append(out[res], rc.Config)
+		}
+	}
+	return out
 }
 
 func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Service, func()) {
@@ -887,13 +899,9 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 			}
 			_, ok := c.ConvertedAttributes.(*Config)
 			test.That(t, ok, test.ShouldBeTrue)
-			for name, assocConf := range c.AssociatedAttributes {
+			for _, assocConf := range c.AssociatedAttributes {
 				_, ok := assocConf.(*datamanager.AssociatedConfig)
 				test.That(t, ok, test.ShouldBeTrue)
-				res, err := r.ResourceByName(name)
-				// if the config requires a resource which we have not set a mock for, fail the test
-				test.That(t, errors.Wrap(err, name.String()), test.ShouldBeNil)
-				deps[name] = res
 			}
 			config = &c
 		}
@@ -901,6 +909,15 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 	test.That(t, config, test.ShouldNotBeNil)
 	builtinConfig, ok := config.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
+
+	// The data manager depends on captured resources weakly, so hand it everything the robot advertises
+	// rather than deriving deps from the associated-config keys.
+	for _, name := range r.ResourceNames() {
+		res, err := r.ResourceByName(name)
+		test.That(t, err, test.ShouldBeNil)
+		deps[name] = res
+	}
+
 	ds, _, err := builtinConfig.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range ds {

@@ -42,6 +42,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags s as the world state store sub-resource of a composite, for resource.Compose.
+func AsSub(s Service) resource.Sub { return resource.AsSub(API, s) }
+
 // Deprecated: FromRobot is a helper for getting the named world state store service from the given Robot.
 // Use FromProvider instead.
 //
@@ -137,6 +140,13 @@ func (s *TransformChangeStream) Next() (TransformChange, error) {
 		return TransformChange{}, io.EOF
 	}
 	return s.next()
+}
+
+// NewTransformChangeStream returns a TransformChangeStream whose changes come from calling next.
+// It is for implementations whose changes do not come from a single channel. next must return
+// io.EOF once the stream has ended, and the context's error if the caller gives up waiting.
+func NewTransformChangeStream(next func() (TransformChange, error)) *TransformChangeStream {
+	return &TransformChangeStream{next: next}
 }
 
 // NewTransformChangeStreamFromChannel wraps a channel of TransformChange as a TransformChangeStream.

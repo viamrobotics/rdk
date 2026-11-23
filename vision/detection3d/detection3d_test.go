@@ -2,6 +2,7 @@ package detection3d_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -25,7 +26,9 @@ func TestFromSegmenter(t *testing.T) {
 		return []*vision.Object{mug, vision.NewEmptyObject()}, nil
 	}
 
-	dets, err := detection3d.FromSegmenter("seg", segmenter)(context.Background(), inject.NewCamera("cam"))
+	cam := inject.NewCamera("cam")
+	cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) { return camera.Properties{}, nil }
+	dets, err := detection3d.FromSegmenter("seg", segmenter)(context.Background(), cam)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(dets), test.ShouldEqual, 2)
 
@@ -55,5 +58,25 @@ func TestFromSegmenter(t *testing.T) {
 	t.Run("empty object has no geometry and no points child", func(t *testing.T) {
 		test.That(t, len(dets[1].Transforms), test.ShouldEqual, 1)
 		test.That(t, dets[1].Transforms[0].Geometry(), test.ShouldBeNil)
+	})
+
+	t.Run("root is parented to the camera's point cloud frame when it reports one", func(t *testing.T) {
+		cam := inject.NewCamera("cam")
+		cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{DefaultReferenceFrame: "world"}, nil
+		}
+		dets, err := detection3d.FromSegmenter("seg", segmenter)(context.Background(), cam)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, dets[0].Transforms[0].Parent(), test.ShouldEqual, "world")
+	})
+
+	t.Run("properties error is returned rather than guessing a frame", func(t *testing.T) {
+		cam := inject.NewCamera("cam")
+		cam.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
+			return camera.Properties{}, errors.New("no properties")
+		}
+		_, err := detection3d.FromSegmenter("seg", segmenter)(context.Background(), cam)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no properties")
 	})
 }

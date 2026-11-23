@@ -5,13 +5,9 @@ else
 	BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 endif
 
-TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
-
 BUILD_CHANNEL ?= local
 # Include mise and its shims in path.
 export PATH := $(HOME)/.local/share/mise/shims:$(HOME)/.local/bin:$(PATH)
-
-PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):${PATH}"
 
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
@@ -85,34 +81,28 @@ deb-cli-upload:
 
 tool-install:
 	command -v mise >/dev/null && mise install -y && mise reshim || echo 'mise not installed, skipping'
-	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/AlekSi/gocov-xml \
-		github.com/axw/gocov/gocov \
-		gotest.tools/gotestsum \
-		github.com/rhysd/actionlint/cmd/actionlint \
-		golang.org/x/tools/cmd/stringer
 
 lint: lint-go actionlint
 
 actionlint:
-	PATH=$(PATH_WITH_TOOLS) actionlint
+	actionlint
 
 generate-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) go generate ./...
+	go generate ./...
 
 lint-go:
 	mise run lint-go
 
 cover-only: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
+	./etc/test.sh cover
 
 cover: test-go cover-only
 
 test-go: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh race
+	./etc/test.sh race
 
 test-go-no-race: tool-install
-	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
+	./etc/test.sh
 
 # CGO is only supported on amd64/arm64; elsewhere build pure-Go with the no_cgo tag.
 # GO_BUILD_TAGS_EXTRA (comma-separated) lets callers inject additional build tags that augment --

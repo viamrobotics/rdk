@@ -1351,13 +1351,15 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 	options.Auth.TLSAuthEntities = leaf.DNSNames
 	options.Managed = true
 	options.FQDN = altName
-	locationSecret := "locsosecret"
+	apiKeyID := "sosecretID"
+	apiKey := "sosecret"
 
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
-			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Type: rpc.CredentialsTypeAPIKey,
 			Config: rutils.AttributeMap{
-				"secret": locationSecret,
+				apiKeyID: apiKey,
+				"keys":   []string{apiKeyID},
 			},
 		},
 	}

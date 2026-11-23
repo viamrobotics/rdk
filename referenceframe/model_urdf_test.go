@@ -169,7 +169,7 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
   </link>
 </robot>`)
 
-		_, err := buildMeshMapFromURDF(urdfData, testfilesDir)
+		_, err := buildMeshMapFromURDF(urdfData, testfilesDir, "")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "failed to load mesh file")
 	})
@@ -192,7 +192,7 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
   </link>
 </robot>`)
 
-		_, err = buildMeshMapFromURDF(urdfData, testfilesDir)
+		_, err = buildMeshMapFromURDF(urdfData, testfilesDir, "")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported mesh file type")
 	})
@@ -206,7 +206,7 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 	// Load URDF, build mesh map, and parse model once for all tests
 	xmlData, err := os.ReadFile(urdfPath)
 	test.That(t, err, test.ShouldBeNil)
-	meshMap, err := buildMeshMapFromURDF(xmlData, testfilesDir)
+	meshMap, err := buildMeshMapFromURDF(xmlData, testfilesDir, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	modelConfig, err := UnmarshalModelXML(xmlData, "ur20", meshMap, nil)

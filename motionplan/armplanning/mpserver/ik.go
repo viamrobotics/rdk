@@ -131,7 +131,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 				}
 				*cells = append(*cells, IKInspectCell{
 					Cost: pc.ConfigurationDistanceFunc(stepArc) +
-						armplanning.NeutralBias(linearSchema.GetLimits(), solution.Configuration),
+						armplanning.NeutralBias(linearSchema.GetLimits(), linearSchema.GetRevolute(), solution.Configuration),
 					Exact:             solution.Exact,
 					Inputs:            inputs,
 					Valid:             finalStateErr == nil,

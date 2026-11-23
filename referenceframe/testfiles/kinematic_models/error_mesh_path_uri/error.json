@@ -1,0 +1,6 @@
+{
+  "kind": "mesh_path_uri",
+  "mentions": [
+    "package://m/part.ply"
+  ]
+}

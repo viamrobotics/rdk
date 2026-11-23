@@ -5,17 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/services/motion"
 )
 
 const (
-	defaultArmSideTargetRunwayMs = 100
-	defaultSendToArmIntervalMs   = 10
-	defaultVelLimitRadPerSec     = 10 * math.Pi / 180 // 10 deg/s
-	defaultAccelLimitRadPerSec2  = 10 * math.Pi / 180 // 10 deg/s^2
-	defaultDiagnosticsWindowSecs = 60
+	defaultArmSideTargetRunway  = 100 * time.Millisecond
+	defaultSendToArmInterval    = 10 * time.Millisecond
+	defaultVelLimitRadPerSec    = 10 * math.Pi / 180 // 10 deg/s
+	defaultAccelLimitRadPerSec2 = 10 * math.Pi / 180 // 10 deg/s^2
+	defaultDiagnosticsWindow    = 60 * time.Second
 
 	maxTargetsDroppedInARowDueToTrajexExtendErrorKey = "max_targets_dropped_in_a_row_due_to_trajex_extend_error"
 	forceRebaseIfExtendLatencyExceedsMsKey           = "force_rebase_if_extend_latency_exceeds_ms"
@@ -23,22 +24,22 @@ const (
 
 // StreamOptions tunes the streaming executor.
 type StreamOptions struct {
-	// ArmSideTargetRunwayMs is the duration of pvat points that we aim to keep
+	// ArmSideTargetRunway is the duration of pvat points that we aim to keep
 	// buffered inside the arm resource.
-	ArmSideTargetRunwayMs int
+	ArmSideTargetRunway time.Duration
 
-	// SendToArmIntervalMs is the interval at which batches of pvat points are
+	// SendToArmInterval is the interval at which batches of pvat points are
 	// sent to the arm resource.
 	// TODO: Replace this with querying the arm's properties API.
-	SendToArmIntervalMs int
+	SendToArmInterval time.Duration
 
 	// MoveOptions carries the kinematic limits the trajex session is built with.
 	MoveOptions arm.MoveOptions
 
-	// DiagnosticsWindowSecs is how much full-detail diagnostics history the session retains;
+	// DiagnosticsWindow is how much full-detail diagnostics history the session retains;
 	// 0 disables retention of that history, though whole-run diagnostic stats are still
 	// collected regardless.
-	DiagnosticsWindowSecs int
+	DiagnosticsWindow time.Duration
 
 	// MaxTargetsDroppedInARowDueToTrajexExtendError bounds how many targets in a row trajex may reject before the
 	// session gives up. The default, zero, ends the session on the first rejected target.
@@ -47,23 +48,23 @@ type StreamOptions struct {
 	// It should eventually be removed.
 	MaxTargetsDroppedInARowDueToTrajexExtendError int
 
-	// ForceRebaseIfExtendLatencyExceedsMs is the Extend latency past which the session is forced to
+	// ForceRebaseIfExtendLatencyExceeds is the Extend latency past which the session is forced to
 	// stage. The default, zero, never forces a stage.
 	//
 	// This option can be removed once trajex extend latency no longer grows without bound with the number
 	// of targets added to the trajex session.
-	ForceRebaseIfExtendLatencyExceedsMs int
+	ForceRebaseIfExtendLatencyExceeds time.Duration
 }
 
 // Validate returns an error if any StreamOptions field is invalid.
 func (o *StreamOptions) Validate() error {
-	if o.ArmSideTargetRunwayMs <= 0 {
+	if o.ArmSideTargetRunway <= 0 {
 		return errors.New("streaming: arm_side_target_runway_ms must be positive")
 	}
-	if o.SendToArmIntervalMs <= 0 {
+	if o.SendToArmInterval <= 0 {
 		return errors.New("streaming: send_to_arm_interval_ms must be positive")
 	}
-	if o.SendToArmIntervalMs >= o.ArmSideTargetRunwayMs {
+	if o.SendToArmInterval >= o.ArmSideTargetRunway {
 		return errors.New("streaming: send_to_arm_interval_ms must be less than arm_side_target_runway_ms")
 	}
 	validatePositive := func(perJoint []float64, scalar float64, perJointName, scalarName string) error {
@@ -93,13 +94,13 @@ func (o *StreamOptions) Validate() error {
 	if o.MoveOptions.MaxTCPSpeedMPerSec != nil && *o.MoveOptions.MaxTCPSpeedMPerSec <= 0 {
 		return errors.New("streaming: move_options.max_tcp_speed must be positive")
 	}
-	if o.DiagnosticsWindowSecs < 0 {
+	if o.DiagnosticsWindow < 0 {
 		return errors.New("streaming: diagnostics_window_secs must be non-negative (0 disables window-detail retention)")
 	}
 	if o.MaxTargetsDroppedInARowDueToTrajexExtendError < 0 {
 		return errors.New("streaming: max_targets_dropped_in_a_row_due_to_trajex_extend_error must be non-negative")
 	}
-	if o.ForceRebaseIfExtendLatencyExceedsMs < 0 {
+	if o.ForceRebaseIfExtendLatencyExceeds < 0 {
 		return errors.New("streaming: force_rebase_if_extend_latency_exceeds_ms must be non-negative")
 	}
 	return nil
@@ -111,10 +112,11 @@ func MaxTargetsDroppedInARowDueToTrajexExtendError(extra map[string]interface{})
 	return int32FromExtra(extra, maxTargetsDroppedInARowDueToTrajexExtendErrorKey)
 }
 
-// ForceRebaseIfExtendLatencyExceedsMs reads forceRebaseIfExtendLatencyExceedsMsKey from a
+// ForceRebaseIfExtendLatencyExceeds reads forceRebaseIfExtendLatencyExceedsMsKey from a
 // TempStreamArmJointPositions extra map, returning zero (the default) if it is absent.
-func ForceRebaseIfExtendLatencyExceedsMs(extra map[string]interface{}) (int, error) {
-	return int32FromExtra(extra, forceRebaseIfExtendLatencyExceedsMsKey)
+func ForceRebaseIfExtendLatencyExceeds(extra map[string]interface{}) (time.Duration, error) {
+	ms, err := int32FromExtra(extra, forceRebaseIfExtendLatencyExceedsMsKey)
+	return time.Duration(ms) * time.Millisecond, err
 }
 
 func int32FromExtra(extra map[string]interface{}, key string) (int, error) {
@@ -136,22 +138,22 @@ func int32FromExtra(extra map[string]interface{}, key string) (int, error) {
 // the defaults for any it leaves unset.
 func NewStreamOptions(opts motion.TempStreamOptions) StreamOptions {
 	o := StreamOptions{
-		ArmSideTargetRunwayMs: defaultArmSideTargetRunwayMs,
-		SendToArmIntervalMs:   defaultSendToArmIntervalMs,
+		ArmSideTargetRunway: defaultArmSideTargetRunway,
+		SendToArmInterval:   defaultSendToArmInterval,
 		MoveOptions: arm.MoveOptions{
 			MaxVelRads: defaultVelLimitRadPerSec,
 			MaxAccRads: defaultAccelLimitRadPerSec2,
 		},
-		DiagnosticsWindowSecs: defaultDiagnosticsWindowSecs,
+		DiagnosticsWindow: defaultDiagnosticsWindow,
 	}
 	if opts.ArmSideTargetRunwayMs != nil {
-		o.ArmSideTargetRunwayMs = int(*opts.ArmSideTargetRunwayMs)
+		o.ArmSideTargetRunway = time.Duration(*opts.ArmSideTargetRunwayMs) * time.Millisecond
 	}
 	if opts.SendToArmIntervalMs != nil {
-		o.SendToArmIntervalMs = int(*opts.SendToArmIntervalMs)
+		o.SendToArmInterval = time.Duration(*opts.SendToArmIntervalMs) * time.Millisecond
 	}
 	if opts.DiagnosticsWindowSecs != nil {
-		o.DiagnosticsWindowSecs = int(*opts.DiagnosticsWindowSecs)
+		o.DiagnosticsWindow = time.Duration(*opts.DiagnosticsWindowSecs) * time.Second
 	}
 	if move := opts.MoveOptions; move != nil {
 		if move.MaxVelRads > 0 {

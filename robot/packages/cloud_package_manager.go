@@ -141,11 +141,14 @@ func (m *cloudManager) PackageStatuses() []PackageStatus {
 func (m *cloudManager) SetPackageState(name PackageName, state PackageState, errMsg string) {
 	m.statusMu.Lock()
 	defer m.statusMu.Unlock()
-	if s, ok := m.packageStatuses[name]; ok {
-		s.State = state
-		s.Error = errMsg
-		s.LastUpdated = time.Now()
+	s, ok := m.packageStatuses[name]
+	if !ok {
+		m.logger.Warnw("cannot set state of unknown package", "package", name, "state", state)
+		return
 	}
+	s.State = state
+	s.Error = errMsg
+	s.LastUpdated = time.Now()
 }
 
 // setPackageStatus sets the full status entry for a package. Download progress is preserved

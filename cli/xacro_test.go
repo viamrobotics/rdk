@@ -432,9 +432,7 @@ func TestValidateOutputWritable(t *testing.T) {
 		if runtime.GOOS == "windows" {
 			t.Skip("Windows doesn't use permission bits to determine read-only directories")
 		}
-		if os.Getuid() == 0 {
-			t.Skip("Skipping read-only test when running as root")
-		}
+		enforceFilePermissions(t)
 
 		tmpDir := t.TempDir()
 		readOnlyDir := filepath.Join(tmpDir, "readonly")

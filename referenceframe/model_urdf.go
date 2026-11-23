@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -29,6 +30,7 @@ type linkXML struct {
 	XMLName   xml.Name    `xml:"link"`
 	Name      string      `xml:"name,attr"`
 	Collision []collision `xml:"collision"`
+	Visual    []visual    `xml:"visual"`
 }
 
 // jointXML is a struct which details the XML used in a URDF jointXML element.
@@ -107,6 +109,8 @@ func UnmarshalModelXML(
 
 	// Read all links first
 	links := make(map[string]*LinkConfig, 0)
+	// the order the file declared them, so the same file reads the same way every time
+	var order []string
 	meshIndex := 0
 	for _, linkElem := range urdf.Links {
 		// Skip any world links
@@ -148,6 +152,9 @@ func UnmarshalModelXML(
 				return nil, err
 			}
 			link.Geometry = geoCfg
+		}
+		if _, dup := links[linkElem.Name]; !dup {
+			order = append(order, linkElem.Name)
 		}
 		links[linkElem.Name] = link
 	}
@@ -235,6 +242,9 @@ func UnmarshalModelXML(
 				Orientation: linkOrient,
 				Parent:      jointElem.Parent.Link,
 			}
+			if _, dup := links[jointElem.Name]; !dup {
+				order = append(order, jointElem.Name)
+			}
 			links[jointElem.Name] = link
 		default:
 			return nil, NewUnsupportedJointTypeError(jointElem.Type)
@@ -250,8 +260,8 @@ func UnmarshalModelXML(
 
 	// Return as a ModelConfig
 	linkSlice := make([]LinkConfig, 0, len(links))
-	for _, link := range links {
-		linkSlice = append(linkSlice, *link)
+	for _, id := range order {
+		linkSlice = append(linkSlice, *links[id])
 	}
 	return &ModelConfigJSON{
 		Name:         modelName,
@@ -268,7 +278,7 @@ func UnmarshalModelXML(
 // buildMeshMapFromURDF extracts mesh file paths from URDF and loads their bytes from disk.
 // It resolves paths relative to the URDF file's directory and handles package:// URIs.
 // Note: This function is only used when we are reading a URDF file, not when a URDF is sent over the wire.
-func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.Mesh, error) {
+func buildMeshMapFromURDF(xmlData []byte, urdfDir, packageRoot string) (map[string]*commonpb.Mesh, error) {
 	// Parse URDF to find mesh references
 	urdf := &ModelConfigURDF{}
 	if err := xml.Unmarshal(xmlData, urdf); err != nil {
@@ -285,19 +295,11 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.
 			}
 
 			originalPath := collision.Geometry.Mesh.Filename
-			meshPath := normalizeURDFMeshPath(originalPath)
+			meshPath, absolutePath := resolveURDFMeshPath(originalPath, urdfDir, packageRoot)
 
 			// Check if we've already loaded this mesh
 			if _, exists := meshMap[meshPath]; exists {
 				continue
-			}
-
-			// Resolve path relative to URDF directory
-			var absolutePath string
-			if filepath.IsAbs(meshPath) {
-				absolutePath = meshPath
-			} else {
-				absolutePath = filepath.Join(urdfDir, meshPath)
 			}
 
 			// Load mesh file bytes
@@ -338,7 +340,7 @@ func ParseModelXMLFile(filename, modelName string, meshDecimationRatios []float6
 
 	// Build mesh map by loading mesh files from disk
 	urdfDir := filepath.Dir(filename)
-	meshMap, err := buildMeshMapFromURDF(xmlData, urdfDir)
+	meshMap, err := buildMeshMapFromURDF(xmlData, urdfDir, "")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to build mesh map")
 	}
@@ -349,4 +351,135 @@ func ParseModelXMLFile(filename, modelName string, meshDecimationRatios []float6
 	}
 
 	return mc.ParseConfig(modelName)
+}
+
+// resolveURDFMeshPath turns a mesh reference into the relative path the model keeps and the place
+// on disk to read it from. A package:// reference loses its scheme and package name, and is read
+// under packageRoot when one is given, since the URDF is then not at its package root.
+func resolveURDFMeshPath(original, urdfDir, packageRoot string) (meshPath, absolutePath string) {
+	meshPath = normalizeURDFMeshPath(original)
+	switch {
+	case filepath.IsAbs(meshPath):
+		return meshPath, meshPath
+	case packageRoot != "" && strings.HasPrefix(original, urdfPackagePrefix):
+		return meshPath, filepath.Join(packageRoot, meshPath)
+	default:
+		return meshPath, filepath.Join(urdfDir, meshPath)
+	}
+}
+
+// ReadURDFModel reads a URDF for conversion to a kinematic model file. Beyond what
+// ParseModelXMLFile does, it resolves package:// mesh references under packageRoot when the file
+// does not sit at its package root, packageRoot may be empty, and attaches each link's visual
+// geometries to the model with their bytes, in whatever format the file names, so the converted
+// model carries them. A visual nothing of ours can show, a DAE mesh or a cylinder, is left out and
+// described in the second result so the caller can say so.
+func ReadURDFModel(filename, packageRoot string) (Model, []string, error) {
+	//nolint:gosec
+	xmlData, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to read URDF file")
+	}
+	urdfDir := filepath.Dir(filename)
+	meshMap, err := buildMeshMapFromURDF(xmlData, urdfDir, packageRoot)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to build mesh map")
+	}
+	mc, err := UnmarshalModelXML(xmlData, "", meshMap, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	model, err := mc.ParseConfig("")
+	if err != nil {
+		return nil, nil, err
+	}
+	sm, ok := model.(*SimpleModel)
+	if !ok {
+		return nil, nil, fmt.Errorf("URDF %s did not parse into a simple model", filename)
+	}
+	visuals, skipped, err := urdfVisuals(xmlData, urdfDir, packageRoot)
+	if err != nil {
+		return nil, nil, err
+	}
+	for link, geometries := range visuals {
+		if err := sm.SetVisualGeometries(link, geometries); err != nil {
+			return nil, nil, errors.Wrapf(err, "visuals of link %q", link)
+		}
+	}
+	return sm, skipped, nil
+}
+
+// urdfVisuals reads every link's visual elements with their mesh bytes, keyed by link name, and
+// describes the ones it had to leave out.
+func urdfVisuals(xmlData []byte, urdfDir, packageRoot string) (map[string][]spatialmath.GeometryConfig, []string, error) {
+	urdf := &ModelConfigURDF{}
+	if err := xml.Unmarshal(xmlData, urdf); err != nil {
+		return nil, nil, errors.Wrap(err, "failed to parse URDF for visual extraction")
+	}
+	visuals := map[string][]spatialmath.GeometryConfig{}
+	var skipped []string
+	for _, link := range urdf.Links {
+		for i, visual := range link.Visual {
+			gc, reason, err := visual.toVisualConfig(urdfDir, packageRoot)
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "link %q visual %d", link.Name, i)
+			}
+			if reason != "" {
+				skipped = append(skipped, fmt.Sprintf("link %q visual %d: %s", link.Name, i, reason))
+				continue
+			}
+			visuals[link.Name] = append(visuals[link.Name], *gc)
+		}
+	}
+	return visuals, skipped, nil
+}
+
+// toVisualConfig reads a visual element as a geometry config with any mesh bytes inline. A mesh
+// in a format no viewer of ours loads, or a shape the message cannot carry, comes back with the
+// reason instead of a config, since one odd visual should not fail the whole file.
+func (v *visual) toVisualConfig(urdfDir, packageRoot string) (*spatialmath.GeometryConfig, string, error) {
+	origin := spatialmath.NewZeroPose()
+	if v.Origin != nil {
+		origin = v.Origin.Parse()
+	}
+	switch {
+	case v.Geometry.Mesh != nil:
+		meshPath, absolutePath := resolveURDFMeshPath(v.Geometry.Mesh.Filename, urdfDir, packageRoot)
+		ext := strings.TrimPrefix(strings.ToLower(path.Ext(meshPath)), ".")
+		if ext == "dae" {
+			return nil, fmt.Sprintf("%s is a DAE mesh, which nothing reads", v.Geometry.Mesh.Filename), nil
+		}
+		//nolint:gosec
+		data, err := os.ReadFile(absolutePath)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to load mesh file %s (referenced as %s): %w",
+				absolutePath, v.Geometry.Mesh.Filename, err)
+		}
+		oc, err := spatialmath.NewOrientationConfig(origin.Orientation())
+		if err != nil {
+			return nil, "", err
+		}
+		return &spatialmath.GeometryConfig{
+			Type:              spatialmath.MeshType,
+			MeshData:          data,
+			MeshContentType:   ext,
+			MeshFilePath:      filepath.ToSlash(meshPath),
+			TranslationOffset: origin.Point(),
+			OrientationOffset: *oc,
+		}, "", nil
+	case v.Geometry.Cylinder != nil:
+		return nil, "a cylinder has no shape in the kinematic model", nil
+	case v.Geometry.Box != nil, v.Geometry.Sphere != nil:
+		g, err := (&collision{Origin: v.Origin, Geometry: v.Geometry}).toGeometry(nil, 1)
+		if err != nil {
+			return nil, "", err
+		}
+		gc, err := spatialmath.NewGeometryConfig(g)
+		if err != nil {
+			return nil, "", err
+		}
+		return gc, "", nil
+	default:
+		return nil, "no geometry", nil
+	}
 }

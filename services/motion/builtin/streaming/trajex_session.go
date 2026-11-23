@@ -102,8 +102,8 @@ func (s *trajexSession) startSession(startJointPositions []referenceframe.Input)
 	if err := trajexOpts.InsertScalarFloat64(totgstream.KeyPathToleranceDeltaRads, trajexPathToleranceRads); err != nil {
 		return err
 	}
-	// Convert the send interval from milliseconds to Hz
-	samplingFrequencyHz := 1000.0 / float64(s.opts.SendToArmIntervalMs)
+	// Convert the send interval to Hz
+	samplingFrequencyHz := float64(time.Second) / float64(s.opts.SendToArmInterval)
 	if err := trajexOpts.InsertScalarFloat64(totgstream.KeyTrajectorySamplingFreqHz, samplingFrequencyHz); err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func (s *trajexSession) addJointPositionsToSession(ctx context.Context, nextJoin
 }
 
 func (s *trajexSession) stageIfSlow(extendLatency time.Duration) {
-	threshold := time.Duration(s.opts.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
+	threshold := s.opts.ForceRebaseIfExtendLatencyExceeds
 	if threshold > 0 && extendLatency > threshold {
 		s.sess.StartStaging()
 	}

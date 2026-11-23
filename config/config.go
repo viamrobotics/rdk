@@ -109,11 +109,22 @@ func (cfg TracingConfig) IsEnabled() bool {
 	return cfg.Enabled && (cfg.Disk || cfg.Console || cfg.OTLPEndpoint != "")
 }
 
-// MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
-// This Config is not validated during config processing but it will be validated during reconfiguration.
+// MaintenanceConfig specifies how a machine decides whether it is allowed to reconfigure.
+// Either SensorName+MaintenanceAllowedKey is set (the machine reads a local/remote
+// sensor) or FollowPart is set (the machine defers the decision to another part). The two
+// are mutually exclusive; if both are set, FollowPart wins and the sensor fields are
+// ignored.
 type MaintenanceConfig struct {
-	SensorName            string `json:"sensor_name"`
-	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
+	SensorName            string         `json:"sensor_name,omitempty"`
+	MaintenanceAllowedKey string         `json:"maintenance_allowed_key,omitempty"`
+	FollowPart            *FollowPartRef `json:"follow_part,omitempty"`
+}
+
+// FollowPartRef points at another part whose maintenance status governs this machine's
+// reconfigure decision.
+type FollowPartRef struct {
+	Address string     `json:"address"`
+	Auth    RemoteAuth `json:"auth,omitempty"`
 }
 
 // NOTE: This data must be maintained with what is in [Config].
@@ -523,7 +534,7 @@ func (conf *Remote) validate(path string) error {
 	if conf.Secret != "" {
 		conf.Auth = RemoteAuth{
 			Credentials: &rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
+				Type:    rutils.CredentialsTypeRobotLocationSecret, //nolint:staticcheck // kept for outbound-dial compatibility
 				Payload: conf.Secret,
 			},
 		}
@@ -536,8 +547,6 @@ func (conf *Remote) validate(path string) error {
 type Cloud struct {
 	ID               string
 	Secret           string
-	LocationSecret   string // Deprecated: Use LocationSecrets
-	LocationSecrets  []LocationSecret
 	APIKey           APIKey
 	LocationID       string
 	PrimaryOrgID     string
@@ -569,18 +578,16 @@ type cloudData struct {
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
 
-	LocationSecret    string           `json:"location_secret"`
-	LocationSecrets   []LocationSecret `json:"location_secrets"`
-	APIKey            APIKey           `json:"api_key"`
-	LocationID        string           `json:"location_id"`
-	PrimaryOrgID      string           `json:"primary_org_id"`
-	MachineID         string           `json:"machine_id"`
-	ManagedBy         string           `json:"managed_by"`
-	FQDN              string           `json:"fqdn"`
-	LocalFQDN         string           `json:"local_fqdn"`
-	SignalingAddress  string           `json:"signaling_address"`
-	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	RefreshInterval   string           `json:"refresh_interval,omitempty"`
+	APIKey            APIKey `json:"api_key"`
+	LocationID        string `json:"location_id"`
+	PrimaryOrgID      string `json:"primary_org_id"`
+	MachineID         string `json:"machine_id"`
+	ManagedBy         string `json:"managed_by"`
+	FQDN              string `json:"fqdn"`
+	LocalFQDN         string `json:"local_fqdn"`
+	SignalingAddress  string `json:"signaling_address"`
+	SignalingInsecure bool   `json:"signaling_insecure,omitempty"`
+	RefreshInterval   string `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
@@ -623,8 +630,6 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 	*config = Cloud{
 		ID:                temp.ID,
 		Secret:            temp.Secret,
-		LocationSecret:    temp.LocationSecret,
-		LocationSecrets:   temp.LocationSecrets,
 		APIKey:            temp.APIKey,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
@@ -653,8 +658,6 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 	temp := cloudData{
 		ID:                config.ID,
 		Secret:            config.Secret,
-		LocationSecret:    config.LocationSecret,
-		LocationSecrets:   config.LocationSecrets,
 		APIKey:            config.APIKey,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
@@ -732,15 +735,7 @@ func (config *Cloud) Copy() *Cloud {
 		return nil
 	}
 	cloudCopy := *config
-	cloudCopy.LocationSecrets = slices.Clone(config.LocationSecrets)
 	return &cloudCopy
-}
-
-// LocationSecret describes a location secret that can be used to authenticate to the rdk.
-type LocationSecret struct {
-	ID string `json:"id"`
-	// Payload of the secret
-	Secret string `json:"secret"`
 }
 
 // NetworkConfig describes networking settings for the web server.
@@ -1062,8 +1057,7 @@ type AuthHandlerConfig struct {
 
 // Validate ensures all parts of the config are valid. If it exists, updates ExternalAuthConfig's ValidatedKeySet once validated.
 // A sample AuthConfig in JSON form is shown below, where "handlers" contains a list of auth handlers. The only accepted credential
-// type for the RDK in the config is "api-key" currently. An auth handler for utils.CredentialsTypeRobotLocationSecret may be added
-// later by the RDK during processing.
+// type for the RDK in the config is "api-key" currently.
 //
 //	"auth": {
 //			"handlers": [
@@ -1309,7 +1303,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	for _, serv := range cfg.Services {
 		if serv.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + serv.ResourceName().String(),
+				Pattern: "rdk.resource_manager." + resource.LogName(serv.ResourceName(), resource.APIsForModel(serv.Model)),
 				Level:   serv.LogConfiguration.Level.String(),
 			}
 			combinedLogCfg = append(combinedLogCfg, resLogCfg)
@@ -1318,7 +1312,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 	for _, comp := range cfg.Components {
 		if comp.LogConfiguration != nil {
 			resLogCfg := logging.LoggerPatternConfig{
-				Pattern: "rdk.resource_manager." + comp.ResourceName().String(),
+				Pattern: "rdk.resource_manager." + resource.LogName(comp.ResourceName(), resource.APIsForModel(comp.Model)),
 				Level:   comp.LogConfiguration.Level.String(),
 			}
 			combinedLogCfg = append(combinedLogCfg, resLogCfg)

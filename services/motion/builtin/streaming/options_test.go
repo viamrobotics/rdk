@@ -4,6 +4,7 @@ package streaming
 import (
 	"math"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
@@ -19,27 +20,27 @@ func TestNewStreamOptionsOverrides(t *testing.T) {
 		DiagnosticsWindowSecs: &window,
 		MoveOptions:           &arm.MoveOptions{MaxAccRads: 2, MaxVelRadsJoints: []float64{1, 2}},
 	})
-	test.That(t, opts.ArmSideTargetRunwayMs, test.ShouldEqual, 80)
-	test.That(t, opts.DiagnosticsWindowSecs, test.ShouldEqual, 0)
+	test.That(t, opts.ArmSideTargetRunway, test.ShouldEqual, 80*time.Millisecond)
+	test.That(t, opts.DiagnosticsWindow, test.ShouldEqual, 0)
 	test.That(t, opts.MoveOptions.MaxAccRads, test.ShouldEqual, 2.0)
 	test.That(t, opts.MoveOptions.MaxVelRadsJoints, test.ShouldResemble, []float64{1, 2})
 	// nil arguments and zero scalar limits keep the defaults.
-	test.That(t, opts.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
+	test.That(t, opts.SendToArmInterval, test.ShouldEqual, defaultSendToArmInterval)
 	test.That(t, opts.MoveOptions.MaxVelRads, test.ShouldEqual, defaultVelLimitRadPerSec)
 }
 
 func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 	valid := NewStreamOptions(motion.TempStreamOptions{})
-	test.That(t, valid.ArmSideTargetRunwayMs, test.ShouldEqual, defaultArmSideTargetRunwayMs)
-	test.That(t, valid.SendToArmIntervalMs, test.ShouldEqual, defaultSendToArmIntervalMs)
+	test.That(t, valid.ArmSideTargetRunway, test.ShouldEqual, defaultArmSideTargetRunway)
+	test.That(t, valid.SendToArmInterval, test.ShouldEqual, defaultSendToArmInterval)
 	test.That(t, valid.MoveOptions.MaxVelRads, test.ShouldEqual, defaultVelLimitRadPerSec)
 	test.That(t, valid.MoveOptions.MaxAccRads, test.ShouldEqual, defaultAccelLimitRadPerSec2)
-	test.That(t, valid.DiagnosticsWindowSecs, test.ShouldEqual, defaultDiagnosticsWindowSecs)
+	test.That(t, valid.DiagnosticsWindow, test.ShouldEqual, defaultDiagnosticsWindow)
 	test.That(t, valid.Validate(), test.ShouldBeNil)
 
 	// A zero diagnostics window is valid: it disables window-detail retention only.
 	disabled := valid
-	disabled.DiagnosticsWindowSecs = 0
+	disabled.DiagnosticsWindow = 0
 	test.That(t, disabled.Validate(), test.ShouldBeNil)
 
 	// The zero value does not validate.
@@ -62,11 +63,11 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		name   string
 		mutate func(*StreamOptions)
 	}{
-		{"zero runway", func(o *StreamOptions) { o.ArmSideTargetRunwayMs = 0 }},
-		{"negative runway", func(o *StreamOptions) { o.ArmSideTargetRunwayMs = -1 }},
-		{"zero send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = 0 }},
-		{"negative send interval", func(o *StreamOptions) { o.SendToArmIntervalMs = -1 }},
-		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmIntervalMs = o.ArmSideTargetRunwayMs }},
+		{"zero runway", func(o *StreamOptions) { o.ArmSideTargetRunway = 0 }},
+		{"negative runway", func(o *StreamOptions) { o.ArmSideTargetRunway = -1 }},
+		{"zero send interval", func(o *StreamOptions) { o.SendToArmInterval = 0 }},
+		{"negative send interval", func(o *StreamOptions) { o.SendToArmInterval = -1 }},
+		{"send interval not less than runway", func(o *StreamOptions) { o.SendToArmInterval = o.ArmSideTargetRunway }},
 		{"zero vel limit", func(o *StreamOptions) { o.MoveOptions.MaxVelRads = 0 }},
 		{"negative vel limit", func(o *StreamOptions) { o.MoveOptions.MaxVelRads = -1 }},
 		{"zero accel limit", func(o *StreamOptions) { o.MoveOptions.MaxAccRads = 0 }},
@@ -77,7 +78,7 @@ func TestStreamOptionsDefaultsAndValidate(t *testing.T) {
 		{"negative entry in per-joint accel limits", func(o *StreamOptions) { o.MoveOptions.MaxAccRadsJoints = []float64{1, -1} }},
 		{"zero tcp speed limit", func(o *StreamOptions) { tcp := 0.0; o.MoveOptions.MaxTCPSpeedMPerSec = &tcp }},
 		{"negative tcp speed limit", func(o *StreamOptions) { tcp := -0.1; o.MoveOptions.MaxTCPSpeedMPerSec = &tcp }},
-		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindowSecs = -1 }},
+		{"negative diagnostics window", func(o *StreamOptions) { o.DiagnosticsWindow = -1 }},
 	} {
 		bad := valid
 		tc.mutate(&bad)
@@ -108,22 +109,22 @@ func TestMaxTargetsDroppedInARowDueToTrajexExtendError(t *testing.T) {
 	test.That(t, opts.Validate(), test.ShouldNotBeNil)
 }
 
-func TestForceRebaseIfExtendLatencyExceedsMs(t *testing.T) {
-	n, err := ForceRebaseIfExtendLatencyExceedsMs(nil)
+func TestForceRebaseIfExtendLatencyExceeds(t *testing.T) {
+	d, err := ForceRebaseIfExtendLatencyExceeds(nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, n, test.ShouldEqual, 0)
+	test.That(t, d, test.ShouldEqual, 0)
 
-	n, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: float64(15)})
+	d, err = ForceRebaseIfExtendLatencyExceeds(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: float64(15)})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, n, test.ShouldEqual, 15)
+	test.That(t, d, test.ShouldEqual, 15*time.Millisecond)
 
 	for _, v := range []interface{}{int32(15), 15, int64(15), "15", 1.5, -1.0, math.NaN()} {
-		_, err = ForceRebaseIfExtendLatencyExceedsMs(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: v})
+		_, err = ForceRebaseIfExtendLatencyExceeds(map[string]interface{}{forceRebaseIfExtendLatencyExceedsMsKey: v})
 		test.That(t, err, test.ShouldNotBeNil)
 	}
 
 	opts := NewStreamOptions(motion.TempStreamOptions{})
-	opts.ForceRebaseIfExtendLatencyExceedsMs = -1
+	opts.ForceRebaseIfExtendLatencyExceeds = -1
 	test.That(t, opts.Validate(), test.ShouldNotBeNil)
 }
 
@@ -140,7 +141,7 @@ func TestExtraValuesSurviveTheMotionServiceRoundTrip(t *testing.T) {
 	n, err := MaxTargetsDroppedInARowDueToTrajexExtendError(received)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, n, test.ShouldEqual, 7)
-	n, err = ForceRebaseIfExtendLatencyExceedsMs(received)
+	d, err := ForceRebaseIfExtendLatencyExceeds(received)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, n, test.ShouldEqual, 15)
+	test.That(t, d, test.ShouldEqual, 15*time.Millisecond)
 }

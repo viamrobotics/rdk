@@ -181,13 +181,8 @@ var testAuthConfig = AuthConfig{
 }
 
 var testCloudConfig = Cloud{
-	ID:             "some-id",
-	Secret:         "some-secret",
-	LocationSecret: "other-secret",
-	LocationSecrets: []LocationSecret{
-		{ID: "id1", Secret: "abc1"},
-		{ID: "id2", Secret: "abc2"},
-	},
+	ID:                "some-id",
+	Secret:            "some-secret",
 	ManagedBy:         "managed-by",
 	FQDN:              "some.fqdn",
 	LocalFQDN:         "local.fqdn",
@@ -1193,6 +1188,31 @@ func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
 
 	testMaintenanceConfig.SensorName = resource.NewName(resource.API{}, testMaintenanceConfig.SensorName).String()
 	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
+}
+
+func TestMaintenanceConfigToProtoFollowPart(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	testMaintenanceConfig := MaintenanceConfig{
+		FollowPart: &FollowPartRef{
+			Address: "main.example.viam.cloud",
+			Auth: RemoteAuth{
+				Entity: "entity-123",
+				Credentials: &rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: "abc",
+				},
+			},
+		},
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto.GetFollowPart().GetAddress(), test.ShouldEqual, "main.example.viam.cloud")
+	test.That(t, proto.GetFollowPart().GetAuth().GetEntity(), test.ShouldEqual, "entity-123")
+
+	out, err := MaintenanceConfigFromProto(proto, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
 }
 
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {

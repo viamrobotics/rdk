@@ -58,6 +58,9 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// AsSub tags r as the power sensor sub-resource of a composite, for resource.Compose.
+func AsSub(r PowerSensor) resource.Sub { return resource.AsSub(API, r) }
+
 // A PowerSensor reports information about voltage, current and power.
 // For more information, see the [power sensor component docs].
 //
@@ -82,6 +85,16 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [Power method docs].
 //
+// BatteryPercent example:
+//
+//	// Get the remaining battery charge as a percentage from 0 to 100.
+//	percent, err := myPowerSensor.BatteryPercent(context.Background(), nil)
+//
+// Properties example:
+//
+//	// Check whether the power sensor supports BatteryPercent.
+//	properties, err := myPowerSensor.Properties(context.Background(), nil)
+//
 // [power sensor component docs]: https://docs.viam.com/reference/apis/components/power-sensor/
 // [Voltage method docs]: https://docs.viam.com/reference/apis/components/power-sensor/#getvoltage
 // [Current method docs]: https://docs.viam.com/reference/apis/components/power-sensor/#getcurrent
@@ -97,6 +110,12 @@ type PowerSensor interface {
 
 	// Power returns the power reading in watts.
 	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
+
+	// BatteryPercent returns the remaining battery charge as a percentage from 0 to 100.
+	BatteryPercent(ctx context.Context, extra map[string]interface{}) (float64, error)
+
+	// Properties returns the supported properties of the power sensor.
+	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
 }
 
 // Deprecated: FromDependencies is a helper for getting the named PowerSensor from a collection of

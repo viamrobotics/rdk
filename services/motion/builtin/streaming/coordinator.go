@@ -27,7 +27,7 @@ const stopArmTimeout = time.Minute
 //
 // The arm provides backpressure to sampling out of trajex in that `Run` maintains an
 // estimate of how much runway the arm has buffered on its side, and only samples out of
-// trajex enough to keep that runway topped up to the user-configured ArmSideTargetRunwayMs.
+// trajex enough to keep that runway topped up to the user-configured ArmSideTargetRunway.
 //
 // This motion service returns the runway buffered on its side via 'acks', which the caller
 // can use asa backpressure mechanism: the client can wait to send the next target until the
@@ -105,9 +105,9 @@ func Run(
 	}
 	defer ts.close()
 
-	targetRunway := time.Duration(opts.ArmSideTargetRunwayMs) * time.Millisecond
+	targetRunway := opts.ArmSideTargetRunway
 
-	sendToArmTicker := time.NewTicker(time.Duration(opts.SendToArmIntervalMs) * time.Millisecond)
+	sendToArmTicker := time.NewTicker(opts.SendToArmInterval)
 	defer sendToArmTicker.Stop()
 
 	for {

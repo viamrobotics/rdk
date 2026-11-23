@@ -26,7 +26,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        # Fork PRs only reach pull_request_target runs behind the 'safe to test' label (see motion-pull-request-trusted.yml).
+        # Fork PRs only reach pull_request_target runs behind the 'motion-benchmark' and 'safe to test' labels (see motion-pull-request-trusted.yml).
         allow-unsafe-pr-checkout: true
 
     - name: Check out code in motion-testing repository
@@ -65,7 +65,8 @@ jobs:
         cat results/motion-benchmarks.md
 
     - name: Add Motion Benchmarks Comment
-      uses: marocchino/sticky-pull-request-comment@v2
+      # marocchino/sticky-pull-request-comment@v3.0.5
+      uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88
       if: ${{ inputs.pr_number }}
       with:
         header: motion-benchmark

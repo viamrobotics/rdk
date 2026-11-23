@@ -99,8 +99,15 @@ func CreateViamClientFromEnvVars(ctx context.Context, options *Options, logger l
 
 	apiKey := os.Getenv(utils.APIKeyEnvVar)
 	apiKeyID := os.Getenv(utils.APIKeyIDEnvVar)
-	if apiKey == "" || apiKeyID == "" {
-		return nil, fmt.Errorf("api key (%s) and/or api key ID (%s) were set improperly, cannot be empty", apiKey, apiKeyID)
+	var unset []string
+	if apiKey == "" {
+		unset = append(unset, utils.APIKeyEnvVar)
+	}
+	if apiKeyID == "" {
+		unset = append(unset, utils.APIKeyIDEnvVar)
+	}
+	if len(unset) > 0 {
+		return nil, fmt.Errorf("%s must be set to a non-empty value", strings.Join(unset, " and "))
 	}
 
 	return CreateViamClientWithAPIKey(ctx, *options, apiKey, apiKeyID, logger)

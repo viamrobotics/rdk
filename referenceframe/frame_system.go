@@ -13,6 +13,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
@@ -100,7 +101,7 @@ func NewEmptyFrameSystem(name string) *FrameSystem {
 func (sfs *FrameSystem) resolveFrameInputs(li *LinearInputs, frameName string) []Input {
 	for componentName, b := range sfs.flattened {
 		componentInputs := li.Get(componentName)
-		if componentInputs == nil {
+		if len(componentInputs) == 0 {
 			continue
 		}
 		for _, meta := range b.schema.metas {
@@ -697,7 +698,9 @@ func (sfs *FrameSystem) localFrameTransform(frame Frame, linearInputs *LinearInp
 		frameInputs = []Input{mi.multiplier*sourceInputs[0] + mi.offset}
 	} else if len(frame.DoF()) != 0 {
 		frameInputs = linearInputs.Get(frame.Name())
-		if frameInputs == nil {
+		if len(frameInputs) == 0 {
+			// Frames inside models (e.g: `ur5e:elbow_joint` inside the `ur5e` model) return some
+			// length-0 value from linear inputs.
 			frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
 		}
 		if len(frame.DoF()) != len(frameInputs) {
@@ -1208,10 +1211,12 @@ func FrameSystemGeometriesForFrames(
 		if wanted != nil && !wanted[name] {
 			continue
 		}
+
 		frame := fs.Frame(name)
-		inputs, err := linearInputs.GetFrameInputs(frame)
-		if err != nil {
-			errAll = multierr.Append(errAll, err)
+		inputs := linearInputs.Get(name)
+		if len(inputs) != len(frame.DoF()) {
+			errAll = multierr.Append(errAll, fmt.Errorf("Frame inputs size does not match. Frame: %v FS: %v Inputs: %v",
+				name, len(frame.DoF()), len(inputs)))
 			continue
 		}
 
@@ -1251,8 +1256,13 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 		return nil, err
 	}
 	var modelConfig *ModelConfigJSON
+	var model *commonpb.KinematicModel
 	if part.ModelFrame != nil {
 		modelConfig = part.ModelFrame.ModelConfig()
+		// a model the message cannot describe sends the Struct alone, as it always did
+		if converted, err := ModelToProto(part.ModelFrame); err == nil {
+			model = converted
+		}
 	}
 	kinematics, err := modelConfigToStructPb(modelConfig)
 	if err != nil {
@@ -1261,6 +1271,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 	return &pb.FrameSystemConfig{
 		Frame:      linkFrame,
 		Kinematics: kinematics, //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
+		Model:      model,
 	}, nil
 }
 
@@ -1290,6 +1301,23 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		FrameConfig: frameConfig,
 	}
 
+	// the typed model wins over the Struct whenever a server sent one with something in it. A
+	// model this reader cannot parse, from a server newer than it, is passed over for the Struct
+	// the server kept beside it for that case
+	if model := fsc.GetModel(); len(model.GetLinks())+len(model.GetJoints()) > 0 {
+		modelFrame, err := ModelFromProto(model, frameConfig.Name())
+		if err == nil {
+			part.ModelFrame = modelFrame
+			return part, nil
+		}
+		if len(fsc.GetKinematics().GetFields()) == 0 {
+			return nil, err
+		}
+	}
+	if len(fsc.GetKinematics().GetFields()) == 0 {
+		return part, nil
+	}
+
 	// fsc.Kinematics is a google.protobuf.Struct whose []byte fields (e.g.
 	// original_file.bytes, mesh_data) may arrive in one of two forms depending
 	// on which server version produced the message:
@@ -1305,21 +1333,18 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	// targeting a []byte struct field: a JSON string is base64-decoded; a JSON
 	// array is decoded element-by-element as uint8 values. No custom unmarshaler
 	// is needed and old/new viam-server versions interoperate in both directions.
-	if len(fsc.Kinematics.AsMap()) > 0 { //nolint:staticcheck // served for clients that predate FrameSystemConfig.model
-		//nolint:staticcheck // served for clients that predate FrameSystemConfig.model
-		modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
-		if err != nil {
-			return nil, err
-		}
-		modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
-		if err != nil {
-			if errors.Is(err, ErrNoModelInformation) {
-				return part, nil
-			}
-			return nil, err
-		}
-		part.ModelFrame = modelFrame
+	modelBytes, err := json.Marshal(fsc.Kinematics.AsMap())
+	if err != nil {
+		return nil, err
 	}
+	modelFrame, err := UnmarshalModelJSON(modelBytes, frameConfig.Name())
+	if err != nil {
+		if errors.Is(err, ErrNoModelInformation) {
+			return part, nil
+		}
+		return nil, err
+	}
+	part.ModelFrame = modelFrame
 	return part, nil
 }
 

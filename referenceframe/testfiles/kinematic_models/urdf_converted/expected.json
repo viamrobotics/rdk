@@ -1,0 +1,79 @@
+{
+  "name": "converted",
+  "links": [
+    {
+      "id": "base",
+      "pose": {
+        "translation": {
+          "z": 100
+        },
+        "euler_angles": {
+          "yaw": 89.99999846476551
+        }
+      },
+      "collision": [
+        {
+          "center": {
+            "z": 50,
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "ply",
+            "mesh": "cGx5CmZvcm1hdCBhc2NpaSAxLjAKZWxlbWVudCB2ZXJ0ZXggMwpwcm9wZXJ0eSBmbG9hdCB4CnByb3BlcnR5IGZsb2F0IHkKcHJvcGVydHkgZmxvYXQgegplbGVtZW50IGZhY2UgMQpwcm9wZXJ0eSBsaXN0IHVjaGFyIGludCB2ZXJ0ZXhfaW5kaWNlcwplbmRfaGVhZGVyCjAgMCAwCjEgMCAwCjAgMSAwCjMgMCAxIDIK",
+            "original_file_source_path_diagnostic": "meshes/model/collision/base.ply"
+          },
+          "label": "base"
+        }
+      ],
+      "visual": [
+        {
+          "center": {
+            "z": 10,
+            "o_z": 1
+          },
+          "mesh": {
+            "content_type": "glb",
+            "mesh": "Z2xURiB2aXN1YWwgYnl0ZXM=",
+            "original_file_source_path_diagnostic": "meshes/model/visual/base.glb"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tip",
+      "parent": "j1",
+      "pose": {
+        "translation": {}
+      },
+      "collision": [
+        {
+          "center": {
+            "o_z": 1
+          },
+          "box": {
+            "dims_mm": {
+              "x": 20,
+              "y": 20,
+              "z": 20
+            }
+          },
+          "label": "tip"
+        }
+      ]
+    }
+  ],
+  "joints": [
+    {
+      "id": "j1",
+      "parent": "base",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -89.95437383553926,
+        "max": 89.95437383553926
+      }
+    }
+  ]
+}

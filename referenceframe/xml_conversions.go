@@ -37,17 +37,28 @@ func normalizeURDFMeshPath(meshPath string) string {
 	return meshPath
 }
 
+// geometryXML is the geometry element a URDF collision or visual holds, one shape at a time.
+type geometryXML struct {
+	XMLName  xml.Name  `xml:"geometry"`
+	Box      *box      `xml:"box,omitempty"`
+	Sphere   *sphere   `xml:"sphere,omitempty"`
+	Cylinder *cylinder `xml:"cylinder,omitempty"`
+	Mesh     *mesh     `xml:"mesh,omitempty"`
+}
+
+// visual is a struct which details the XML used in a URDF visual geometry, which holds the same
+// elements as a collision.
+type visual struct {
+	XMLName  xml.Name    `xml:"visual"`
+	Origin   *pose       `xml:"origin"`
+	Geometry geometryXML `xml:"geometry"`
+}
+
 // collision is a struct which details the XML used in a URDF collision geometry.
 type collision struct {
-	XMLName  xml.Name `xml:"collision"`
-	Origin   *pose    `xml:"origin"`
-	Geometry struct {
-		XMLName  xml.Name  `xml:"geometry"`
-		Box      *box      `xml:"box,omitempty"`
-		Sphere   *sphere   `xml:"sphere,omitempty"`
-		Cylinder *cylinder `xml:"cylinder,omitempty"`
-		Mesh     *mesh     `xml:"mesh,omitempty"`
-	} `xml:"geometry"`
+	XMLName  xml.Name    `xml:"collision"`
+	Origin   *pose       `xml:"origin"`
+	Geometry geometryXML `xml:"geometry"`
 }
 
 type box struct {

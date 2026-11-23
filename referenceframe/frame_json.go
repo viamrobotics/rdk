@@ -214,32 +214,36 @@ func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(pt), nil
 }
 
-// ToFrame converts a JointConfig into a joint frame.
-func (cfg *JointConfig) ToFrame() (Frame, error) {
-	var limit Limit
+// limit converts the joint's limits from the units a file carries, degrees or millimeters, into
+// the ones its frame enforces. A mimic joint is driven by its source and has no bounds of its own.
+func (cfg *JointConfig) limit() (Limit, error) {
+	if cfg.Mimic != nil {
+		return Limit{Min: math.Inf(-1), Max: math.Inf(1)}, nil
+	}
+	var convert func(float64) float64
 	switch cfg.Type {
 	case RevoluteJoint:
 		// degrees on the wire, radians internally, and the same factor converts the
 		// velocity and acceleration limits
-		limit = Limit{
-			Min:             utils.DegToRad(cfg.Min),
-			Max:             utils.DegToRad(cfg.Max),
-			MaxVelocity:     limitPtr(cfg.MaxVelocity, utils.DegToRad),
-			MaxAcceleration: limitPtr(cfg.MaxAcceleration, utils.DegToRad),
-		}
+		convert = utils.DegToRad
 	case PrismaticJoint:
-		limit = Limit{
-			Min:             cfg.Min,
-			Max:             cfg.Max,
-			MaxVelocity:     limitPtr(cfg.MaxVelocity, nil),
-			MaxAcceleration: limitPtr(cfg.MaxAcceleration, nil),
-		}
 	default:
-		return nil, NewUnsupportedJointTypeError(cfg.Type)
+		return Limit{}, NewUnsupportedJointTypeError(cfg.Type)
 	}
-	// Mimic joints are driven by their source joint and have no independent limits.
-	if cfg.Mimic != nil {
-		limit = Limit{Min: math.Inf(-1), Max: math.Inf(1)}
+	l := Limit{Min: cfg.Min, Max: cfg.Max}
+	if convert != nil {
+		l.Min, l.Max = convert(cfg.Min), convert(cfg.Max)
+	}
+	l.MaxVelocity = limitPtr(cfg.MaxVelocity, convert)
+	l.MaxAcceleration = limitPtr(cfg.MaxAcceleration, convert)
+	return l, nil
+}
+
+// ToFrame converts a JointConfig into a joint frame.
+func (cfg *JointConfig) ToFrame() (Frame, error) {
+	limit, err := cfg.limit()
+	if err != nil {
+		return nil, err
 	}
 	switch cfg.Type {
 	case RevoluteJoint:

@@ -966,7 +966,7 @@ func TestOptionalDependencyLocalWinsOverRemote(t *testing.T) {
 	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker()).(*localRobot)
 
 	// A local arm and an (unprefixed) remote sensor both named "shared".
-	injectArm := &inject.Arm{}
+	injectArm := inject.NewArm("shared")
 	localArmCfg := resource.Config{API: arm.API, Name: "shared"}
 	err := lr.manager.resources.AddNode(
 		localArmCfg.ResourceName(),

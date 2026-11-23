@@ -1,0 +1,7 @@
+version: "2"
+
+# The default linter set (errcheck, govet, ineffassign, staticcheck, unused),
+# plus gofmt so formatting drift fails CI.
+formatters:
+  enable:
+    - gofmt

@@ -572,13 +572,8 @@ func TestDiffNetworkingCfg(t *testing.T) {
 
 func TestDiffSanitize(t *testing.T) {
 	cloud1 := &config.Cloud{
-		ID:             "1",
-		Secret:         "hello",
-		LocationSecret: "world",
-		LocationSecrets: []config.LocationSecret{
-			{ID: "id1", Secret: "sec1"},
-			{ID: "id2", Secret: "sec2"},
-		},
+		ID:     "1",
+		Secret: "hello",
 		APIKey: config.APIKey{
 			ID:  "api_key_id",
 			Key: "sec3",
@@ -628,17 +623,35 @@ func TestDiffSanitize(t *testing.T) {
 		},
 	}
 
+	followPart := &config.MaintenanceConfig{
+		FollowPart: &config.FollowPartRef{
+			Address: "127.0.0.1:8081",
+			Auth: config.RemoteAuth{
+				Credentials: &utils.Credentials{
+					Type:    "followauthtype",
+					Payload: "followpayload",
+				},
+				SignalingCreds: &utils.Credentials{
+					Type:    "followauthtypesig",
+					Payload: "followpayloadsig",
+				},
+			},
+		},
+	}
+
 	left := config.Config{}
 	leftOrig := config.Config{}
 	right := config.Config{
-		Cloud:   cloud1,
-		Auth:    auth1,
-		Remotes: remotes1,
+		Cloud:             cloud1,
+		Auth:              auth1,
+		Remotes:           remotes1,
+		MaintenanceConfig: followPart,
 	}
 	rightOrig := config.Config{
-		Cloud:   cloud1,
-		Auth:    auth1,
-		Remotes: remotes1,
+		Cloud:             cloud1,
+		Auth:              auth1,
+		Remotes:           remotes1,
+		MaintenanceConfig: followPart,
 	}
 
 	diff, err := config.DiffConfigs(left, right, true)
@@ -651,9 +664,6 @@ func TestDiffSanitize(t *testing.T) {
 	diffStr := diff.String()
 	test.That(t, diffStr, test.ShouldContainSubstring, cloud1.ID)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.Secret)
-	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecret)
-	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[0].Secret)
-	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[1].Secret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.APIKey.Key)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSCertificate)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSPrivateKey)
@@ -668,6 +678,8 @@ func TestDiffSanitize(t *testing.T) {
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.Credentials.Payload)
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.SignalingCreds.Payload)
 	}
+	test.That(t, diffStr, test.ShouldNotContainSubstring, followPart.FollowPart.Auth.Credentials.Payload)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, followPart.FollowPart.Auth.SignalingCreds.Payload)
 }
 
 func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {

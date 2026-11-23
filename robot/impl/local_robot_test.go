@@ -452,31 +452,23 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// mDNS names are visible host-wide, so a fixed FQDN can resolve to another package's test server.
-	specificHost := primitive.NewObjectID().Hex()
-
 	for _, tc := range []struct {
-		Case       string
-		Managed    bool
-		EntityName string
+		Case    string
+		Managed bool
 	}{
-		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityName: specificHost},
-		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityName: specificHost},
+		{Case: "unmanaged"},
+		{Case: "managed", Managed: true},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			ctx := context.Background()
-			r := setupLocalRobot(t, ctx, cfg, logger)
 
-			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-			options.Managed = tc.Managed
-			options.FQDN = tc.EntityName
-			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKeyID := "sosecretID"
 			apiKey := "sosecret"
-			locationSecret := "locsosecret"
 
+			srv := setupLocalRobot(t, ctx, cfg, logger)
+			options, _, srvAddr := robottestutils.CreateBaseOptionsAndListener(t)
+			options.Managed = tc.Managed
+			options.LocalFQDN = primitive.NewObjectID().Hex()
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -485,25 +477,12 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						"keys":   []string{apiKeyID},
 					},
 				},
-				{
-					Type: rutils.CredentialsTypeRobotLocationSecret,
-					Config: rutils.AttributeMap{
-						"secret": locationSecret,
-					},
-				},
 			}
-
 			if tc.Managed {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
-			err = r.StartWeb(ctx, options)
-			test.That(t, err, test.ShouldBeNil)
-
-			entityName := tc.EntityName
-			if entityName == "" {
-				entityName = options.LocalFQDN
-			}
+			test.That(t, srv.StartWeb(ctx, options), test.ShouldBeNil)
 
 			remoteConfig := &config.Config{
 				Debug: true,
@@ -511,15 +490,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					{
 						Name:    "foo",
 						Prefix:  "foo",
-						Address: addr,
-						Auth: config.RemoteAuth{
-							Managed: tc.Managed,
-						},
-					},
-					{
-						Name:    "bar",
-						Prefix:  "bar",
-						Address: addr,
+						Address: srvAddr,
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
 						},
@@ -527,21 +498,17 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				},
 			}
 
+			// No credentials: the remote's dial fails and the resource is absent.
 			setupLocalRobot(t, context.Background(), remoteConfig, logger)
 
 			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 				Type:    rpc.CredentialsTypeAPIKey,
 				Payload: apiKey,
 			}
-			remoteConfig.Remotes[1].Auth.Credentials = &rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
-				Payload: locationSecret,
-			}
-
-			mdnsSupported := robottestutils.MDNSAvailable()
 
 			var r2 robot.LocalRobot
 			if tc.Managed {
+				// Wrong entity still fails under managed mode.
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				setupLocalRobot(t, context.Background(), remoteConfig, logger)
 
@@ -553,17 +520,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, remoteBot, test.ShouldBeNil)
 
 				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
-				remoteConfig.Remotes[1].Auth.Entity = entityName
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
-				ctx2 := context.Background()
-				if mdnsSupported {
-					remoteConfig.Remotes[0].Address = options.LocalFQDN
-					if tc.EntityName != "" {
-						remoteConfig.Remotes[1].Address = options.FQDN
-					}
-				}
-				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
+				r2 = setupLocalRobot(t, context.Background(), remoteConfig, logger)
 			} else {
 				setupLocalRobot(t, context.Background(), remoteConfig, logger)
 
@@ -572,26 +531,16 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 				remoteConfig.Remotes[0].Auth.Entity = apiKeyID
-
-				ctx2 := context.Background()
-				if mdnsSupported {
-					remoteConfig.Remotes[0].Address = options.LocalFQDN
-				}
-				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
+				r2 = setupLocalRobot(t, context.Background(), remoteConfig, logger)
 			}
 
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				arm.Named("bar:barpieceArm"),
 				arm.Named("foo:foopieceArm"),
-				camera.Named("bar:barcameraOver"),
 				camera.Named("foo:foocameraOver"),
-				movementsensor.Named("bar:barmovement_sensor1"),
 				movementsensor.Named("foo:foomovement_sensor1"),
-				movementsensor.Named("bar:barmovement_sensor2"),
 				movementsensor.Named("foo:foomovement_sensor2"),
-				gripper.Named("bar:barpieceGripper"),
 				gripper.Named("foo:foopieceGripper"),
 			}
 
@@ -600,9 +549,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			rtestutils.VerifySameResourceNames(t, resources2, expected)
 
 			remotes2 := r2.RemoteNames()
-			expectedRemotes := []string{"bar", "foo"}
-
-			rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
+			rtestutils.VerifySameElements(t, remotes2, []string{"foo"})
 		})
 	}
 }
@@ -640,13 +587,15 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.Auth.TLSAuthEntities = leaf.DNSNames
 	options.Managed = true
 	options.FQDN = altName
-	locationSecret := "locsosecret"
+	apiKeyID := "sosecretID"
+	apiKey := "sosecret"
 
 	options.Auth.Handlers = []config.AuthHandlerConfig{
 		{
-			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Type: rpc.CredentialsTypeAPIKey,
 			Config: rutils.AttributeMap{
-				"secret": locationSecret,
+				apiKeyID: apiKey,
+				"keys":   []string{apiKeyID},
 			},
 		},
 	}
@@ -678,73 +627,45 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		},
 	}
 
+	// No creds: the dial fails.
 	setupLocalRobot(t, context.Background(), remoteConfig, logger)
 
-	// use secret
+	// use API key
+	remoteConfig.Remotes[0].Auth.Entity = apiKeyID
 	remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
-		Type:    rutils.CredentialsTypeRobotLocationSecret,
-		Payload: locationSecret,
+		Type:    rpc.CredentialsTypeAPIKey,
+		Payload: apiKey,
 	}
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
-	// Create a clone such that the prior launched robot and the next robot can have their own tls
-	// config object to safely read from.
+	// Clone TLS configs so each robot has its own.
 	remoteConfig.Network.NetworkConfigData.TLSConfig = options.Network.TLSConfig.Clone()
 	remoteTLSConfig = remoteConfig.Network.NetworkConfigData.TLSConfig
 	// use cert
 	remoteTLSConfig.Certificates = []tls.Certificate{cert}
 	remoteTLSConfig.ServerName = "somename"
+	remoteConfig.Remotes[0].Auth.Credentials = nil
+	remoteConfig.Remotes[0].Auth.Entity = ""
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS
 	if mdnsSupported {
 		remoteConfig.Remotes[0].Address = options.FQDN
-		test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
+		r2 := setupLocalRobot(t, context.Background(), remoteConfig, logger)
+
+		expected := []resource.Name{
+			arm.Named("foo:pieceArm"),
+			camera.Named("foo:cameraOver"),
+			movementsensor.Named("foo:movement_sensor1"),
+			movementsensor.Named("foo:movement_sensor2"),
+			gripper.Named("foo:pieceGripper"),
+		}
+
+		resources2 := r2.ResourceNames()
+
+		rtestutils.VerifySameResourceNames(t, resources2, expected)
+		rtestutils.VerifySameElements(t, r2.RemoteNames(), []string{"foo"})
 	}
-
-	// use signaling creds
-	remoteConfig.Remotes[0].Address = addr
-	remoteConfig.Remotes[0].Auth.Credentials = nil
-	remoteConfig.Remotes[0].Auth.SignalingServerAddress = addr
-	remoteConfig.Remotes[0].Auth.SignalingAuthEntity = options.FQDN
-	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
-		Type:    rutils.CredentialsTypeRobotLocationSecret,
-		Payload: locationSecret,
-	}
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
-
-	// use cert with mDNS while signaling present
-	ctx2 := context.Background()
-	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
-		Type:    rutils.CredentialsTypeRobotLocationSecret,
-		Payload: locationSecret + "bad",
-	}
-	if mdnsSupported {
-		remoteConfig.Remotes[0].Address = options.FQDN
-	}
-	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
-
-	expected := []resource.Name{
-		arm.Named("foo:pieceArm"),
-		camera.Named("foo:cameraOver"),
-		movementsensor.Named("foo:movement_sensor1"),
-		movementsensor.Named("foo:movement_sensor2"),
-		gripper.Named("foo:pieceGripper"),
-	}
-
-	resources2 := r2.ResourceNames()
-
-	rtestutils.VerifySameResourceNames(t, resources2, expected)
-
-	remotes2 := r2.RemoteNames()
-	expectedRemotes := []string{"foo"}
-
-	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
-
-	statuses, err := r2.MachineStatus(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 10)
-	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
 func TestStopAll(t *testing.T) {
@@ -2975,6 +2896,70 @@ func TestReconfigureActivityEvents(t *testing.T) {
 	}
 }
 
+func TestResourceActivityEvents(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	activityLogs := logging.NewObservedActivityLogger(t, logger)
+	ctx := context.Background()
+
+	errMockBuild := errors.New("build failed")
+	resource.RegisterComponent(
+		mockAPI,
+		mockModel,
+		resource.Registration[resource.Resource, *mockConfig]{
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (resource.Resource, error) {
+				if conf.ConvertedAttributes.(*mockConfig).Value < 0 {
+					return nil, errMockBuild
+				}
+				return newMock(ctx, deps, conf, logger)
+			},
+		},
+	)
+	defer resource.Deregister(mockAPI, mockModel)
+
+	// resourceEvents returns (activity, event, stage) triples for "m" in emission order.
+	resourceEvents := func() [][3]string {
+		var events [][3]string
+		for _, entry := range activityLogs.All() {
+			fields := entry.ContextMap()
+			if fields["resource"] != mockNamed("m").String() {
+				continue
+			}
+			stage, _ := fields["stage"].(string)
+			events = append(events, [3]string{fmt.Sprint(fields["activity"]), fmt.Sprint(fields["event"]), stage})
+		}
+		return events
+	}
+
+	r := setupLocalRobot(t, ctx, &config.Config{
+		Components: []resource.Config{newMockConfig("m", 0, false, "")},
+	}, logger, WithDisableCompleteConfigWorker())
+	expected := [][3]string{
+		{"resource_construct", "start", ""},
+		{"resource_construct", "complete", ""},
+	}
+	test.That(t, resourceEvents(), test.ShouldResemble, expected)
+
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{newMockConfig("m", 0, true, "")},
+	})
+	expected = append(expected,
+		[3]string{"resource_rebuild", "start", ""},
+		[3]string{"resource_rebuild", "fail", "validate"},
+	)
+	test.That(t, resourceEvents(), test.ShouldResemble, expected)
+
+	r.Reconfigure(ctx, &config.Config{
+		Components: []resource.Config{newMockConfig("m", -1, false, "")},
+	})
+	expected = append(expected,
+		[3]string{"resource_rebuild", "start", ""},
+		[3]string{"resource_rebuild", "fail", "build"},
+	)
+	test.That(t, resourceEvents(), test.ShouldResemble, expected)
+}
+
 func TestModularResourceReconfigurationCount(t *testing.T) {
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -3938,6 +3923,50 @@ func TestRestartModule(t *testing.T) {
 		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
+	})
+
+	t.Run("blocked by maintenance window", func(t *testing.T) {
+		logger, _ := logging.NewObservedTestLogger(t)
+		maintModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+		resource.RegisterComponent(
+			sensor.API, maintModel,
+			resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+				ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (sensor.Sensor, error) {
+				return newValidSensor(), nil
+			}},
+		)
+		defer resource.Deregister(sensor.API, maintModel)
+
+		simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+		mod := config.Module{Name: "restartSingleModule-test", ExePath: simplePath, Type: config.ModuleTypeLocal}
+		sensorCfg := resource.Config{Name: "maint-sensor", Model: maintModel, API: sensor.API}
+
+		r := setupLocalRobot(t, ctx, &config.Config{
+			Modules:    []config.Module{mod},
+			Components: []resource.Config{sensorCfg},
+		}, logger)
+
+		// Without a maintenance block, restart succeeds.
+		err := r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldBeNil)
+
+		// With a maintenance block, restart fails with codes.FailedPrecondition.
+		r.Reconfigure(ctx, &config.Config{
+			Modules:    []config.Module{mod},
+			Components: []resource.Config{sensorCfg},
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/maint-sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+		})
+
+		err = r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: mod.Name})
+		test.That(t, err, test.ShouldNotBeNil)
+		st, ok := status.FromError(err)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, st.Code(), test.ShouldEqual, codes.FailedPrecondition)
+		test.That(t, st.Message(), test.ShouldContainSubstring, "maintenance window")
 	})
 }
 
@@ -5491,6 +5520,183 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
+// TestMaintenanceConfigFollowPart exercises the `follow_part` path, where a subpart defers its
+// reconfigure decision to another part.
+func TestMaintenanceConfigFollowPart(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// A second sensor we can add to configs and check presence of to determine if
+	// reconfigure went through.
+	sensor2 := []resource.Config{{Name: "sensor2", API: sensor.API, Model: model}}
+
+	// Shrink the maintenanceProbeTimeout for tests.
+	origProbeTimeout := maintenanceProbeTimeout
+	maintenanceProbeTimeout = 500 * time.Millisecond
+	t.Cleanup(func() { maintenanceProbeTimeout = origProbeTimeout })
+
+	// Starts a main part with a maintenance config.
+	startMain := func(t *testing.T, mCfg *config.MaintenanceConfig) string {
+		t.Helper()
+		mainCfg := &config.Config{
+			MaintenanceConfig: mCfg,
+			Components:        []resource.Config{{Name: "sensor", Model: model, API: sensor.API}},
+		}
+		main := setupLocalRobot(t, context.Background(), mainCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, main.StartWeb(ctx, options), test.ShouldBeNil)
+		return addr
+	}
+
+	// Creates a subpart config to follow part at `addr` and have components `comps`
+	// itself.
+	subpartFollowPartCfg := func(addr string, comps []resource.Config) *config.Config {
+		return &config.Config{
+			AllowInsecureCreds: true, // main doesn't have auth configured
+			MaintenanceConfig: &config.MaintenanceConfig{
+				FollowPart: &config.FollowPartRef{Address: addr},
+			},
+			Components: comps,
+		}
+	}
+
+	t.Run("main allows → subpart reconfigure proceeds", func(t *testing.T) {
+		// "ThatsNotMyWallet" reads true on the valid sensor → main reports allowed=true.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		subLogger, logs := logging.NewObservedTestLogger(t)
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), subLogger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+		test.That(t, logs.FilterMessage("Reconfigure allowed by followed part").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	t.Run("main blocks → subpart reconfigure blocked", func(t *testing.T) {
+		// "ThatsMyWallet" reads false on the valid sensor → main reports allowed=false.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet",
+		})
+
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+	})
+
+	t.Run("main with no maintenance config → subpart reconfigure proceeds", func(t *testing.T) {
+		// Main has no maintenance config, so it reports Allowed=true. The subpart proceeds.
+		addr := startMain(t, nil)
+
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("main unreachable → subpart reconfigure blocked", func(t *testing.T) {
+		// Pick an address nothing is listening on.
+		cfg := subpartFollowPartCfg("bad-address", nil)
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithReconfig := subpartFollowPartCfg("bad-address", sensor2)
+		r.Reconfigure(ctx, cfgWithReconfig)
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+	})
+
+	t.Run("borked follow_part address self-heals on next config push", func(t *testing.T) {
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		badAddrCfg := subpartFollowPartCfg("bad-address", nil)
+		r := setupLocalRobot(t, ctx, badAddrCfg, logger)
+
+		// Confirm the bad address blocks reconfigure.
+		r.Reconfigure(ctx, subpartFollowPartCfg("bad-address", sensor2))
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+
+		// Push a corrected config. The next reconfigure uses the new address.
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+		got, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("main itself follows another part", func(t *testing.T) {
+		// A machine whose own maintenance is follow_part reports Allowed=true with a
+		// FollowingReasonPrefix so a reader can detect a chain.
+		cfg := subpartFollowPartCfg("random-address", nil)
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		status, err := r.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status.MaintenanceStatus, test.ShouldNotBeNil)
+		test.That(t, status.MaintenanceStatus.Allowed, test.ShouldBeTrue)
+		test.That(t, status.MaintenanceStatus.Reason, test.ShouldStartWith, robot.FollowingReasonPrefix)
+		test.That(t, status.MaintenanceStatus.Reason, test.ShouldContainSubstring, "random-address")
+	})
+
+	t.Run("follow chain is loud but not blocking", func(t *testing.T) {
+		// When the followed part is itself a follower, the reader proceeds (it honors the
+		// reported Allowed=true) but logs an error naming the chained address.
+		obsLogger, logs := logging.NewObservedTestLogger(t)
+
+		// Leaf main allows reconfigure.
+		leafAddr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		// Middle main follows the leaf. Its reported status is Allowed=true, Reason="following <leafAddr>".
+		middleCfg := &config.Config{
+			AllowInsecureCreds: true,
+			MaintenanceConfig:  &config.MaintenanceConfig{FollowPart: &config.FollowPartRef{Address: leafAddr}},
+		}
+		middle := setupLocalRobot(t, context.Background(), middleCfg, obsLogger)
+		options, _, middleAddr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, middle.StartWeb(ctx, options), test.ShouldBeNil)
+
+		// Subpart follows the _middle_ main.
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(middleAddr, nil), obsLogger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(middleAddr, sensor2))
+
+		// Reconfigure still proceeds: the middle main said Allowed=true.
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+
+		// Error logs fire naming the chained address.
+		test.That(t, logs.FilterMessageSnippet("follow_part target is itself following another part").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+}
+
 func TestMaintenanceConfigLogs(t *testing.T) {
 	ctx := context.Background()
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -5873,16 +6079,15 @@ func TestModuleNamePassing(t *testing.T) {
 	// The channel must be buffered to such that the `ReadingsFunc` returns without waiting on a
 	// reader of the channel.
 	moduleNameCh := make(chan string, 1)
-	callbackSensor := &inject.Sensor{
-		ReadingsFunc: func(ctx context.Context, extra map[string]any) (map[string]any, error) {
-			moduleNameCh <- rgrpc.GetModuleName(ctx)
-			return map[string]any{
-				"reading": 42,
-			}, nil
-		},
-		CloseFunc: func(ctx context.Context) error {
-			return nil
-		},
+	callbackSensor := inject.NewSensor("foo")
+	callbackSensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+		moduleNameCh <- rgrpc.GetModuleName(ctx)
+		return map[string]any{
+			"reading": 42,
+		}, nil
+	}
+	callbackSensor.CloseFunc = func(ctx context.Context) error {
+		return nil
 	}
 
 	// The resource registry is a global. We must use unique model names to avoid unexpected
@@ -5984,11 +6189,11 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 			conf resource.Config,
 			logger logging.Logger,
 		) (sensor.Sensor, error) {
-			return &inject.Sensor{
-				ReadingsFunc: func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-					panic("oh no")
-				},
-			}, nil
+			s := inject.NewSensor(conf.Name)
+			s.ReadingsFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+				panic("oh no")
+			}
+			return s, nil
 		}},
 	)
 
@@ -6328,4 +6533,58 @@ func TestUserPermissionsHotReconfiguration(t *testing.T) {
 	r.Reconfigure(ctx, &config.Config{})
 	_, err = rc.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPackageManagerForModule(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithViamHomeDir(t.TempDir())).(*localRobot)
+
+	// The app names registry module packages differently from the module itself.
+	pkgs := []config.PackageConfig{
+		{Name: "some-model", Package: "org/some-model", Version: "1.0.0", Type: config.PackageTypeMlModel},
+		{Name: "m_org_foo", Package: "org/foo", Version: "1.0.0", Type: config.PackageTypeModule},
+	}
+	pkgDir := pkgs[1].LocalDataDirectory(config.DefaultPackagesDir())
+
+	for _, tc := range []struct {
+		name    string
+		mod     config.Module
+		expMgr  packages.ManagerSyncer
+		expName packages.PackageName
+		expNoop bool
+	}{
+		{
+			name:    "registry",
+			mod:     config.Module{Name: "org_foo", Type: config.ModuleTypeRegistry, ExePath: filepath.Join(pkgDir, "bin", "foo")},
+			expMgr:  r.packageManager,
+			expName: "m_org_foo",
+		},
+		{
+			name:    "registry without package",
+			mod:     config.Module{Name: "org_foo", Type: config.ModuleTypeRegistry, ExePath: pkgDir + "-other/foo"},
+			expNoop: true,
+		},
+		{
+			name:    "local tarball",
+			mod:     config.Module{Name: "bar", Type: config.ModuleTypeLocal, ExePath: "/tmp/bar.tar.gz"},
+			expMgr:  r.localPackages,
+			expName: "synthetic-bar",
+		},
+		{
+			name:    "local executable",
+			mod:     config.Module{Name: "baz", Type: config.ModuleTypeLocal, ExePath: "/tmp/baz"},
+			expNoop: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mgr, name := r.packageManagerForModule(tc.mod, pkgs)
+			if tc.expNoop {
+				test.That(t, mgr, test.ShouldHaveSameTypeAs, packages.NewNoopManager())
+				return
+			}
+			test.That(t, mgr, test.ShouldEqual, tc.expMgr)
+			test.That(t, name, test.ShouldEqual, tc.expName)
+		})
+	}
 }

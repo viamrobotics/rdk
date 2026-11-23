@@ -125,6 +125,9 @@ type PlanSegmentContext struct {
 	origGoal referenceframe.FrameSystemPoses // goals are defined in frames willy nilly
 	goal     referenceframe.FrameSystemPoses // all in world
 
+	// Used to reject solutions that come from IK at the `process` stage.
+	rejectedSolutions []referenceframe.FrameSystemInputs
+
 	startPoses referenceframe.FrameSystemPoses
 
 	motionChains *motionChains

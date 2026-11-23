@@ -11,8 +11,8 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: viamrobotics/build-action@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: viamrobotics/build-action@7421595f15fdc75bae3c2fd60397e0f124d17bd7 # v1.6
         with:
           # note: you can replace this line with 'version: ""' if
           # you want to test the build process without deploying

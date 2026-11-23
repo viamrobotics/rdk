@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -796,7 +797,9 @@ func (rc *RobotClient) checkConnection(ctx context.Context, checkEvery, reconnec
 					)
 					continue
 				}
-				rc.Logger().CErrorw(ctx,
+				// Warn rather than error: the reconnect loop usually restores the connection within
+				// reconnectEvery, and each failed reconnect attempt is logged as an error.
+				rc.Logger().CWarnw(ctx,
 					"lost connection to remote",
 					"error", outerError,
 					"address", rc.address,
@@ -906,18 +909,88 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		return client, nil
 	}
 
-	// finally, before adding a new resource, make sure this name exists and is known
-	for _, knownName := range rc.resourceNames {
-		if name == knownName {
-			resourceClient, err := rc.createClient(name)
-			if err != nil {
-				return nil, err
+	// Before adding a new resource, resolve the APIs advertised under this bare name. Exactly one is an
+	// ordinary resource; more than one is a composite.
+	apis := rc.apisSharingNameLocked(name)
+	switch {
+	case len(apis) == 0:
+		return nil, resource.NewNotFoundError(name)
+	case len(apis) > 1:
+		// A composite. A specific-API lookup returns that API's sub-client so typed helpers keep
+		// working; an api-less lookup returns the one resource.MultiAPIResource handle over all
+		// sub-clients.
+		if name.API != (resource.API{}) {
+			if !slices.Contains(apis, name.API) {
+				return nil, resource.NewNotFoundError(name)
 			}
-			rc.resourceClients[name] = resourceClient
-			return resourceClient, nil
+			return rc.getOrCreateClientLocked(name)
+		}
+		return rc.newCompositeLocked(name, apis)
+	default:
+		// Exactly one API is advertised under this name.
+		if name.API == (resource.API{}) {
+			return rc.getOrCreateClientLocked(resource.Name{API: apis[0], Remote: name.Remote, Name: name.Name})
+		}
+		if name.API != apis[0] {
+			return nil, resource.NewNotFoundError(name)
+		}
+		return rc.getOrCreateClientLocked(name)
+	}
+}
+
+// ResourceBySimpleName returns the resource advertised under the given simple (API-less) name. A
+// composite resolves to its one MultiAPIResource handle, an ordinary resource to itself.
+func (rc *RobotClient) ResourceBySimpleName(name string) (resource.Resource, error) {
+	return rc.ResourceByName(resource.SimpleName(name))
+}
+
+// apisSharingNameLocked returns every distinct API advertised under the given bare name (and remote),
+// sorted for a deterministic canonical API (apis[0]). More than one means the name is a composite.
+// Callers must hold rc.mu.
+func (rc *RobotClient) apisSharingNameLocked(name resource.Name) []resource.API {
+	seen := map[resource.API]bool{}
+	var apis []resource.API
+	for _, known := range rc.resourceNames {
+		if known.Name == name.Name && known.Remote == name.Remote && !seen[known.API] {
+			seen[known.API] = true
+			apis = append(apis, known.API)
 		}
 	}
-	return nil, resource.NewNotFoundError(name)
+	resource.SortAPIs(apis)
+	return apis
+}
+
+// getOrCreateClientLocked returns the cached per-API client for name, creating and caching it if
+// absent. Callers must hold rc.mu.
+func (rc *RobotClient) getOrCreateClientLocked(name resource.Name) (resource.Resource, error) {
+	if client, ok := rc.resourceClients[name]; ok {
+		return client, nil
+	}
+	client, err := rc.createClient(name)
+	if err != nil {
+		return nil, err
+	}
+	rc.resourceClients[name] = client
+	return client, nil
+}
+
+// newCompositeLocked assembles one resource.MultiAPIResource as a thin view over the per-API sub-clients
+// for a bare composite name. Each sub-client is cached under its own API name (so it is created and
+// closed once by updateResourceClients) and is typed where the API is known, else a
+// grpc.NewForeignResource passthrough. Callers must hold rc.mu.
+func (rc *RobotClient) newCompositeLocked(name resource.Name, apis []resource.API) (resource.Resource, error) {
+	byAPI := make(map[resource.API]resource.Resource, len(apis))
+	for _, api := range apis {
+		sub, err := rc.getOrCreateClientLocked(name.AsAPI(api))
+		if err != nil {
+			return nil, err
+		}
+		byAPI[api] = sub
+	}
+	if err := framesystem.CheckSingleKinematic(name, byAPI); err != nil {
+		return nil, err
+	}
+	return resource.NewMultiAPIResource(name.AsAPI(apis[0]), byAPI), nil
 }
 
 func (rc *RobotClient) createClient(name resource.Name) (resource.Resource, error) {
@@ -1121,7 +1194,7 @@ func (rc *RobotClient) PackageManager() packages.Manager {
 //	resource_names := machine.ResourceNames()
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource names", "error", err.Error())
+		rc.Logger().Warnw("failed to get remote resource names", "error", err.Error())
 		return nil
 	}
 	rc.mu.RLock()
@@ -1134,7 +1207,7 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 // ResourceRPCAPIs returns a list of all known resource APIs.
 func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 	if err := rc.checkConnected(); err != nil {
-		rc.Logger().Errorw("failed to get remote resource types", "error", err)
+		rc.Logger().Warnw("failed to get remote resource types", "error", err)
 		return nil
 	}
 
@@ -1297,8 +1370,7 @@ func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameS
 		if err != nil {
 			return nil, err
 		}
-		inputEnabled, ok := res.(framesystem.InputEnabled)
-		if ok {
+		if inputEnabled, ok := res.(framesystem.InputEnabled); ok {
 			pos, err := inputEnabled.CurrentInputs(ctx)
 			if err != nil {
 				return nil, err
@@ -1551,6 +1623,13 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 				rc.logger.CWarnw(ctx, "invalid package status from server", "package", pkgStatus.Name, "error", err)
 			}
 			mStatus.Packages = append(mStatus.Packages, pkgStatus)
+		}
+	}
+
+	if pbMaint := resp.GetMaintenanceStatus(); pbMaint != nil {
+		mStatus.MaintenanceStatus = &robot.MaintenanceStatus{
+			Allowed: pbMaint.GetAllowed(),
+			Reason:  pbMaint.GetReason(),
 		}
 	}
 

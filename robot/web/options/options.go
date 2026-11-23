@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 )
 
 // Options are used for configuring the web server.
@@ -125,18 +124,6 @@ func FromConfig(cfg *config.Config) (Options, error) {
 		options.Auth.Handlers = make([]config.AuthHandlerConfig, len(cfg.Auth.Handlers))
 		copy(options.Auth.Handlers, cfg.Auth.Handlers)
 
-		allLocationSecrets := secretsToStringSlice(cfg.Cloud.LocationSecrets)
-		if len(allLocationSecrets) == 0 {
-			return options, errors.New("no LocationSecrets specified")
-		}
-
-		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{
-			Type: utils.CredentialsTypeRobotLocationSecret,
-			Config: utils.AttributeMap{
-				"secrets": allLocationSecrets,
-			},
-		})
-
 		cloudCreds := cfg.Cloud.GetCloudCredsDialOpt()
 		signalingDialOpts := []rpc.DialOption{cloudCreds}
 		if cfg.Cloud.SignalingInsecure {
@@ -144,21 +131,9 @@ func FromConfig(cfg *config.Config) (Options, error) {
 		}
 
 		options.BakedAuthEntity = options.FQDN
-		options.BakedAuthCreds = rpc.Credentials{
-			utils.CredentialsTypeRobotLocationSecret,
-			allLocationSecrets[0],
-		}
 		options.SignalingDialOpts = signalingDialOpts
 	}
 	return options, nil
-}
-
-func secretsToStringSlice(secrets []config.LocationSecret) []string {
-	out := make([]string, 0, len(secrets))
-	for _, s := range secrets {
-		out = append(out, s.Secret)
-	}
-	return out
 }
 
 // Hosts configurations.

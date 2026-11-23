@@ -236,8 +236,8 @@ func TestTrajexSessionStagesAfterSlowExtend(t *testing.T) {
 	ctx := context.Background()
 	diag := diagnostics.New(time.Minute)
 	opts := testStreamOptions()
-	opts.ForceRebaseIfExtendLatencyExceedsMs = 15
-	maxExtendLatency := time.Duration(opts.ForceRebaseIfExtendLatencyExceedsMs) * time.Millisecond
+	opts.ForceRebaseIfExtendLatencyExceeds = 15 * time.Millisecond
+	maxExtendLatency := opts.ForceRebaseIfExtendLatencyExceeds
 	s := &trajexSession{opts: opts, diagnostics: diag}
 	test.That(t, s.startSession([]referenceframe.Input{0}), test.ShouldBeNil)
 	defer s.close()

@@ -1,0 +1,7 @@
+{
+  "kind": "content_type_mismatch",
+  "mentions": [
+    "stl",
+    "meshes/part.ply"
+  ]
+}

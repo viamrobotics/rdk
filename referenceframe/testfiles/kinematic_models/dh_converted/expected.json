@@ -1,0 +1,154 @@
+{
+  "name": "UR5e",
+  "links": [
+    {
+      "id": "base",
+      "parent": "base_j",
+      "pose": {
+        "translation": {
+          "z": 162.5
+        },
+        "quaternion": {
+          "w": 0.7071067811865476,
+          "x": 0.7071067811865475
+        }
+      }
+    },
+    {
+      "id": "shoulder",
+      "parent": "shoulder_j",
+      "pose": {
+        "translation": {
+          "x": -425
+        },
+        "quaternion": {
+          "w": 1
+        }
+      }
+    },
+    {
+      "id": "elbow",
+      "parent": "elbow_j",
+      "pose": {
+        "translation": {
+          "x": -392.2
+        },
+        "quaternion": {
+          "w": 1
+        }
+      }
+    },
+    {
+      "id": "wrist_1",
+      "parent": "wrist_1_j",
+      "pose": {
+        "translation": {
+          "z": 133.3
+        },
+        "quaternion": {
+          "w": 0.7071067811865476,
+          "x": 0.7071067811865475
+        }
+      }
+    },
+    {
+      "id": "wrist_2",
+      "parent": "wrist_2_j",
+      "pose": {
+        "translation": {
+          "z": 99.69999999999999
+        },
+        "quaternion": {
+          "w": 0.7071067811865476,
+          "x": -0.7071067811865475
+        }
+      }
+    },
+    {
+      "id": "wrist_3",
+      "parent": "wrist_3_j",
+      "pose": {
+        "translation": {
+          "z": 99.6
+        },
+        "quaternion": {
+          "w": 1
+        }
+      }
+    }
+  ],
+  "joints": [
+    {
+      "id": "base_j",
+      "parent": "world",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -360,
+        "max": 360
+      }
+    },
+    {
+      "id": "shoulder_j",
+      "parent": "base",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -360,
+        "max": 360
+      }
+    },
+    {
+      "id": "elbow_j",
+      "parent": "shoulder",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -180,
+        "max": 180
+      }
+    },
+    {
+      "id": "wrist_1_j",
+      "parent": "elbow",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -360,
+        "max": 360
+      }
+    },
+    {
+      "id": "wrist_2_j",
+      "parent": "wrist_1",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -360,
+        "max": 360
+      }
+    },
+    {
+      "id": "wrist_3_j",
+      "parent": "wrist_2",
+      "type": "JOINT_TYPE_REVOLUTE",
+      "axis": {
+        "z": 1
+      },
+      "limits": {
+        "min": -360,
+        "max": 360
+      }
+    }
+  ]
+}

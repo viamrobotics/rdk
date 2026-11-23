@@ -98,6 +98,38 @@ func (s *serviceServer) GetPower(
 	}, nil
 }
 
+func (s *serviceServer) GetBatteryPercent(
+	ctx context.Context,
+	req *pb.GetBatteryPercentRequest,
+) (*pb.GetBatteryPercentResponse, error) {
+	psDevice, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	percent, err := psDevice.BatteryPercent(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetBatteryPercentResponse{
+		Percent: percent,
+	}, nil
+}
+
+func (s *serviceServer) GetProperties(
+	ctx context.Context,
+	req *pb.GetPropertiesRequest,
+) (*pb.GetPropertiesResponse, error) {
+	psDevice, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	props, err := psDevice.Properties(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return PropertiesToProtoResponse(props), nil
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

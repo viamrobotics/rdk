@@ -555,8 +555,7 @@ func TestMutateModuleConfig(t *testing.T) {
 	})
 
 	t.Run("remote_no_dest_assumes_legacy_home", func(t *testing.T) {
-		// cloud reload passes no destination; the legacy ~/.viam path is used only to
-		// compare against a stale reload_path, never stored (reload_path is deleted).
+		// remote reload with no resolved destination falls back to the legacy ~/.viam path.
 		cfg := cfgWithModules(t, []map[string]any{{
 			"type":           string(rdkConfig.ModuleTypeRegistry),
 			"module_id":      manifest.ModuleID,
@@ -569,6 +568,26 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, mod(cfg, 0).Get("reload_path").String(), test.ShouldEqual,
 			"~/.viam/packages-local/viam-labs_test-module-module.tar.gz")
 	})
+
+	for _, enabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("cloud_removes_stale_reload_path_enabled_%v", enabled), func(t *testing.T) {
+			// RSDK-14666: a reload_path left by reload-local must be removed so the machine runs the
+			// cloud build, and no explicit restart is requested since the cloud flow has no restart step.
+			cfg := cfgWithModules(t, []map[string]any{{
+				"type":           string(rdkConfig.ModuleTypeRegistry),
+				"module_id":      manifest.ModuleID,
+				"reload_path":    "~/.viam/packages-local/viam-labs_test-module-module.tar.gz",
+				"reload_enabled": enabled,
+			}})
+			cfg, needsRestart, err := mutateModuleConfig(c, cfg, manifest, false, true, testUser, "", testReloadUnixTS, "")
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, needsRestart, test.ShouldBeFalse)
+			test.That(t, mod(cfg, 0).Get("reload_path").Exists(), test.ShouldBeFalse)
+			test.That(t, mod(cfg, 0).Get("reload_enabled").Bool(), test.ShouldBeTrue)
+			test.That(t, mod(cfg, 0).Get("reload_user").String(), test.ShouldEqual, testUser)
+			test.That(t, mod(cfg, 0).Get("reload_time").String(), test.ShouldNotBeEmpty)
+		})
+	}
 
 	t.Run("preserves_field_order", func(t *testing.T) {
 		// A reload must only touch the reload_* keys and leave every other key (and its position)

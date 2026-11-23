@@ -648,6 +648,17 @@ func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.Mainten
 		proto.SensorName = protoRdkUtils.ResourceNameToProto(name)
 	}
 
+	if maintenanceConfig.FollowPart != nil {
+		authProto, err := remoteAuthToProto(&maintenanceConfig.FollowPart.Auth)
+		if err != nil {
+			return nil, err
+		}
+		proto.FollowPart = &pb.FollowPartRef{
+			Address: maintenanceConfig.FollowPart.Address,
+			Auth:    authProto,
+		}
+	}
+
 	return &proto, nil
 }
 
@@ -675,6 +686,19 @@ func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig, _ logging.Logger) (
 	}
 	if proto.GetSensorName() != nil {
 		maintenanceConfig.SensorName = protoRdkUtils.ResourceNameFromProto(proto.GetSensorName()).String()
+	}
+	if fp := proto.GetFollowPart(); fp != nil {
+		ref := &FollowPartRef{Address: fp.GetAddress()}
+		if authProto := fp.GetAuth(); authProto != nil {
+			auth, err := remoteAuthFromProto(authProto)
+			if err != nil {
+				return nil, err
+			}
+			if auth != nil {
+				ref.Auth = *auth
+			}
+		}
+		maintenanceConfig.FollowPart = ref
 	}
 	return &maintenanceConfig, nil
 }
@@ -809,16 +833,9 @@ func userPermissionFromProto(proto *pb.UserPermission, _ int) UserPermission {
 
 // CloudConfigToProto converts Cloud to the proto equivalent.
 func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
-	locationSecrets, err := mapSliceWithErrors(cloud.LocationSecrets, locationSecretToProto)
-	if err != nil {
-		return nil, err
-	}
-
 	return &pb.CloudConfig{
 		Id:                cloud.ID,
 		Secret:            cloud.Secret,
-		LocationSecret:    cloud.LocationSecret, //nolint:staticcheck // RSDK-14540
-		LocationSecrets:   locationSecrets,
 		ManagedBy:         cloud.ManagedBy,
 		Fqdn:              cloud.FQDN,
 		LocalFqdn:         cloud.LocalFQDN,
@@ -832,17 +849,9 @@ func CloudConfigToProto(cloud *Cloud) (*pb.CloudConfig, error) {
 
 // CloudConfigFromProto creates Cloud from the proto equivalent.
 func CloudConfigFromProto(proto *pb.CloudConfig) (*Cloud, error) {
-	locationSecrets, err := mapSliceWithErrors(proto.LocationSecrets, locationSecretFromProto)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Cloud{
-		ID:     proto.GetId(),
-		Secret: proto.GetSecret(),
-		//nolint:staticcheck
-		LocationSecret:    proto.GetLocationSecret(),
-		LocationSecrets:   locationSecrets,
+		ID:                proto.GetId(),
+		Secret:            proto.GetSecret(),
 		LocationID:        proto.GetLocationId(),
 		PrimaryOrgID:      proto.GetPrimaryOrgId(),
 		MachineID:         proto.GetMachineId(),
@@ -898,14 +907,6 @@ func trafficTunnelEndpointsFromProto(protoTTEs []*pb.TrafficTunnelEndpoint) []Tr
 	return ttes
 }
 
-func locationSecretToProto(secret LocationSecret) (*pb.LocationSecret, error) {
-	return &pb.LocationSecret{Id: secret.ID, Secret: secret.Secret}, nil
-}
-
-func locationSecretFromProto(secret *pb.LocationSecret) (LocationSecret, error) {
-	return LocationSecret{ID: secret.Id, Secret: secret.Secret}, nil
-}
-
 func authHandlerConfigToProto(handler AuthHandlerConfig) (*pb.AuthHandlerConfig, error) {
 	attributes, err := protoutils.StructToStructPb(handler.Config)
 	if err != nil {
@@ -944,7 +945,7 @@ func credentialsTypeToProto(ct rpc.CredentialsType) (pb.CredentialsType, error) 
 		return pb.CredentialsType_CREDENTIALS_TYPE_API_KEY, nil
 	case rutils.CredentialsTypeRobotSecret:
 		return pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_SECRET, nil
-	case rutils.CredentialsTypeRobotLocationSecret:
+	case rutils.CredentialsTypeRobotLocationSecret: //nolint:staticcheck
 		return pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET, nil
 	case rpc.CredentialsTypeExternal:
 		fallthrough
@@ -960,7 +961,7 @@ func credentialsTypeFromProto(ct pb.CredentialsType) (rpc.CredentialsType, error
 	case pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_SECRET:
 		return rutils.CredentialsTypeRobotSecret, nil
 	case pb.CredentialsType_CREDENTIALS_TYPE_ROBOT_LOCATION_SECRET:
-		return rutils.CredentialsTypeRobotLocationSecret, nil
+		return rutils.CredentialsTypeRobotLocationSecret, nil //nolint:staticcheck
 	case pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED:
 		fallthrough
 	case pb.CredentialsType_CREDENTIALS_TYPE_INTERNAL:

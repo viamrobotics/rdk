@@ -10,10 +10,10 @@ files which can then be turned into Viam C++ module stub code by performing text
 ## Building
 
 This project is implemented using Clang [LibTooling](https://clang.llvm.org/docs/LibTooling.html) to traverse the C++ AST and generate a stub implementation. The LibTooling interface is
-unstable so we pin our dependency to Clang 15, as this is the release used by the various SDK docker images used in CI. To install
+unstable so we pin our dependency to Clang 16. This is the oldest release that can parse the SDK's C++20 dependencies, and it is available in the SDK docker images used in CI. To install
 
-- Mac with homebrew: `brew install llvm@15`
-- Debian bookworm: `apt-get install clang-15 llvm-15-dev libclang-15-dev`. These come from bookworm's own archive.
+- Mac with homebrew: `brew install llvm@16`
+- Debian bookworm: `apt-get install clang-16 llvm-16-dev libclang-16-dev libzstd-dev`. These come from bookworm's own archive.
 
 This generator also needs to be pointed to a generated CMake build directory for the SDK, and as such inherits the [SDK's depdendencies](https://github.com/viamrobotics/viam-cpp-sdk/blob/main/BUILDING.md). Note the SDK itself does not need to have been compiled, it just needs to be compile-_able_.
 
@@ -23,18 +23,18 @@ Next let's make a build directory:
 mkdir build && cd build
 ```
 
-When generating the build, you should point CMake to your Clang 15 install. For example
+When generating the build, you should point CMake to your Clang 16 install. For example
 
 ```shell
 # Linux apt install
-cmake .. -G Ninja -DLLVM_DIR=/usr/lib/llvm-15
+cmake .. -G Ninja -DLLVM_DIR=/usr/lib/llvm-16
 ```
 
 or
 
 ```shell
 # Mac brew install
-cmake .. -G Ninja -DLLVM_DIR=/opt/homebrew/opt/llvm@15
+cmake .. -G Ninja -DLLVM_DIR=/opt/homebrew/opt/llvm@16
 ```
 
 ## Usage

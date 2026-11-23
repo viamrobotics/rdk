@@ -64,7 +64,7 @@ func TestRunHappyPathStreamEndsViaJpChClose(t *testing.T) {
 	jpCh := make(chan []referenceframe.Input)
 
 	start := time.Now()
-	diag := diagnostics.New(time.Duration(runTestOptions().DiagnosticsWindowSecs) * time.Second)
+	diag := diagnostics.New(runTestOptions().DiagnosticsWindow)
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- Run(

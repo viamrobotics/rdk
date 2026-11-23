@@ -92,6 +92,12 @@ type Config struct {
 	LogPlannerErrors            bool   `json:"log_planner_errors"`
 	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
+	// StreamDiagnosticsFilePath is the directory each arm-streaming session writes its diagnostics file under when it ends.
+	StreamDiagnosticsFilePath string `json:"stream_diagnostics_file_path"`
+	// StreamDiagnosticsMetadataKeysToUseAsFileTags names request metadata keys whose values become tag=<value>
+	// directories on the diagnostics file.
+	StreamDiagnosticsMetadataKeysToUseAsFileTags []string `json:"stream_diagnostics_metadata_keys_to_use_as_file_tags"`
+
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
@@ -216,6 +222,10 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
 	}
 
+	if len(c.StreamDiagnosticsMetadataKeysToUseAsFileTags) > 0 && c.StreamDiagnosticsFilePath == "" {
+		return nil, nil, errors.New("need a stream_diagnostics_file_path if you set stream_diagnostics_metadata_keys_to_use_as_file_tags")
+	}
+
 	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
 	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
 		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
@@ -293,25 +303,25 @@ func (ms *builtIn) BuiltInReconfigure(
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
-	componentMap := make(map[string]resource.Resource)
+	components := make(map[string]resource.Resource)
 	for name, dep := range deps {
-		switch dep := dep.(type) {
+		switch sub := dep.(type) {
 		case framesystem.Service:
-			ms.fsService = dep
+			ms.fsService = sub
 		case movementsensor.MovementSensor:
-			movementSensors[name.Name] = dep
+			movementSensors[name.Name] = sub
 		case slam.Service:
-			slamServices[name.Name] = dep
+			slamServices[name.Name] = sub
 		case vision.Service:
-			visionServices[name.Name] = dep
+			visionServices[name.Name] = sub
 		default:
-			componentMap[name.Name] = dep
+			components[name.Name] = dep
 		}
 	}
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
-	ms.components = componentMap
+	ms.components = components
 
 	return nil
 }
@@ -737,13 +747,13 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 					continue
 				}
 
-				r, ok := ms.components[name]
+				res, ok := ms.components[name]
 				if !ok {
 					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
 				}
-				ie, err := utils.AssertType[framesystem.InputEnabled](r)
-				if err != nil {
-					return err
+				ie, ok := res.(framesystem.InputEnabled)
+				if !ok {
+					return fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
 				}
 				curr, err := ie.CurrentInputs(ctx)
 				if err != nil {
@@ -806,17 +816,17 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if len(inputs) == 0 {
 				continue
 			}
-			r, ok := ms.components[name]
+			res, ok := ms.components[name]
 			if !ok {
 				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
 			}
-			ie, err := utils.AssertType[framesystem.InputEnabled](r)
-			if err != nil {
-				return err
+			ie, ok := res.(framesystem.InputEnabled)
+			if !ok {
+				return fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
 			}
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if actuator, ok := r.(inputEnabledActuator); ok {
+				if actuator, ok := ie.(inputEnabledActuator); ok {
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}

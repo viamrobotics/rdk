@@ -806,12 +806,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options weboptions.Options) ([]rpc.ServerOption, error) {
 	rpcOpts := []rpc.ServerOption{}
 
-	if options.Managed && len(options.Auth.Handlers) == 1 {
-		if options.BakedAuthEntity == "" || options.BakedAuthCreds.Type == "" {
-			return nil, errors.New("expected baked in local UI credentials since managed")
-		}
-	}
-
 	if len(options.Auth.Handlers) == 0 {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
 	} else {
@@ -851,20 +845,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 				}
 
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(handler.Type, rpc.MakeSimpleMultiAuthPairHandler(apiKeys)))
-			case rutils.CredentialsTypeRobotLocationSecret:
-				locationSecrets := handler.Config.StringSlice("secrets")
-				if len(locationSecrets) == 0 {
-					secret := handler.Config.String("secret")
-					if secret == "" {
-						return nil, errors.Errorf("%q handler requires non-empty secret", handler.Type)
-					}
-					locationSecrets = []string{secret}
-				}
-
-				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-					handler.Type,
-					rpc.MakeSimpleMultiAuthHandler(authEntities, locationSecrets),
-				))
 			case rpc.CredentialsTypeExternal:
 			default:
 				return nil, errors.Errorf("do not know how to handle auth for %q", handler.Type)
