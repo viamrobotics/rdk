@@ -158,9 +158,10 @@ func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, flo
 		// Use fast collision check for box
 		col, d := capsuleVsBoxCollision(c, other, collisionBufferMM)
 		return col, d, nil
-	case *Mesh:
+	case *Mesh, *Cylinder:
 		// Mesh's BVH walk (witness caching, early exit) is far cheaper than the
-		// exact per-triangle distance scan DistanceFrom would run.
+		// exact per-triangle distance scan DistanceFrom would run. Cylinder
+		// collides through its mesh, so it takes the same path.
 		return other.CollidesWith(c, collisionBufferMM)
 	default:
 		// For other types, distance calculation is relatively cheap
