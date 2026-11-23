@@ -53,6 +53,9 @@ type Module struct {
 	// TCPMode indicates that the module should be started with a TCP connection. Regardless of the value
 	// set here, a TCP connection will be used if the `VIAM_TCP_SOCKETS` env var is set to true.
 	TCPMode bool `json:"tcp_mode,omitempty"`
+	// RunAsUser is the system user the module process runs as. Empty means the same user as viam-server.
+	// Setting it forces TCP mode, since the module cannot otherwise reach viam-server's unix sockets.
+	RunAsUser string `json:"run_as_user,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
 	// This field will only be applied if it is a positive value. Supplying a

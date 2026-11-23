@@ -81,6 +81,7 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 		GitRevision:  GitRevision,
 		Platform:     &platform,
 		PlatformTags: readExtendedPlatformTags(logger, true),
+		SystemUsers:  rutils.ListRunnableSystemUsers(logger),
 	}, nil
 }
 
