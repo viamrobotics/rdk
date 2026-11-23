@@ -215,9 +215,10 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 // returns true if this module should be run in TCP mode.
 // (based on either global setting or per-module setting).
+// Modules run as another user always use TCP since viam-server's socket directory is not accessible to them.
 func (m *module) tcpMode() bool {
 	use, _ := rutils.OnlyUseViamTCPSockets()
-	return use || m.cfg.TCPMode
+	return use || m.cfg.TCPMode || m.cfg.RunAsUser != ""
 }
 
 // returns true if this module is running in TCP mode.
@@ -259,6 +260,23 @@ func (m *module) startProcess(
 		return err
 	}
 	moduleEnvironment := m.getFullEnvironment(viamHomeDir, packagesDir)
+	if m.cfg.RunAsUser != "" {
+		runAs, err := lookupModuleUser(m.cfg.RunAsUser)
+		if err != nil {
+			return err
+		}
+		for key, value := range map[string]string{"HOME": runAs.homeDir, "USER": runAs.name, "LOGNAME": runAs.name} {
+			if _, ok := m.cfg.Environment[key]; !ok {
+				moduleEnvironment[key] = value
+			}
+		}
+		packagesDirs := []string{packagesDir, packages.LocalPackagesDir(packagesDir)}
+		if err := runAs.grantModuleAccess(
+			absoluteExePath, moduleEnvironment["VIAM_MODULE_ROOT"], packagesDirs, m.dataDir,
+		); err != nil {
+			return errors.WithMessagef(err, "cannot give user %q access to module %s", m.cfg.RunAsUser, m.cfg.Name)
+		}
+	}
 	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
@@ -296,6 +314,7 @@ func (m *module) startProcess(
 		Name:             absoluteExePath,
 		Args:             []string{windowsAddr},
 		CWD:              moduleWorkingDirectory,
+		Username:         m.cfg.RunAsUser,
 		Environment:      moduleEnvironment,
 		Log:              true,
 		OnUnexpectedExit: oue,
@@ -328,7 +347,7 @@ func (m *module) startProcess(
 	checkTicker := time.NewTicker(100 * time.Millisecond)
 	defer checkTicker.Stop()
 
-	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name, "tcp_mode", tcpMode)
+	m.logger.CInfow(ctx, "Starting up module", "module", m.cfg.Name, "tcp_mode", tcpMode, "run_as_user", m.cfg.RunAsUser)
 	rutils.LogViamEnvVariables("Starting module with following Viam environment variables", moduleEnvironment, m.logger)
 
 	ctxTimeout, cancel := context.WithTimeout(ctx, rutils.GetModuleStartupTimeout(m.logger))

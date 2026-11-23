@@ -290,6 +290,8 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Status:          status,
 		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
 		TcpMode:         module.TCPMode,
+		RunAsUser:       module.RunAsUser,
+		CloudAccess:     moduleCloudAccessToProto(module.CloudAccess),
 	}
 
 	return &proto, nil
@@ -312,8 +314,42 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig, _ logging.Logger) (*Module, e
 		Status:          status,
 		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
 		TCPMode:         proto.GetTcpMode(),
+		RunAsUser:       proto.GetRunAsUser(),
+		CloudAccess:     moduleCloudAccessFromProto(proto.GetCloudAccess()),
 	}
 	return &module, nil
+}
+
+func moduleCloudAccessToProto(access *ModuleCloudAccess) *pb.ModuleCloudAccess {
+	if access == nil {
+		return nil
+	}
+	mode := pb.ModuleCloudAccessMode_MODULE_CLOUD_ACCESS_MODE_UNSPECIFIED
+	switch access.Mode {
+	case ModuleCloudAccessMachine:
+		mode = pb.ModuleCloudAccessMode_MODULE_CLOUD_ACCESS_MODE_MACHINE
+	case ModuleCloudAccessNone:
+		mode = pb.ModuleCloudAccessMode_MODULE_CLOUD_ACCESS_MODE_NONE
+	}
+	return &pb.ModuleCloudAccess{Mode: mode, ApiKeyId: access.APIKeyID}
+}
+
+func moduleCloudAccessFromProto(access *pb.ModuleCloudAccess) *ModuleCloudAccess {
+	if access == nil {
+		return nil
+	}
+	var mode ModuleCloudAccessMode
+	switch access.GetMode() {
+	case pb.ModuleCloudAccessMode_MODULE_CLOUD_ACCESS_MODE_UNSPECIFIED:
+	case pb.ModuleCloudAccessMode_MODULE_CLOUD_ACCESS_MODE_MACHINE:
+		mode = ModuleCloudAccessMachine
+	case pb.ModuleCloudAccessMode_MODULE_CLOUD_ACCESS_MODE_NONE:
+		mode = ModuleCloudAccessNone
+	default:
+		// Fails validation, so a mode this viam-server doesn't understand never silently grants the machine key.
+		mode = ModuleCloudAccessMode(access.GetMode().String())
+	}
+	return &ModuleCloudAccess{Mode: mode, APIKeyID: access.GetApiKeyId()}
 }
 
 // ProcessConfigToProto converts ProcessConfig to proto equivalent.

@@ -1244,3 +1244,45 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 }
+
+func TestProcessConfigModuleCloudAccess(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	none := &ModuleCloudAccess{Mode: ModuleCloudAccessNone}
+	unprocessedConfig := Config{
+		Cloud: &Cloud{ID: "part-id", Secret: "secret", FQDN: "part.viam.cloud", LocalFQDN: "part.local.viam.cloud"},
+		Auth: AuthConfig{
+			Handlers: []AuthHandlerConfig{{Type: rpc.CredentialsTypeAPIKey, Config: utils.AttributeMap{
+				"key-id": "key",
+				"keys":   []string{"key-id"},
+			}}},
+		},
+		Modules: []Module{
+			{Name: "default", ExePath: "/bin/true", Type: ModuleTypeRegistry},
+			{
+				Name: "machine", ExePath: "/bin/true", Type: ModuleTypeRegistry,
+				CloudAccess: &ModuleCloudAccess{Mode: ModuleCloudAccessMachine},
+			},
+			{Name: "none", ExePath: "/bin/true", Type: ModuleTypeRegistry, CloudAccess: none},
+			{
+				Name: "explicitkey", ExePath: "/bin/true", Type: ModuleTypeRegistry, CloudAccess: none,
+				Environment: map[string]string{utils.APIKeyEnvVar: "mine"},
+			},
+		},
+	}
+
+	cfg, err := processConfig(&unprocessedConfig, true, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, mod := range cfg.Modules[:2] {
+		test.That(t, mod.Environment[utils.APIKeyEnvVar], test.ShouldEqual, "key")
+		test.That(t, mod.Environment[utils.APIKeyIDEnvVar], test.ShouldEqual, "key-id")
+	}
+
+	noneEnv, explicitEnv := cfg.Modules[2].Environment, cfg.Modules[3].Environment
+	test.That(t, noneEnv, test.ShouldNotContainKey, utils.APIKeyEnvVar)
+	test.That(t, noneEnv, test.ShouldNotContainKey, utils.APIKeyIDEnvVar)
+	test.That(t, noneEnv[utils.MachinePartIDEnvVar], test.ShouldEqual, "part-id")
+
+	test.That(t, explicitEnv[utils.APIKeyEnvVar], test.ShouldEqual, "mine")
+	test.That(t, explicitEnv, test.ShouldNotContainKey, utils.APIKeyIDEnvVar)
+}

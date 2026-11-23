@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -81,6 +82,7 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 		GitRevision:  GitRevision,
 		Platform:     &platform,
 		PlatformTags: readExtendedPlatformTags(logger, true),
+		SystemUsers:  rutils.ListRunnableSystemUsers(logger),
 	}, nil
 }
 
@@ -728,8 +730,15 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
 	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth, cfg.Tracing)
 	if len(env) > 0 {
+		envWithoutAPIKey := maps.Clone(env)
+		delete(envWithoutAPIKey, rutils.APIKeyEnvVar)
+		delete(envWithoutAPIKey, rutils.APIKeyIDEnvVar)
 		for idx := 0; idx < len(cfg.Modules); idx++ {
-			cfg.Modules[idx].MergeEnvVars(env)
+			if cfg.Modules[idx].ReceivesMachineAPIKey() {
+				cfg.Modules[idx].MergeEnvVars(env)
+			} else {
+				cfg.Modules[idx].MergeEnvVars(envWithoutAPIKey)
+			}
 		}
 	}
 
