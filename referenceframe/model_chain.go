@@ -54,8 +54,9 @@ func (m *SimpleModel) Chain() ([]ChainFrame, error) {
 
 // ChainFrom is the chain between two frames of the model, the frames strictly below base out to
 // outputFrame, so that composing them gives outputFrame in the frame of base. A name is a link or
-// joint id from the model's kinematics file, or part:frame for a model built over a frame system
-// of parts. An empty base means the world frame and an empty outputFrame the frame Transform
+// joint id from the model's kinematics file, or, for a model built over a frame system of parts, a
+// frame of that frame system, with part:frame naming a frame inside a part the way a config's
+// parent does. An empty base means the world frame and an empty outputFrame the frame Transform
 // reports, so ChainFrom("", "") is Chain. base must lie on the path from outputFrame to the world
 // frame, since a path that climbs through a joint is not a chain, and the same frame for both
 // gives an empty chain. The error names a frame the model does not have, or a base off the path.
