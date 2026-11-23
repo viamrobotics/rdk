@@ -56,6 +56,9 @@ type Module struct {
 	// RunAsUser is the system user the module process runs as. Empty means the same user as viam-server.
 	// Setting it forces TCP mode, since the module cannot otherwise reach viam-server's unix sockets.
 	RunAsUser string `json:"run_as_user,omitempty"`
+	// DisableCloudAPIKeyEnv stops viam-server from adding the machine's cloud API key (VIAM_API_KEY and
+	// VIAM_API_KEY_ID) to the module's environment. Values set explicitly in Environment are still passed.
+	DisableCloudAPIKeyEnv bool `json:"disable_cloud_api_key_env,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
 	// This field will only be applied if it is a positive value. Supplying a

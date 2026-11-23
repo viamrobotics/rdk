@@ -281,16 +281,17 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 	}
 
 	proto := pb.ModuleConfig{
-		Name:            module.Name,
-		Path:            module.ExePath,
-		LogLevel:        module.LogLevel,
-		Type:            string(module.Type),
-		ModuleId:        module.ModuleID,
-		Env:             module.Environment,
-		Status:          status,
-		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
-		TcpMode:         module.TCPMode,
-		RunAsUser:       module.RunAsUser,
+		Name:                  module.Name,
+		Path:                  module.ExePath,
+		LogLevel:              module.LogLevel,
+		Type:                  string(module.Type),
+		ModuleId:              module.ModuleID,
+		Env:                   module.Environment,
+		Status:                status,
+		FirstRunTimeout:       durationpb.New(module.FirstRunTimeout.Unwrap()),
+		TcpMode:               module.TCPMode,
+		RunAsUser:             module.RunAsUser,
+		DisableCloudApiKeyEnv: module.DisableCloudAPIKeyEnv,
 	}
 
 	return &proto, nil
@@ -304,16 +305,17 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig, _ logging.Logger) (*Module, e
 	}
 
 	module := Module{
-		Name:            proto.GetName(),
-		ExePath:         proto.GetPath(),
-		LogLevel:        proto.GetLogLevel(),
-		Type:            ModuleType(proto.GetType()),
-		ModuleID:        proto.GetModuleId(),
-		Environment:     proto.GetEnv(),
-		Status:          status,
-		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
-		TCPMode:         proto.GetTcpMode(),
-		RunAsUser:       proto.GetRunAsUser(),
+		Name:                  proto.GetName(),
+		ExePath:               proto.GetPath(),
+		LogLevel:              proto.GetLogLevel(),
+		Type:                  ModuleType(proto.GetType()),
+		ModuleID:              proto.GetModuleId(),
+		Environment:           proto.GetEnv(),
+		Status:                status,
+		FirstRunTimeout:       utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		TCPMode:               proto.GetTcpMode(),
+		RunAsUser:             proto.GetRunAsUser(),
+		DisableCloudAPIKeyEnv: proto.GetDisableCloudApiKeyEnv(),
 	}
 	return &module, nil
 }
