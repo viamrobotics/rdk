@@ -270,6 +270,12 @@ func (m *module) startProcess(
 				moduleEnvironment[key] = value
 			}
 		}
+		packagesDirs := []string{packagesDir, packages.LocalPackagesDir(packagesDir)}
+		if err := runAs.grantModuleAccess(
+			absoluteExePath, moduleEnvironment["VIAM_MODULE_ROOT"], packagesDirs, m.dataDir,
+		); err != nil {
+			return errors.WithMessagef(err, "cannot give user %q access to module %s", m.cfg.RunAsUser, m.cfg.Name)
+		}
 	}
 	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]

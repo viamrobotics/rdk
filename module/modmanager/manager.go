@@ -371,16 +371,6 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
 			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
 		}
-		if mod.cfg.RunAsUser != "" {
-			runAs, err := lookupModuleUser(mod.cfg.RunAsUser)
-			if err != nil {
-				return err
-			}
-			if err := runAs.chownTree(mod.dataDir); err != nil {
-				return errors.WithMessagef(err, "error giving user %q ownership of data directory for module %s",
-					mod.cfg.RunAsUser, mod.cfg.Name)
-			}
-		}
 	}
 
 	cleanup := rutils.SlowLogger(

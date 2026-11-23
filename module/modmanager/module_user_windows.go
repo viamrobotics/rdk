@@ -14,3 +14,7 @@ func lookupModuleUser(username string) (*moduleUser, error) {
 func (u *moduleUser) chownTree(string) error {
 	return nil
 }
+
+func (u *moduleUser) grantModuleAccess(string, string, []string, string) error {
+	return nil
+}
