@@ -155,7 +155,14 @@ func TestClientSessionOptions(t *testing.T) {
 						var storedID uuid.UUID
 						var storedResourceName resource.Name
 
-						sess1 := session.New(context.Background(), "ownerID", 5*time.Second, func(id uuid.UUID, resourceName resource.Name) {
+						// sess1 is what the injected server side session manager hands out; its heartbeat
+						// window dictates the client's heartbeat interval.
+						sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
+
+						// clientSess stands in for the session of a caller upstream of this client. The
+						// client only associates safety monitored resources with it while it is active and
+						// nothing heartbeats it here, so its window must outlast the test.
+						clientSess := session.New(context.Background(), "ownerID", time.Minute, func(id uuid.UUID, resourceName resource.Name) {
 							capMu.Lock()
 							associateCount++
 							storedID = id
@@ -163,7 +170,7 @@ func TestClientSessionOptions(t *testing.T) {
 							capMu.Unlock()
 						})
 						// associate session with context
-						nextCtx := session.ToContext(ctx, sess1)
+						nextCtx := session.ToContext(ctx, clientSess)
 
 						sessMgr.mu.Lock()
 						sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
@@ -244,7 +251,7 @@ func TestClientSessionOptions(t *testing.T) {
 						capMu.Lock()
 						if withRemoteName {
 							test.That(t, associateCount, test.ShouldEqual, 1)
-							test.That(t, storedID, test.ShouldEqual, sess1.ID())
+							test.That(t, storedID, test.ShouldEqual, clientSess.ID())
 							test.That(t, storedResourceName, test.ShouldResemble, someTargetName1.PrependRemote("rem1"))
 						} else {
 							test.That(t, associateCount, test.ShouldEqual, 0)
@@ -269,7 +276,7 @@ func TestClientSessionOptions(t *testing.T) {
 
 							capMu.Lock()
 							test.That(t, associateCount, test.ShouldEqual, 2)
-							test.That(t, storedID, test.ShouldEqual, sess1.ID())
+							test.That(t, storedID, test.ShouldEqual, clientSess.ID())
 							test.That(t, storedResourceName, test.ShouldResemble, someTargetName2.PrependRemote("rem1"))
 							capMu.Unlock()
 						} else {
