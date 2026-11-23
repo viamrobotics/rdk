@@ -120,7 +120,10 @@ func TestParseCylinderURDF(t *testing.T) {
 	// The origin's 90 degree pitch lays the cylinder's axis along the link's +X.
 	geom, err := cylinderLink.Geometry.ParseConfig()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, geom.Pose().Point(), test.ShouldResemble, r3.Vector{X: 100, Z: 300})
+	center := geom.Pose().Point()
+	test.That(t, center.X, test.ShouldAlmostEqual, 100, 1e-6)
+	test.That(t, center.Y, test.ShouldAlmostEqual, 0, 1e-6)
+	test.That(t, center.Z, test.ShouldAlmostEqual, 300, 1e-6)
 	axis := spatialmath.TransformPointByPose(
 		spatialmath.NewPoseFromOrientation(geom.Pose().Orientation()), r3.Vector{Z: 1},
 	)

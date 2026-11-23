@@ -20,9 +20,6 @@ func TestGeometryProtobufRoundTrip(t *testing.T) {
 	point := spatialmath.NewPoint(r3.Vector{3, 4, 5}, "point")
 	capsule, _ := spatialmath.NewCapsule(spatialmath.NewPose(r3.Vector{1, 2, 3}, &spatialmath.EulerAngles{0, 0, deg45}), 5, 20, "capsule")
 	cylinder, _ := spatialmath.NewCylinder(spatialmath.NewPose(r3.Vector{-1, 2, 7}, &spatialmath.EulerAngles{deg45, 0, 0}), 4, 3, "cylinder")
-	openCylinder, _ := spatialmath.NewCylinderWithCapped(
-		spatialmath.NewPose(r3.Vector{5, 0, 1}, spatialmath.NewZeroOrientation()), 6, 30, false, "open cylinder",
-	)
 	testCases := []struct {
 		name     string
 		geometry spatialmath.Geometry
@@ -32,7 +29,6 @@ func TestGeometryProtobufRoundTrip(t *testing.T) {
 		{"point", point},
 		{"capsule", capsule},
 		{"cylinder", cylinder},
-		{"open cylinder", openCylinder},
 	}
 
 	for _, testCase := range testCases {

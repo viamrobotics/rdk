@@ -23,7 +23,7 @@ func NewGeometryFromProto(geometry *commonpb.Geometry) (spatialmath.Geometry, er
 		return spatialmath.NewCapsule(pose, capsule.RadiusMm, capsule.LengthMm, geometry.Label)
 	}
 	if cylinder := geometry.GetCylinder(); cylinder != nil {
-		return spatialmath.NewCylinderWithCapped(pose, cylinder.RadiusMm, cylinder.LengthMm, !cylinder.Uncapped, geometry.Label)
+		return spatialmath.NewCylinder(pose, cylinder.RadiusMm, cylinder.LengthMm, geometry.Label)
 	}
 	if sphere := geometry.GetSphere(); sphere != nil {
 		// Fallback to point if radius is 0

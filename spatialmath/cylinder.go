@@ -200,16 +200,19 @@ func (c *Cylinder) buildMesh() *Mesh {
 	return NewMesh(c.pose, tris, c.label)
 }
 
-// ToProtobuf converts the Cylinder to a Geometry proto. An open cylinder is
-// encoded with uncapped set; the default (unset) is a solid cylinder.
+// ToProtobuf converts the Cylinder to a Geometry proto. It panics on an open
+// cylinder: commonpb.Cylinder is always solid, and sending an open tube as solid
+// would silently block its interior for every receiver.
 func (c *Cylinder) ToProtobuf() *commonpb.Geometry {
+	if !c.capped {
+		panic("Cylinder.ToProtobuf: an open (uncapped) cylinder has no representation in commonpb")
+	}
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(c.pose),
 		GeometryType: &commonpb.Geometry_Cylinder{
 			Cylinder: &commonpb.Cylinder{
 				RadiusMm: c.radius,
 				LengthMm: c.height,
-				Uncapped: !c.capped,
 			},
 		},
 		Label: c.label,

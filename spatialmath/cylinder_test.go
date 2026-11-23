@@ -283,10 +283,9 @@ func TestCylinderToProtobuf(t *testing.T) {
 	test.That(t, cyl, test.ShouldNotBeNil)
 	test.That(t, cyl.RadiusMm, test.ShouldEqual, 7)
 	test.That(t, cyl.LengthMm, test.ShouldEqual, 11)
-	test.That(t, cyl.Uncapped, test.ShouldBeFalse)
 
 	open := makeOpenTestCylinder(pose.Orientation(), pose.Point(), 7, 11, "open")
-	test.That(t, open.ToProtobuf().GetCylinder().Uncapped, test.ShouldBeTrue)
+	test.That(t, func() { open.ToProtobuf() }, test.ShouldPanic)
 }
 
 // --- Collision / distance / encompass ---
