@@ -62,12 +62,12 @@ func (c *client) Run(ctx context.Context, input, extra map[string]interface{}) (
 	return *ResultFromProto(resp.Result), nil
 }
 
-func (c *client) GetStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {
+func (c *client) GetTaskStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return Status{}, err
 	}
-	resp, err := c.client.GetStatus(ctx, &pb.GetStatusRequest{Name: c.name, Extra: ext})
+	resp, err := c.client.GetTaskStatus(ctx, &pb.GetTaskStatusRequest{Name: c.name, Extra: ext})
 	if err != nil {
 		return Status{}, err
 	}
@@ -83,4 +83,8 @@ func (c *client) GetStatus(ctx context.Context, extra map[string]interface{}) (S
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
 }

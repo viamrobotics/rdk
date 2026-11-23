@@ -29,7 +29,7 @@ type controlledTask struct {
 
 func newControlledTask(name string) *controlledTask {
 	ct := &controlledTask{Task: inject.NewTask(name), started: make(chan struct{}, 16), release: make(chan task.Result)}
-	// A real Runner underneath, so GetStatus reports phase and progress.
+	// A real Runner underneath, so GetTaskStatus reports phase and progress.
 	ct.Service = task.NewFromFunc(task.Named(name), func(
 		ctx context.Context, input map[string]interface{}, report task.ProgressFunc,
 	) (task.Result, error) {
@@ -183,7 +183,14 @@ func TestFlatMachine(t *testing.T) {
 
 	def, err := svc.GetDefinition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, def["initial"], test.ShouldEqual, "idle")
+	test.That(t, def.Initial, test.ShouldEqual, "idle")
+	test.That(t, def.On, test.ShouldResemble, map[string]string{"error": "faulted"})
+	test.That(t, def.Events, test.ShouldResemble, []string{"ack", "done", "error", "go", "no_glass"})
+	test.That(t, def.States, test.ShouldResemble, []statemachine.StateDefinition{
+		{Path: []string{"faulted"}, On: map[string]string{"ack": "idle"}},
+		{Path: []string{"idle"}, On: map[string]string{"go": "working"}},
+		{Path: []string{"working"}, On: map[string]string{"done": "idle", "no_glass": "idle"}, HasTask: true},
+	})
 
 	status, err := svc.Status(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -218,8 +225,15 @@ func TestUnhandledErrorFaultsAndResetRecovers(t *testing.T) {
 	test.That(t, res.Handled, test.ShouldBeFalse)
 	test.That(t, work.runs.Load(), test.ShouldEqual, 1)
 
+	jobBefore, err := svc.CurrentJobID(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobBefore, test.ShouldNotBeEmpty)
 	test.That(t, svc.Reset(ctx, nil), test.ShouldBeNil)
 	waitForStatus(t, svc, statemachine.StatusRunning)
+	jobAfter, err := svc.CurrentJobID(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobAfter, test.ShouldNotBeEmpty)
+	test.That(t, jobAfter, test.ShouldNotEqual, jobBefore)
 	work.waitStarted(t)
 	test.That(t, work.runs.Load(), test.ShouldEqual, 2)
 	work.finish(t, task.Done(nil))
@@ -429,6 +443,19 @@ func TestNestedMachine(t *testing.T) {
 	svc := newMachine(t, cfg, deps)
 	ctx := context.Background()
 	waitForPath(t, svc, "manual", "idle")
+
+	def, err := svc.GetDefinition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, def.Initial, test.ShouldEqual, "manual")
+	test.That(t, def.States, test.ShouldHaveLength, 12)
+	test.That(t, def.States[0], test.ShouldResemble, statemachine.StateDefinition{
+		Path: []string{"auto"}, Initial: "watching", On: map[string]string{},
+	})
+	test.That(t, def.States[2], test.ShouldResemble, statemachine.StateDefinition{
+		Path: []string{"auto", "pour", "picking_glass"}, On: map[string]string{"done": "pouring", "no_glass": "$done"}, HasTask: true,
+	})
+	test.That(t, def.Events, test.ShouldContain, "pour_button")
+	test.That(t, def.Events, test.ShouldContain, "set_mode.auto")
 
 	// Manual pour: button -> sub-machine -> $done -> idle.
 	res, err := svc.SendEvent(ctx, "pour_button", nil, nil)

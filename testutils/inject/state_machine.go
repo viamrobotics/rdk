@@ -14,7 +14,8 @@ type StateMachine struct {
 	GetStateFunc      func(ctx context.Context, extra map[string]interface{}) (statemachine.State, error)
 	SendEventFunc     func(ctx context.Context, event string, payload, extra map[string]interface{}) (statemachine.EventResult, error)
 	GetHistoryFunc    func(ctx context.Context, limit int, extra map[string]interface{}) ([]statemachine.Transition, error)
-	GetDefinitionFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	GetDefinitionFunc func(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error)
+	CurrentJobIDFunc  func(ctx context.Context, extra map[string]interface{}) (string, error)
 	StopFunc          func(ctx context.Context, extra map[string]interface{}) error
 	ResetFunc         func(ctx context.Context, extra map[string]interface{}) error
 	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
@@ -58,11 +59,19 @@ func (s *StateMachine) GetHistory(ctx context.Context, limit int, extra map[stri
 }
 
 // GetDefinition calls the injected GetDefinitionFunc or the real version.
-func (s *StateMachine) GetDefinition(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (s *StateMachine) GetDefinition(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error) {
 	if s.GetDefinitionFunc == nil {
 		return s.Service.GetDefinition(ctx, extra)
 	}
 	return s.GetDefinitionFunc(ctx, extra)
+}
+
+// CurrentJobID calls the injected CurrentJobIDFunc or the real version.
+func (s *StateMachine) CurrentJobID(ctx context.Context, extra map[string]interface{}) (string, error) {
+	if s.CurrentJobIDFunc == nil {
+		return s.Service.CurrentJobID(ctx, extra)
+	}
+	return s.CurrentJobIDFunc(ctx, extra)
 }
 
 // Stop calls the injected StopFunc or the real version.

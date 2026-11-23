@@ -100,8 +100,8 @@ type Status struct {
 	Progress *Progress
 }
 
-// ProgressFunc is how a running task reports progress; GetStatus returns the
-// latest report. It may be called from any goroutine and must not block.
+// ProgressFunc is how a running task reports progress; GetTaskStatus returns
+// the latest report. It may be called from any goroutine and must not block.
 type ProgressFunc func(Progress)
 
 // Service is a task: a unit of work that runs once, reports progress and
@@ -113,9 +113,9 @@ type Service interface {
 	// state before returning. A second Run while one is in flight returns
 	// ErrAlreadyRunning.
 	Run(ctx context.Context, input, extra map[string]interface{}) (Result, error)
-	// GetStatus reports whether the task is running, its progress and its last
-	// result. It never drives lifecycle.
-	GetStatus(ctx context.Context, extra map[string]interface{}) (Status, error)
+	// GetTaskStatus reports whether the task is running, its progress and its
+	// last result. It never drives lifecycle.
+	GetTaskStatus(ctx context.Context, extra map[string]interface{}) (Status, error)
 }
 
 // Named is a helper for getting the named task's typed resource name.

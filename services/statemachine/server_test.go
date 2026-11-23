@@ -73,12 +73,29 @@ func TestServer(t *testing.T) {
 	test.That(t, hResp.Transitions[0].To, test.ShouldResemble, []string{"a"})
 	test.That(t, hResp.Transitions[0].TaskResult.Outcome, test.ShouldEqual, "done")
 
-	injectSM.GetDefinitionFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"initial": "a"}, nil
+	injectSM.GetDefinitionFunc = func(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error) {
+		return statemachine.Definition{
+			Initial: "a",
+			States:  []statemachine.StateDefinition{{Path: []string{"a"}, On: map[string]string{"x": "a"}, HasTask: true}},
+			Events:  []string{"x"},
+			On:      map[string]string{},
+		}, nil
 	}
 	dResp, err := server.GetDefinition(ctx, &pb.GetDefinitionRequest{Name: "sm1"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dResp.Definition.AsMap(), test.ShouldResemble, map[string]interface{}{"initial": "a"})
+	test.That(t, dResp.Initial, test.ShouldEqual, "a")
+	test.That(t, dResp.Events, test.ShouldResemble, []string{"x"})
+	test.That(t, dResp.States, test.ShouldHaveLength, 1)
+	test.That(t, dResp.States[0].Path, test.ShouldResemble, []string{"a"})
+	test.That(t, dResp.States[0].On, test.ShouldResemble, map[string]string{"x": "a"})
+	test.That(t, dResp.States[0].HasTask, test.ShouldBeTrue)
+
+	injectSM.CurrentJobIDFunc = func(ctx context.Context, extra map[string]interface{}) (string, error) {
+		return "job-9", nil
+	}
+	jResp, err := server.GetCurrentJobId(ctx, &pb.GetCurrentJobIdRequest{Name: "sm1"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jResp.JobId, test.ShouldEqual, "job-9")
 
 	var stopped, reset bool
 	injectSM.StopFunc = func(ctx context.Context, extra map[string]interface{}) error { stopped = true; return nil }

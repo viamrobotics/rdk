@@ -114,12 +114,28 @@ func TestClient(t *testing.T) {
 	test.That(t, history[1].From, test.ShouldResemble, []string{"idle"})
 	test.That(t, history[1].TaskResult, test.ShouldResemble, &task.Result{Outcome: "done", Output: map[string]interface{}{"k": "v"}})
 
-	injectSM.GetDefinitionFunc = func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-		return map[string]interface{}{"initial": "idle"}, nil
+	wantDef := statemachine.Definition{
+		Initial: "idle",
+		States: []statemachine.StateDefinition{
+			{Path: []string{"idle"}, On: map[string]string{"go": "work"}},
+			{Path: []string{"work"}, On: map[string]string{"done": "idle"}, HasTask: true},
+		},
+		Events: []string{"done", "error", "go"},
+		On:     map[string]string{"error": "idle"},
+	}
+	injectSM.GetDefinitionFunc = func(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error) {
+		return wantDef, nil
 	}
 	def, err := client.GetDefinition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, def, test.ShouldResemble, map[string]interface{}{"initial": "idle"})
+	test.That(t, def, test.ShouldResemble, wantDef)
+
+	injectSM.CurrentJobIDFunc = func(ctx context.Context, extra map[string]interface{}) (string, error) {
+		return "job-1", nil
+	}
+	jobID, err := client.CurrentJobID(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobID, test.ShouldEqual, "job-1")
 
 	var stopped, reset bool
 	injectSM.StopFunc = func(ctx context.Context, extra map[string]interface{}) error { stopped = true; return nil }

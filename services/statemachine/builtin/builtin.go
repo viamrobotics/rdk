@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/statemachine"
@@ -54,7 +56,7 @@ func (e *execution) progress(ctx context.Context) *task.Progress {
 	if e == nil || e.svc == nil {
 		return nil
 	}
-	st, err := e.svc.GetStatus(ctx, nil)
+	st, err := e.svc.GetTaskStatus(ctx, nil)
 	if err != nil || st.Phase != task.PhaseRunning {
 		return nil
 	}
@@ -79,7 +81,7 @@ type builtIn struct {
 	resource.Named
 	logger        logging.Logger
 	conf          *Config
-	definition    map[string]interface{}
+	definition    statemachine.Definition
 	root          *node
 	runners       map[*node]*runner
 	watchers      map[*node][]*watcher
@@ -103,6 +105,7 @@ type builtIn struct {
 	snap     statemachine.State
 	snapExec *execution
 	history  []statemachine.Transition
+	jobID    string
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -131,7 +134,7 @@ func NewBuiltIn(
 		Named:          conf.ResourceName().AsNamed(),
 		logger:         logger,
 		conf:           cfg,
-		definition:     map[string]interface{}(conf.Attributes),
+		definition:     definitionOf(root, cfg.Initial),
 		root:           root,
 		runners:        map[*node]*runner{},
 		watchers:       map[*node][]*watcher{},
@@ -168,6 +171,7 @@ func NewBuiltIn(
 	}
 
 	b.ctx, b.cancel = context.WithCancel(context.Background())
+	b.newJob()
 	b.enter(root.children[cfg.Initial], nil, statemachine.TriggerInitial, nil, nil)
 	b.wg.Add(1)
 	go b.loop()
@@ -463,7 +467,16 @@ func (b *builtIn) reset() {
 	b.logger.Infow("reset", "state", b.active.pathString())
 	b.context = copyMap(b.conf.Context)
 	b.root.walk(func(n *node) { n.lastLeaf = nil })
+	b.newJob()
 	b.enter(b.root.children[b.conf.Initial], nil, statemachine.TriggerReset, nil, nil)
+}
+
+// newJob starts a new job: the machine is about to enter its initial state
+// from the outside.
+func (b *builtIn) newJob() {
+	b.snapMu.Lock()
+	defer b.snapMu.Unlock()
+	b.jobID = uuid.NewString()
 }
 
 func (b *builtIn) fault(reason string) {
@@ -542,8 +555,14 @@ func (b *builtIn) GetHistory(ctx context.Context, limit int, extra map[string]in
 	return append([]statemachine.Transition{}, h...), nil
 }
 
-func (b *builtIn) GetDefinition(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
-	return copyMap(b.definition), nil
+func (b *builtIn) GetDefinition(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error) {
+	return b.definition, nil
+}
+
+func (b *builtIn) CurrentJobID(ctx context.Context, extra map[string]interface{}) (string, error) {
+	b.snapMu.RLock()
+	defer b.snapMu.RUnlock()
+	return b.jobID, nil
 }
 
 func (b *builtIn) Stop(ctx context.Context, extra map[string]interface{}) error {

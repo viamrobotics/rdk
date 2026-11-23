@@ -95,16 +95,28 @@ func (c *client) GetHistory(ctx context.Context, limit int, extra map[string]int
 	return transitions, nil
 }
 
-func (c *client) GetDefinition(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+func (c *client) GetDefinition(ctx context.Context, extra map[string]interface{}) (Definition, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return nil, err
+		return Definition{}, err
 	}
 	resp, err := c.client.GetDefinition(ctx, &pb.GetDefinitionRequest{Name: c.name, Extra: ext})
 	if err != nil {
-		return nil, err
+		return Definition{}, err
 	}
-	return resp.Definition.AsMap(), nil
+	return DefinitionFromProto(resp), nil
+}
+
+func (c *client) CurrentJobID(ctx context.Context, extra map[string]interface{}) (string, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.client.GetCurrentJobId(ctx, &pb.GetCurrentJobIdRequest{Name: c.name, Extra: ext})
+	if err != nil {
+		return "", err
+	}
+	return resp.JobId, nil
 }
 
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {

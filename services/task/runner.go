@@ -14,7 +14,7 @@ import (
 // hardware safely before returning.
 type RunFunc func(ctx context.Context, input map[string]interface{}, report ProgressFunc) (Result, error)
 
-// Runner implements Run and GetStatus for a task written as one RunFunc: it
+// Runner implements Run and GetTaskStatus for a task written as one RunFunc: it
 // enforces one execution at a time, tracks the phase, start time, latest
 // progress and last result. Embed it next to resource.Named to make a task
 // resource, or use NewFromFunc.
@@ -82,8 +82,8 @@ func (r *Runner) Run(ctx context.Context, input, extra map[string]interface{}) (
 	return res, err
 }
 
-// GetStatus reports the runner's phase, last result, start time and latest progress.
-func (r *Runner) GetStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {
+// GetTaskStatus reports the runner's phase, last result, start time and latest progress.
+func (r *Runner) GetTaskStatus(ctx context.Context, extra map[string]interface{}) (Status, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	s := Status{LastResult: r.last}

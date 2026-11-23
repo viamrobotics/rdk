@@ -47,17 +47,17 @@ func (server *serviceServer) Run(ctx context.Context, req *pb.RunRequest) (*pb.R
 	return &pb.RunResponse{Result: &pb.Result{Outcome: res.Outcome, Output: output}}, nil
 }
 
-// GetStatus reports whether the task is running and its last result.
-func (server *serviceServer) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
+// GetTaskStatus reports whether the task is running, its progress and its last result.
+func (server *serviceServer) GetTaskStatus(ctx context.Context, req *pb.GetTaskStatusRequest) (*pb.GetTaskStatusResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	st, err := svc.GetStatus(ctx, req.Extra.AsMap())
+	st, err := svc.GetTaskStatus(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	resp := &pb.GetStatusResponse{Phase: pb.Phase_PHASE_IDLE, Progress: ProgressToProto(st.Progress)}
+	resp := &pb.GetTaskStatusResponse{Phase: pb.Phase_PHASE_IDLE, Progress: ProgressToProto(st.Progress)}
 	if st.Phase == PhaseRunning {
 		resp.Phase = pb.Phase_PHASE_RUNNING
 	}
@@ -72,6 +72,15 @@ func (server *serviceServer) GetStatus(ctx context.Context, req *pb.GetStatusReq
 		resp.LastResult = &pb.Result{Outcome: st.LastResult.Outcome, Output: output}
 	}
 	return resp, nil
+}
+
+// GetStatus returns the status of the task resource.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	svc, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.GetStatusFromResourceServer(ctx, svc, req)
 }
 
 // DoCommand receives arbitrary commands.

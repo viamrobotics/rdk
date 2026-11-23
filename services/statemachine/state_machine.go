@@ -104,6 +104,32 @@ type Transition struct {
 	TaskResult *task.Result
 }
 
+// StateDefinition is one state of the machine as configured.
+type StateDefinition struct {
+	// Path is the state's path from the root, e.g. ["auto", "pour", "picking_glass"].
+	Path []string
+	// Initial is the child entered first, for a compound state. Empty for a leaf.
+	Initial string
+	// On maps the triggers (task outcomes and event names) the state handles to
+	// target state names as written in config, "$history" and "$done" included.
+	On map[string]string
+	// HasTask is whether the state runs a task.
+	HasTask bool
+}
+
+// Definition is the machine's graph as configured.
+type Definition struct {
+	// Initial is the top-level state entered on start and on Reset.
+	Initial string
+	// States is every state, compound states included.
+	States []StateDefinition
+	// Events is every trigger any state or the machine handles. Task outcomes
+	// and external events share this namespace.
+	Events []string
+	// On maps the triggers the machine handles at its top level to target state names.
+	On map[string]string
+}
+
 // Service is a state machine.
 type Service interface {
 	resource.Resource
@@ -115,7 +141,11 @@ type Service interface {
 	// GetHistory returns the most recent transitions, oldest first. limit <= 0 returns all retained.
 	GetHistory(ctx context.Context, limit int, extra map[string]interface{}) ([]Transition, error)
 	// GetDefinition returns the graph as configured.
-	GetDefinition(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
+	GetDefinition(ctx context.Context, extra map[string]interface{}) (Definition, error)
+	// CurrentJobID identifies the machine's current run. A new job starts each
+	// time the machine enters its initial state from the outside: at startup
+	// and on Reset.
+	CurrentJobID(ctx context.Context, extra map[string]interface{}) (string, error)
 	// Stop cancels the current task and holds the machine in its current state.
 	Stop(ctx context.Context, extra map[string]interface{}) error
 	// Reset cancels the current task, restores the configured context and re-enters the initial state.
@@ -136,6 +166,24 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 // NamesFromRobot is a helper for getting all state machine names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesByAPI(r, API)
+}
+
+// DefinitionToProto converts a definition to its proto message.
+func DefinitionToProto(d Definition) *pb.GetDefinitionResponse {
+	resp := &pb.GetDefinitionResponse{Initial: d.Initial, Events: d.Events, On: d.On}
+	for _, st := range d.States {
+		resp.States = append(resp.States, &pb.StateDefinition{Path: st.Path, Initial: st.Initial, On: st.On, HasTask: st.HasTask})
+	}
+	return resp
+}
+
+// DefinitionFromProto converts a proto definition message.
+func DefinitionFromProto(resp *pb.GetDefinitionResponse) Definition {
+	d := Definition{Initial: resp.Initial, Events: resp.Events, On: resp.On}
+	for _, st := range resp.States {
+		d.States = append(d.States, StateDefinition{Path: st.Path, Initial: st.Initial, On: st.On, HasTask: st.HasTask})
+	}
+	return d
 }
 
 // StatusToProto converts a status to its proto enum.

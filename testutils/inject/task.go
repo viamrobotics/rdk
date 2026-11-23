@@ -10,11 +10,11 @@ import (
 // Task is an injected task service for testing.
 type Task struct {
 	task.Service
-	name          resource.Name
-	RunFunc       func(ctx context.Context, input, extra map[string]interface{}) (task.Result, error)
-	GetStatusFunc func(ctx context.Context, extra map[string]interface{}) (task.Status, error)
-	DoFunc        func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc     func(ctx context.Context) error
+	name              resource.Name
+	RunFunc           func(ctx context.Context, input, extra map[string]interface{}) (task.Result, error)
+	GetTaskStatusFunc func(ctx context.Context, extra map[string]interface{}) (task.Status, error)
+	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc         func(ctx context.Context) error
 }
 
 // NewTask returns a new injected task service.
@@ -35,12 +35,12 @@ func (t *Task) Run(ctx context.Context, input, extra map[string]interface{}) (ta
 	return t.RunFunc(ctx, input, extra)
 }
 
-// GetStatus calls the injected GetStatusFunc or the real version.
-func (t *Task) GetStatus(ctx context.Context, extra map[string]interface{}) (task.Status, error) {
-	if t.GetStatusFunc == nil {
-		return t.Service.GetStatus(ctx, extra)
+// GetTaskStatus calls the injected GetTaskStatusFunc or the real version.
+func (t *Task) GetTaskStatus(ctx context.Context, extra map[string]interface{}) (task.Status, error) {
+	if t.GetTaskStatusFunc == nil {
+		return t.Service.GetTaskStatus(ctx, extra)
 	}
-	return t.GetStatusFunc(ctx, extra)
+	return t.GetTaskStatusFunc(ctx, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real version.

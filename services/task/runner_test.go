@@ -27,7 +27,7 @@ func TestRunnerOneAtATime(t *testing.T) {
 		}
 	})
 
-	st, err := svc.GetStatus(context.Background(), nil)
+	st, err := svc.GetTaskStatus(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, st.Phase, test.ShouldEqual, task.PhaseIdle)
 	test.That(t, st.LastResult, test.ShouldBeNil)
@@ -40,7 +40,7 @@ func TestRunnerOneAtATime(t *testing.T) {
 	}()
 	<-started
 
-	st, err = svc.GetStatus(context.Background(), nil)
+	st, err = svc.GetTaskStatus(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, st.Phase, test.ShouldEqual, task.PhaseRunning)
 	test.That(t, st.StartedAt.IsZero(), test.ShouldBeFalse)
@@ -54,7 +54,7 @@ func TestRunnerOneAtATime(t *testing.T) {
 	test.That(t, res.Outcome, test.ShouldEqual, task.OutcomeDone)
 	test.That(t, res.Output["echo"], test.ShouldEqual, 1.0)
 
-	st, err = svc.GetStatus(context.Background(), nil)
+	st, err = svc.GetTaskStatus(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, st.Phase, test.ShouldEqual, task.PhaseIdle)
 	test.That(t, st.Progress, test.ShouldBeNil)
@@ -75,7 +75,7 @@ func TestRunnerErrorAndCancel(t *testing.T) {
 
 	_, err := svc.Run(context.Background(), map[string]interface{}{"fail": true}, nil)
 	test.That(t, errors.Is(err, errBoom), test.ShouldBeTrue)
-	st, err := svc.GetStatus(context.Background(), nil)
+	st, err := svc.GetTaskStatus(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, st.LastResult.Outcome, test.ShouldEqual, task.OutcomeError)
 	test.That(t, st.LastResult.Output["error"], test.ShouldEqual, "boom")

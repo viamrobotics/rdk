@@ -100,11 +100,22 @@ func (server *serviceServer) GetDefinition(ctx context.Context, req *pb.GetDefin
 	if err != nil {
 		return nil, err
 	}
-	defPb, err := protoutils.StructToStructPb(def)
+	return DefinitionToProto(def), nil
+}
+
+// GetCurrentJobId returns the id of the machine's current job.
+//
+//nolint:revive // the generated gRPC interface spells it Id.
+func (server *serviceServer) GetCurrentJobId(ctx context.Context, req *pb.GetCurrentJobIdRequest) (*pb.GetCurrentJobIdResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetDefinitionResponse{Definition: defPb}, nil
+	jobID, err := svc.CurrentJobID(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetCurrentJobIdResponse{JobId: jobID}, nil
 }
 
 // Stop holds the machine.

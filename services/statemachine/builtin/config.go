@@ -5,12 +5,14 @@ package builtin
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/statemachine"
 	"go.viam.com/rdk/services/task"
 )
 
@@ -390,6 +392,38 @@ func mergeOn(base, override map[string]string) map[string]string {
 		out[k] = v
 	}
 	return out
+}
+
+// definitionOf describes the compiled tree for GetDefinition.
+func definitionOf(root *node, initial string) statemachine.Definition {
+	def := statemachine.Definition{Initial: initial, On: mergeOn(nil, root.on)}
+	events := map[string]struct{}{}
+	for trigger := range root.on {
+		events[trigger] = struct{}{}
+	}
+	root.walk(func(n *node) {
+		if n.parent == nil {
+			return
+		}
+		def.States = append(def.States, statemachine.StateDefinition{
+			Path:    n.path(),
+			Initial: n.initial,
+			On:      mergeOn(nil, n.on),
+			HasTask: n.task != nil,
+		})
+		for trigger := range n.on {
+			events[trigger] = struct{}{}
+		}
+	})
+	sort.Slice(def.States, func(i, j int) bool {
+		return strings.Join(def.States[i].Path, ".") < strings.Join(def.States[j].Path, ".")
+	})
+	def.Events = make([]string, 0, len(events))
+	for e := range events {
+		def.Events = append(def.Events, e)
+	}
+	sort.Strings(def.Events)
+	return def
 }
 
 // resolveTarget finds the state a transition on handler targets: handler's

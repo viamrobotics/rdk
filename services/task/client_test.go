@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 		test.That(t, res.Outcome, test.ShouldEqual, "custom")
 		test.That(t, res.Output, test.ShouldResemble, map[string]interface{}{"echo": "y"})
 
-		st, err := client.GetStatus(context.Background(), nil)
+		st, err := client.GetTaskStatus(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, st.Phase, test.ShouldEqual, task.PhaseIdle)
 		test.That(t, st.LastResult.Outcome, test.ShouldEqual, "custom")
@@ -103,7 +103,7 @@ func TestClient(t *testing.T) {
 		}()
 		utilstestutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			st, err := client.GetStatus(context.Background(), nil)
+			st, err := client.GetTaskStatus(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, st.Phase, test.ShouldEqual, task.PhaseRunning)
 			test.That(tb, st.StartedAt.IsZero(), test.ShouldBeFalse)
@@ -117,7 +117,7 @@ func TestClient(t *testing.T) {
 		test.That(t, <-errCh, test.ShouldNotBeNil)
 		utilstestutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			st, err := client.GetStatus(context.Background(), nil)
+			st, err := client.GetTaskStatus(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, st.Phase, test.ShouldEqual, task.PhaseIdle)
 		})

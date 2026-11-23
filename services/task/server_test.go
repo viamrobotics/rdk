@@ -68,10 +68,10 @@ func TestServerRun(t *testing.T) {
 	})
 }
 
-func TestServerGetStatus(t *testing.T) {
+func TestServerGetTaskStatus(t *testing.T) {
 	server, injectTask := newServer(t)
 	startedAt := time.Now()
-	injectTask.GetStatusFunc = func(ctx context.Context, extra map[string]interface{}) (task.Status, error) {
+	injectTask.GetTaskStatusFunc = func(ctx context.Context, extra map[string]interface{}) (task.Status, error) {
 		return task.Status{
 			Phase:      task.PhaseRunning,
 			StartedAt:  startedAt,
@@ -79,7 +79,7 @@ func TestServerGetStatus(t *testing.T) {
 			LastResult: &task.Result{Outcome: "done", Output: map[string]interface{}{"x": 1.0}},
 		}, nil
 	}
-	resp, err := server.GetStatus(context.Background(), &pb.GetStatusRequest{Name: "task1"})
+	resp, err := server.GetTaskStatus(context.Background(), &pb.GetTaskStatusRequest{Name: "task1"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Phase, test.ShouldEqual, pb.Phase_PHASE_RUNNING)
 	test.That(t, resp.StartedAt.AsTime().Equal(startedAt), test.ShouldBeTrue)
@@ -87,15 +87,15 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, resp.LastResult.Outcome, test.ShouldEqual, "done")
 	test.That(t, resp.LastResult.Output.AsMap(), test.ShouldResemble, map[string]interface{}{"x": 1.0})
 
-	injectTask.GetStatusFunc = func(ctx context.Context, extra map[string]interface{}) (task.Status, error) {
+	injectTask.GetTaskStatusFunc = func(ctx context.Context, extra map[string]interface{}) (task.Status, error) {
 		return task.Status{}, nil
 	}
-	resp, err = server.GetStatus(context.Background(), &pb.GetStatusRequest{Name: "task1"})
+	resp, err = server.GetTaskStatus(context.Background(), &pb.GetTaskStatusRequest{Name: "task1"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Phase, test.ShouldEqual, pb.Phase_PHASE_IDLE)
 	test.That(t, resp.StartedAt, test.ShouldBeNil)
 	test.That(t, resp.LastResult, test.ShouldBeNil)
 
-	_, err = server.GetStatus(context.Background(), &pb.GetStatusRequest{Name: "nope"})
+	_, err = server.GetTaskStatus(context.Background(), &pb.GetTaskStatusRequest{Name: "nope"})
 	test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
 }
