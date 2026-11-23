@@ -734,10 +734,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 		delete(envWithoutAPIKey, rutils.APIKeyEnvVar)
 		delete(envWithoutAPIKey, rutils.APIKeyIDEnvVar)
 		for idx := 0; idx < len(cfg.Modules); idx++ {
-			if cfg.Modules[idx].DisableCloudAPIKeyEnv {
-				cfg.Modules[idx].MergeEnvVars(envWithoutAPIKey)
-			} else {
+			if cfg.Modules[idx].ReceivesMachineAPIKey() {
 				cfg.Modules[idx].MergeEnvVars(env)
+			} else {
+				cfg.Modules[idx].MergeEnvVars(envWithoutAPIKey)
 			}
 		}
 	}

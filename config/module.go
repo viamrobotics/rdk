@@ -56,9 +56,9 @@ type Module struct {
 	// RunAsUser is the system user the module process runs as. Empty means the same user as viam-server.
 	// Setting it forces TCP mode, since the module cannot otherwise reach viam-server's unix sockets.
 	RunAsUser string `json:"run_as_user,omitempty"`
-	// DisableCloudAPIKeyEnv stops viam-server from adding the machine's cloud API key (VIAM_API_KEY and
-	// VIAM_API_KEY_ID) to the module's environment. Values set explicitly in Environment are still passed.
-	DisableCloudAPIKeyEnv bool `json:"disable_cloud_api_key_env,omitempty"`
+	// CloudAccess selects the cloud API key viam-server puts in the module's environment (VIAM_API_KEY and
+	// VIAM_API_KEY_ID). Unset means the machine's own key. Values set explicitly in Environment still win.
+	CloudAccess *ModuleCloudAccess `json:"cloud_access,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
 	// This field will only be applied if it is a positive value. Supplying a
@@ -75,6 +75,43 @@ type Module struct {
 
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
+}
+
+// ModuleCloudAccessMode is how a module gets cloud API credentials.
+type ModuleCloudAccessMode string
+
+const (
+	// ModuleCloudAccessMachine gives the module the machine's own cloud API key. It is the default.
+	ModuleCloudAccessMachine ModuleCloudAccessMode = "machine"
+	// ModuleCloudAccessNone gives the module no cloud API key.
+	ModuleCloudAccessNone ModuleCloudAccessMode = "none"
+)
+
+// ModuleCloudAccess selects the cloud credentials a module receives.
+type ModuleCloudAccess struct {
+	Mode ModuleCloudAccessMode `json:"mode,omitempty"`
+	// APIKeyID is reserved for choosing a specific API key and must be empty until a mode uses it.
+	APIKeyID string `json:"api_key_id,omitempty"`
+}
+
+// ReceivesMachineAPIKey reports whether viam-server should put the machine's cloud API key in the module's environment.
+func (m Module) ReceivesMachineAPIKey() bool {
+	return m.CloudAccess == nil || m.CloudAccess.Mode == "" || m.CloudAccess.Mode == ModuleCloudAccessMachine
+}
+
+func (a *ModuleCloudAccess) validate() error {
+	if a == nil {
+		return nil
+	}
+	switch a.Mode {
+	case "", ModuleCloudAccessMachine, ModuleCloudAccessNone:
+	default:
+		return fmt.Errorf("unknown cloud_access mode %q; expected %q or %q", a.Mode, ModuleCloudAccessMachine, ModuleCloudAccessNone)
+	}
+	if a.APIKeyID != "" {
+		return errors.New("cloud_access.api_key_id is not supported yet")
+	}
+	return nil
 }
 
 // ParentSockAddrs stores addresses for both TCP and UDS-based connection.
@@ -134,6 +171,10 @@ func (m *Module) validate(path string) error {
 
 	if m.Name == reservedModuleName {
 		return fmt.Errorf("module %s cannot use the reserved name of %s", path, reservedModuleName)
+	}
+
+	if err := m.CloudAccess.validate(); err != nil {
+		return resource.NewConfigValidationError(path, err)
 	}
 
 	return nil

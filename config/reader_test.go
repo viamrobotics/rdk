@@ -1245,8 +1245,9 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 	})
 }
 
-func TestProcessConfigDisableCloudAPIKeyEnv(t *testing.T) {
+func TestProcessConfigModuleCloudAccess(t *testing.T) {
 	logger := logging.NewTestLogger(t)
+	none := &ModuleCloudAccess{Mode: ModuleCloudAccessNone}
 	unprocessedConfig := Config{
 		Cloud: &Cloud{ID: "part-id", Secret: "secret", FQDN: "part.viam.cloud", LocalFQDN: "part.local.viam.cloud"},
 		Auth: AuthConfig{
@@ -1256,10 +1257,14 @@ func TestProcessConfigDisableCloudAPIKeyEnv(t *testing.T) {
 			}}},
 		},
 		Modules: []Module{
-			{Name: "withkey", ExePath: "/bin/true", Type: ModuleTypeRegistry},
-			{Name: "withoutkey", ExePath: "/bin/true", Type: ModuleTypeRegistry, DisableCloudAPIKeyEnv: true},
+			{Name: "default", ExePath: "/bin/true", Type: ModuleTypeRegistry},
 			{
-				Name: "explicitkey", ExePath: "/bin/true", Type: ModuleTypeRegistry, DisableCloudAPIKeyEnv: true,
+				Name: "machine", ExePath: "/bin/true", Type: ModuleTypeRegistry,
+				CloudAccess: &ModuleCloudAccess{Mode: ModuleCloudAccessMachine},
+			},
+			{Name: "none", ExePath: "/bin/true", Type: ModuleTypeRegistry, CloudAccess: none},
+			{
+				Name: "explicitkey", ExePath: "/bin/true", Type: ModuleTypeRegistry, CloudAccess: none,
 				Environment: map[string]string{utils.APIKeyEnvVar: "mine"},
 			},
 		},
@@ -1268,14 +1273,16 @@ func TestProcessConfigDisableCloudAPIKeyEnv(t *testing.T) {
 	cfg, err := processConfig(&unprocessedConfig, true, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	withKey, withoutKey, explicitKey := cfg.Modules[0].Environment, cfg.Modules[1].Environment, cfg.Modules[2].Environment
-	test.That(t, withKey[utils.APIKeyEnvVar], test.ShouldEqual, "key")
-	test.That(t, withKey[utils.APIKeyIDEnvVar], test.ShouldEqual, "key-id")
+	for _, mod := range cfg.Modules[:2] {
+		test.That(t, mod.Environment[utils.APIKeyEnvVar], test.ShouldEqual, "key")
+		test.That(t, mod.Environment[utils.APIKeyIDEnvVar], test.ShouldEqual, "key-id")
+	}
 
-	test.That(t, withoutKey, test.ShouldNotContainKey, utils.APIKeyEnvVar)
-	test.That(t, withoutKey, test.ShouldNotContainKey, utils.APIKeyIDEnvVar)
-	test.That(t, withoutKey[utils.MachinePartIDEnvVar], test.ShouldEqual, "part-id")
+	noneEnv, explicitEnv := cfg.Modules[2].Environment, cfg.Modules[3].Environment
+	test.That(t, noneEnv, test.ShouldNotContainKey, utils.APIKeyEnvVar)
+	test.That(t, noneEnv, test.ShouldNotContainKey, utils.APIKeyIDEnvVar)
+	test.That(t, noneEnv[utils.MachinePartIDEnvVar], test.ShouldEqual, "part-id")
 
-	test.That(t, explicitKey[utils.APIKeyEnvVar], test.ShouldEqual, "mine")
-	test.That(t, explicitKey, test.ShouldNotContainKey, utils.APIKeyIDEnvVar)
+	test.That(t, explicitEnv[utils.APIKeyEnvVar], test.ShouldEqual, "mine")
+	test.That(t, explicitEnv, test.ShouldNotContainKey, utils.APIKeyIDEnvVar)
 }

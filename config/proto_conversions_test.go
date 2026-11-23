@@ -338,6 +338,32 @@ func TestModuleConfigToProto(t *testing.T) {
 	validateModule(t, *out, testModuleWithTimeout)
 }
 
+func TestModuleProcessOptionsProtoRoundTrip(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	for _, access := range []*ModuleCloudAccess{
+		nil,
+		{},
+		{Mode: ModuleCloudAccessMachine},
+		{Mode: ModuleCloudAccessNone},
+	} {
+		mod := testModule
+		mod.RunAsUser = "viam"
+		mod.CloudAccess = access
+		modProto, err := ModuleConfigToProto(&mod)
+		test.That(t, err, test.ShouldBeNil)
+
+		out, err := ModuleConfigFromProto(modProto, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, out.RunAsUser, test.ShouldEqual, "viam")
+		test.That(t, out.CloudAccess, test.ShouldResemble, access)
+	}
+
+	unknownMode := &pb.ModuleConfig{Name: "mod", CloudAccess: &pb.ModuleCloudAccess{Mode: 99}}
+	out, err := ModuleConfigFromProto(unknownMode, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.ReceivesMachineAPIKey(), test.ShouldBeFalse)
+}
+
 //nolint:thelper
 func validateComponent(t *testing.T, actual, expected resource.Config) {
 	test.That(t, actual.Name, test.ShouldEqual, expected.Name)

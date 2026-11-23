@@ -456,3 +456,26 @@ func testSetUpRegistryModule(t *testing.T) (module Module, metaJSONFilepath stri
 	logger, observedLogs = logging.NewObservedTestLogger(t)
 	return module, metaJSONFilepath, env, logger, observedLogs
 }
+
+func TestModuleCloudAccessValidation(t *testing.T) {
+	for _, tc := range []struct {
+		access *ModuleCloudAccess
+		errMsg string
+	}{
+		{access: nil},
+		{access: &ModuleCloudAccess{}},
+		{access: &ModuleCloudAccess{Mode: ModuleCloudAccessMachine}},
+		{access: &ModuleCloudAccess{Mode: ModuleCloudAccessNone}},
+		{access: &ModuleCloudAccess{Mode: "admin"}, errMsg: `unknown cloud_access mode "admin"`},
+		{access: &ModuleCloudAccess{Mode: ModuleCloudAccessMachine, APIKeyID: "abc"}, errMsg: "not supported yet"},
+	} {
+		mod := Module{Name: "mod", ExePath: "/bin/true", Type: ModuleTypeRegistry, CloudAccess: tc.access}
+		err := mod.Validate("modules.0")
+		if tc.errMsg == "" {
+			test.That(t, err, test.ShouldBeNil)
+		} else {
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, tc.errMsg)
+		}
+	}
+}
