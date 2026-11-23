@@ -272,13 +272,20 @@ func TestCylinderJSONRoundTrip(t *testing.T) {
 	test.That(t, orig.almostEqual(rc), test.ShouldBeTrue)
 }
 
-func TestCylinderToProtobufPanics(t *testing.T) {
-	c := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 1, 1, "")
-	defer func() {
-		r := recover()
-		test.That(t, r, test.ShouldNotBeNil)
-	}()
-	_ = c.ToProtobuf()
+func TestCylinderToProtobuf(t *testing.T) {
+	pose := NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &OrientationVectorDegrees{OX: 1, OZ: 1, Theta: 10})
+
+	solid := makeTestCylinder(pose.Orientation(), pose.Point(), 7, 11, "solid")
+	pb := solid.ToProtobuf()
+	test.That(t, pb.Label, test.ShouldEqual, "solid")
+	test.That(t, PoseAlmostEqual(NewPoseFromProtobuf(pb.Center), pose), test.ShouldBeTrue)
+	cyl := pb.GetCylinder()
+	test.That(t, cyl, test.ShouldNotBeNil)
+	test.That(t, cyl.RadiusMm, test.ShouldEqual, 7)
+	test.That(t, cyl.LengthMm, test.ShouldEqual, 11)
+
+	open := makeOpenTestCylinder(pose.Orientation(), pose.Point(), 7, 11, "open")
+	test.That(t, func() { open.ToProtobuf() }, test.ShouldPanic)
 }
 
 // --- Collision / distance / encompass ---
@@ -579,5 +586,34 @@ func TestCylinderTransformShiftsMesh(t *testing.T) {
 			mw := TransformPoint(movedQ, movedT, mp)
 			test.That(t, R3VectorAlmostEqual(mw.Sub(bw), shift, 1e-9), test.ShouldBeTrue)
 		}
+	}
+}
+
+// TestCapsuleVsCylinderCollisionOrder checks that a capsule and a Cylinder agree on collision
+// and separation distance regardless of which one is the receiver.
+func TestCapsuleVsCylinderCollisionOrder(t *testing.T) {
+	cyl, err := NewCylinder(NewZeroPose(), 50, 120, "")
+	test.That(t, err, test.ShouldBeNil)
+	for _, tc := range []struct {
+		name    string
+		x       float64
+		collide bool
+	}{
+		{"far", 400, false},
+		{"near_miss", 80, false},
+		{"penetrating", 60, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Parallel capsule beside the wall: r=20, so the gap to the true wall is x-70.
+			c, err := NewCapsule(NewPoseFromPoint(r3.Vector{X: tc.x}), 20, 100, "")
+			test.That(t, err, test.ShouldBeNil)
+			hitCap, distCap, err := c.CollidesWith(cyl, defaultCollisionBufferMM)
+			test.That(t, err, test.ShouldBeNil)
+			hitCyl, distCyl, err := cyl.CollidesWith(c, defaultCollisionBufferMM)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, hitCap, test.ShouldEqual, tc.collide)
+			test.That(t, hitCyl, test.ShouldEqual, tc.collide)
+			test.That(t, distCap, test.ShouldAlmostEqual, distCyl)
+		})
 	}
 }
