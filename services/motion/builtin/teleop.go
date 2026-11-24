@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -19,46 +20,216 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/streaming"
+	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 	"go.viam.com/rdk/utils"
 )
 
-const defaultTeleopSmoothAlpha = 0.5
+const (
+	teleopStreamRunwayMs     = 30
+	teleopStreamIntervalMs   = 10
+	teleopStreamLimitMargin  = 0.95
+	teleopStreamDiagWindow   = 2 * time.Second
+	teleopStreamTargetBuffer = 4
+	teleopStreamCloseTimeout = 2 * time.Second
+)
+
+var (
+	errTeleopStreamClosed   = errors.New("teleop arm stream is closed")
+	errTeleopNoStreamLimits = errors.New("arm publishes no joint velocity and acceleration limits; " +
+		"set teleop_stream.max_vel_degs_per_sec and teleop_stream.max_acc_degs_per_sec2")
+)
+
+// TeleopStreamConfig tunes the arm streams teleop drives. Every field is optional.
+type TeleopStreamConfig struct {
+	MaxVelDegsPerSec  float64 `json:"max_vel_degs_per_sec"`
+	MaxAccDegsPerSec2 float64 `json:"max_acc_degs_per_sec2"`
+	ChaseGainPerSec   float64 `json:"chase_gain_per_sec"`
+}
+
+func teleopStreamOptions() streaming.StreamOptions {
+	runway := int32(teleopStreamRunwayMs)
+	interval := int32(teleopStreamIntervalMs)
+	window := int32(teleopStreamDiagWindow / time.Second)
+	return streaming.NewStreamOptions(motion.TempStreamOptions{
+		ArmSideTargetRunwayMs: &runway,
+		SendToArmIntervalMs:   &interval,
+		DiagnosticsWindowSecs: &window,
+	})
+}
+
+func configuredLimit(degs float64, dof int) []float64 {
+	if degs <= 0 {
+		return nil
+	}
+	rads := make([]float64, dof)
+	for i := range rads {
+		rads[i] = utils.DegToRad(degs)
+	}
+	return rads
+}
+
+func (c TeleopStreamConfig) jointLimits(armLimits []referenceframe.Limit) (vel, acc []float64, err error) {
+	dof := len(armLimits)
+	cfgVel := configuredLimit(c.MaxVelDegsPerSec, dof)
+	cfgAcc := configuredLimit(c.MaxAccDegsPerSec2, dof)
+
+	armVel, armAcc, ok := referenceframe.TrajectoryLimits(armLimits)
+	for i := 0; ok && i < dof; i++ {
+		ok = armVel[i] > 0 && armAcc[i] > 0
+	}
+	if !ok {
+		if cfgVel == nil || cfgAcc == nil {
+			return nil, nil, errTeleopNoStreamLimits
+		}
+		return cfgVel, cfgAcc, nil
+	}
+
+	vel = make([]float64, dof)
+	acc = make([]float64, dof)
+	for i := range dof {
+		vel[i] = armVel[i] * teleopStreamLimitMargin
+		if cfgVel != nil {
+			vel[i] = min(vel[i], cfgVel[i])
+		}
+		acc[i] = armAcc[i] * teleopStreamLimitMargin
+		if cfgAcc != nil {
+			acc[i] = min(acc[i], cfgAcc[i])
+		}
+	}
+	return vel, acc, nil
+}
+
+func (c TeleopStreamConfig) chase() teleopChase {
+	tc := teleopChase{gain: defaultTeleopChaseGainPerSec}
+	if c.ChaseGainPerSec > 0 {
+		tc.gain = min(c.ChaseGainPerSec, teleopChaseMaxGainPerSec)
+	}
+	return tc
+}
+
+func (c TeleopStreamConfig) validate() error {
+	if c.ChaseGainPerSec < 0 {
+		return fmt.Errorf("teleop_stream.chase_gain_per_sec must be non-negative (0 selects the default), got %v", c.ChaseGainPerSec)
+	}
+	for name, v := range map[string]float64{"max_vel_degs_per_sec": c.MaxVelDegsPerSec, "max_acc_degs_per_sec2": c.MaxAccDegsPerSec2} {
+		if v < 0 {
+			return fmt.Errorf("teleop_stream.%s must be non-negative (0 uses the arm's own limit), got %v", name, v)
+		}
+	}
+	return nil
+}
+
+type teleopArmStreamRunner func(
+	ctx context.Context,
+	logger logging.Logger,
+	a arm.Arm,
+	opts streaming.StreamOptions,
+	targets <-chan []referenceframe.Input,
+	seed []referenceframe.Input,
+	diag *diagnostics.SingleSessionDiagnostics,
+) error
+
+type teleopArmStream struct {
+	mu      sync.Mutex
+	targets chan []referenceframe.Input
+	closed  bool
+
+	done chan struct{}
+	err  error
+
+	diag   *diagnostics.SingleSessionDiagnostics
+	opts   streaming.StreamOptions
+	cancel context.CancelFunc
+}
+
+func (s *teleopArmStream) isDone() bool {
+	select {
+	case <-s.done:
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *teleopArmStream) push(ctx context.Context, jp []referenceframe.Input) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return errTeleopStreamClosed
+	}
+	select {
+	case <-s.done:
+		return s.closedErr()
+	default:
+	}
+	select {
+	case s.targets <- jp:
+		return nil
+	case <-s.done:
+		return s.closedErr()
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (s *teleopArmStream) closedErr() error {
+	if s.err != nil {
+		return fmt.Errorf("%w: %w", errTeleopStreamClosed, s.err)
+	}
+	return errTeleopStreamClosed
+}
+
+func (s *teleopArmStream) close() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	s.closed = true
+	close(s.targets)
+}
 
 // teleopComponent tracks a single component being teleop'd within the pipeline.
 type teleopComponent struct {
 	name        string
 	moveReqBase motion.MoveReq
 	latestPose  atomic.Pointer[referenceframe.PoseInFrame]
+	arms        []string
 }
 
-// emaSmooth applies an exponential moving average to the commanded joint positions:
-// out = alpha*target + (1-alpha)*previous, per joint. previous is carried across
-// steps and across cycles so the commanded stream stays continuous.
-func emaSmooth(target, previous []referenceframe.Input, alpha float64) []referenceframe.Input {
-	if previous == nil || len(previous) != len(target) || alpha >= 1.0 {
-		result := make([]referenceframe.Input, len(target))
-		copy(result, target)
-		return result
-	}
-	b := 1.0 - alpha
-	result := make([]referenceframe.Input, len(target))
-	for j := range target {
-		result[j] = alpha*target[j] + b*previous[j]
-	}
-	return result
+type teleopArmState struct {
+	name string
+
+	mu       sync.Mutex
+	stream   *teleopArmStream
+	failed   error
+	released bool
 }
 
 // teleopPipeline manages the continuous motion pipeline for low-latency teleop.
 // It supports multiple components (arms) planned jointly in a single pipeline
 // to guarantee collision-free trajectories.
 //
-//	notify → Planner goroutine → trajCh → Executor goroutine → arm.GoToInputs()
+//	notify → Planner goroutine → trajCh → Executor goroutine → arm stream
 type teleopPipeline struct {
 	logger logging.Logger
 
 	// Immutable after creation.
 	cachedFrameSys   *referenceframe.FrameSystem      // built once at pipeline start
 	cachedBaseInputs referenceframe.FrameSystemInputs // snapshot at pipeline start
+
+	streamOpts   streaming.StreamOptions
+	streamConf   TeleopStreamConfig
+	runArmStream teleopArmStreamRunner
+
+	streamCtx      context.Context
+	streamCancel   context.CancelFunc
+	streamWG       sync.WaitGroup
+	armsMu         sync.Mutex
+	arms           map[string]*teleopArmState
+	armUsers       map[string]int
+	streamsStopped bool
 
 	// Components being teleop'd. Protected by componentsMu.
 	componentsMu sync.RWMutex
@@ -87,8 +258,8 @@ type teleopPipeline struct {
 	planCount         atomic.Int64
 	execCount         atomic.Int64
 
-	// EMA-smoothed joint positions per component. Only accessed by executor goroutine.
-	smoothedJoints map[string][]referenceframe.Input
+	// Last joint positions commanded per component. Only accessed by the executor goroutine.
+	commandedJoints map[string][]referenceframe.Input
 
 	// Lifecycle.
 	workers *goutils.StoppableWorkers
@@ -280,10 +451,9 @@ func (tp *teleopPipeline) buildExtra(
 	return extra
 }
 
-// executeTeleop executes a trajectory by sending joint targets to all components
-// in parallel. Unlike ms.execute, it skips the step-0 position check (which blocks
-// on CurrentInputs gRPC calls) and sends commands to all arms concurrently rather
-// than sequentially.
+// executeTeleop sends a trajectory's joint targets to all components: arms through their
+// streams, other input-enabled components with GoToInputs. Unlike ms.execute, it skips the
+// step-0 position check (which blocks on CurrentInputs gRPC calls).
 func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj motionplan.Trajectory) error {
 	if len(traj) < 2 {
 		return nil
@@ -300,22 +470,10 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		}
 	}
 
-	// Read teleop config.
-	// NOTE: caller (runExecutor) already holds ms.mu.RLock, so safe to read ms.conf directly.
-	smoothAlpha := defaultTeleopSmoothAlpha
-	interpolateOverride := false
-	if ms.conf != nil {
-		if ms.conf.TeleopSmoothAlpha > 0 {
-			smoothAlpha = ms.conf.TeleopSmoothAlpha
-		}
-		interpolateOverride = ms.conf.TeleopInterpolateOverride
-	}
-
-	// Send joint targets to all components in parallel.
+	var mu sync.Mutex
+	var errs []error
 	var wg sync.WaitGroup
-	errs := make([]error, len(perComponent))
-	idx := 0
-	for name, inputs := range perComponent {
+	for name, steps := range perComponent {
 		res, ok := ms.components[name]
 		if !ok {
 			// The planner included this component but it has since left the motion
@@ -330,52 +488,200 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			continue
 		}
 
-		// Apply EMA smoothing to joint positions before sending (executor goroutine only).
-		smoothed := make([][]referenceframe.Input, len(inputs))
-		prev := tp.smoothedJoints[name]
-		for k, step := range inputs {
-			smoothed[k] = emaSmooth(step, prev, smoothAlpha)
-			prev = smoothed[k]
-		}
-		tp.smoothedJoints[name] = prev
-
-		wg.Add(1)
-		go func(i int, ie framesystem.InputEnabled, smoothed [][]referenceframe.Input) {
-			defer wg.Done()
-			var err error
-			if armComp, ok := ie.(arm.Arm); ok {
-				if interpolateOverride {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
-						"waitAtEnd":   true,
-						"interpolate": true,
-					})
-				} else {
-					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
-						"waitAtEnd":   false,
-						"interpolate": false,
-					})
-				}
-			} else {
-				err = ie.GoToInputs(ctx, smoothed...)
-			}
+		if armComp, ok := ie.(arm.Arm); ok {
+			sent, err := tp.executeStreamed(ctx, name, armComp, steps)
 			if err != nil {
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("teleop stream for %q: %w", name, err))
+				mu.Unlock()
+			} else if sent {
+				tp.commandedJoints[name] = steps[len(steps)-1]
+			}
+			continue
+		}
+
+		tp.commandedJoints[name] = steps[len(steps)-1]
+		wg.Add(1)
+		go func(name string, ie framesystem.InputEnabled, steps [][]referenceframe.Input) {
+			defer wg.Done()
+			if err := ie.GoToInputs(ctx, steps...); err != nil {
 				if actuator, ok := ie.(inputEnabledActuator); ok {
 					//nolint:errcheck
 					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
-				errs[i] = err
+				mu.Lock()
+				errs = append(errs, fmt.Errorf("teleop move for %q: %w", name, err))
+				mu.Unlock()
 			}
-		}(idx, ie, smoothed)
-		idx++
+		}(name, ie, steps)
 	}
 	wg.Wait()
+	return errors.Join(errs...)
+}
 
-	for _, err := range errs {
+func (tp *teleopPipeline) executeStreamed(
+	ctx context.Context,
+	name string,
+	a arm.Arm,
+	steps [][]referenceframe.Input,
+) (bool, error) {
+	comp := tp.armState(name)
+	if comp == nil {
+		return false, nil
+	}
+
+	comp.mu.Lock()
+	defer comp.mu.Unlock()
+	if comp.released {
+		return false, nil
+	}
+	if comp.failed != nil {
+		return false, comp.failed
+	}
+
+	s := comp.stream
+	if s == nil {
+		var err error
+		s, err = tp.openArmStream(ctx, a, comp)
+		if errors.Is(err, errTeleopNoStreamLimits) {
+			comp.failed = err
+			tp.logger.CWarnf(ctx, "teleop executor: cannot teleoperate %q: %v", name, err)
+			return false, err
+		}
 		if err != nil {
-			return err
+			return false, fmt.Errorf("opening arm stream: %w", err)
 		}
 	}
-	return nil
+
+	for _, step := range steps {
+		if err := s.push(ctx, step); err != nil {
+			if s.isDone() {
+				comp.failed = s.closedErr()
+				tp.logger.CWarnf(ctx, "teleop executor: arm stream for %q died; %q stays stopped until teleop restarts on it: %v",
+					name, name, s.err)
+			}
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *teleopArmState) (*teleopArmStream, error) {
+	model, err := a.Kinematics(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading arm kinematics for its joint limits: %w", err)
+	}
+	vel, acc, err := tp.streamConf.jointLimits(model.DoF())
+	if err != nil {
+		return nil, err
+	}
+	opts := tp.streamOpts
+	opts.MoveOptions.MaxVelRadsJoints = vel
+	opts.MoveOptions.MaxAccRadsJoints = acc
+
+	seed, err := a.JointPositions(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("reading seed joint positions: %w", err)
+	}
+
+	streamCtx, cancel := context.WithCancel(tp.streamCtx)
+	s := &teleopArmStream{
+		targets: make(chan []referenceframe.Input, teleopStreamTargetBuffer),
+		done:    make(chan struct{}),
+		diag:    diagnostics.New(opts.DiagnosticsWindow),
+		opts:    opts,
+		cancel:  cancel,
+	}
+	comp.stream = s
+
+	tp.planningHeadMu.Lock()
+	tp.planningHead[comp.name] = seed
+	tp.planningHeadMu.Unlock()
+	tp.commandedJoints[comp.name] = seed
+
+	name := comp.name
+	tp.streamWG.Add(1)
+	go func() {
+		defer tp.streamWG.Done()
+		defer cancel()
+		err := tp.runArmStream(streamCtx, tp.logger, a, opts, s.targets, seed, s.diag)
+		s.err = err
+		close(s.done)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			tp.logger.CWarnf(streamCtx, "teleop arm stream for %q ended: %v", name, err)
+		}
+		tp.logger.Infow("teleop arm stream stats", "component", name, "options", opts, "stats", s.diag.Stats())
+	}()
+	tp.logger.CInfof(ctx, "teleop executor: opened arm stream for %q with joint limits %.0f deg/s, %.0f deg/s^2",
+		name, inputsToDeg(vel), inputsToDeg(acc))
+	return s, nil
+}
+
+func (tp *teleopPipeline) armState(name string) *teleopArmState {
+	tp.armsMu.Lock()
+	defer tp.armsMu.Unlock()
+	if tp.streamsStopped || tp.armUsers[name] == 0 {
+		return nil
+	}
+	st, ok := tp.arms[name]
+	if !ok {
+		st = &teleopArmState{name: name}
+		tp.arms[name] = st
+	}
+	return st
+}
+
+func (tp *teleopPipeline) useArms(names []string) {
+	tp.armsMu.Lock()
+	defer tp.armsMu.Unlock()
+	for _, name := range names {
+		tp.armUsers[name]++
+	}
+}
+
+func (tp *teleopPipeline) releaseArms(names []string) {
+	var unused []*teleopArmState
+	tp.armsMu.Lock()
+	for _, name := range names {
+		tp.armUsers[name]--
+		if tp.armUsers[name] > 0 {
+			continue
+		}
+		delete(tp.armUsers, name)
+		if st, ok := tp.arms[name]; ok {
+			delete(tp.arms, name)
+			unused = append(unused, st)
+		}
+	}
+	tp.armsMu.Unlock()
+
+	for _, st := range unused {
+		st.mu.Lock()
+		st.released = true
+		s := st.stream
+		st.mu.Unlock()
+		if s != nil {
+			s.close()
+		}
+	}
+}
+
+func (tp *teleopPipeline) armStates() []*teleopArmState {
+	tp.armsMu.Lock()
+	defer tp.armsMu.Unlock()
+	states := make([]*teleopArmState, 0, len(tp.arms))
+	for _, st := range tp.arms {
+		states = append(states, st)
+	}
+	return states
+}
+
+func inputsToDeg(inputs []referenceframe.Input) []float64 {
+	degs := make([]float64, len(inputs))
+	for i, v := range inputs {
+		degs[i] = utils.RadToDeg(v)
+	}
+	return degs
 }
 
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
@@ -414,15 +720,17 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			lastExecEnd = time.Now()
 
 			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 				tp.lastErr.Store(&err)
 				tp.logger.CWarnf(ctx, "teleop executor error: %v", err)
 				tp.resetPlanningHead(ctx, ms)
 			} else {
 				tp.lastErr.Store(nil)
-				// Update planning head to smoothed positions (what was actually
-				// sent to the arm) so the next plan starts from reality.
+				// Start the next plan from what was actually commanded.
 				tp.planningHeadMu.Lock()
-				for name, joints := range tp.smoothedJoints {
+				for name, joints := range tp.commandedJoints {
 					tp.planningHead[name] = joints
 				}
 				tp.planningHeadMu.Unlock()
@@ -450,11 +758,70 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 	default:
 	}
 	tp.planningHeadMu.Unlock()
+
+	clear(tp.commandedJoints)
 }
 
-// stop shuts down the pipeline goroutines.
+// stop halts the planner and executor, then drains every arm stream.
 func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
+	tp.closeStreams(ctx)
+}
+
+func (tp *teleopPipeline) closeStreams(ctx context.Context) {
+	tp.armsMu.Lock()
+	tp.streamsStopped = true
+	tp.armsMu.Unlock()
+	for _, st := range tp.armStates() {
+		st.mu.Lock()
+		s := st.stream
+		st.mu.Unlock()
+		if s != nil {
+			s.close()
+		}
+	}
+
+	streamsDone := make(chan struct{})
+	go func() {
+		tp.streamWG.Wait()
+		close(streamsDone)
+	}()
+	select {
+	case <-streamsDone:
+	case <-time.After(teleopStreamCloseTimeout):
+		tp.logger.CWarnf(ctx, "teleop arm streams did not drain within %s; cancelling them", teleopStreamCloseTimeout)
+	}
+	tp.streamCancel()
+	select {
+	case <-streamsDone:
+	case <-time.After(teleopStreamCloseTimeout):
+		tp.logger.CErrorf(ctx, "teleop arm streams still running %s after cancel; abandoning them", teleopStreamCloseTimeout)
+	}
+}
+
+func (tp *teleopPipeline) streamStatus() map[string]any {
+	comps := tp.armStates()
+	streams := make(map[string]any, len(comps))
+	for _, comp := range comps {
+		comp.mu.Lock()
+		info := map[string]any{
+			"open":   comp.stream != nil && !comp.stream.isDone(),
+			"failed": comp.failed != nil,
+		}
+		switch {
+		case comp.failed != nil:
+			info["failure_reason"] = comp.failed.Error()
+		case comp.stream != nil && comp.stream.isDone():
+			info["failed"] = true
+			info["failure_reason"] = comp.stream.closedErr().Error()
+		}
+		if s := comp.stream; s != nil {
+			info["stats"] = s.diag.Stats()
+		}
+		comp.mu.Unlock()
+		streams[comp.name] = info
+	}
+	return streams
 }
 
 // addTeleopComponent adds a component to the teleop pipeline, creating the pipeline if needed.
@@ -483,25 +850,42 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			ms.mu.RUnlock()
 			return err
 		}
+
+		var streamConf TeleopStreamConfig
+		if ms.conf != nil {
+			streamConf = ms.conf.TeleopStream
+		}
+		if streamConf.ChaseGainPerSec > teleopChaseMaxGainPerSec {
+			ms.logger.Warnf("teleop_stream.chase_gain_per_sec is %v; using %v, the highest the arm stream stays stable at",
+				streamConf.ChaseGainPerSec, teleopChaseMaxGainPerSec)
+		}
+		streamOpts := teleopStreamOptions()
+		runArmStream := ms.teleopRunArmStream
+		if runArmStream == nil {
+			runArmStream = streamConf.chase().run
+		}
+		carryingArms := armsCarrying(frameSys, ms.components, req.ComponentName)
 		ms.mu.RUnlock()
 
+		streamCtx, streamCancel := context.WithCancel(context.Background())
 		tp := &teleopPipeline{
 			logger:           ms.logger.Sublogger("teleop"),
 			cachedFrameSys:   frameSys,
 			cachedBaseInputs: fsInputs,
+			streamOpts:       streamOpts,
+			streamConf:       streamConf,
+			runArmStream:     runArmStream,
+			streamCtx:        streamCtx,
+			streamCancel:     streamCancel,
 			components:       make(map[string]*teleopComponent),
 			notify:           make(chan struct{}, 1),
 			trajCh:           make(chan motionplan.Trajectory, 1),
 			planningHead:     fsInputs,
-			smoothedJoints:   make(map[string][]referenceframe.Input),
+			commandedJoints:  make(map[string][]referenceframe.Input),
+			arms:             make(map[string]*teleopArmState),
+			armUsers:         make(map[string]int),
 		}
-
-		comp := &teleopComponent{
-			name:        req.ComponentName,
-			moveReqBase: req,
-		}
-		comp.latestPose.Store(req.Destination)
-		tp.components[req.ComponentName] = comp
+		tp.setComponent(req, carryingArms)
 
 		// Send initial notification to trigger first plan.
 		trySendNotify(tp.notify)
@@ -513,24 +897,36 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 
 		ms.teleopPipeline = tp
 	} else {
-		ms.mu.RUnlock()
-
 		// Add component to existing pipeline.
 		tp := ms.teleopPipeline
-		tp.componentsMu.Lock()
-		comp := &teleopComponent{
-			name:        req.ComponentName,
-			moveReqBase: req,
-		}
-		comp.latestPose.Store(req.Destination)
-		tp.components[req.ComponentName] = comp
-		tp.componentsMu.Unlock()
+		carryingArms := armsCarrying(tp.cachedFrameSys, ms.components, req.ComponentName)
+		ms.mu.RUnlock()
+		tp.setComponent(req, carryingArms)
 
 		// Trigger a replan with the new component included.
 		trySendNotify(tp.notify)
 	}
 
 	return nil
+}
+
+func (tp *teleopPipeline) setComponent(req motion.MoveReq, arms []string) {
+	comp := &teleopComponent{
+		name:        req.ComponentName,
+		moveReqBase: req,
+		arms:        arms,
+	}
+	comp.latestPose.Store(req.Destination)
+
+	tp.componentsMu.Lock()
+	old := tp.components[req.ComponentName]
+	tp.components[req.ComponentName] = comp
+	tp.componentsMu.Unlock()
+
+	tp.useArms(arms)
+	if old != nil {
+		tp.releaseArms(old.arms)
+	}
 }
 
 // removeTeleopComponent removes a component from the pipeline.
@@ -545,6 +941,7 @@ func (ms *builtIn) removeTeleopComponent(ctx context.Context, componentName stri
 	}
 
 	tp.componentsMu.Lock()
+	comp := tp.components[componentName]
 	delete(tp.components, componentName)
 	remaining := len(tp.components)
 	tp.componentsMu.Unlock()
@@ -552,6 +949,10 @@ func (ms *builtIn) removeTeleopComponent(ctx context.Context, componentName stri
 	if remaining == 0 {
 		tp.stop(ctx, ms)
 		ms.teleopPipeline = nil
+		return
+	}
+	if comp != nil {
+		tp.releaseArms(comp.arms)
 	}
 }
 
@@ -704,6 +1105,7 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 		tp.componentsMu.RUnlock()
 		status["components"] = compNames
+		status["streams"] = tp.streamStatus()
 
 		resp[DoTeleopStatus] = status
 		return resp, true, nil
