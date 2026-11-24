@@ -174,8 +174,6 @@ func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Inpu
 }
 
 // GetFramePosesFromTrajectory returns the world pose of frameName at each step of the trajectory.
-// Unlike NewSimplePlanFromTrajectory followed by Path().GetFramePoses, frameName may be any frame in fs,
-// including static frames (e.g. a tool frame) that carry no inputs in the trajectory.
 func GetFramePosesFromTrajectory(
 	trajectory Trajectory,
 	fs *referenceframe.FrameSystem,
