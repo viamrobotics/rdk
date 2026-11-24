@@ -61,14 +61,14 @@ func (f *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 	return 9.8, nil
 }
 
-// BatteryPercent gets the battery charge percentage of a fake powersensor.
-func (f *PowerSensor) BatteryPercent(ctx context.Context, cmd map[string]interface{}) (float64, error) {
-	return 76.5, nil
+// BatteryPercent gets the battery charge percentage and charging state of a fake powersensor.
+func (f *PowerSensor) BatteryPercent(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
+	return 76.5, true, nil
 }
 
 // Properties returns the properties of a fake powersensor.
 func (f *PowerSensor) Properties(ctx context.Context, cmd map[string]interface{}) (*powersensor.Properties, error) {
-	return &powersensor.Properties{IsBatteryPercentSupported: true}, nil
+	return &powersensor.Properties{IsBatteryPercentSupported: true, IsChargingSupported: true}, nil
 }
 
 // Readings gets the readings of a fake powersensor.

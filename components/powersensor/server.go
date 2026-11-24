@@ -106,12 +106,13 @@ func (s *serviceServer) GetBatteryPercent(
 	if err != nil {
 		return nil, err
 	}
-	percent, err := psDevice.BatteryPercent(ctx, req.Extra.AsMap())
+	percent, isCharging, err := psDevice.BatteryPercent(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
 	return &pb.GetBatteryPercentResponse{
-		Percent: percent,
+		Percent:    percent,
+		IsCharging: isCharging,
 	}, nil
 }
 

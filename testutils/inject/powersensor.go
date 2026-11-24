@@ -14,7 +14,7 @@ type PowerSensor struct {
 	VoltageFunc        func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	CurrentFunc        func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	PowerFunc          func(ctx context.Context, extra map[string]interface{}) (float64, error)
-	BatteryPercentFunc func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	BatteryPercentFunc func(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 	PropertiesFunc     func(ctx context.Context, extra map[string]interface{}) (*powersensor.Properties, error)
 	ReadingsFunc       func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
@@ -65,7 +65,7 @@ func (i *PowerSensor) Power(ctx context.Context, cmd map[string]interface{}) (fl
 }
 
 // BatteryPercent func or passthrough.
-func (i *PowerSensor) BatteryPercent(ctx context.Context, cmd map[string]interface{}) (float64, error) {
+func (i *PowerSensor) BatteryPercent(ctx context.Context, cmd map[string]interface{}) (float64, bool, error) {
 	if i.BatteryPercentFunc == nil {
 		return i.PowerSensor.BatteryPercent(ctx, cmd)
 	}

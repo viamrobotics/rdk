@@ -48,12 +48,12 @@ func TestClient(t *testing.T) {
 		return testWatts, nil
 	}
 
-	workingPowerSensor.BatteryPercentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return testBatteryPercent, nil
+	workingPowerSensor.BatteryPercentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+		return testBatteryPercent, true, nil
 	}
 
 	workingPowerSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*powersensor.Properties, error) {
-		return &powersensor.Properties{IsBatteryPercentSupported: true}, nil
+		return &powersensor.Properties{IsBatteryPercentSupported: true, IsChargingSupported: true}, nil
 	}
 
 	failingPowerSensor.VoltageFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
@@ -68,8 +68,8 @@ func TestClient(t *testing.T) {
 		return 0, errPowerFailed
 	}
 
-	failingPowerSensor.BatteryPercentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
-		return 0, errBatteryFailed
+	failingPowerSensor.BatteryPercentFunc = func(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
+		return 0, false, errBatteryFailed
 	}
 
 	failingPowerSensor.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*powersensor.Properties, error) {
@@ -130,13 +130,15 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, watts, test.ShouldEqual, testWatts)
 
-		percent, err := client.BatteryPercent(context.Background(), make(map[string]interface{}))
+		percent, isCharging, err := client.BatteryPercent(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, percent, test.ShouldEqual, testBatteryPercent)
+		test.That(t, isCharging, test.ShouldBeTrue)
 
 		props, err := client.Properties(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, props.IsBatteryPercentSupported, test.ShouldBeTrue)
+		test.That(t, props.IsChargingSupported, test.ShouldBeTrue)
 
 		// Status - default empty status
 		statusResult, err := client.Status(context.Background())
@@ -180,10 +182,11 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, errPowerFailed.Error())
 		test.That(t, watts, test.ShouldEqual, 0)
 
-		percent, err := client.BatteryPercent(context.Background(), make(map[string]interface{}))
+		percent, isCharging, err := client.BatteryPercent(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errBatteryFailed.Error())
 		test.That(t, percent, test.ShouldEqual, 0)
+		test.That(t, isCharging, test.ShouldBeFalse)
 
 		props, err := client.Properties(context.Background(), make(map[string]interface{}))
 		test.That(t, err, test.ShouldNotBeNil)
