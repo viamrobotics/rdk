@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"golang.org/x/mod/modfile"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
@@ -405,7 +406,6 @@ assert "--target" not in plain, plain
 }
 
 func TestAssembledGoModulesBuild(t *testing.T) {
-	t.Skip("temporarily skipped: flaky module downloads from proxy.golang.org")
 	root := rdkRoot(t)
 	bundle := goBundleWithFakeTidy(t, root, "v1.2.3")
 	modules, err := inlineModules(golang)
@@ -413,9 +413,7 @@ func TestAssembledGoModulesBuild(t *testing.T) {
 	pairs := placeholderPairs(modules[0])
 
 	dir := t.TempDir()
-	goMod := "module example.com/inlinecheck\n\ngo 1.26.10\n\nrequire go.viam.com/rdk v0.0.0\n\nreplace go.viam.com/rdk => " +
-		root + "\n"
-	test.That(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644), test.ShouldBeNil)
+	writeModuleMirroringRDK(t, dir, root)
 
 	apis := make([]string, 0, len(bundle.StubSections))
 	for api := range bundle.StubSections {
@@ -426,15 +424,51 @@ func TestAssembledGoModulesBuild(t *testing.T) {
 		section := bundle.StubSections[api]
 		source := restoreGeneratorNames(assembleGoModule(bundle.Shell["module.go"], section), pairs)
 		test.That(t, os.WriteFile(filepath.Join(dir, "module.go"), []byte(source), 0o644), test.ShouldBeNil)
-		// -mod=mod fills go.sum from the replaced RDK checkout. The default
-		// readonly mode has no sums in this throwaway module.
+		// -mod=mod adds the requirements this throwaway module does not list, from the
+		// mirrored graph. GOPROXY=off keeps that to modules RDK already has: anything else
+		// fails here by name instead of being fetched over a network that drops.
 		cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", ".")
 		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "GOPROXY=off")
 		out, buildErr := cmd.CombinedOutput()
 		if buildErr != nil {
 			t.Fatalf("%s failed to build: %v\n%s", api, buildErr, out)
 		}
 	}
+}
+
+// writeModuleMirroringRDK writes a throwaway go.mod in dir that builds against the RDK checkout at
+// root: RDK's go directive and replace directives, plus RDK's go.sum. Replace directives do not
+// carry over from a replaced dependency, so without repeating them here the build resolves modules
+// outside RDK's graph, which are not in the module cache.
+func writeModuleMirroringRDK(t *testing.T, dir, root string) {
+	t.Helper()
+	rdkModPath := filepath.Join(root, "go.mod")
+	rdkModBytes, err := os.ReadFile(rdkModPath)
+	test.That(t, err, test.ShouldBeNil)
+	rdkMod, err := modfile.Parse(rdkModPath, rdkModBytes, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	mod := new(modfile.File)
+	test.That(t, mod.AddModuleStmt("example.com/inlinecheck"), test.ShouldBeNil)
+	test.That(t, mod.AddGoStmt(rdkMod.Go.Version), test.ShouldBeNil)
+	test.That(t, mod.AddRequire(rdkMod.Module.Mod.Path, "v0.0.0"), test.ShouldBeNil)
+	test.That(t, mod.AddReplace(rdkMod.Module.Mod.Path, "", root, ""), test.ShouldBeNil)
+	for _, replace := range rdkMod.Replace {
+		newPath := replace.New.Path
+		// A relative replacement path would resolve against dir, which is somewhere else.
+		if modfile.IsDirectoryPath(newPath) && !filepath.IsAbs(newPath) {
+			newPath = filepath.Join(root, newPath)
+		}
+		test.That(t, mod.AddReplace(replace.Old.Path, replace.Old.Version, newPath, replace.New.Version), test.ShouldBeNil)
+	}
+	contents, err := mod.Format()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dir, "go.mod"), contents, 0o644), test.ShouldBeNil)
+
+	sums, err := os.ReadFile(filepath.Join(root, "go.sum"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dir, "go.sum"), sums, 0o644), test.ShouldBeNil)
 }
 
 func goBundleWithFakeTidy(t *testing.T, root, tag string) languageBundle {
