@@ -17,8 +17,6 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
-const stopArmTimeout = time.Minute
-
 // Run executes a streaming session through one trajex session and one arm stream RPC.
 // If jpCh is closed, it samples everything out of the trajex session and sends it to the
 // arm, then waits for the arm to have finished executing before returning.
@@ -57,20 +55,20 @@ func Run(
 	// Derive a cancelable ctx so error returns can end the arm RPC.
 	ctx, cancel := context.WithCancel(ctx)
 	// Start the arm RPC stream.
-	as := newArmStream(ctx, a, diagnostics)
+	as := NewArmStream(ctx, a, diagnostics)
 	defer func() {
 		if err != nil {
 			// On error, cancel first so that the RPC gets interrupted.
-			// as.close() will typically return a cancellation error (due to the
+			// as.Close() will typically return a cancellation error (due to the
 			// cancel()), but if the arm independently errored just before
-			// cancel(), as.close() will return that error instead.
+			// cancel(), as.Close() will return that error instead.
 			cancel()
-			if closeErr := as.close(); closeErr != nil {
+			if closeErr := as.Close(); closeErr != nil {
 				err = multierr.Combine(err, fmt.Errorf("failed to close arm stream: %w", closeErr))
 			}
 
 			// Wait for the arm to stop.
-			if stopErr := stopArm(ctx, a); stopErr != nil {
+			if stopErr := StopArm(ctx, a); stopErr != nil {
 				err = multierr.Combine(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
 			} else {
 				err = fmt.Errorf("arm stopped after session error: %w", err)
@@ -79,10 +77,10 @@ func Run(
 		}
 		// On success, close first to signal that the RPC can finish.
 		// This blocks until the arm reports that it has completed executing the stream.
-		if closeErr := as.close(); closeErr != nil {
+		if closeErr := as.Close(); closeErr != nil {
 			err = fmt.Errorf("failed to close arm stream: %w", closeErr)
 			// Wait for the arm to stop.
-			if stopErr := stopArm(ctx, a); stopErr != nil {
+			if stopErr := StopArm(ctx, a); stopErr != nil {
 				err = multierr.Combine(err, fmt.Errorf("failed to stop arm, arm not guaranteed to be stopped: %w", stopErr))
 			} else {
 				err = fmt.Errorf("arm stopped after session error: %w", err)
@@ -141,7 +139,7 @@ func Run(
 				return fmt.Errorf("addJointPositionsToSession (lastJointPositions=%v): %w", ts.lastJointPositions, err)
 			}
 
-			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			diagnostics.RecordArmRunway(as.Runway())
 			trajexRunway := ts.trajexRunway()
 			diagnostics.RecordTrajexRunway(trajexRunway)
 			runwayMs := int32(trajexRunway.Milliseconds())
@@ -158,7 +156,7 @@ func Run(
 
 		// Time to check whether the arm's runway needs topping up.
 		case <-sendToArmTicker.C:
-			diagnostics.RecordArmRunway(as.currentEstimatedRunwayInArm())
+			diagnostics.RecordArmRunway(as.Runway())
 			diagnostics.RecordTrajexRunway(ts.trajexRunway())
 			if err := as.topUp(ctx, ts, targetRunway); err != nil {
 				return err
@@ -167,15 +165,8 @@ func Run(
 	}
 }
 
-// stopArm stops the arm within stopArmTimeout, regardless of whether ctx has been canceled.
-func stopArm(ctx context.Context, a arm.Arm) error {
-	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), stopArmTimeout)
-	defer cancel()
-	return a.Stop(stopCtx, nil)
-}
-
-func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
-	deficit := targetRunway - max(s.currentEstimatedRunwayInArm(), 0)
+func (s *ArmStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
+	deficit := targetRunway - max(s.Runway(), 0)
 	if deficit <= 0 {
 		return nil
 	}

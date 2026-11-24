@@ -10,7 +10,11 @@ import (
 	"go.viam.com/rdk/services/motion/builtin/streaming/diagnostics"
 )
 
-type armStream struct {
+const stopArmTimeout = time.Minute
+
+// ArmStream is one open MoveThroughJointPositionsStreamed call to an arm, with an estimate of
+// how much trajectory the arm has yet to execute. It is not safe for concurrent use.
+type ArmStream struct {
 	arm arm.Arm
 
 	// These are used to estimate how much runway the arm has buffered on its side.
@@ -28,9 +32,10 @@ type armStream struct {
 	diagnostics *diagnostics.SingleSessionDiagnostics
 }
 
-// newArmStream constructs an armStream and starts its RPC stream to the arm.
-func newArmStream(ctx context.Context, a arm.Arm, diagnostics *diagnostics.SingleSessionDiagnostics) *armStream {
-	s := &armStream{
+// NewArmStream starts a stream to the arm. The stream lasts until Close is called or ctx is
+// canceled.
+func NewArmStream(ctx context.Context, a arm.Arm, diagnostics *diagnostics.SingleSessionDiagnostics) *ArmStream {
+	s := &ArmStream{
 		arm:         a,
 		batchesCh:   make(chan []arm.TrajectoryPoint),
 		responsesCh: make(chan arm.Response),
@@ -56,11 +61,7 @@ func newArmStream(ctx context.Context, a arm.Arm, diagnostics *diagnostics.Singl
 	return s
 }
 
-func (s *armStream) send(ctx context.Context, pvats []pvat) error {
-	if len(pvats) == 0 {
-		return nil
-	}
-
+func (s *ArmStream) send(ctx context.Context, pvats []pvat) error {
 	batch := make([]arm.TrajectoryPoint, 0, len(pvats))
 	for _, p := range pvats {
 		batch = append(batch, arm.TrajectoryPoint{
@@ -73,7 +74,17 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		})
 	}
 
-	armHasNothingToExecute := s.currentEstimatedRunwayInArm() <= 0
+	return s.Send(ctx, batch)
+}
+
+// Send appends points to the arm's trajectory, blocking until the arm takes them. The first
+// point of a stream must be at time zero, and times must increase.
+func (s *ArmStream) Send(ctx context.Context, batch []arm.TrajectoryPoint) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
+	armHasNothingToExecute := s.Runway() <= 0
 	previousLastSent := s.timeInTrajectoryClockOfLastSentPVAT
 
 	sendStart := time.Now()
@@ -94,15 +105,17 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 	return nil
 }
 
-// close ends the RPC stream, waits for it to finish, and returns its final
+// Close ends the RPC stream, waits for it to finish, and returns its final
 // error. It must be called exactly once.
-func (s *armStream) close() error {
+func (s *ArmStream) Close() error {
 	close(s.batchesCh)
 	<-s.moveThroughJointPositionsStreamedReturned
 	return s.err
 }
 
-func (s *armStream) currentEstimatedRunwayInArm() time.Duration {
+// Runway estimates how much of the sent trajectory the arm has yet to execute. Once the arm has
+// run out it is negative: how long ago that was.
+func (s *ArmStream) Runway() time.Duration {
 	// Nothing sent yet. We can't fall through to below because
 	// time.Since(s.wallTimeAtTrajectoryClockZero) (i.e., time.Since(0)) would be very large.
 	if s.wallTimeAtTrajectoryClockZero.IsZero() {
@@ -112,4 +125,11 @@ func (s *armStream) currentEstimatedRunwayInArm() time.Duration {
 	estimatedArmPositionInTrajectoryClock := time.Since(s.wallTimeAtTrajectoryClockZero)
 
 	return s.timeInTrajectoryClockOfLastSentPVAT - estimatedArmPositionInTrajectoryClock
+}
+
+// StopArm stops the arm within a fixed timeout, whether or not ctx has been canceled.
+func StopArm(ctx context.Context, a arm.Arm) error {
+	stopCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), stopArmTimeout)
+	defer cancel()
+	return a.Stop(stopCtx, nil)
 }
