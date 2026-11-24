@@ -415,7 +415,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 		// fixed-width value and moving on.
 		if wireType != protowire.BytesType {
 			var skipErr error
-			switch wireType {
+			switch wireType { //nolint:exhaustive
 			case protowire.VarintType:
 				_, skipErr = binary.ReadUvarint(inner)
 			case protowire.Fixed32Type:
@@ -437,7 +437,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			return nil, 0, nil, fmt.Errorf("reading field length for SensorData field %d: %w", fieldNum, err)
 		}
 
-		switch fieldNum {
+		switch fieldNum { //nolint:exhaustive
 		case 1: // SensorMetadata — small proto message, safe to read fully into memory.
 			const maxSensorMetaBytes = 1024 * 1024 // 1 MiB; metadata is always tiny in practice
 			if fieldLen > maxSensorMetaBytes {
