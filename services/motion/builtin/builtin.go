@@ -101,27 +101,7 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
-	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
-	// When false (the default) each batch of joint targets is sent with interpolate=false and
-	// waitAtEnd=false, giving the lowest latency and the most responsive motion. When true,
-	// targets are sent with interpolate=true and waitAtEnd=true, which produces smoother motion
-	// at the cost of latency because each call blocks until the move completes. Set it when you
-	// want the arm's own interpolation in place of the pipeline's EMA smoothing.
-	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
-	// TeleopSmoothAlpha is the smoothing factor for the exponential moving average (EMA) the
-	// pipeline applies to each joint's commanded position before sending it to the arm:
-	// out = alpha*target + (1-alpha)*previous. Lower alpha means heavier smoothing (less jitter,
-	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
-	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
-	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
-	// TeleopExecutor selects how teleop trajectories reach an arm. "streamed" (the default) keeps
-	// one MoveThroughJointPositionsStreamed stream open per arm for the life of the teleop session
-	// and feeds it a velocity- and acceleration-limited trajectory derived from the planned
-	// targets; the EMA and interpolate settings above do not apply to it. "unary" sends each
-	// planned trajectory as one MoveThroughJointPositions call, as described above. Arms that do
-	// not support streaming fall back to the unary path automatically.
-	TeleopExecutor string `json:"teleop_executor"`
-	// TeleopStream tunes the streamed teleop executor; see TeleopStreamConfig.
+	// TeleopStream tunes the arm streams teleop drives; see TeleopStreamConfig.
 	TeleopStream TeleopStreamConfig `json:"teleop_stream"`
 
 	// CableConstraint, MaxCableTwistDegs, CableTwistReferenceDegs and CableConstraintFrames are
@@ -235,16 +215,6 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, errors.New("need a stream_diagnostics_file_path if you set stream_diagnostics_metadata_keys_to_use_as_file_tags")
 	}
 
-	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
-	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
-		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
-	}
-	switch c.TeleopExecutor {
-	case "", TeleopExecutorStreamed, TeleopExecutorUnary:
-	default:
-		return nil, nil, fmt.Errorf("teleop_executor must be %q or %q, got %q",
-			TeleopExecutorStreamed, TeleopExecutorUnary, c.TeleopExecutor)
-	}
 	if err := c.TeleopStream.validate(); err != nil {
 		return nil, nil, err
 	}

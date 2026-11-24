@@ -30,8 +30,7 @@ type teleopTraceRecord struct {
 }
 
 // teleopTrace records, for one teleop pipeline, what was asked for, what was commanded, and what
-// each arm did, as JSON lines. It measures the pipeline the same way whichever executor drives
-// the arm, so the two can be compared. A nil *teleopTrace records nothing.
+// each arm did, as JSON lines. A nil *teleopTrace records nothing.
 type teleopTrace struct {
 	logger logging.Logger
 	path   string
@@ -51,7 +50,7 @@ type teleopTrace struct {
 
 // newTeleopTrace starts a trace file under dir, or returns nil if dir is empty or the file
 // cannot be created.
-func newTeleopTrace(logger logging.Logger, dir, executor string) *teleopTrace {
+func newTeleopTrace(logger logging.Logger, dir string) *teleopTrace {
 	if dir == "" {
 		return nil
 	}
@@ -60,7 +59,7 @@ func newTeleopTrace(logger logging.Logger, dir, executor string) *teleopTrace {
 		logger.Warnf("couldn't create teleop trace directory: %v", err)
 		return nil
 	}
-	path := filepath.Join(outDir, fmt.Sprintf("teleop-trace-%s-%s.jsonl", executor, time.Now().Format("2006-01-02T15-04-05.000")))
+	path := filepath.Join(outDir, fmt.Sprintf("teleop-trace-%s.jsonl", time.Now().Format("2006-01-02T15-04-05.000")))
 	//nolint:gosec // path is built from the operator's configured diagnostics directory
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
