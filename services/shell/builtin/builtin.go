@@ -34,16 +34,17 @@ func init() {
 // NewBuiltIn returns a new shell service for the given robot.
 func NewBuiltIn(name resource.Name, logger logging.Logger) (shell.Service, error) {
 	return &builtIn{
-		Named:  name.AsNamed(),
-		logger: logger,
+		Named:   name.AsNamed(),
+		logger:  logger,
+		workers: utils.NewBackgroundStoppableWorkers(),
 	}, nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	logger                  logging.Logger
-	activeBackgroundWorkers sync.WaitGroup
+	logger  logging.Logger
+	workers *utils.StoppableWorkers
 }
 
 // DoCommand answers environment queries a client cannot resolve on its own,
@@ -55,7 +56,7 @@ func (svc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 	return nil, resource.ErrDoUnimplemented
 }
 
-func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
+func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{}) (
 	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
 ) {
 	defaultShellPath, ok := os.LookupEnv("SHELL")
@@ -74,9 +75,17 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		shellEnv = nil
 	}
 
-	ctxCancel, cancel := context.WithCancel(ctx)
+	// Combine `clientCtx` (client's context) with `svc.workers.Context()` (this shell
+	// service's lifetime context) by using AfterFunc. When either of `clientCtx` or
+	// `svc.workers.Context()` is done, ctx will be marked done.
+	//
+	// Use this ctx in all added stoppable workers. The passed-in context will just be
+	// `svc.workers.Context()`.
+	ctx, cancel := context.WithCancel(svc.workers.Context())
+	context.AfterFunc(clientCtx, cancel)
+
 	//nolint: gosec,noctx
-	cmd := exec.Command(defaultShellPath, shellArgs...)
+	cmd := exec.CommandContext(ctx, defaultShellPath, shellArgs...)
 	cmd.Env = shellEnv
 	// xpty gives a unix pty or a Windows ConPTY behind one interface.
 	f, err := xpty.NewPty(80, 24)
@@ -134,16 +143,9 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		}
 	}
 
-	svc.activeBackgroundWorkers.Add(2)
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
+	svc.workers.Add(func(_ context.Context) {
 		defer cancel()
-		<-ctx.Done()
-	})
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-		defer cancel()
-		if err := xpty.WaitProcess(ctxCancel, cmd); err != nil {
+		if err := xpty.WaitProcess(ctx, cmd); err != nil {
 			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
 		}
 		if err := f.Close(); err != nil {
@@ -155,7 +157,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	oobInput := make(chan map[string]interface{})
 	output := make(chan shell.Output)
 
-	utils.PanicCapturingGo(func() {
+	svc.workers.Add(func(_ context.Context) {
 		defer close(output)
 		var data [4096]byte
 		for {
@@ -189,7 +191,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		}
 	})
 
-	utils.PanicCapturingGo(func() {
+	svc.workers.Add(func(_ context.Context) {
 		for {
 			select {
 			case inputData, ok := <-input:
@@ -201,20 +203,19 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 				} else {
 					if _, err := f.Write([]byte{4}); err != nil {
 						svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
-						return
 					}
 					return
 				}
 			case <-ctx.Done():
 				if _, err := f.Write([]byte{4}); err != nil {
 					svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
-					return
 				}
+				return
 			}
 		}
 	})
 
-	utils.PanicCapturingGo(func() {
+	svc.workers.Add(func(_ context.Context) {
 		for {
 			select {
 			case oobInputData, ok := <-oobInput:
@@ -222,7 +223,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 					return
 				}
 				procOOB(oobInputData)
-			case <-ctxCancel.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -273,6 +274,6 @@ func (svc *builtIn) CopyFilesFromMachine(
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {
-	svc.activeBackgroundWorkers.Wait()
+	svc.workers.Stop()
 	return nil
 }
