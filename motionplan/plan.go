@@ -173,6 +173,29 @@ func (traj Trajectory) GetFrameInputs(frameName string) ([][]referenceframe.Inpu
 	return solution, nil
 }
 
+// GetFramePosesFromTrajectory returns the world pose of frameName at each step of the trajectory.
+// Unlike NewSimplePlanFromTrajectory followed by Path().GetFramePoses, frameName may be any frame in fs,
+// including static frames (e.g. a tool frame) that carry no inputs in the trajectory.
+func GetFramePosesFromTrajectory(
+	trajectory Trajectory,
+	fs *referenceframe.FrameSystem,
+	frameName string,
+) ([]spatialmath.Pose, error) {
+	poses := make([]spatialmath.Pose, 0, len(trajectory))
+	for i, step := range trajectory {
+		tf, err := fs.Transform(step.ToLinearInputs(), referenceframe.NewZeroPoseInFrame(frameName), referenceframe.World)
+		if err != nil {
+			return nil, fmt.Errorf("trajectory step %d: %w", i, err)
+		}
+		pif, ok := tf.(*referenceframe.PoseInFrame)
+		if !ok {
+			return nil, fmt.Errorf("trajectory step %d: pose not transformable", i)
+		}
+		poses = append(poses, pif.Pose())
+	}
+	return poses, nil
+}
+
 // String returns a human-readable version of the trajectory, suitable for debugging.
 func (traj Trajectory) String() string {
 	var str string
