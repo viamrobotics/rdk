@@ -103,21 +103,10 @@ func setupModManager(
 	return mgr
 }
 
-func getSlowModule() (string, string) {
-	if runtime.GOOS == "windows" {
-		return "run.bat", "powershell.exe -Command 'Start-Sleep 2; exit 1'"
-	}
-
-	return "run.sh", "#!/bin/sh\n\nsleep 2\nexit 1"
-}
-
 // Test that if a module crashes shortly after startup, in UNIX mode we get "module exited too quickly" and
-// in TCP mode we get "context cancelled", without waiting for the full ModuleStartupTimeout
+// in TCP mode we get "module process exited unexpectedly", without waiting for the full ModuleStartupTimeout
 func TestCrashShortCircuit(t *testing.T) {
-	scriptName, scriptContents := getSlowModule()
-	modPath := filepath.Join(t.TempDir(), scriptName)
-	err := os.WriteFile(modPath, []byte(scriptContents), 0o755)
-	test.That(t, err, test.ShouldBeNil)
+	modPath := rtestutils.BuildTempModule(t, "module/testmodule_crash")
 
 	for _, mode := range []string{"unix", "tcp"} {
 		t.Run(mode, func(t *testing.T) {
@@ -142,7 +131,7 @@ func TestCrashShortCircuit(t *testing.T) {
 				HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
 			})
 
-			err = mgr.Add(context.Background(), config.Module{
+			err := mgr.Add(context.Background(), config.Module{
 				Name:     "test",
 				ExePath:  modPath,
 				Type:     config.ModuleTypeLocal,
