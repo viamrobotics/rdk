@@ -26,12 +26,13 @@ import (
 )
 
 const (
-	teleopStreamRunwayMs     = 30
-	teleopStreamIntervalMs   = 10
-	teleopStreamLimitMargin  = 0.95
-	teleopStreamDiagWindow   = 2 * time.Second
-	teleopStreamTargetBuffer = 4
-	teleopStreamCloseTimeout = 2 * time.Second
+	teleopStreamRunwayMs       = 30
+	teleopStreamIntervalMs     = 10
+	teleopStreamLimitMargin    = 0.95
+	teleopStreamDiagWindow     = 2 * time.Second
+	teleopStreamDiagFileWindow = 120 * time.Second
+	teleopStreamTargetBuffer   = 4
+	teleopStreamCloseTimeout   = 2 * time.Second
 )
 
 var (
@@ -222,6 +223,8 @@ type teleopPipeline struct {
 	streamOpts   streaming.StreamOptions
 	streamConf   TeleopStreamConfig
 	runArmStream teleopArmStreamRunner
+	diagDir      string
+	trace        *teleopTrace
 
 	streamCtx      context.Context
 	streamCancel   context.CancelFunc
@@ -496,6 +499,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 				mu.Unlock()
 			} else if sent {
 				tp.commandedJoints[name] = steps[len(steps)-1]
+				tp.trace.cmd(name, armComp, steps[len(steps)-1])
 			}
 			continue
 		}
@@ -600,6 +604,7 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 	tp.commandedJoints[comp.name] = seed
 
 	name := comp.name
+	started := time.Now()
 	tp.streamWG.Add(1)
 	go func() {
 		defer tp.streamWG.Done()
@@ -611,6 +616,11 @@ func (tp *teleopPipeline) openArmStream(ctx context.Context, a arm.Arm, comp *te
 			tp.logger.CWarnf(streamCtx, "teleop arm stream for %q ended: %v", name, err)
 		}
 		tp.logger.Infow("teleop arm stream stats", "component", name, "options", opts, "stats", s.diag.Stats())
+		if werr := writeStreamDiagnosticsFile(
+			tp.logger, tp.diagDir, "teleop-arm-stream-diagnostics", name, opts, s.diag, started, nil, err,
+		); werr != nil {
+			tp.logger.Warnf("couldn't write teleop arm stream diagnostics: %v", werr)
+		}
 	}()
 	tp.logger.CInfof(ctx, "teleop executor: opened arm stream for %q with joint limits %.0f deg/s, %.0f deg/s^2",
 		name, inputsToDeg(vel), inputsToDeg(acc))
@@ -766,6 +776,7 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
 	tp.closeStreams(ctx)
+	tp.trace.close()
 }
 
 func (tp *teleopPipeline) closeStreams(ctx context.Context) {
@@ -852,14 +863,19 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 		}
 
 		var streamConf TeleopStreamConfig
+		diagDir := ""
 		if ms.conf != nil {
 			streamConf = ms.conf.TeleopStream
+			diagDir = ms.conf.StreamDiagnosticsFilePath
 		}
 		if streamConf.ChaseGainPerSec > teleopChaseMaxGainPerSec {
 			ms.logger.Warnf("teleop_stream.chase_gain_per_sec is %v; using %v, the highest the arm stream stays stable at",
 				streamConf.ChaseGainPerSec, teleopChaseMaxGainPerSec)
 		}
 		streamOpts := teleopStreamOptions()
+		if diagDir != "" {
+			streamOpts.DiagnosticsWindow = teleopStreamDiagFileWindow
+		}
 		runArmStream := ms.teleopRunArmStream
 		if runArmStream == nil {
 			runArmStream = streamConf.chase().run
@@ -874,6 +890,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			cachedBaseInputs: fsInputs,
 			streamOpts:       streamOpts,
 			streamConf:       streamConf,
+			diagDir:          diagDir,
 			runArmStream:     runArmStream,
 			streamCtx:        streamCtx,
 			streamCancel:     streamCancel,
@@ -885,6 +902,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			arms:             make(map[string]*teleopArmState),
 			armUsers:         make(map[string]int),
 		}
+		tp.trace = newTeleopTrace(tp.logger, diagDir)
 		tp.setComponent(req, carryingArms)
 
 		// Send initial notification to trigger first plan.
@@ -1049,6 +1067,7 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		comp.latestPose.Store(pif)
+		tp.trace.goal(comp.name, pif)
 		trySendNotify(tp.notify)
 
 		resp[DoTeleopMove] = true
