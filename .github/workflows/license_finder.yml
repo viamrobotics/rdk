@@ -37,6 +37,19 @@ jobs:
       with:
         go-version-file: go.mod
 
+    # A go.sum change misses the module cache, and one dropped proxy.golang.org stream among
+    # hundreds of downloads fails the audit. Modules already fetched are kept between attempts.
+    - name: Download go modules
+      run: |
+        for attempt in 1 2 3 4 5; do
+          if go mod download; then
+            exit 0
+          fi
+          echo "go mod download failed (attempt ${attempt} of 5)"
+          sleep $((attempt * 5))
+        done
+        echo "::error::go mod download failed 5 times; proxy.golang.org is likely unreachable, re-run the job later"
+        exit 1
 
     - name: Run license finder
       run: |
