@@ -154,8 +154,16 @@ type Transition struct {
 	// Source is what kind of thing caused the transition. An outcome name sent
 	// through SendEvent is recorded as SourceEvent.
 	Source TransitionSource
-	// JobID is the job the transition belongs to.
+}
+
+// JobHistory is every retained transition of one job, oldest first. A job
+// starts when the machine enters its initial state from the outside: at
+// startup and on Reset.
+type JobHistory struct {
 	JobID string
+	// StartedAt is the timestamp of the job's first transition.
+	StartedAt   time.Time
+	Transitions []Transition
 }
 
 // StateDefinition is one state of the machine as configured.
@@ -196,8 +204,9 @@ type Service interface {
 	// SendEvent delivers an external event. An event with no matching transition in the current state
 	// or any ancestor is dropped. Events are never queued.
 	SendEvent(ctx context.Context, event string, payload, extra map[string]interface{}) (EventResult, error)
-	// GetHistory returns the most recent transitions, oldest first. limit <= 0 returns all retained.
-	GetHistory(ctx context.Context, limit int, extra map[string]interface{}) ([]Transition, error)
+	// GetHistory returns the retained transitions grouped by job, oldest job first. A non-empty jobID
+	// returns only that job; limit > 0 keeps only the most recent limit jobs.
+	GetHistory(ctx context.Context, jobID string, limit int, extra map[string]interface{}) ([]JobHistory, error)
 	// GetDefinition returns the graph as configured.
 	GetDefinition(ctx context.Context, extra map[string]interface{}) (Definition, error)
 	// CurrentJobID identifies the machine's current run. A new job starts each

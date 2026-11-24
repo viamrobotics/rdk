@@ -106,6 +106,26 @@ func waitForStatus(t *testing.T, svc statemachine.Service, status statemachine.S
 	})
 }
 
+// allTransitions flattens every retained job's transitions, oldest first.
+func allTransitions(t *testing.T, svc statemachine.Service) []statemachine.Transition {
+	t.Helper()
+	jobs, err := svc.GetHistory(context.Background(), "", 0, nil)
+	test.That(t, err, test.ShouldBeNil)
+	var all []statemachine.Transition
+	for _, job := range jobs {
+		all = append(all, job.Transitions...)
+	}
+	return all
+}
+
+// lastTransition returns the most recent retained transition.
+func lastTransition(t *testing.T, svc statemachine.Service) statemachine.Transition {
+	t.Helper()
+	all := allTransitions(t, svc)
+	test.That(t, all, test.ShouldNotBeEmpty)
+	return all[len(all)-1]
+}
+
 func resourceTask(name string) *TaskConfig {
 	return &TaskConfig{Type: TaskTypeResource, Name: name}
 }
@@ -158,8 +178,7 @@ func TestFlatMachine(t *testing.T) {
 	st = waitForPath(t, svc, "idle")
 	test.That(t, st.Context, test.ShouldResemble, map[string]interface{}{"pour_ml": 150.0, "glass_pose": "p"})
 
-	history, err := svc.GetHistory(ctx, 0, nil)
-	test.That(t, err, test.ShouldBeNil)
+	history := allTransitions(t, svc)
 	test.That(t, history, test.ShouldHaveLength, 3)
 	test.That(t, history[0].From, test.ShouldResemble, []string{})
 	test.That(t, history[0].To, test.ShouldResemble, []string{"idle"})
@@ -172,13 +191,16 @@ func TestFlatMachine(t *testing.T) {
 	test.That(t, history[2].Source, test.ShouldEqual, statemachine.SourceOutcome)
 	test.That(t, history[2].TaskResult.Output["glass_pose"], test.ShouldEqual, "p")
 	test.That(t, st.JobID, test.ShouldNotBeEmpty)
-	for _, h := range history {
-		test.That(t, h.JobID, test.ShouldEqual, st.JobID)
-	}
-	history, err = svc.GetHistory(ctx, 1, nil)
+	jobs, err := svc.GetHistory(ctx, "", 0, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, history, test.ShouldHaveLength, 1)
-	test.That(t, history[0].Trigger, test.ShouldEqual, "done")
+	test.That(t, jobs, test.ShouldHaveLength, 1)
+	test.That(t, jobs[0].JobID, test.ShouldEqual, st.JobID)
+	test.That(t, jobs[0].StartedAt, test.ShouldEqual, history[0].Timestamp)
+	test.That(t, jobs[0].Transitions, test.ShouldResemble, history)
+	jobs, err = svc.GetHistory(ctx, "no-such-job", 0, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobs, test.ShouldBeEmpty)
+	test.That(t, lastTransition(t, svc).Trigger, test.ShouldEqual, "done")
 
 	// A Go error becomes the outcome "error", which bubbles to the machine-level handler.
 	_, err = svc.SendEvent(ctx, "go", nil, nil)
@@ -246,15 +268,30 @@ func TestUnhandledErrorFaultsAndResetRecovers(t *testing.T) {
 	work.finish(t, task.Done(nil))
 	waitForPath(t, svc, "idle")
 
-	history, err := svc.GetHistory(ctx, 0, nil)
+	// History splits at the Reset: one job per run of the machine.
+	jobs, err := svc.GetHistory(ctx, "", 0, nil)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, history[1].Trigger, test.ShouldEqual, statemachine.TriggerFault)
-	test.That(t, history[1].Source, test.ShouldEqual, statemachine.SourceFault)
-	test.That(t, history[1].TaskResult.Outcome, test.ShouldEqual, task.OutcomeError)
-	test.That(t, history[1].JobID, test.ShouldEqual, jobBefore)
-	test.That(t, history[2].Trigger, test.ShouldEqual, statemachine.TriggerReset)
-	test.That(t, history[2].Source, test.ShouldEqual, statemachine.SourceReset)
-	test.That(t, history[2].JobID, test.ShouldEqual, jobAfter)
+	test.That(t, jobs, test.ShouldHaveLength, 2)
+	test.That(t, jobs[0].JobID, test.ShouldEqual, jobBefore)
+	test.That(t, jobs[0].Transitions, test.ShouldHaveLength, 2)
+	test.That(t, jobs[0].Transitions[1].Trigger, test.ShouldEqual, statemachine.TriggerFault)
+	test.That(t, jobs[0].Transitions[1].Source, test.ShouldEqual, statemachine.SourceFault)
+	test.That(t, jobs[0].Transitions[1].TaskResult.Outcome, test.ShouldEqual, task.OutcomeError)
+	test.That(t, jobs[1].JobID, test.ShouldEqual, jobAfter)
+	test.That(t, jobs[1].StartedAt, test.ShouldEqual, jobs[1].Transitions[0].Timestamp)
+	test.That(t, jobs[1].Transitions[0].Trigger, test.ShouldEqual, statemachine.TriggerReset)
+	test.That(t, jobs[1].Transitions[0].Source, test.ShouldEqual, statemachine.SourceReset)
+	test.That(t, jobs[1].Transitions[1].Trigger, test.ShouldEqual, task.OutcomeDone)
+
+	// A job filter returns only that job; a limit keeps the most recent jobs.
+	jobs, err = svc.GetHistory(ctx, jobBefore, 0, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobs, test.ShouldHaveLength, 1)
+	test.That(t, jobs[0].JobID, test.ShouldEqual, jobBefore)
+	jobs, err = svc.GetHistory(ctx, "", 1, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobs, test.ShouldHaveLength, 1)
+	test.That(t, jobs[0].JobID, test.ShouldEqual, jobAfter)
 }
 
 // Any outcome no state handles faults the machine, not only "error": a
@@ -280,11 +317,10 @@ func TestUnhandledOutcomeFaults(t *testing.T) {
 	test.That(t, st.Path, test.ShouldResemble, []string{"working"})
 	test.That(t, st.Context["k"], test.ShouldEqual, "v")
 
-	history, err := svc.GetHistory(ctx, 1, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, history[0].Trigger, test.ShouldEqual, statemachine.TriggerFault)
-	test.That(t, history[0].Source, test.ShouldEqual, statemachine.SourceFault)
-	test.That(t, history[0].TaskResult, test.ShouldResemble, &task.Result{Outcome: "Done", Output: map[string]interface{}{"k": "v"}})
+	last := lastTransition(t, svc)
+	test.That(t, last.Trigger, test.ShouldEqual, statemachine.TriggerFault)
+	test.That(t, last.Source, test.ShouldEqual, statemachine.SourceFault)
+	test.That(t, last.TaskResult, test.ShouldResemble, &task.Result{Outcome: "Done", Output: map[string]interface{}{"k": "v"}})
 }
 
 func TestRetryThenErrorTransition(t *testing.T) {
@@ -310,10 +346,9 @@ func TestRetryThenErrorTransition(t *testing.T) {
 	}
 	waitForPath(t, svc, "recover")
 	test.That(t, work.runs.Load(), test.ShouldEqual, 3)
-	history, err := svc.GetHistory(context.Background(), 1, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, history[0].Trigger, test.ShouldEqual, task.OutcomeError)
-	test.That(t, history[0].TaskResult.Output["error"], test.ShouldEqual, "task failed")
+	last := lastTransition(t, svc)
+	test.That(t, last.Trigger, test.ShouldEqual, task.OutcomeError)
+	test.That(t, last.TaskResult.Output["error"], test.ShouldEqual, "task failed")
 }
 
 func TestTimeout(t *testing.T) {
@@ -330,9 +365,7 @@ func TestTimeout(t *testing.T) {
 	svc := newMachine(t, cfg, deps)
 	work.waitStarted(t)
 	waitForPath(t, svc, "late")
-	history, err := svc.GetHistory(context.Background(), 1, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, history[0].Trigger, test.ShouldEqual, task.OutcomeTimeout)
+	test.That(t, lastTransition(t, svc).Trigger, test.ShouldEqual, task.OutcomeTimeout)
 }
 
 func TestPreemption(t *testing.T) {
@@ -549,10 +582,8 @@ func TestNestedMachine(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Path, test.ShouldResemble, []string{"manual", "idle"})
 
-	history, err := svc.GetHistory(ctx, 0, nil)
-	test.That(t, err, test.ShouldBeNil)
 	var triggers []string
-	for _, h := range history {
+	for _, h := range allTransitions(t, svc) {
 		triggers = append(triggers, h.Trigger)
 	}
 	test.That(t, triggers, test.ShouldResemble, []string{
@@ -630,8 +661,7 @@ func TestBuiltinTasksAndWatchers(t *testing.T) {
 	test.That(t, st.Context["ml"], test.ShouldEqual, 150.0)
 	test.That(t, st.Context["outcome"], test.ShouldEqual, "poured")
 	test.That(t, st.Context["pressed"], test.ShouldEqual, false)
-	history, err := svc.GetHistory(ctx, 0, nil)
-	test.That(t, err, test.ShouldBeNil)
+	history := allTransitions(t, svc)
 	test.That(t, history, test.ShouldHaveLength, 4)
 	test.That(t, history[1].Trigger, test.ShouldEqual, task.OutcomeSatisfied)
 	test.That(t, history[2].Trigger, test.ShouldEqual, "poured")

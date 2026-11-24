@@ -66,30 +66,37 @@ func (server *serviceServer) SendEvent(ctx context.Context, req *pb.SendEventReq
 	return &pb.SendEventResponse{Handled: res.Handled, Path: res.Path}, nil
 }
 
-// GetHistory returns recent transitions.
+// GetHistory returns the retained transitions grouped by job.
 func (server *serviceServer) GetHistory(ctx context.Context, req *pb.GetHistoryRequest) (*pb.GetHistoryResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	transitions, err := svc.GetHistory(ctx, int(req.Limit), req.Extra.AsMap())
+	jobs, err := svc.GetHistory(ctx, req.JobId, int(req.Limit), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
-	resp := &pb.GetHistoryResponse{Transitions: make([]*pb.Transition, 0, len(transitions))}
-	for _, tr := range transitions {
-		trPb := &pb.Transition{
-			From: tr.From, To: tr.To, Trigger: tr.Trigger, Timestamp: timestamppb.New(tr.Timestamp),
-			Source: SourceToProto(tr.Source), JobId: tr.JobID,
+	resp := &pb.GetHistoryResponse{Jobs: make([]*pb.JobHistory, 0, len(jobs))}
+	for _, job := range jobs {
+		jobPb := &pb.JobHistory{JobId: job.JobID, Transitions: make([]*pb.Transition, 0, len(job.Transitions))}
+		if !job.StartedAt.IsZero() {
+			jobPb.StartedAt = timestamppb.New(job.StartedAt)
 		}
-		if tr.TaskResult != nil {
-			output, err := protoutils.StructToStructPb(tr.TaskResult.Output)
-			if err != nil {
-				return nil, err
+		for _, tr := range job.Transitions {
+			trPb := &pb.Transition{
+				From: tr.From, To: tr.To, Trigger: tr.Trigger, Timestamp: timestamppb.New(tr.Timestamp),
+				Source: SourceToProto(tr.Source),
 			}
-			trPb.TaskResult = &taskpb.Result{Outcome: tr.TaskResult.Outcome, Output: output}
+			if tr.TaskResult != nil {
+				output, err := protoutils.StructToStructPb(tr.TaskResult.Output)
+				if err != nil {
+					return nil, err
+				}
+				trPb.TaskResult = &taskpb.Result{Outcome: tr.TaskResult.Outcome, Output: output}
+			}
+			jobPb.Transitions = append(jobPb.Transitions, trPb)
 		}
-		resp.Transitions = append(resp.Transitions, trPb)
+		resp.Jobs = append(resp.Jobs, jobPb)
 	}
 	return resp, nil
 }

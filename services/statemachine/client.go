@@ -76,27 +76,34 @@ func (c *client) SendEvent(ctx context.Context, event string, payload, extra map
 	return EventResult{Handled: resp.Handled, Path: resp.Path}, nil
 }
 
-func (c *client) GetHistory(ctx context.Context, limit int, extra map[string]interface{}) ([]Transition, error) {
+func (c *client) GetHistory(ctx context.Context, jobID string, limit int, extra map[string]interface{}) ([]JobHistory, error) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := c.client.GetHistory(ctx, &pb.GetHistoryRequest{Name: c.name, Limit: int32(limit), Extra: ext})
+	resp, err := c.client.GetHistory(ctx, &pb.GetHistoryRequest{Name: c.name, JobId: jobID, Limit: int32(limit), Extra: ext})
 	if err != nil {
 		return nil, err
 	}
-	transitions := make([]Transition, 0, len(resp.Transitions))
-	for _, tr := range resp.Transitions {
-		t := Transition{
-			From: tr.From, To: tr.To, Trigger: tr.Trigger, TaskResult: task.ResultFromProto(tr.TaskResult),
-			Source: SourceFromProto(tr.Source), JobID: tr.JobId,
+	jobs := make([]JobHistory, 0, len(resp.Jobs))
+	for _, jobPb := range resp.Jobs {
+		job := JobHistory{JobID: jobPb.JobId, Transitions: make([]Transition, 0, len(jobPb.Transitions))}
+		if jobPb.StartedAt != nil {
+			job.StartedAt = jobPb.StartedAt.AsTime()
 		}
-		if tr.Timestamp != nil {
-			t.Timestamp = tr.Timestamp.AsTime()
+		for _, tr := range jobPb.Transitions {
+			t := Transition{
+				From: tr.From, To: tr.To, Trigger: tr.Trigger, TaskResult: task.ResultFromProto(tr.TaskResult),
+				Source: SourceFromProto(tr.Source),
+			}
+			if tr.Timestamp != nil {
+				t.Timestamp = tr.Timestamp.AsTime()
+			}
+			job.Transitions = append(job.Transitions, t)
 		}
-		transitions = append(transitions, t)
+		jobs = append(jobs, job)
 	}
-	return transitions, nil
+	return jobs, nil
 }
 
 func (c *client) GetDefinition(ctx context.Context, extra map[string]interface{}) (Definition, error) {

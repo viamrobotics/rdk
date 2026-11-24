@@ -104,7 +104,7 @@ type builtIn struct {
 	snapMu   sync.RWMutex
 	snap     statemachine.State
 	snapExec *execution
-	history  []statemachine.Transition
+	history  []statemachine.JobHistory
 	jobID    string
 
 	ctx    context.Context
@@ -501,13 +501,29 @@ func (b *builtIn) fault(reason string, result *task.Result) {
 	b.publish()
 }
 
+// record appends a transition to the current job's history, trimming the
+// oldest transitions once the retained total exceeds the history limit.
 func (b *builtIn) record(tr statemachine.Transition) {
 	b.snapMu.Lock()
 	defer b.snapMu.Unlock()
-	tr.JobID = b.jobID
-	b.history = append(b.history, tr)
-	if len(b.history) > b.historyLimit {
-		b.history = b.history[len(b.history)-b.historyLimit:]
+	n := len(b.history)
+	if n == 0 || b.history[n-1].JobID != b.jobID {
+		b.history = append(b.history, statemachine.JobHistory{JobID: b.jobID, StartedAt: tr.Timestamp})
+		n++
+	}
+	b.history[n-1].Transitions = append(b.history[n-1].Transitions, tr)
+	total := 0
+	for _, job := range b.history {
+		total += len(job.Transitions)
+	}
+	for excess := total - b.historyLimit; excess > 0; {
+		oldest := &b.history[0]
+		drop := min(excess, len(oldest.Transitions))
+		oldest.Transitions = oldest.Transitions[drop:]
+		excess -= drop
+		if len(oldest.Transitions) == 0 {
+			b.history = b.history[1:]
+		}
 	}
 }
 
@@ -558,14 +574,23 @@ func (b *builtIn) SendEvent(ctx context.Context, event string, payload, extra ma
 	return statemachine.EventResult{Handled: r.handled, Path: r.path}, nil
 }
 
-func (b *builtIn) GetHistory(ctx context.Context, limit int, extra map[string]interface{}) ([]statemachine.Transition, error) {
+func (b *builtIn) GetHistory(
+	ctx context.Context, jobID string, limit int, extra map[string]interface{},
+) ([]statemachine.JobHistory, error) {
 	b.snapMu.RLock()
 	defer b.snapMu.RUnlock()
-	h := b.history
-	if limit > 0 && limit < len(h) {
-		h = h[len(h)-limit:]
+	jobs := make([]statemachine.JobHistory, 0, len(b.history))
+	for _, job := range b.history {
+		if jobID != "" && job.JobID != jobID {
+			continue
+		}
+		job.Transitions = append([]statemachine.Transition{}, job.Transitions...)
+		jobs = append(jobs, job)
 	}
-	return append([]statemachine.Transition{}, h...), nil
+	if limit > 0 && limit < len(jobs) {
+		jobs = jobs[len(jobs)-limit:]
+	}
+	return jobs, nil
 }
 
 func (b *builtIn) GetDefinition(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error) {

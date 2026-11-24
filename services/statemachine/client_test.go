@@ -97,22 +97,28 @@ func TestClient(t *testing.T) {
 	test.That(t, res, test.ShouldResemble, statemachine.EventResult{Handled: true, Path: []string{"manual", "pour"}})
 
 	ts := time.Now().UTC().Truncate(time.Millisecond)
-	injectSM.GetHistoryFunc = func(ctx context.Context, limit int, extra map[string]interface{}) ([]statemachine.Transition, error) {
+	injectSM.GetHistoryFunc = func(
+		ctx context.Context, jobID string, limit int, extra map[string]interface{},
+	) ([]statemachine.JobHistory, error) {
+		test.That(t, jobID, test.ShouldEqual, "j")
 		test.That(t, limit, test.ShouldEqual, 3)
-		return []statemachine.Transition{
-			{From: []string{}, To: []string{"idle"}, Trigger: "initial", Source: statemachine.SourceInitial, Timestamp: ts, JobID: "j"},
+		return []statemachine.JobHistory{{JobID: "j", StartedAt: ts, Transitions: []statemachine.Transition{
+			{From: []string{}, To: []string{"idle"}, Trigger: "initial", Source: statemachine.SourceInitial, Timestamp: ts},
 			{
-				From: []string{"idle"}, To: []string{"work"}, Trigger: "go", Source: statemachine.SourceEvent, Timestamp: ts, JobID: "j",
+				From: []string{"idle"}, To: []string{"work"}, Trigger: "go", Source: statemachine.SourceEvent, Timestamp: ts,
 				TaskResult: &task.Result{Outcome: "done", Output: map[string]interface{}{"k": "v"}},
 			},
-		}, nil
+		}}}, nil
 	}
-	history, err := client.GetHistory(ctx, 3, nil)
+	jobs, err := client.GetHistory(ctx, "j", 3, nil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, jobs, test.ShouldHaveLength, 1)
+	test.That(t, jobs[0].JobID, test.ShouldEqual, "j")
+	test.That(t, jobs[0].StartedAt.Equal(ts), test.ShouldBeTrue)
+	history := jobs[0].Transitions
 	test.That(t, history, test.ShouldHaveLength, 2)
 	test.That(t, history[0].Trigger, test.ShouldEqual, "initial")
 	test.That(t, history[0].Source, test.ShouldEqual, statemachine.SourceInitial)
-	test.That(t, history[0].JobID, test.ShouldEqual, "j")
 	test.That(t, history[1].Source, test.ShouldEqual, statemachine.SourceEvent)
 	test.That(t, history[0].TaskResult, test.ShouldBeNil)
 	test.That(t, history[0].Timestamp.Equal(ts), test.ShouldBeTrue)
