@@ -77,32 +77,32 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 
 	// Combine `clientCtx` (client's context) with `svc.workers.Context()` (this shell
 	// service's lifetime context) by using AfterFunc. When either of `clientCtx` or
-	// `svc.workers.Context()` is done, ctx will be marked done.
+	// `svc.workers.Context()` is done, jointClientAndServerCtx will be marked done.
 	//
-	// Use this ctx in all added stoppable workers. The passed-in context will just be
-	// `svc.workers.Context()`.
-	ctx, cancel := context.WithCancel(svc.workers.Context())
-	context.AfterFunc(clientCtx, cancel)
+	// Use this jointClientAndServerCtx in all added stoppable workers. The passed-in
+	// context will just be `svc.workers.Context()`.
+	jointClientAndServerCtx, jointClientAndServerCtxCancel := context.WithCancel(svc.workers.Context())
+	context.AfterFunc(clientCtx, jointClientAndServerCtxCancel)
 
 	//nolint: gosec
-	cmd := exec.CommandContext(ctx, defaultShellPath, shellArgs...)
+	cmd := exec.CommandContext(jointClientAndServerCtx, defaultShellPath, shellArgs...)
 	cmd.Env = shellEnv
 	// xpty gives a unix pty or a Windows ConPTY behind one interface.
 	f, err := xpty.NewPty(80, 24)
 	if err != nil {
-		cancel()
+		jointClientAndServerCtxCancel()
 		return nil, nil, nil, err
 	}
 	// xpty.Start doesn't give the child a controlling terminal, so interactive shells lose job control on unix
 	setControllingTTY(cmd)
 	if err := f.Start(cmd); err != nil {
-		cancel()
+		jointClientAndServerCtxCancel()
 		utils.UncheckedError(f.Close())
 		return nil, nil, nil, err
 	}
 
 	// Close the PTY on ctx cancel.
-	context.AfterFunc(ctx, func() { utils.UncheckedError(f.Close()) })
+	context.AfterFunc(jointClientAndServerCtx, func() { utils.UncheckedError(f.Close()) })
 
 	var sizeLock sync.Mutex
 	lastSet := time.Time{}
@@ -114,26 +114,26 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 		case "window-change":
 			cols, ok := data["cols"].(float64)
 			if !ok {
-				svc.logger.CErrorw(ctx, "invalid window-change message; expected cols to be float64", "value", data["cols"])
+				svc.logger.CErrorw(jointClientAndServerCtx, "invalid window-change message; expected cols to be float64", "value", data["cols"])
 				return
 			}
 			rows, ok := data["rows"].(float64)
 			if !ok {
-				svc.logger.CErrorw(ctx, "invalid window-change message; expected rows to be float64", "value", data["rows"])
+				svc.logger.CErrorw(jointClientAndServerCtx, "invalid window-change message; expected rows to be float64", "value", data["rows"])
 				return
 			}
 			sizeLock.Lock()
 			defer sizeLock.Unlock()
 			if time.Since(lastSet) < 200*time.Millisecond {
-				svc.logger.CDebug(ctx, "too many resizes")
+				svc.logger.CDebug(jointClientAndServerCtx, "too many resizes")
 				return
 			}
 			lastSet = time.Now()
 			if err := f.Resize(int(cols), int(rows)); err != nil {
-				svc.logger.CErrorw(ctx, "error setting pty window size", "error", err)
+				svc.logger.CErrorw(jointClientAndServerCtx, "error setting pty window size", "error", err)
 			}
 		default:
-			svc.logger.CDebugw(ctx, "will not process OOB data")
+			svc.logger.CDebugw(jointClientAndServerCtx, "will not process OOB data")
 		}
 	}
 	if msgs, ok := extra["messages"].([]interface{}); ok {
@@ -147,12 +147,12 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 	}
 
 	svc.workers.Add(func(_ context.Context) {
-		defer cancel()
-		if err := xpty.WaitProcess(ctx, cmd); err != nil {
-			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
+		defer jointClientAndServerCtxCancel()
+		if err := xpty.WaitProcess(jointClientAndServerCtx, cmd); err != nil {
+			svc.logger.CDebugw(jointClientAndServerCtx, "error waiting for shell process", "error", err)
 		}
 		if err := f.Close(); err != nil {
-			svc.logger.CDebugw(ctx, "error closing pty", "error", err)
+			svc.logger.CDebugw(jointClientAndServerCtx, "error closing pty", "error", err)
 		}
 	})
 
@@ -165,17 +165,17 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 		var data [4096]byte
 		for {
 			select {
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				return
 			default:
 			}
 			n, err := f.Read(data[:])
 			if err != nil {
 				if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
-					svc.logger.CErrorw(ctx, "error reading output", "error", err)
+					svc.logger.CErrorw(jointClientAndServerCtx, "error reading output", "error", err)
 				}
 				select {
-				case <-ctx.Done():
+				case <-jointClientAndServerCtx.Done():
 					return
 				case output <- shell.Output{EOF: true}:
 				}
@@ -187,7 +187,7 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 			// a rune can split across pty reads; coerce so the proto send stays valid UTF-8
 			text := shell.ValidUTF8(string(data[:n]))
 			select {
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				return
 			case output <- shell.Output{Output: text}:
 			}
@@ -200,18 +200,18 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 			case inputData, ok := <-input:
 				if ok {
 					if _, err := f.Write([]byte(inputData)); err != nil {
-						svc.logger.CErrorw(ctx, "error writing data", "error", err)
+						svc.logger.CErrorw(jointClientAndServerCtx, "error writing data", "error", err)
 						return
 					}
 				} else {
 					if _, err := f.Write([]byte{4}); err != nil {
-						svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
+						svc.logger.CErrorw(jointClientAndServerCtx, "error writing EOT", "error", err)
 					}
 					return
 				}
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				if _, err := f.Write([]byte{4}); err != nil {
-					svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
+					svc.logger.CErrorw(jointClientAndServerCtx, "error writing EOT", "error", err)
 				}
 				return
 			}
@@ -226,7 +226,7 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 					return
 				}
 				procOOB(oobInputData)
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				return
 			}
 		}
