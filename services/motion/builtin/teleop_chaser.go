@@ -25,11 +25,16 @@ const (
 	// joints shaking a few times a second.
 	teleopChaseMaxGainPerSec = 40.0
 	// teleopChaseBrakeFraction is the share of the acceleration limit the chaser plans to brake
-	// with. Keeping some in reserve leaves room for the acceleration ramp.
-	teleopChaseBrakeFraction = 0.6
+	// with. The chaser trails a moving target by the distance it needs to stop in, so a larger
+	// share means less lag: about a third less at 0.9 than at 0.6. What is left over is the
+	// margin against running past a target that stops dead, which at 0.9 costs a few tenths of
+	// a degree.
+	teleopChaseBrakeFraction = 0.9
 	// teleopChaseAccelRampTime is how long acceleration takes to go from zero to its limit. It
-	// bounds jerk, so acceleration never steps.
-	teleopChaseAccelRampTime = 40 * time.Millisecond
+	// bounds jerk, so acceleration never steps. The chaser has to allow for this time before
+	// braking takes hold, so a shorter ramp also means less lag; 20ms is two steps of the
+	// stream.
+	teleopChaseAccelRampTime = 20 * time.Millisecond
 	// teleopChaseVelSettleSteps is how many steps the chaser takes to close a small velocity gap.
 	// More than one keeps acceleration from flipping sign every step around the wanted velocity.
 	teleopChaseVelSettleSteps = 2.0

@@ -143,6 +143,41 @@ func TestJointChaserShortJerkyMoves(t *testing.T) {
 	test.That(t, lo, test.ShouldBeGreaterThan, -0.002)
 }
 
+func TestJointChaserOvershootAtMaxGain(t *testing.T) {
+	// The highest allowed gain with a fast arm is the worst case for running past a target.
+	// A 5 degree dart, and a dead stop from 60 deg/s, must each stay within about half a degree.
+	const deg = math.Pi / 180
+	for _, accMax := range []float64{342 * deg, 950 * deg} {
+		c := newJointChaser([]float64{0}, []float64{110 * deg}, []float64{accMax}, teleopChaseMaxGainPerSec)
+		target := 0.0
+		for range 4 {
+			target += 5 * deg / 4
+			c.setTarget([]float64{target})
+			c.step(chaserTestStep)
+		}
+		peak := 0.0
+		for range 60 {
+			c.step(chaserTestStep)
+			peak = math.Max(peak, c.pos[0])
+		}
+		test.That(t, peak-target, test.ShouldBeLessThan, 0.5*deg)
+
+		c = newJointChaser([]float64{0}, []float64{110 * deg}, []float64{accMax}, teleopChaseMaxGainPerSec)
+		target = 0.0
+		for range 200 {
+			target += 60 * deg * chaserTestStep.Seconds()
+			c.setTarget([]float64{target})
+			c.step(chaserTestStep)
+		}
+		peak = 0.0
+		for range 200 {
+			c.step(chaserTestStep)
+			peak = math.Max(peak, c.pos[0])
+		}
+		test.That(t, peak-target, test.ShouldBeLessThan, 0.6*deg)
+	}
+}
+
 func TestJointChaserSettlesAtEveryAllowedGain(t *testing.T) {
 	// A slow drift arriving as small steps, then a stop. At any gain the config allows, the
 	// chaser must come to rest on the target and stay there, not hunt back and forth around it.
