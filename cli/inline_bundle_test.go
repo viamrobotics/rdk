@@ -426,6 +426,8 @@ func TestAssembledGoModulesBuild(t *testing.T) {
 		test.That(t, os.WriteFile(filepath.Join(dir, "module.go"), []byte(source), 0o644), test.ShouldBeNil)
 		cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", ".")
 		cmd.Dir = dir
+		// A module outside RDK's graph fails the build by name instead of being fetched over a flaky network.
+		cmd.Env = append(os.Environ(), "GOPROXY=off")
 		out, buildErr := cmd.CombinedOutput()
 		if buildErr != nil {
 			t.Fatalf("%s failed to build: %v\n%s", api, buildErr, out)
