@@ -445,8 +445,6 @@ func TestTeleopConfigValidate(t *testing.T) {
 	test.That(t, valid(Config{TeleopExecutor: "sideways"}), test.ShouldNotBeNil)
 
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{ChaseGainPerSec: -1}}), test.ShouldNotBeNil)
-	tooMuch := 1.5
-	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{VelocityFeedforward: &tooMuch}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{ArmSideTargetRunwayMs: 10, SendToArmIntervalMs: 10}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{MaxVelDegsPerSecJoints: []float64{90, -1}}}), test.ShouldNotBeNil)
 	test.That(t, valid(Config{TeleopStream: TeleopStreamConfig{
@@ -458,10 +456,7 @@ func TestTeleopConfigValidate(t *testing.T) {
 	test.That(t, opts.ArmSideTargetRunway, test.ShouldEqual, defaultTeleopStreamRunwayMs*time.Millisecond)
 	test.That(t, opts.SendToArmInterval, test.ShouldEqual, defaultTeleopStreamIntervalMs*time.Millisecond)
 
-	// The chaser tuning defaults, and a feedforward of zero is honored rather than defaulted.
-	test.That(t, TeleopStreamConfig{}.chase(), test.ShouldResemble,
-		teleopChase{gain: defaultTeleopChaseGainPerSec, feedforward: defaultTeleopChaseFeedforward})
-	none := 0.0
-	test.That(t, TeleopStreamConfig{ChaseGainPerSec: 20, VelocityFeedforward: &none}.chase(), test.ShouldResemble,
-		teleopChase{gain: 20, feedforward: 0})
+	// The chaser gain defaults, and a configured value is used.
+	test.That(t, TeleopStreamConfig{}.chase(), test.ShouldResemble, teleopChase{gain: defaultTeleopChaseGainPerSec})
+	test.That(t, TeleopStreamConfig{ChaseGainPerSec: 20}.chase(), test.ShouldResemble, teleopChase{gain: 20})
 }

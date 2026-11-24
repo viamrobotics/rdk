@@ -20,12 +20,8 @@ const (
 	// near the target, velocity is this gain times the error, so the error decays with a time
 	// constant of 1/gain.
 	defaultTeleopChaseGainPerSec = 15.0
-	// defaultTeleopChaseFeedforward is the fraction of the target's own estimated velocity added
-	// to the chaser's velocity. At 1 the chaser matches a steadily moving target with almost no
-	// lag; at 0 it trails by speed/gain.
-	defaultTeleopChaseFeedforward = 1.0
 	// teleopChaseBrakeFraction is the share of the acceleration limit the chaser plans to brake
-	// with. Keeping some in reserve lets it also follow a target that is itself decelerating.
+	// with. Keeping some in reserve leaves room for the acceleration ramp.
 	teleopChaseBrakeFraction = 0.6
 	// teleopChaseAccelRampTime is how long acceleration takes to go from zero to its limit. It
 	// bounds jerk, so acceleration never steps.
@@ -36,12 +32,6 @@ const (
 	// teleopChaseVelHeadroom is the fraction of a joint's velocity limit the chaser aims for at
 	// most, leaving room for the small overshoot of a discretely ramped acceleration.
 	teleopChaseVelHeadroom = 0.98
-	// teleopChaseTargetVelTau smooths the estimate of the target's velocity, which is a finite
-	// difference of targets that arrive at uneven intervals.
-	teleopChaseTargetVelTau = 60 * time.Millisecond
-	// teleopChaseTargetStale is how long after the last target the chaser starts treating the
-	// target as stationary and bleeds the velocity estimate off.
-	teleopChaseTargetStale = 40 * time.Millisecond
 	// teleopChaseRestVel and teleopChaseRestErr are how slow and how close, in radians, every
 	// joint must be for the chaser to count as at rest on its target.
 	teleopChaseRestVel = 1e-3
@@ -56,60 +46,39 @@ const (
 )
 
 // jointChaser generates joint motion that follows a moving target within per-joint velocity and
-// acceleration limits. Unlike a trajectory planner it never plans to stop at the latest target
-// while that target is moving: it matches the target's estimated velocity and closes the
-// remaining error, coming to rest only when the target does. Each joint is chased independently.
+// acceleration limits. Its speed toward the target is proportional to how far behind it is, so
+// it trails a moving target by a steady 1/gain seconds and eases to rest when the target stops.
+// It does not predict where the target is going: an earlier version added the target's
+// estimated velocity, which cut the lag but overshot on short, sharp movements. Each joint is
+// chased independently.
 type jointChaser struct {
 	pos, vel, acc []float64
 	velMax        []float64
 	accMax        []float64
 
-	gain        float64
-	feedforward float64
-
-	target         []float64
-	targetVel      []float64
-	sinceTarget    time.Duration
-	lastTargetTime time.Time
-	haveTarget     bool
+	gain   float64
+	target []float64
 }
 
-func newJointChaser(start, velMax, accMax []float64, gain, feedforward float64) *jointChaser {
+func newJointChaser(start, velMax, accMax []float64, gain float64) *jointChaser {
 	n := len(start)
-	c := &jointChaser{
-		pos:         append([]float64(nil), start...),
-		vel:         make([]float64, n),
-		acc:         make([]float64, n),
-		velMax:      velMax,
-		accMax:      accMax,
-		gain:        gain,
-		feedforward: feedforward,
-		target:      append([]float64(nil), start...),
-		targetVel:   make([]float64, n),
+	return &jointChaser{
+		pos:    append([]float64(nil), start...),
+		vel:    make([]float64, n),
+		acc:    make([]float64, n),
+		velMax: velMax,
+		accMax: accMax,
+		gain:   gain,
+		target: append([]float64(nil), start...),
 	}
-	return c
 }
 
-// setTarget moves the target and updates the estimate of how fast it is moving.
-func (c *jointChaser) setTarget(target []float64, now time.Time) {
+// setTarget moves the target. A target with the wrong number of joints is ignored.
+func (c *jointChaser) setTarget(target []float64) {
 	if len(target) != len(c.target) {
 		return
 	}
-	if c.haveTarget {
-		dt := now.Sub(c.lastTargetTime).Seconds()
-		if dt > 1e-3 {
-			blend := 1 - math.Exp(-dt/teleopChaseTargetVelTau.Seconds())
-			for i, t := range target {
-				raw := (t - c.target[i]) / dt
-				v := c.targetVel[i] + blend*(raw-c.targetVel[i])
-				c.targetVel[i] = math.Max(-c.velMax[i], math.Min(c.velMax[i], v))
-			}
-		}
-	}
 	copy(c.target, target)
-	c.lastTargetTime = now
-	c.haveTarget = true
-	c.sinceTarget = 0
 }
 
 // approachVel is the speed to close a position error with: proportional to the error near the
@@ -129,16 +98,25 @@ func approachVel(err, gain, brake float64) float64 {
 // step advances the chaser by dt.
 func (c *jointChaser) step(dt time.Duration) {
 	h := dt.Seconds()
-	c.sinceTarget += dt
-	if c.sinceTarget > teleopChaseTargetStale {
-		decay := math.Exp(-h / teleopChaseTargetVelTau.Seconds())
-		for i := range c.targetVel {
-			c.targetVel[i] *= decay
-		}
-	}
 	for i := range c.pos {
 		brake := teleopChaseBrakeFraction * c.accMax[i]
-		want := c.feedforward*c.targetVel[i] + approachVel(c.target[i]-c.pos[i], c.gain, brake)
+		jerk := c.accMax[i] / teleopChaseAccelRampTime.Seconds()
+
+		// The joint cannot start braking at once: acceleration has to swing from its current
+		// value to the braking value at the jerk limit, and the joint keeps travelling while it
+		// does. coast is how far. Choosing speed from the error that will remain after that
+		// swing, not the error now, is what stops a short sharp move from running past its
+		// target: at the end of such a move the joint is still accelerating hard.
+		moving := 1.0
+		if c.vel[i] < 0 || (c.vel[i] == 0 && c.target[i] < c.pos[i]) {
+			moving = -1.0
+		}
+		swing := math.Max(0, moving*c.acc[i]+brake) / jerk
+		// This leaves out the small amount the falling acceleration takes back off the
+		// distance, so it errs toward braking early. It also makes coast exactly zero at rest,
+		// which lets the joint settle on its target.
+		coast := c.vel[i]*swing + c.acc[i]*swing*swing/2
+		want := approachVel(c.target[i]-c.pos[i]-coast, c.gain, brake)
 		// Aim a little under the velocity limit: acceleration ramps down in discrete steps, so
 		// velocity settles a hair past the value aimed for.
 		wantMax := teleopChaseVelHeadroom * c.velMax[i]
@@ -149,7 +127,6 @@ func (c *jointChaser) step(dt time.Duration) {
 		// (so it eases off as the gap closes), by the arm's limit, by how fast it may change
 		// (jerk), and so that it can still be ramped back to zero by the time velocity reaches
 		// the value wanted, which keeps velocity from running past it.
-		jerk := c.accMax[i] / teleopChaseAccelRampTime.Seconds()
 		dir := 1.0
 		if want < c.vel[i] {
 			dir = -1.0
@@ -211,8 +188,7 @@ func (c *jointChaser) point(t time.Duration) arm.TrajectoryPoint {
 
 // teleopChase is the tuning of the chaser one teleop pipeline uses.
 type teleopChase struct {
-	gain        float64
-	feedforward float64
+	gain float64
 }
 
 // run drives one arm's MoveThroughJointPositionsStreamed stream from a moving joint target. It
@@ -281,7 +257,7 @@ func (tc teleopChase) run(
 		}
 	}()
 
-	chaser := newJointChaser(seed, velMax, accMax, tc.gain, tc.feedforward)
+	chaser := newJointChaser(seed, velMax, accMax, tc.gain)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -313,7 +289,7 @@ func (tc teleopChase) run(
 				return fmt.Errorf("target has %d joint positions, but the arm has %d joints", len(target), len(seed))
 			}
 			diag.RecordReceivedJointPositionTargetEvent()
-			chaser.setTarget(target, time.Now())
+			chaser.setTarget(target)
 		case <-ticker.C:
 			var elapsed time.Duration
 			if sentAny {

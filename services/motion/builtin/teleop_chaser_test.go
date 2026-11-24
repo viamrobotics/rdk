@@ -21,7 +21,7 @@ import (
 const chaserTestStep = 10 * time.Millisecond
 
 func newTestChaser(start float64) *jointChaser {
-	return newJointChaser([]float64{start}, []float64{1.5}, []float64{8}, defaultTeleopChaseGainPerSec, defaultTeleopChaseFeedforward)
+	return newJointChaser([]float64{start}, []float64{1.5}, []float64{8}, defaultTeleopChaseGainPerSec)
 }
 
 // splineAccel returns the acceleration, at time t into an interval of length h, of the quintic
@@ -65,7 +65,7 @@ func checkLimits(t *testing.T, c *jointChaser, n int, each func(i int)) []float6
 func TestJointChaserStepToTarget(t *testing.T) {
 	// A large step: the chaser should saturate, then settle on the target without passing it.
 	c := newTestChaser(0)
-	c.setTarget([]float64{1.0}, time.Now())
+	c.setTarget([]float64{1.0})
 	positions := checkLimits(t, c, 400, nil)
 	peak := 0.0
 	for _, p := range positions {
@@ -78,17 +78,15 @@ func TestJointChaserStepToTarget(t *testing.T) {
 
 func TestJointChaserFollowsMovingTarget(t *testing.T) {
 	// A target moving steadily at a third of the speed limit, updated every step: once the
-	// chaser has caught up it should move at the target's speed, close behind it, without the
-	// stop-and-go of a planner that stops at each target.
+	// chaser has caught up it should move at the target's speed, a steady distance behind it,
+	// without the stop-and-go of a planner that stops at each target.
 	c := newTestChaser(0)
 	const targetVel = 0.5
-	now := time.Now()
 	target := 0.0
 	var lateVels []float64
 	checkLimits(t, c, 300, func(i int) {
 		target += targetVel * chaserTestStep.Seconds()
-		now = now.Add(chaserTestStep)
-		c.setTarget([]float64{target}, now)
+		c.setTarget([]float64{target})
 		if i >= 150 {
 			lateVels = append(lateVels, c.vel[0])
 		}
@@ -96,42 +94,60 @@ func TestJointChaserFollowsMovingTarget(t *testing.T) {
 	for _, v := range lateVels {
 		test.That(t, v, test.ShouldAlmostEqual, targetVel, 0.02)
 	}
-	// With full velocity feedforward the steady-state lag is small: well under 30ms of motion.
-	test.That(t, target-c.pos[0], test.ShouldBeLessThan, targetVel*0.03)
-	test.That(t, target-c.pos[0], test.ShouldBeGreaterThan, -targetVel*0.03)
+	// It trails by about 1/gain seconds of the target's motion, plus the short time it allows
+	// for swinging into a brake.
+	lag := (target - c.pos[0]) / targetVel
+	t.Logf("steady-state lag behind a moving target: %.0f ms", lag*1000)
+	test.That(t, lag, test.ShouldBeGreaterThan, 0.8/defaultTeleopChaseGainPerSec)
+	test.That(t, lag, test.ShouldBeLessThan, 1.7/defaultTeleopChaseGainPerSec)
 }
 
 func TestJointChaserTargetStops(t *testing.T) {
-	// The target moves, then stops arriving. The chaser should come to rest on the last target,
-	// even though it was matching the target's speed.
+	// The target moves at speed, then stops dead. The chaser trails it, so it has room to
+	// brake: it must settle on the last target without running past it.
 	c := newTestChaser(0)
-	now := time.Now()
 	target := 0.0
 	checkLimits(t, c, 150, func(_ int) {
 		target += 1.0 * chaserTestStep.Seconds()
-		now = now.Add(chaserTestStep)
-		c.setTarget([]float64{target}, now)
+		c.setTarget([]float64{target})
 	})
 	positions := checkLimits(t, c, 300, nil)
 	peak := 0.0
 	for _, p := range positions {
 		peak = math.Max(peak, p)
 	}
-	// A target that stops dead cannot be stopped on: the chaser was moving with it. It must not
-	// run on further than the distance it takes to brake from the target's speed.
-	brakingDistance := 1.0 * 1.0 / (2 * teleopChaseBrakeFraction * c.accMax[0])
-	test.That(t, peak-target, test.ShouldBeLessThan, brakingDistance)
+	test.That(t, peak-target, test.ShouldBeLessThan, 0.002)
 	test.That(t, c.atRest(), test.ShouldBeTrue)
 	test.That(t, c.pos[0], test.ShouldAlmostEqual, target, 1e-3)
+}
+
+func TestJointChaserShortJerkyMoves(t *testing.T) {
+	// Short, sharp movements: the target darts a small distance in a few steps, holds, then
+	// darts back. The chaser must not run past where the target stopped in either direction.
+	c := newTestChaser(0)
+	target := 0.0
+	hi, lo := 0.0, 0.0
+	for range 6 {
+		for _, move := range []float64{0.08, -0.08} {
+			checkLimits(t, c, 4, func(_ int) {
+				target += move / 4
+				c.setTarget([]float64{target})
+			})
+			for _, p := range checkLimits(t, c, 30, nil) {
+				hi, lo = math.Max(hi, p), math.Min(lo, p)
+			}
+		}
+	}
+	t.Logf("overshoot past a 0.08 rad dart: %.4f rad forward, %.4f rad back", hi-0.08, -lo)
+	test.That(t, hi, test.ShouldBeLessThan, 0.08+0.002)
+	test.That(t, lo, test.ShouldBeGreaterThan, -0.002)
 }
 
 func TestJointChaserReversal(t *testing.T) {
 	// A target that reverses direction: limits must hold through the reversal.
 	c := newTestChaser(0)
-	now := time.Now()
 	checkLimits(t, c, 600, func(i int) {
-		now = now.Add(chaserTestStep)
-		c.setTarget([]float64{0.6 * math.Sin(float64(i)*chaserTestStep.Seconds()*3)}, now)
+		c.setTarget([]float64{0.6 * math.Sin(float64(i)*chaserTestStep.Seconds()*3)})
 	})
 }
 
@@ -194,7 +210,7 @@ func TestTeleopChaseRun(t *testing.T) {
 	a := newRecordingStreamArm()
 	const velMax, accMax = 1.5, 8.0
 	opts := chaseTestOptions(velMax, accMax)
-	tc := teleopChase{gain: defaultTeleopChaseGainPerSec, feedforward: defaultTeleopChaseFeedforward}
+	tc := teleopChase{gain: defaultTeleopChaseGainPerSec}
 
 	targets := make(chan []referenceframe.Input, 4)
 	seed := []referenceframe.Input{0.1, -0.2}
@@ -244,7 +260,7 @@ func TestTeleopChaseRun(t *testing.T) {
 
 func TestTeleopChaseRunStopsArmOnCancelAndError(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	tc := teleopChase{gain: defaultTeleopChaseGainPerSec, feedforward: defaultTeleopChaseFeedforward}
+	tc := teleopChase{gain: defaultTeleopChaseGainPerSec}
 	seed := []referenceframe.Input{0, 0}
 
 	// Cancellation stops the arm.

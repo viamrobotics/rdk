@@ -103,14 +103,9 @@ type TeleopStreamConfig struct {
 	MaxVelDegsPerSecJoints  []float64 `json:"max_vel_degs_per_sec_joints"`
 	MaxAccDegsPerSec2Joints []float64 `json:"max_acc_degs_per_sec2_joints"`
 	// ChaseGainPerSec is how hard the arm closes the last of the gap to its target: near the
-	// target its speed is this gain times the remaining error. Higher is tighter and more
-	// sensitive to noise in the target. Default 15.
+	// target its speed is this gain times the remaining error, so it trails a moving target by
+	// 1/gain seconds. Higher is tighter and more sensitive to noise in the target. Default 15.
 	ChaseGainPerSec float64 `json:"chase_gain_per_sec"`
-	// VelocityFeedforward is how much of the target's own estimated velocity is added to the
-	// arm's, from 0 to 1. At 1 the arm keeps up with a steadily moving target with almost no lag
-	// but runs on further when the target stops abruptly; lower values trail the target and stop
-	// shorter. Default 1.
-	VelocityFeedforward *float64 `json:"velocity_feedforward"`
 }
 
 func (c TeleopStreamConfig) streamOptions() streaming.StreamOptions {
@@ -201,12 +196,9 @@ func (c TeleopStreamConfig) jointLimits(armLimits []referenceframe.Limit) (vel, 
 
 // chase returns the chaser tuning the config selects.
 func (c TeleopStreamConfig) chase() teleopChase {
-	tc := teleopChase{gain: defaultTeleopChaseGainPerSec, feedforward: defaultTeleopChaseFeedforward}
+	tc := teleopChase{gain: defaultTeleopChaseGainPerSec}
 	if c.ChaseGainPerSec > 0 {
 		tc.gain = c.ChaseGainPerSec
-	}
-	if c.VelocityFeedforward != nil {
-		tc.feedforward = *c.VelocityFeedforward
 	}
 	return tc
 }
@@ -214,9 +206,6 @@ func (c TeleopStreamConfig) chase() teleopChase {
 func (c TeleopStreamConfig) validate() error {
 	if c.ChaseGainPerSec < 0 {
 		return fmt.Errorf("teleop_stream.chase_gain_per_sec must be non-negative (0 selects the default), got %v", c.ChaseGainPerSec)
-	}
-	if ff := c.VelocityFeedforward; ff != nil && (*ff < 0 || *ff > 1) {
-		return fmt.Errorf("teleop_stream.velocity_feedforward must be in [0, 1], got %v", *ff)
 	}
 	for name, v := range map[string]float64{"max_vel_degs_per_sec": c.MaxVelDegsPerSec, "max_acc_degs_per_sec2": c.MaxAccDegsPerSec2} {
 		if v < 0 {
