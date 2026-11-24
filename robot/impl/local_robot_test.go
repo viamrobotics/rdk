@@ -5390,17 +5390,54 @@ func TestMaintenanceConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorResource, test.ShouldNotBeNil)
 
+		// Maintenance sensor says no, but the config is unchanged so nothing is blocked
+		r.Reconfigure(ctx, &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor1,
+		})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
 		// Maintenance sensor will block reconfig so sensor2 should not be added
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeTrue)
 
 		// removing maintenance config unblocks reconfig and allows sensor to be added
 		r.Reconfigure(ctx, cfgUnblock)
 		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+	})
+
+	t.Run("default services don't count as a held-back change", func(t *testing.T) {
+		defAPI := resource.APINamespaceRDK.WithServiceType("maintenance_default_" + utils.RandomAlphaString(5))
+		resource.RegisterDefaultService(defAPI, resource.DefaultServiceModel,
+			resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+					return &fakeDefaultSvc{Named: conf.ResourceName().AsNamed()}, nil
+				},
+			})
+		defer resource.Deregister(defAPI, resource.DefaultServiceModel)
+
+		maintenance := &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"}
+		r := setupLocalRobot(t, ctx, &config.Config{Components: sensor1}, logger)
+		_, err := r.ResourceByName(resource.NewName(defAPI, resource.DefaultServiceName))
+		test.That(t, err, test.ShouldBeNil)
+
+		r.Reconfigure(ctx, &config.Config{MaintenanceConfig: maintenance, Components: sensor1})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
+		r.Reconfigure(ctx, &config.Config{MaintenanceConfig: maintenance, Components: sensor1})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
+		bothSensors := append(append([]resource.Config{}, sensor1...), sensor2...)
+		r.Reconfigure(ctx, &config.Config{MaintenanceConfig: maintenance, Components: bothSensors})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeTrue)
+		_, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("remote sensor successfully blocks reconfigure when remote name is specified and not specified", func(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
+	apppb "go.viam.com/api/app/v1"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -211,6 +212,10 @@ type LocalRobot interface {
 	// UploadDataFromPath uploads a file or directory at path to the cloud via the data manager.
 	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 		UploadDataFromPathResult, error)
+
+	// FillAgentInfo adds the robot's running state, such as module versions and whether the
+	// maintenance sensor is holding back a config change, to the AgentInfo sent with each config request.
+	FillAgentInfo(info *apppb.AgentInfo)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
