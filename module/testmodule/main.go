@@ -173,6 +173,9 @@ var attemptedConstruction bool
 func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
+	if os.Getenv("VIAM_TESTMODULE_CRASH_ON_BUILD") != "" {
+		os.Exit(1)
+	}
 	// VIAM_TESTMODULE_FAIL_ON_FIRST will always fail the first attempt at construction
 	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" {
 		if !attemptedConstruction {

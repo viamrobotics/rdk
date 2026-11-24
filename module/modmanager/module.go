@@ -64,6 +64,8 @@ type module struct {
 	// pendingRemoval allows delaying module close until after resources within it are closed
 	pendingRemoval bool
 	restartCancel  context.CancelFunc
+	// lastRestart is when an OUE handler last restarted this module. Guarded by the manager mutex.
+	lastRestart time.Time
 
 	logger logging.Logger
 	ftdc   *ftdc.FTDC
