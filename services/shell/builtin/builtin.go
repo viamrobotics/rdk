@@ -101,6 +101,9 @@ func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{
 		return nil, nil, nil, err
 	}
 
+	// Close the PTY on ctx cancel.
+	context.AfterFunc(ctx, func() { utils.UncheckedError(f.Close()) })
+
 	var sizeLock sync.Mutex
 	lastSet := time.Time{}
 	procOOB := func(data map[string]interface{}) {
