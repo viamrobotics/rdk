@@ -80,21 +80,33 @@ func TestRunnerErrorAndCancel(t *testing.T) {
 	test.That(t, st.LastResult.Outcome, test.ShouldEqual, task.OutcomeError)
 	test.That(t, st.LastResult.Output["error"], test.ShouldEqual, "boom")
 
+	// A cancelled call ends in the outcome "cancelled", not an error.
 	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
+	type runResult struct {
+		res task.Result
+		err error
+	}
+	resCh := make(chan runResult, 1)
 	go func() {
-		_, err := svc.Run(ctx, nil, nil)
-		errCh <- err
+		res, err := svc.Run(ctx, nil, nil)
+		resCh <- runResult{res, err}
 	}()
 	time.Sleep(20 * time.Millisecond)
 	cancel()
-	test.That(t, errors.Is(<-errCh, context.Canceled), test.ShouldBeTrue)
+	rr := <-resCh
+	test.That(t, rr.err, test.ShouldBeNil)
+	test.That(t, rr.res.Outcome, test.ShouldEqual, task.OutcomeCancelled)
+	st, err = svc.GetTaskStatus(context.Background(), nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, st.LastResult.Outcome, test.ShouldEqual, task.OutcomeCancelled)
 
 	go func() {
-		_, err := svc.Run(context.Background(), nil, nil)
-		errCh <- err
+		res, err := svc.Run(context.Background(), nil, nil)
+		resCh <- runResult{res, err}
 	}()
 	time.Sleep(20 * time.Millisecond)
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, errors.Is(<-errCh, context.Canceled), test.ShouldBeTrue)
+	rr = <-resCh
+	test.That(t, rr.err, test.ShouldBeNil)
+	test.That(t, rr.res.Outcome, test.ShouldEqual, task.OutcomeCancelled)
 }

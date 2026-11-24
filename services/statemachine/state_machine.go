@@ -10,6 +10,7 @@ import (
 	"time"
 
 	pb "go.viam.com/api/service/statemachine/v1"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -40,9 +41,9 @@ const (
 	// StatusStopped means Stop was called: the machine holds its state and
 	// runs nothing until Reset or an event with a transition out.
 	StatusStopped
-	// StatusFaulted means a task returned "error" with no handler, or would
-	// not cancel in time. The machine runs nothing until Reset or an event
-	// with a transition out.
+	// StatusFaulted means a task returned an outcome no state handles, or
+	// would not cancel in time. The machine runs nothing until Reset or an
+	// event with a transition out.
 	StatusFaulted
 )
 
@@ -73,6 +74,52 @@ const (
 	TriggerFault = "fault"
 )
 
+// TransitionSource is what kind of thing caused a transition.
+type TransitionSource int
+
+const (
+	// SourceUnspecified is a transition whose cause was not recorded.
+	SourceUnspecified TransitionSource = iota
+	// SourceInitial is the entry into the initial state at startup.
+	SourceInitial
+	// SourceOutcome is a task in the from state returning the trigger as its outcome.
+	SourceOutcome
+	// SourceEvent is SendEvent or a watcher raising the trigger as an event.
+	SourceEvent
+	// SourceTimeout is the from state's timeout elapsing.
+	SourceTimeout
+	// SourceStop is Stop holding the machine in place.
+	SourceStop
+	// SourceReset is Reset re-entering the initial state.
+	SourceReset
+	// SourceFault is the machine faulting in place.
+	SourceFault
+)
+
+// String returns the lower case name of the source.
+func (s TransitionSource) String() string {
+	switch s {
+	case SourceInitial:
+		return "initial"
+	case SourceOutcome:
+		return "outcome"
+	case SourceEvent:
+		return "event"
+	case SourceTimeout:
+		return "timeout"
+	case SourceStop:
+		return "stop"
+	case SourceReset:
+		return "reset"
+	case SourceFault:
+		return "fault"
+	case SourceUnspecified:
+		fallthrough
+	default:
+		return "unspecified"
+	}
+}
+
 // State is where the machine is right now.
 type State struct {
 	// Path is the active state path from the root, e.g. ["auto", "pour", "picking_glass"].
@@ -84,6 +131,8 @@ type State struct {
 	EnteredAt time.Time
 	// TaskProgress is the running task's latest progress. Nil when no task is running.
 	TaskProgress *task.Progress
+	// JobID is the current job, read together with the rest of the state.
+	JobID string
 }
 
 // EventResult is the outcome of sending an event.
@@ -102,6 +151,11 @@ type Transition struct {
 	Timestamp time.Time
 	// TaskResult is the result of the task that was running in From, if it finished.
 	TaskResult *task.Result
+	// Source is what kind of thing caused the transition. An outcome name sent
+	// through SendEvent is recorded as SourceEvent.
+	Source TransitionSource
+	// JobID is the job the transition belongs to.
+	JobID string
 }
 
 // StateDefinition is one state of the machine as configured.
@@ -113,8 +167,12 @@ type StateDefinition struct {
 	// On maps the triggers (task outcomes and event names) the state handles to
 	// target state names as written in config, "$history" and "$done" included.
 	On map[string]string
-	// HasTask is whether the state runs a task.
-	HasTask bool
+	// Task is the task the state runs: a task resource's name, or a built-in
+	// task type prefixed with "$" ("$wait_for"). Empty when it runs none.
+	Task string
+	// Timeout is how long the task may run before the state handles "timeout".
+	// Zero when the state has no timeout.
+	Timeout time.Duration
 }
 
 // Definition is the machine's graph as configured.
@@ -172,7 +230,11 @@ func NamesFromRobot(r robot.Robot) []string {
 func DefinitionToProto(d Definition) *pb.GetDefinitionResponse {
 	resp := &pb.GetDefinitionResponse{Initial: d.Initial, Events: d.Events, On: d.On}
 	for _, st := range d.States {
-		resp.States = append(resp.States, &pb.StateDefinition{Path: st.Path, Initial: st.Initial, On: st.On, HasTask: st.HasTask})
+		stPb := &pb.StateDefinition{Path: st.Path, Initial: st.Initial, On: st.On, Task: st.Task}
+		if st.Timeout > 0 {
+			stPb.Timeout = durationpb.New(st.Timeout)
+		}
+		resp.States = append(resp.States, stPb)
 	}
 	return resp
 }
@@ -181,9 +243,59 @@ func DefinitionToProto(d Definition) *pb.GetDefinitionResponse {
 func DefinitionFromProto(resp *pb.GetDefinitionResponse) Definition {
 	d := Definition{Initial: resp.Initial, Events: resp.Events, On: resp.On}
 	for _, st := range resp.States {
-		d.States = append(d.States, StateDefinition{Path: st.Path, Initial: st.Initial, On: st.On, HasTask: st.HasTask})
+		d.States = append(d.States, StateDefinition{
+			Path: st.Path, Initial: st.Initial, On: st.On, Task: st.Task, Timeout: st.Timeout.AsDuration(),
+		})
 	}
 	return d
+}
+
+// SourceToProto converts a transition source to its proto enum.
+func SourceToProto(s TransitionSource) pb.TransitionSource {
+	switch s {
+	case SourceInitial:
+		return pb.TransitionSource_TRANSITION_SOURCE_INITIAL
+	case SourceOutcome:
+		return pb.TransitionSource_TRANSITION_SOURCE_OUTCOME
+	case SourceEvent:
+		return pb.TransitionSource_TRANSITION_SOURCE_EVENT
+	case SourceTimeout:
+		return pb.TransitionSource_TRANSITION_SOURCE_TIMEOUT
+	case SourceStop:
+		return pb.TransitionSource_TRANSITION_SOURCE_STOP
+	case SourceReset:
+		return pb.TransitionSource_TRANSITION_SOURCE_RESET
+	case SourceFault:
+		return pb.TransitionSource_TRANSITION_SOURCE_FAULT
+	case SourceUnspecified:
+		fallthrough
+	default:
+		return pb.TransitionSource_TRANSITION_SOURCE_UNSPECIFIED
+	}
+}
+
+// SourceFromProto converts a proto transition source enum.
+func SourceFromProto(s pb.TransitionSource) TransitionSource {
+	switch s {
+	case pb.TransitionSource_TRANSITION_SOURCE_INITIAL:
+		return SourceInitial
+	case pb.TransitionSource_TRANSITION_SOURCE_OUTCOME:
+		return SourceOutcome
+	case pb.TransitionSource_TRANSITION_SOURCE_EVENT:
+		return SourceEvent
+	case pb.TransitionSource_TRANSITION_SOURCE_TIMEOUT:
+		return SourceTimeout
+	case pb.TransitionSource_TRANSITION_SOURCE_STOP:
+		return SourceStop
+	case pb.TransitionSource_TRANSITION_SOURCE_RESET:
+		return SourceReset
+	case pb.TransitionSource_TRANSITION_SOURCE_FAULT:
+		return SourceFault
+	case pb.TransitionSource_TRANSITION_SOURCE_UNSPECIFIED:
+		fallthrough
+	default:
+		return SourceUnspecified
+	}
 }
 
 // StatusToProto converts a status to its proto enum.

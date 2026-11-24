@@ -409,7 +409,8 @@ func definitionOf(root *node, initial string) statemachine.Definition {
 			Path:    n.path(),
 			Initial: n.initial,
 			On:      mergeOn(nil, n.on),
-			HasTask: n.task != nil,
+			Task:    taskName(n.task),
+			Timeout: n.timeout,
 		})
 		for trigger := range n.on {
 			events[trigger] = struct{}{}
@@ -424,6 +425,19 @@ func definitionOf(root *node, initial string) statemachine.Definition {
 	}
 	sort.Strings(def.Events)
 	return def
+}
+
+// taskName names a state's task for GetDefinition: the resource name for a
+// resource task, the type prefixed with "$" for a built-in one.
+func taskName(tc *TaskConfig) string {
+	switch {
+	case tc == nil, tc.Type == TaskTypeNone:
+		return ""
+	case tc.Type == TaskTypeResource:
+		return tc.Name
+	default:
+		return "$" + tc.Type
+	}
 }
 
 // resolveTarget finds the state a transition on handler targets: handler's

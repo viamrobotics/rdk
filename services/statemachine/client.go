@@ -52,6 +52,7 @@ func (c *client) GetState(ctx context.Context, extra map[string]interface{}) (St
 		Status:       StatusFromProto(resp.Status),
 		Context:      resp.Context.AsMap(),
 		TaskProgress: task.ProgressFromProto(resp.TaskProgress),
+		JobID:        resp.JobId,
 	}
 	if resp.EnteredAt != nil {
 		st.EnteredAt = resp.EnteredAt.AsTime()
@@ -86,7 +87,10 @@ func (c *client) GetHistory(ctx context.Context, limit int, extra map[string]int
 	}
 	transitions := make([]Transition, 0, len(resp.Transitions))
 	for _, tr := range resp.Transitions {
-		t := Transition{From: tr.From, To: tr.To, Trigger: tr.Trigger, TaskResult: task.ResultFromProto(tr.TaskResult)}
+		t := Transition{
+			From: tr.From, To: tr.To, Trigger: tr.Trigger, TaskResult: task.ResultFromProto(tr.TaskResult),
+			Source: SourceFromProto(tr.Source), JobID: tr.JobId,
+		}
 		if tr.Timestamp != nil {
 			t.Timestamp = tr.Timestamp.AsTime()
 		}

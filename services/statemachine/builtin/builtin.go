@@ -172,7 +172,7 @@ func NewBuiltIn(
 
 	b.ctx, b.cancel = context.WithCancel(context.Background())
 	b.newJob()
-	b.enter(root.children[cfg.Initial], nil, statemachine.TriggerInitial, nil, nil)
+	b.enter(root.children[cfg.Initial], nil, statemachine.TriggerInitial, statemachine.SourceInitial, nil, nil)
 	b.wg.Add(1)
 	go b.loop()
 	return b, nil
@@ -216,7 +216,7 @@ func (b *builtIn) handleEvent(event string, payload map[string]interface{}) bool
 		return false
 	}
 	b.logger.Infow("event", "event", event, "state", b.active.pathString(), "target", target)
-	b.takeTransition(handler, target, event, payload, nil)
+	b.takeTransition(handler, target, event, statemachine.SourceEvent, payload, nil)
 	return true
 }
 
@@ -227,9 +227,11 @@ func (b *builtIn) handleTaskDone(d taskDone) {
 	b.exec = nil
 	n := d.exec.node
 	var result *task.Result
+	source := statemachine.SourceOutcome
 	switch {
 	case d.timedOut:
 		result = &task.Result{Outcome: task.OutcomeTimeout}
+		source = statemachine.SourceTimeout
 	case d.err != nil:
 		if b.retry(n, d.exec.attempt, d.err.Error()) {
 			return
@@ -251,7 +253,7 @@ func (b *builtIn) handleTaskDone(d taskDone) {
 		result = &res
 	}
 	b.logger.Infow("task finished", "state", n.pathString(), "outcome", result.Outcome)
-	b.handleOutcome(n, result)
+	b.handleOutcome(n, result, source)
 }
 
 // retry re-runs the state's task if it has attempts left.
@@ -264,27 +266,24 @@ func (b *builtIn) retry(n *node, attempt int, reason string) bool {
 	return true
 }
 
-// handleOutcome looks the outcome up from the state outward. An "error" with
-// no handler faults the machine; any other unhandled outcome leaves the
-// machine waiting in its state.
-func (b *builtIn) handleOutcome(from *node, result *task.Result) {
+// handleOutcome looks the outcome up from the state outward. An outcome no
+// state handles faults the machine: with no task running and no transition
+// it would otherwise sit RUNNING forever, which hides a misspelt outcome.
+func (b *builtIn) handleOutcome(from *node, result *task.Result, source statemachine.TransitionSource) {
 	handler, target, ok := lookup(from, result.Outcome)
 	if !ok {
-		if result.Outcome == task.OutcomeError {
-			b.fault("task in state " + from.pathString() + " returned error with no handler")
-			return
-		}
-		b.logger.Infow("outcome has no transition; waiting", "state", from.pathString(), "outcome", result.Outcome)
-		b.publish()
+		b.fault("task in state "+from.pathString()+" returned outcome "+result.Outcome+" with no handler", result)
 		return
 	}
-	b.takeTransition(handler, target, result.Outcome, nil, result)
+	b.takeTransition(handler, target, result.Outcome, source, nil, result)
 }
 
 // takeTransition resolves target relative to the handler that declared it
 // and enters it. $done re-raises the trigger as the enclosing compound
 // state's outcome; $history re-enters the handler's previously active sibling.
-func (b *builtIn) takeTransition(handler *node, target, trigger string, payload map[string]interface{}, result *task.Result) {
+func (b *builtIn) takeTransition(
+	handler *node, target, trigger string, source statemachine.TransitionSource, payload map[string]interface{}, result *task.Result,
+) {
 	for {
 		switch target {
 		case TargetDone:
@@ -302,8 +301,7 @@ func (b *builtIn) takeTransition(handler *node, target, trigger string, payload 
 				start = exit.parent
 			}
 			if handler, target, ok = lookup(start, trigger); !ok {
-				b.logger.Infow("sub-machine finished; no transition for its outcome; waiting", "state", exit.pathString(), "outcome", trigger)
-				b.publish()
+				b.fault("sub-machine "+exit.pathString()+" finished with outcome "+trigger+" that no state handles", result)
 				return
 			}
 		case TargetHistory:
@@ -313,13 +311,13 @@ func (b *builtIn) takeTransition(handler *node, target, trigger string, payload 
 			}
 			prev := scope.lastLeaf
 			if prev == nil || isUnder(prev, handler) && handler != scope {
-				b.enter(scope.children[scope.initial], nil, trigger, payload, result)
+				b.enter(scope.children[scope.initial], nil, trigger, source, payload, result)
 				return
 			}
-			b.enter(childContaining(scope, prev), prev, trigger, payload, result)
+			b.enter(childContaining(scope, prev), prev, trigger, source, payload, result)
 			return
 		default:
-			b.enter(resolveTarget(handler, target), nil, trigger, payload, result)
+			b.enter(resolveTarget(handler, target), nil, trigger, source, payload, result)
 			return
 		}
 	}
@@ -327,7 +325,9 @@ func (b *builtIn) takeTransition(handler *node, target, trigger string, payload 
 
 // enter leaves the active state, records the transition and enters target,
 // descending through initial states (or to prevLeaf, for history) to a leaf.
-func (b *builtIn) enter(target, prevLeaf *node, trigger string, payload map[string]interface{}, result *task.Result) {
+func (b *builtIn) enter(
+	target, prevLeaf *node, trigger string, source statemachine.TransitionSource, payload map[string]interface{}, result *task.Result,
+) {
 	if !b.cancelCurrent() {
 		return
 	}
@@ -349,7 +349,9 @@ func (b *builtIn) enter(target, prevLeaf *node, trigger string, payload map[stri
 			}
 		}
 	}
-	b.record(statemachine.Transition{From: oldPath, To: newLeaf.path(), Trigger: trigger, Timestamp: time.Now(), TaskResult: result})
+	b.record(statemachine.Transition{
+		From: oldPath, To: newLeaf.path(), Trigger: trigger, Source: source, Timestamp: time.Now(), TaskResult: result,
+	})
 	if old != nil {
 		b.logger.Infow("transition", "from", old.pathString(), "to", newLeaf.pathString(), "trigger", trigger)
 	}
@@ -425,7 +427,7 @@ func (b *builtIn) startTask(leaf *node, payload map[string]interface{}, attempt 
 		} else {
 			d.err = ctx.Err()
 		}
-		d.timedOut = d.err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded)
+		d.timedOut = errors.Is(ctx.Err(), context.DeadlineExceeded) && (d.err != nil || d.res.Outcome == task.OutcomeCancelled)
 		close(exec.done)
 		select {
 		case b.taskDone <- d:
@@ -447,7 +449,7 @@ func (b *builtIn) cancelCurrent() bool {
 	case <-exec.done:
 		return true
 	case <-time.After(b.cancelTimeout):
-		b.fault("task in state " + exec.node.pathString() + " did not stop within " + b.cancelTimeout.String())
+		b.fault("task in state "+exec.node.pathString()+" did not stop within "+b.cancelTimeout.String(), nil)
 		return false
 	}
 }
@@ -459,7 +461,9 @@ func (b *builtIn) stop() {
 	}
 	b.status = statemachine.StatusStopped
 	path := b.active.path()
-	b.record(statemachine.Transition{From: path, To: path, Trigger: statemachine.TriggerStop, Timestamp: time.Now()})
+	b.record(statemachine.Transition{
+		From: path, To: path, Trigger: statemachine.TriggerStop, Source: statemachine.SourceStop, Timestamp: time.Now(),
+	})
 	b.publish()
 }
 
@@ -468,7 +472,7 @@ func (b *builtIn) reset() {
 	b.context = copyMap(b.conf.Context)
 	b.root.walk(func(n *node) { n.lastLeaf = nil })
 	b.newJob()
-	b.enter(b.root.children[b.conf.Initial], nil, statemachine.TriggerReset, nil, nil)
+	b.enter(b.root.children[b.conf.Initial], nil, statemachine.TriggerReset, statemachine.SourceReset, nil, nil)
 }
 
 // newJob starts a new job: the machine is about to enter its initial state
@@ -479,14 +483,20 @@ func (b *builtIn) newJob() {
 	b.jobID = uuid.NewString()
 }
 
-func (b *builtIn) fault(reason string) {
+// fault holds the machine in its state with StatusFaulted. The recorded
+// transition carries result when the fault came from a task's outcome, and
+// otherwise an error result describing the reason.
+func (b *builtIn) fault(reason string, result *task.Result) {
 	b.logger.Errorw("state machine faulted", "state", b.active.pathString(), "reason", reason)
 	b.exec = nil
 	b.status = statemachine.StatusFaulted
 	path := b.active.path()
+	if result == nil {
+		result = &task.Result{Outcome: task.OutcomeError, Output: map[string]interface{}{"error": reason}}
+	}
 	b.record(statemachine.Transition{
-		From: path, To: path, Trigger: statemachine.TriggerFault, Timestamp: time.Now(),
-		TaskResult: &task.Result{Outcome: task.OutcomeError, Output: map[string]interface{}{"error": reason}},
+		From: path, To: path, Trigger: statemachine.TriggerFault, Source: statemachine.SourceFault, Timestamp: time.Now(),
+		TaskResult: result,
 	})
 	b.publish()
 }
@@ -494,6 +504,7 @@ func (b *builtIn) fault(reason string) {
 func (b *builtIn) record(tr statemachine.Transition) {
 	b.snapMu.Lock()
 	defer b.snapMu.Unlock()
+	tr.JobID = b.jobID
 	b.history = append(b.history, tr)
 	if len(b.history) > b.historyLimit {
 		b.history = b.history[len(b.history)-b.historyLimit:]
@@ -503,7 +514,9 @@ func (b *builtIn) record(tr statemachine.Transition) {
 func (b *builtIn) publish() {
 	b.snapMu.Lock()
 	defer b.snapMu.Unlock()
-	b.snap = statemachine.State{Path: b.active.path(), Status: b.status, Context: copyMap(b.context), EnteredAt: b.enteredAt}
+	b.snap = statemachine.State{
+		Path: b.active.path(), Status: b.status, Context: copyMap(b.context), EnteredAt: b.enteredAt, JobID: b.jobID,
+	}
 	b.snapExec = b.exec
 }
 

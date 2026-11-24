@@ -36,11 +36,12 @@ func TestServer(t *testing.T) {
 	injectSM.GetStateFunc = func(ctx context.Context, extra map[string]interface{}) (statemachine.State, error) {
 		return statemachine.State{
 			Path: []string{"a", "b"}, Status: statemachine.StatusFaulted, Context: map[string]interface{}{"x": 1.0},
-			EnteredAt: enteredAt, TaskProgress: &task.Progress{Message: "p", Fraction: 0.25},
+			EnteredAt: enteredAt, TaskProgress: &task.Progress{Message: "p", Fraction: 0.25}, JobID: "job-9",
 		}, nil
 	}
 	stResp, err := server.GetState(ctx, &pb.GetStateRequest{Name: "sm1"})
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, stResp.JobId, test.ShouldEqual, "job-9")
 	test.That(t, stResp.Path, test.ShouldResemble, []string{"a", "b"})
 	test.That(t, stResp.Status, test.ShouldEqual, pb.Status_STATUS_FAULTED)
 	test.That(t, stResp.Context.AsMap(), test.ShouldResemble, map[string]interface{}{"x": 1.0})
@@ -63,8 +64,8 @@ func TestServer(t *testing.T) {
 	injectSM.GetHistoryFunc = func(ctx context.Context, limit int, extra map[string]interface{}) ([]statemachine.Transition, error) {
 		test.That(t, limit, test.ShouldEqual, 2)
 		return []statemachine.Transition{{
-			From: []string{}, To: []string{"a"}, Trigger: "initial", Timestamp: enteredAt,
-			TaskResult: &task.Result{Outcome: "done"},
+			From: []string{}, To: []string{"a"}, Trigger: "initial", Source: statemachine.SourceInitial, Timestamp: enteredAt,
+			TaskResult: &task.Result{Outcome: "done"}, JobID: "job-9",
 		}}, nil
 	}
 	hResp, err := server.GetHistory(ctx, &pb.GetHistoryRequest{Name: "sm1", Limit: 2})
@@ -72,11 +73,13 @@ func TestServer(t *testing.T) {
 	test.That(t, hResp.Transitions, test.ShouldHaveLength, 1)
 	test.That(t, hResp.Transitions[0].To, test.ShouldResemble, []string{"a"})
 	test.That(t, hResp.Transitions[0].TaskResult.Outcome, test.ShouldEqual, "done")
+	test.That(t, hResp.Transitions[0].Source, test.ShouldEqual, pb.TransitionSource_TRANSITION_SOURCE_INITIAL)
+	test.That(t, hResp.Transitions[0].JobId, test.ShouldEqual, "job-9")
 
 	injectSM.GetDefinitionFunc = func(ctx context.Context, extra map[string]interface{}) (statemachine.Definition, error) {
 		return statemachine.Definition{
 			Initial: "a",
-			States:  []statemachine.StateDefinition{{Path: []string{"a"}, On: map[string]string{"x": "a"}, HasTask: true}},
+			States:  []statemachine.StateDefinition{{Path: []string{"a"}, On: map[string]string{"x": "a"}, Task: "a-task", Timeout: time.Minute}},
 			Events:  []string{"x"},
 			On:      map[string]string{},
 		}, nil
@@ -88,7 +91,8 @@ func TestServer(t *testing.T) {
 	test.That(t, dResp.States, test.ShouldHaveLength, 1)
 	test.That(t, dResp.States[0].Path, test.ShouldResemble, []string{"a"})
 	test.That(t, dResp.States[0].On, test.ShouldResemble, map[string]string{"x": "a"})
-	test.That(t, dResp.States[0].HasTask, test.ShouldBeTrue)
+	test.That(t, dResp.States[0].Task, test.ShouldEqual, "a-task")
+	test.That(t, dResp.States[0].Timeout.AsDuration(), test.ShouldEqual, time.Minute)
 
 	injectSM.CurrentJobIDFunc = func(ctx context.Context, extra map[string]interface{}) (string, error) {
 		return "job-9", nil

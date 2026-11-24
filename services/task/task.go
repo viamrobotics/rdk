@@ -38,6 +38,9 @@ const (
 	// OutcomeError is the outcome a state machine assigns to a task that
 	// returned a Go error (a gRPC error over the wire).
 	OutcomeError = "error"
+	// OutcomeCancelled is the outcome of a task whose Run call was cancelled
+	// before it finished.
+	OutcomeCancelled = "cancelled"
 	// OutcomeTimeout is the outcome a state machine assigns when a state's
 	// timeout cancels its task.
 	OutcomeTimeout = "timeout"

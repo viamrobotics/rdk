@@ -11,7 +11,8 @@ import (
 // RunFunc is the single blocking method a task author writes. It reports
 // progress through report (never nil), returns a Result when it is finished,
 // and returns an error when it failed. When ctx is cancelled it must stop the
-// hardware safely before returning.
+// hardware safely before returning; whatever it returns then becomes the
+// outcome OutcomeCancelled unless it still produced a result.
 type RunFunc func(ctx context.Context, input map[string]interface{}, report ProgressFunc) (Result, error)
 
 // Runner implements Run and GetTaskStatus for a task written as one RunFunc: it
@@ -61,6 +62,9 @@ func (r *Runner) Run(ctx context.Context, input, extra map[string]interface{}) (
 	}
 
 	res, err := r.fn(ctx, input, report)
+	if err != nil && ctx.Err() != nil {
+		res, err = Result{Outcome: OutcomeCancelled}, nil
+	}
 	if err == nil && res.Outcome == "" {
 		res.Outcome = OutcomeDone
 	}

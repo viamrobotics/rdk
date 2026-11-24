@@ -45,6 +45,7 @@ func (server *serviceServer) GetState(ctx context.Context, req *pb.GetStateReque
 		Status:       StatusToProto(st.Status),
 		Context:      contextPb,
 		TaskProgress: task.ProgressToProto(st.TaskProgress),
+		JobId:        st.JobID,
 	}
 	if !st.EnteredAt.IsZero() {
 		resp.EnteredAt = timestamppb.New(st.EnteredAt)
@@ -77,7 +78,10 @@ func (server *serviceServer) GetHistory(ctx context.Context, req *pb.GetHistoryR
 	}
 	resp := &pb.GetHistoryResponse{Transitions: make([]*pb.Transition, 0, len(transitions))}
 	for _, tr := range transitions {
-		trPb := &pb.Transition{From: tr.From, To: tr.To, Trigger: tr.Trigger, Timestamp: timestamppb.New(tr.Timestamp)}
+		trPb := &pb.Transition{
+			From: tr.From, To: tr.To, Trigger: tr.Trigger, Timestamp: timestamppb.New(tr.Timestamp),
+			Source: SourceToProto(tr.Source), JobId: tr.JobID,
+		}
 		if tr.TaskResult != nil {
 			output, err := protoutils.StructToStructPb(tr.TaskResult.Output)
 			if err != nil {

@@ -164,10 +164,17 @@ func TestFlatMachine(t *testing.T) {
 	test.That(t, history[0].From, test.ShouldResemble, []string{})
 	test.That(t, history[0].To, test.ShouldResemble, []string{"idle"})
 	test.That(t, history[0].Trigger, test.ShouldEqual, statemachine.TriggerInitial)
+	test.That(t, history[0].Source, test.ShouldEqual, statemachine.SourceInitial)
 	test.That(t, history[1].Trigger, test.ShouldEqual, "go")
+	test.That(t, history[1].Source, test.ShouldEqual, statemachine.SourceEvent)
 	test.That(t, history[2].From, test.ShouldResemble, []string{"working"})
 	test.That(t, history[2].Trigger, test.ShouldEqual, "done")
+	test.That(t, history[2].Source, test.ShouldEqual, statemachine.SourceOutcome)
 	test.That(t, history[2].TaskResult.Output["glass_pose"], test.ShouldEqual, "p")
+	test.That(t, st.JobID, test.ShouldNotBeEmpty)
+	for _, h := range history {
+		test.That(t, h.JobID, test.ShouldEqual, st.JobID)
+	}
 	history, err = svc.GetHistory(ctx, 1, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, history, test.ShouldHaveLength, 1)
@@ -189,7 +196,7 @@ func TestFlatMachine(t *testing.T) {
 	test.That(t, def.States, test.ShouldResemble, []statemachine.StateDefinition{
 		{Path: []string{"faulted"}, On: map[string]string{"ack": "idle"}},
 		{Path: []string{"idle"}, On: map[string]string{"go": "working"}},
-		{Path: []string{"working"}, On: map[string]string{"done": "idle", "no_glass": "idle"}, HasTask: true},
+		{Path: []string{"working"}, On: map[string]string{"done": "idle", "no_glass": "idle"}, Task: "work"},
 	})
 
 	status, err := svc.Status(ctx)
@@ -242,7 +249,42 @@ func TestUnhandledErrorFaultsAndResetRecovers(t *testing.T) {
 	history, err := svc.GetHistory(ctx, 0, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, history[1].Trigger, test.ShouldEqual, statemachine.TriggerFault)
+	test.That(t, history[1].Source, test.ShouldEqual, statemachine.SourceFault)
+	test.That(t, history[1].TaskResult.Outcome, test.ShouldEqual, task.OutcomeError)
+	test.That(t, history[1].JobID, test.ShouldEqual, jobBefore)
 	test.That(t, history[2].Trigger, test.ShouldEqual, statemachine.TriggerReset)
+	test.That(t, history[2].Source, test.ShouldEqual, statemachine.SourceReset)
+	test.That(t, history[2].JobID, test.ShouldEqual, jobAfter)
+}
+
+// Any outcome no state handles faults the machine, not only "error": a
+// misspelt outcome must not leave the machine running with no task.
+func TestUnhandledOutcomeFaults(t *testing.T) {
+	work := newControlledTask("work")
+	deps := resource.Dependencies{work.Name(): work}
+	cfg := &Config{
+		Initial: "working",
+		States: map[string]*StateConfig{
+			"working": {Task: resourceTask("work"), On: map[string]string{"done": "idle"}},
+			"idle":    {},
+		},
+	}
+	svc := newMachine(t, cfg, deps)
+	ctx := context.Background()
+
+	work.waitStarted(t)
+	work.finish(t, task.Result{Outcome: "Done", Output: map[string]interface{}{"k": "v"}})
+	waitForStatus(t, svc, statemachine.StatusFaulted)
+	st, err := svc.GetState(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, st.Path, test.ShouldResemble, []string{"working"})
+	test.That(t, st.Context["k"], test.ShouldEqual, "v")
+
+	history, err := svc.GetHistory(ctx, 1, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, history[0].Trigger, test.ShouldEqual, statemachine.TriggerFault)
+	test.That(t, history[0].Source, test.ShouldEqual, statemachine.SourceFault)
+	test.That(t, history[0].TaskResult, test.ShouldResemble, &task.Result{Outcome: "Done", Output: map[string]interface{}{"k": "v"}})
 }
 
 func TestRetryThenErrorTransition(t *testing.T) {
@@ -452,7 +494,7 @@ func TestNestedMachine(t *testing.T) {
 		Path: []string{"auto"}, Initial: "watching", On: map[string]string{},
 	})
 	test.That(t, def.States[2], test.ShouldResemble, statemachine.StateDefinition{
-		Path: []string{"auto", "pour", "picking_glass"}, On: map[string]string{"done": "pouring", "no_glass": "$done"}, HasTask: true,
+		Path: []string{"auto", "pour", "picking_glass"}, On: map[string]string{"done": "pouring", "no_glass": "$done"}, Task: "pick_glass",
 	})
 	test.That(t, def.Events, test.ShouldContain, "pour_button")
 	test.That(t, def.Events, test.ShouldContain, "set_mode.auto")
@@ -469,22 +511,19 @@ func TestNestedMachine(t *testing.T) {
 	st := waitForPath(t, svc, "manual", "idle")
 	test.That(t, st.Context["glass_pose"], test.ShouldEqual, "g")
 
-	// no_glass exits the sequence early with the sequence's outcome; manual.pour has no
-	// no_glass handler so the machine waits there.
+	// no_glass exits the sequence early with the sequence's outcome; nothing in
+	// manual handles no_glass, so the machine faults where it stands.
 	_, err = svc.SendEvent(ctx, "pour_button", nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pick.waitStarted(t)
 	pick.finish(t, task.Result{Outcome: "no_glass"})
-	waitForPath(t, svc, "manual", "pour", "picking_glass")
-	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		tb.Helper()
-		st, err := svc.GetState(ctx, nil)
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, st.TaskProgress, test.ShouldBeNil)
-	})
+	waitForStatus(t, svc, statemachine.StatusFaulted)
+	st = waitForPath(t, svc, "manual", "pour", "picking_glass")
+	test.That(t, st.TaskProgress, test.ShouldBeNil)
 	test.That(t, pick.runs.Load(), test.ShouldEqual, 2)
 
-	// Switching modes preempts whatever child is running.
+	// An event with a transition out leaves the fault; switching modes preempts
+	// whatever child is running.
 	res, err = svc.SendEvent(ctx, "set_mode.auto", nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Path, test.ShouldResemble, []string{"auto", "watching"})
@@ -517,7 +556,7 @@ func TestNestedMachine(t *testing.T) {
 		triggers = append(triggers, h.Trigger)
 	}
 	test.That(t, triggers, test.ShouldResemble, []string{
-		"initial", "pour_button", "done", "done", "pour_button",
+		"initial", "pour_button", "done", "done", "pour_button", "fault",
 		"set_mode.auto", "satisfied", "error", "done", "estop", "ack",
 	})
 }

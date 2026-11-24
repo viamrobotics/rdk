@@ -64,10 +64,12 @@ func TestClient(t *testing.T) {
 			Context:      map[string]interface{}{"pour_ml": 150.0},
 			EnteredAt:    enteredAt,
 			TaskProgress: &task.Progress{Message: "m", Fraction: 0.5},
+			JobID:        "job-1",
 		}, nil
 	}
 	st, err := client.GetState(ctx, map[string]interface{}{"e": 1.0})
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, st.JobID, test.ShouldEqual, "job-1")
 	test.That(t, st.Path, test.ShouldResemble, []string{"auto", "pour"})
 	test.That(t, st.Status, test.ShouldEqual, statemachine.StatusStopped)
 	test.That(t, st.Context, test.ShouldResemble, map[string]interface{}{"pour_ml": 150.0})
@@ -98,9 +100,9 @@ func TestClient(t *testing.T) {
 	injectSM.GetHistoryFunc = func(ctx context.Context, limit int, extra map[string]interface{}) ([]statemachine.Transition, error) {
 		test.That(t, limit, test.ShouldEqual, 3)
 		return []statemachine.Transition{
-			{From: []string{}, To: []string{"idle"}, Trigger: "initial", Timestamp: ts},
+			{From: []string{}, To: []string{"idle"}, Trigger: "initial", Source: statemachine.SourceInitial, Timestamp: ts, JobID: "j"},
 			{
-				From: []string{"idle"}, To: []string{"work"}, Trigger: "go", Timestamp: ts,
+				From: []string{"idle"}, To: []string{"work"}, Trigger: "go", Source: statemachine.SourceEvent, Timestamp: ts, JobID: "j",
 				TaskResult: &task.Result{Outcome: "done", Output: map[string]interface{}{"k": "v"}},
 			},
 		}, nil
@@ -109,6 +111,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, history, test.ShouldHaveLength, 2)
 	test.That(t, history[0].Trigger, test.ShouldEqual, "initial")
+	test.That(t, history[0].Source, test.ShouldEqual, statemachine.SourceInitial)
+	test.That(t, history[0].JobID, test.ShouldEqual, "j")
+	test.That(t, history[1].Source, test.ShouldEqual, statemachine.SourceEvent)
 	test.That(t, history[0].TaskResult, test.ShouldBeNil)
 	test.That(t, history[0].Timestamp.Equal(ts), test.ShouldBeTrue)
 	test.That(t, history[1].From, test.ShouldResemble, []string{"idle"})
@@ -118,7 +123,7 @@ func TestClient(t *testing.T) {
 		Initial: "idle",
 		States: []statemachine.StateDefinition{
 			{Path: []string{"idle"}, On: map[string]string{"go": "work"}},
-			{Path: []string{"work"}, On: map[string]string{"done": "idle"}, HasTask: true},
+			{Path: []string{"work"}, On: map[string]string{"done": "idle"}, Task: "work", Timeout: 2 * time.Second},
 		},
 		Events: []string{"done", "error", "go"},
 		On:     map[string]string{"error": "idle"},
