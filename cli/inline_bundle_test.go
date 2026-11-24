@@ -405,7 +405,7 @@ assert "--target" not in plain, plain
 }
 
 func TestAssembledGoModulesBuild(t *testing.T) {
-	t.Skip("flaky: fetches upstream go-getter deps from proxy.golang.org on every run; re-enable with viamrobotics/rdk#6839")
+	t.Skip("temporarily skipped: flaky module downloads from proxy.golang.org")
 	root := rdkRoot(t)
 	bundle := goBundleWithFakeTidy(t, root, "v1.2.3")
 	modules, err := inlineModules(golang)
