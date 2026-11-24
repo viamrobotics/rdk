@@ -42,6 +42,8 @@ type teleopTrace struct {
 	enc    *json.Encoder
 	arms   map[string]arm.Arm
 	closed bool
+	// writeFailed is set once a write has failed, so the failure is logged only once.
+	writeFailed bool
 
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -89,8 +91,11 @@ func (tr *teleopTrace) write(rec teleopTraceRecord) {
 	if tr.closed {
 		return
 	}
-	//nolint:errcheck,gosec // a failed trace write must not disturb teleop
-	_ = tr.enc.Encode(rec)
+	// A failed trace write must not disturb teleop, so it is reported once and otherwise dropped.
+	if err := tr.enc.Encode(rec); err != nil && !tr.writeFailed {
+		tr.writeFailed = true
+		tr.logger.Warnf("couldn't write to teleop trace: %v", err)
+	}
 }
 
 func inputsToDeg(inputs []referenceframe.Input) []float64 {

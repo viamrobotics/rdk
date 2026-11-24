@@ -24,9 +24,21 @@ func newTestChaser(start float64) *jointChaser {
 	return newJointChaser([]float64{start}, []float64{1.5}, []float64{8}, defaultTeleopChaseGainPerSec, defaultTeleopChaseFeedforward)
 }
 
+// splineAccel returns the acceleration, at time t into an interval of length h, of the quintic
+// spline an arm fits between two trajectory points from their positions, velocities and
+// accelerations.
+func splineAccel(p0, v0, a0, p1, v1, a1, h, t float64) float64 {
+	c3 := (20*(p1-p0) - (8*v1+12*v0)*h - (3*a0-a1)*h*h) / (2 * h * h * h)
+	c4 := (30*(p0-p1) + (14*v1+16*v0)*h + (3*a0-2*a1)*h*h) / (2 * h * h * h * h)
+	c5 := (12*(p1-p0) - 6*(v1+v0)*h - (a0-a1)*h*h) / (2 * h * h * h * h * h)
+	return a0 + 6*c3*t + 12*c4*t*t + 20*c5*t*t*t
+}
+
 // checkLimits steps the chaser n times, asserting on every step that velocity and acceleration
 // stay within the limits, that acceleration never jumps by more than the jerk bound allows, and
-// that position is the integral of velocity. It returns the positions visited.
+// that the spline an arm would fit between each pair of points stays within the acceleration
+// limit too, which requires each point's position, velocity and acceleration to be consistent
+// with the last. It returns the positions visited.
 func checkLimits(t *testing.T, c *jointChaser, n int, each func(i int)) []float64 {
 	t.Helper()
 	h := chaserTestStep.Seconds()
@@ -36,12 +48,15 @@ func checkLimits(t *testing.T, c *jointChaser, n int, each func(i int)) []float6
 		if each != nil {
 			each(i)
 		}
-		prevPos, prevAcc := c.pos[0], c.acc[0]
+		prevPos, prevVel, prevAcc := c.pos[0], c.vel[0], c.acc[0]
 		c.step(chaserTestStep)
 		test.That(t, math.Abs(c.vel[0]), test.ShouldBeLessThanOrEqualTo, c.velMax[0]+1e-9)
 		test.That(t, math.Abs(c.acc[0]), test.ShouldBeLessThanOrEqualTo, c.accMax[0]+1e-9)
 		test.That(t, math.Abs(c.acc[0]-prevAcc), test.ShouldBeLessThanOrEqualTo, maxAccStep)
-		test.That(t, c.pos[0]-prevPos, test.ShouldAlmostEqual, c.vel[0]*h, 1e-12)
+		for _, frac := range []float64{0.1, 0.25, 0.5, 0.75, 0.9} {
+			mid := splineAccel(prevPos, prevVel, prevAcc, c.pos[0], c.vel[0], c.acc[0], h, frac*h)
+			test.That(t, math.Abs(mid), test.ShouldBeLessThanOrEqualTo, c.accMax[0]*1.001)
+		}
 		positions = append(positions, c.pos[0])
 	}
 	return positions

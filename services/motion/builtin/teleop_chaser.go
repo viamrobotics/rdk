@@ -30,6 +30,9 @@ const (
 	// teleopChaseAccelRampTime is how long acceleration takes to go from zero to its limit. It
 	// bounds jerk, so acceleration never steps.
 	teleopChaseAccelRampTime = 40 * time.Millisecond
+	// teleopChaseVelSettleSteps is how many steps the chaser takes to close a small velocity gap.
+	// More than one keeps acceleration from flipping sign every step around the wanted velocity.
+	teleopChaseVelSettleSteps = 2.0
 	// teleopChaseVelHeadroom is the fraction of a joint's velocity limit the chaser aims for at
 	// most, leaving room for the small overshoot of a discretely ramped acceleration.
 	teleopChaseVelHeadroom = 0.98
@@ -89,12 +92,15 @@ func newJointChaser(start, velMax, accMax []float64, gain, feedforward float64) 
 
 // setTarget moves the target and updates the estimate of how fast it is moving.
 func (c *jointChaser) setTarget(target []float64, now time.Time) {
+	if len(target) != len(c.target) {
+		return
+	}
 	if c.haveTarget {
 		dt := now.Sub(c.lastTargetTime).Seconds()
 		if dt > 1e-3 {
 			blend := 1 - math.Exp(-dt/teleopChaseTargetVelTau.Seconds())
-			for i := range c.target {
-				raw := (target[i] - c.target[i]) / dt
+			for i, t := range target {
+				raw := (t - c.target[i]) / dt
 				v := c.targetVel[i] + blend*(raw-c.targetVel[i])
 				c.targetVel[i] = math.Max(-c.velMax[i], math.Min(c.velMax[i], v))
 			}
@@ -138,29 +144,47 @@ func (c *jointChaser) step(dt time.Duration) {
 		wantMax := teleopChaseVelHeadroom * c.velMax[i]
 		want = math.Max(-wantMax, math.Min(wantMax, want))
 
-		// Acceleration is limited three ways: by the arm's limit, by how fast it may change
-		// (jerk), and so that it can ramp back to zero by the time velocity reaches the value
-		// wanted, which keeps velocity from running past it.
+		// Choose the acceleration to have at the end of this step. Working along the direction
+		// velocity needs to change in, it is limited four ways: in proportion to the velocity gap
+		// (so it eases off as the gap closes), by the arm's limit, by how fast it may change
+		// (jerk), and so that it can still be ramped back to zero by the time velocity reaches
+		// the value wanted, which keeps velocity from running past it.
 		jerk := c.accMax[i] / teleopChaseAccelRampTime.Seconds()
-		// The ramp-down happens in steps of h, so the largest acceleration that can still be
-		// ramped to zero within the remaining velocity gap is a little less than the continuous
-		// sqrt(2*jerk*gap): this is that bound with the step accounted for.
+		dir := 1.0
+		if want < c.vel[i] {
+			dir = -1.0
+		}
 		gap := math.Abs(want - c.vel[i])
-		accCap := math.Min(c.accMax[i], math.Sqrt(2*jerk*gap+jerk*jerk*h*h/4)-jerk*h/2)
-		acc := (want - c.vel[i]) / h
-		acc = math.Max(-accCap, math.Min(accCap, acc))
+		prevAlong := dir * c.acc[i]
+		// Ramping an acceleration a down to zero at this jerk adds a*a/(2*jerk) of velocity.
+		// This step itself adds (prevAlong+a)/2*h on the way to a. rampable is the largest a
+		// for which both still fit in the gap.
+		room := math.Max(0, gap-prevAlong*h/2)
+		rampable := -jerk*h/2 + math.Sqrt(jerk*jerk*h*h/4+2*jerk*room)
+		along := math.Min(gap/(teleopChaseVelSettleSteps*h), math.Min(rampable, c.accMax[i]))
 		maxStep := jerk * h
-		acc = c.acc[i] + math.Max(-maxStep, math.Min(maxStep, acc-c.acc[i]))
+		along = math.Max(prevAlong-maxStep, math.Min(prevAlong+maxStep, along))
+		acc := dir * math.Max(-c.accMax[i], math.Min(c.accMax[i], along))
 
-		vel := c.vel[i] + acc*h
+		// acc is the acceleration at the end of this step. Over the step, acceleration ramps
+		// linearly from the previous value to it (constant jerk), and velocity and position are
+		// the exact integrals of that ramp. This matters to the arm: it fits a spline through
+		// each pair of points using their positions, velocities and accelerations, and that
+		// spline reproduces a constant-jerk segment exactly. Values that are not mutually
+		// consistent force the spline to make up the difference within one interval, with
+		// accelerations many times the limit (a UR rejects that: C306A43, "acceleration failed
+		// to pass sanity check").
+		prevAcc := c.acc[i]
+		vel := c.vel[i] + (prevAcc+acc)/2*h
 		if math.Abs(vel) > c.velMax[i] {
 			// Not expected given the headroom above, but the limit is never to be exceeded.
-			vel = math.Copysign(c.velMax[i], vel)
-			acc = (vel - c.vel[i]) / h
+			acc = 2*(math.Copysign(c.velMax[i], vel)-c.vel[i])/h - prevAcc
+			acc = math.Max(-c.accMax[i], math.Min(c.accMax[i], acc))
+			vel = c.vel[i] + (prevAcc+acc)/2*h
 		}
-		c.acc[i] = acc
+		c.pos[i] += c.vel[i]*h + (2*prevAcc+acc)/6*h*h
 		c.vel[i] = vel
-		c.pos[i] += vel * h
+		c.acc[i] = acc
 	}
 }
 
@@ -235,7 +259,7 @@ func (tc teleopChase) run(
 	}()
 	go func() {
 		// Drain acknowledgments so the arm never blocks writing them.
-		for range responses { //nolint:revive
+		for range responses {
 		}
 	}()
 	batchesOpen := true
