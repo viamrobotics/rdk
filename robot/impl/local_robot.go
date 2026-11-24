@@ -154,6 +154,12 @@ type localRobot struct {
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
 
+	// whether the maintenance sensor is holding back a config change that would change resources
+	reconfigureBlocked atomic.Bool
+	// resources of the last incoming config that got past the maintenance sensor, copied before default
+	// services are added, so reconfigureBlocked compares like with like
+	allowedResources atomic.Pointer[config.Config]
+
 	// whether the robot is still initializing. this value controls what state will be
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
 	// configured based on the `Initial` value of applied `config.Config`s.
@@ -1803,6 +1809,30 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 	}
 }
 
+// resourcesOf copies the resource sections of cfg. The slices are cloned because reconfigure edits
+// newConfig's modules and services in place.
+func resourcesOf(cfg *config.Config) *config.Config {
+	return &config.Config{
+		Remotes:    slices.Clone(cfg.Remotes),
+		Components: slices.Clone(cfg.Components),
+		Services:   slices.Clone(cfg.Services),
+		Processes:  slices.Clone(cfg.Processes),
+		Packages:   slices.Clone(cfg.Packages),
+		Modules:    slices.Clone(cfg.Modules),
+	}
+}
+
+// resourcesChangedSinceAllowed reports whether incoming changes resources compared to the last config
+// that got past the maintenance sensor. r.Config() can't be used here: it includes default services.
+func (r *localRobot) resourcesChangedSinceAllowed(incoming *config.Config) bool {
+	allowed := r.allowedResources.Load()
+	if allowed == nil {
+		return true
+	}
+	diff, err := config.DiffConfigs(*allowed, *incoming, false)
+	return err != nil || !diff.ResourcesEqual
+}
+
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	defer func() {
 		// Always update the `initializing` value at the end of this function. Resources may
@@ -1813,6 +1843,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.mostRecentCfg.Store(*newConfig)
 	}()
 
+	incomingResources := resourcesOf(newConfig)
+
 	// No need to check whether reconfiguring is allowed if this is initialization.
 	var reconfigureAllowedErr error
 	if !r.initializing.Load() {
@@ -1820,12 +1852,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
 		if !reconfigureAllowed {
 			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
-			// or resources changed), otherwise silently return.
+			// or resources changed), otherwise silently return. Local module versions are applied
+			// first so unchanged local modules don't count as a change.
+			r.applyLocalModuleVersions(newConfig)
 			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 			if err != nil {
 				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 				return
 			}
+			r.reconfigureBlocked.Store(r.resourcesChangedSinceAllowed(incomingResources))
 			if diff != nil && !diff.NetworkEqual {
 				if reconfigureAllowedErr != nil {
 					r.logger.CInfow(
@@ -1847,6 +1882,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 			return
 		}
+		r.reconfigureBlocked.Store(false)
 	}
 
 	// If reconfigure is allowed, assume we are reconfiguring until this function
@@ -1872,6 +1908,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	//
 	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
 	r.applyLocalModuleVersions(newConfig)
+	applyModulePackageVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1950,11 +1987,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		r.reconfigureBlocked.Store(!reconfigureAllowed && r.resourcesChangedSinceAllowed(incomingResources))
 		if !reconfigureAllowed {
 			r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
 			return
 		}
 	}
+	r.allowedResources.Store(incomingResources)
 
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
@@ -2437,16 +2476,8 @@ func (r *localRobot) packageManagerForModule(
 	if mod.Type != config.ModuleTypeRegistry {
 		return packages.NewNoopManager(), ""
 	}
-	// Registry module and package names differ, so match on the package directory that the
-	// ExePath's ${packages.module.<name>} placeholder resolved to.
-	for _, pkg := range pkgs {
-		if pkg.Type != config.PackageTypeModule {
-			continue
-		}
-		dir := pkg.LocalDataDirectory(config.DefaultPackagesDir())
-		if mod.ExePath == dir || strings.HasPrefix(mod.ExePath, dir+string(filepath.Separator)) {
-			return r.packageManager, packages.PackageName(pkg.Name)
-		}
+	if pkg, ok := modulePackage(mod, pkgs); ok {
+		return r.packageManager, packages.PackageName(pkg.Name)
 	}
 	r.logger.Warnw("no package found for registry module; its package state will not be reported",
 		"module", mod.Name, "exe_path", mod.ExePath)

@@ -69,6 +69,10 @@ type Module struct {
 
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
+
+	// PackageVersion is the in-process version reported for this module: its package version, or
+	// "local" for a local module. It is ignored by Equals.
+	PackageVersion string `json:"-"`
 }
 
 // ParentSockAddrs stores addresses for both TCP and UDS-based connection.
@@ -138,9 +142,11 @@ func (m Module) Equals(other Module) bool {
 	m.alreadyValidated = false
 	m.cachedErr = nil
 	m.Status = nil
+	m.PackageVersion = ""
 	other.alreadyValidated = false
 	other.cachedErr = nil
 	other.Status = nil
+	other.PackageVersion = ""
 	//nolint:govet
 	return reflect.DeepEqual(m, other)
 }
