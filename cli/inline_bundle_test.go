@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"golang.org/x/mod/modfile"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	gen "go.viam.com/rdk/cli/module_generate/scripts"
@@ -412,9 +413,7 @@ func TestAssembledGoModulesBuild(t *testing.T) {
 	pairs := placeholderPairs(modules[0])
 
 	dir := t.TempDir()
-	goMod := "module example.com/inlinecheck\n\ngo 1.26.10\n\nrequire go.viam.com/rdk v0.0.0\n\nreplace go.viam.com/rdk => " +
-		root + "\n"
-	test.That(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o644), test.ShouldBeNil)
+	writeModuleMirroringRDK(t, dir, root)
 
 	apis := make([]string, 0, len(bundle.StubSections))
 	for api := range bundle.StubSections {
@@ -425,8 +424,6 @@ func TestAssembledGoModulesBuild(t *testing.T) {
 		section := bundle.StubSections[api]
 		source := restoreGeneratorNames(assembleGoModule(bundle.Shell["module.go"], section), pairs)
 		test.That(t, os.WriteFile(filepath.Join(dir, "module.go"), []byte(source), 0o644), test.ShouldBeNil)
-		// -mod=mod fills go.sum from the replaced RDK checkout. The default
-		// readonly mode has no sums in this throwaway module.
 		cmd := exec.CommandContext(t.Context(), "go", "build", "-mod=mod", ".")
 		cmd.Dir = dir
 		out, buildErr := cmd.CombinedOutput()
@@ -434,6 +431,37 @@ func TestAssembledGoModulesBuild(t *testing.T) {
 			t.Fatalf("%s failed to build: %v\n%s", api, buildErr, out)
 		}
 	}
+}
+
+// writeModuleMirroringRDK writes a go.mod requiring the RDK checkout at root, with RDK's own replace
+// directives and go.sum, so builds resolve the module graph RDK already has cached instead of fetching.
+func writeModuleMirroringRDK(t *testing.T, dir, root string) {
+	t.Helper()
+	rdkModPath := filepath.Join(root, "go.mod")
+	rdkModBytes, err := os.ReadFile(rdkModPath)
+	test.That(t, err, test.ShouldBeNil)
+	rdkMod, err := modfile.Parse(rdkModPath, rdkModBytes, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	mod := &modfile.File{Syntax: &modfile.FileSyntax{}}
+	test.That(t, mod.AddModuleStmt("example.com/inlinecheck"), test.ShouldBeNil)
+	test.That(t, mod.AddGoStmt(rdkMod.Go.Version), test.ShouldBeNil)
+	test.That(t, mod.AddRequire(rdkMod.Module.Mod.Path, "v0.0.0"), test.ShouldBeNil)
+	test.That(t, mod.AddReplace(rdkMod.Module.Mod.Path, "", root, ""), test.ShouldBeNil)
+	for _, replace := range rdkMod.Replace {
+		newPath := replace.New.Path
+		if modfile.IsDirectoryPath(newPath) && !filepath.IsAbs(newPath) {
+			newPath = filepath.Join(root, newPath)
+		}
+		test.That(t, mod.AddReplace(replace.Old.Path, replace.Old.Version, newPath, replace.New.Version), test.ShouldBeNil)
+	}
+	out, err := mod.Format()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dir, "go.mod"), out, 0o644), test.ShouldBeNil)
+
+	sums, err := os.ReadFile(filepath.Join(root, "go.sum"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(filepath.Join(dir, "go.sum"), sums, 0o644), test.ShouldBeNil)
 }
 
 func goBundleWithFakeTidy(t *testing.T, root, tag string) languageBundle {
