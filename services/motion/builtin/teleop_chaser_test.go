@@ -143,6 +143,35 @@ func TestJointChaserShortJerkyMoves(t *testing.T) {
 	test.That(t, lo, test.ShouldBeGreaterThan, -0.002)
 }
 
+func TestJointChaserSettlesAtEveryAllowedGain(t *testing.T) {
+	// A slow drift arriving as small steps, then a stop. At any gain the config allows, the
+	// chaser must come to rest on the target and stay there, not hunt back and forth around it.
+	for _, gain := range []float64{5, defaultTeleopChaseGainPerSec, 30, teleopChaseMaxGainPerSec} {
+		for _, accMax := range []float64{2, 8, 17} {
+			c := newJointChaser([]float64{0}, []float64{2.4}, []float64{accMax}, gain)
+			target := 0.0
+			flips := 0
+			prevVel := 0.0
+			for i := range 700 {
+				if i%2 == 0 && i < 300 {
+					target += 0.0012
+				}
+				c.setTarget([]float64{target})
+				c.step(chaserTestStep)
+				if i > 400 {
+					if c.vel[0]*prevVel < 0 {
+						flips++
+					}
+					test.That(t, math.Abs(c.vel[0]), test.ShouldBeLessThan, 1e-3)
+				}
+				prevVel = c.vel[0]
+			}
+			test.That(t, flips, test.ShouldBeLessThanOrEqualTo, 2)
+			test.That(t, c.pos[0], test.ShouldAlmostEqual, target, 1e-4)
+		}
+	}
+}
+
 func TestJointChaserReversal(t *testing.T) {
 	// A target that reverses direction: limits must hold through the reversal.
 	c := newTestChaser(0)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -52,6 +53,13 @@ const (
 	// limits the motion is generated under. An arm rejects a stream for any point over its own
 	// limits, so this leaves room for how the arm computes and rounds them.
 	teleopStreamLimitMargin = 0.95
+	// A plan may move an arm joint at most teleopPlanJumpFloorDegs plus teleopPlanJumpDegsPerSec
+	// for each second since the last accepted plan, counting at most teleopPlanJumpMaxElapsed.
+	// The speed is as fast as the joints of the arms teleop drives can turn, so a real hand
+	// movement stays under it, while a jump to another kinematic branch does not.
+	teleopPlanJumpFloorDegs  = 5.0
+	teleopPlanJumpDegsPerSec = 180.0
+	teleopPlanJumpMaxElapsed = 500 * time.Millisecond
 	// teleopStreamDiagWindow is how much detail each arm stream's diagnostics retain when no
 	// diagnostics file is written; teleopStreamDiagFileWindow is how much they retain when
 	// Config.StreamDiagnosticsFilePath is set, and so how much of a stream's end the file holds.
@@ -104,7 +112,8 @@ type TeleopStreamConfig struct {
 	MaxAccDegsPerSec2Joints []float64 `json:"max_acc_degs_per_sec2_joints"`
 	// ChaseGainPerSec is how hard the arm closes the last of the gap to its target: near the
 	// target its speed is this gain times the remaining error, so it trails a moving target by
-	// 1/gain seconds. Higher is tighter and more sensitive to noise in the target. Default 15.
+	// 1/gain seconds. Higher is tighter and more sensitive to noise in the target. Default 15;
+	// values above 40 are treated as 40, because the arm oscillates beyond that.
 	ChaseGainPerSec float64 `json:"chase_gain_per_sec"`
 }
 
@@ -198,7 +207,8 @@ func (c TeleopStreamConfig) jointLimits(armLimits []referenceframe.Limit) (vel, 
 func (c TeleopStreamConfig) chase() teleopChase {
 	tc := teleopChase{gain: defaultTeleopChaseGainPerSec}
 	if c.ChaseGainPerSec > 0 {
-		tc.gain = c.ChaseGainPerSec
+		// Above this the chaser hunts back and forth around its target instead of settling.
+		tc.gain = min(c.ChaseGainPerSec, teleopChaseMaxGainPerSec)
 	}
 	return tc
 }
@@ -410,6 +420,8 @@ type teleopPipeline struct {
 
 	// Error reporting, pollable via teleop_status.
 	lastErr atomic.Pointer[error]
+	// lastPlanAccepted is when the planner last enqueued a trajectory. Planner goroutine only.
+	lastPlanAccepted time.Time
 
 	// Profiling atomics (written by planner/executor, read by status handler).
 	lastInputsNanos   atomic.Int64
@@ -531,6 +543,12 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn) {
 	planStart := time.Now()
 	ms.mu.RLock()
 	plan, err := ms.planTeleopMulti(ctx, goals, extra, tp.cachedFrameSys, mergedInputs, tp.logger)
+	armNames := make(map[string]bool)
+	for name, r := range ms.components {
+		if _, ok := r.(arm.Arm); ok {
+			armNames[name] = true
+		}
+	}
 	ms.mu.RUnlock()
 	planDur := time.Since(planStart)
 	tp.lastPlanNanos.Store(planDur.Nanoseconds())
@@ -553,9 +571,24 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn) {
 		return
 	}
 
+	// Refuse a plan that jumps an arm to a different configuration. The planner can answer a
+	// millimetre of hand motion with a solution on another branch of the arm's kinematics, the
+	// wrist turned half a revolution, say. Executing that swings the arm through a large, fast
+	// move the operator never asked for. Erroring leaves the arm settling on its last target.
+	lastStep := traj[len(traj)-1]
+	elapsed := time.Since(tp.lastPlanAccepted)
+	if j := planJump(planningHead, lastStep, armNames, elapsed); j.tooFar {
+		err := fmt.Errorf(
+			"planner moved a joint of %q by %.0f degrees in one plan (at most %.0f expected after %s); not executing it",
+			j.arm, j.degs, j.allowedDegs, elapsed.Round(time.Millisecond),
+		)
+		tp.lastErr.Store(&err)
+		tp.logger.CWarnf(ctx, "teleop planner: %v", err)
+		return
+	}
+
 	// Atomically validate the planning head hasn't been reset, update it,
 	// and enqueue the trajectory.
-	lastStep := traj[len(traj)-1]
 	tp.planningHeadMu.Lock()
 	if !planningHeadEqual(tp.planningHead, planningHead) {
 		tp.planningHeadMu.Unlock()
@@ -565,10 +598,40 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn) {
 	select {
 	case tp.trajCh <- traj:
 		tp.planningHead = lastStep
+		tp.lastPlanAccepted = time.Now()
 	default:
 		// Executor is busy; leave head unchanged and let the next notify trigger a fresh plan.
 	}
 	tp.planningHeadMu.Unlock()
+}
+
+// planJumpResult is the largest move a plan makes to any arm joint, in degrees, the arm it is on,
+// the move allowed, and whether it exceeds that.
+type planJumpResult struct {
+	arm         string
+	degs        float64
+	allowedDegs float64
+	tooFar      bool
+}
+
+// planJump reports whether a plan moves any arm joint further from the planning head than an arm
+// could plausibly be asked to move in the time since the last accepted plan.
+func planJump(head, next referenceframe.FrameSystemInputs, armNames map[string]bool, elapsed time.Duration) planJumpResult {
+	elapsed = min(max(elapsed, 0), teleopPlanJumpMaxElapsed)
+	res := planJumpResult{allowedDegs: teleopPlanJumpFloorDegs + teleopPlanJumpDegsPerSec*elapsed.Seconds()}
+	for name := range armNames {
+		from, to := head[name], next[name]
+		if len(from) == 0 || len(from) != len(to) {
+			continue
+		}
+		for i := range from {
+			if d := math.Abs(utils.RadToDeg(to[i] - from[i])); d > res.degs {
+				res.arm, res.degs = name, d
+			}
+		}
+	}
+	res.tooFar = res.degs > res.allowedDegs
+	return res
 }
 
 // buildExtra creates the extra map for planner options with teleop defaults and start_state.
@@ -1154,6 +1217,10 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			streamed = ms.conf.TeleopExecutor != TeleopExecutorUnary
 			streamConf = ms.conf.TeleopStream
 			diagDir = ms.conf.StreamDiagnosticsFilePath
+		}
+		if streamConf.ChaseGainPerSec > teleopChaseMaxGainPerSec {
+			ms.logger.Warnf("teleop_stream.chase_gain_per_sec is %v; using %v, the highest the arm stream stays stable at",
+				streamConf.ChaseGainPerSec, teleopChaseMaxGainPerSec)
 		}
 		streamOpts := streamConf.streamOptions()
 		if diagDir != "" {

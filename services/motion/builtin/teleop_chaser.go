@@ -20,6 +20,10 @@ const (
 	// near the target, velocity is this gain times the error, so the error decays with a time
 	// constant of 1/gain.
 	defaultTeleopChaseGainPerSec = 15.0
+	// teleopChaseMaxGainPerSec is the highest gain the chaser accepts. With a 10ms step it starts
+	// to hunt around a stationary target somewhere above 40, and on an arm that shows up as the
+	// joints shaking a few times a second.
+	teleopChaseMaxGainPerSec = 40.0
 	// teleopChaseBrakeFraction is the share of the acceleration limit the chaser plans to brake
 	// with. Keeping some in reserve leaves room for the acceleration ramp.
 	teleopChaseBrakeFraction = 0.6
