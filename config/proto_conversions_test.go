@@ -1190,6 +1190,31 @@ func TestMaintenanceConfigToProtoMalformedName(t *testing.T) {
 	test.That(t, *out, test.ShouldResemble, modifiedMaintenanceConfig)
 }
 
+func TestMaintenanceConfigToProtoFollowPart(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	testMaintenanceConfig := MaintenanceConfig{
+		FollowPart: &FollowPartRef{
+			Address: "main.example.viam.cloud",
+			Auth: RemoteAuth{
+				Entity: "entity-123",
+				Credentials: &rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: "abc",
+				},
+			},
+		},
+	}
+
+	proto, err := MaintenanceConfigToProto(&testMaintenanceConfig)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto.GetFollowPart().GetAddress(), test.ShouldEqual, "main.example.viam.cloud")
+	test.That(t, proto.GetFollowPart().GetAuth().GetEntity(), test.ShouldEqual, "entity-123")
+
+	out, err := MaintenanceConfigFromProto(proto, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, *out, test.ShouldResemble, testMaintenanceConfig)
+}
+
 func TestMaintenanceConfigToProtoRemoteSuccess(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	testMaintenanceConfig := MaintenanceConfig{
@@ -1390,4 +1415,33 @@ func TestFrameConfigToProtoRefusesSeveralGeometries(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "carries one")
+}
+
+func TestFrameConfigProtoRoundTripCylinder(t *testing.T) {
+	geometry := &spatial.GeometryConfig{Type: spatial.CylinderType, R: 25, L: 80, Label: "solid"}
+	in := referenceframe.LinkConfig{
+		Parent:      "world",
+		Translation: r3.Vector{X: 1, Y: 2, Z: 3},
+		Geometry:    geometry,
+	}
+	proto, err := FrameConfigToProto(in)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto.GetGeometry().GetCylinder(), test.ShouldNotBeNil)
+
+	out, err := FrameConfigFromProto(proto)
+	test.That(t, err, test.ShouldBeNil)
+	want, err := geometry.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	got, err := out.Geometry.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.GeometriesAlmostEqual(want, got), test.ShouldBeTrue)
+}
+
+func TestFrameConfigToProtoOpenCylinderPanics(t *testing.T) {
+	open := false
+	in := referenceframe.LinkConfig{
+		Parent:   "world",
+		Geometry: &spatial.GeometryConfig{Type: spatial.CylinderType, R: 25, L: 80, Capped: &open},
+	}
+	test.That(t, func() { FrameConfigToProto(in) }, test.ShouldPanic)
 }

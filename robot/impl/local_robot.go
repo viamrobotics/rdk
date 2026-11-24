@@ -101,6 +101,11 @@ type localRobot struct {
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
+	// followPartClient caches the robot client for the current follow_part target.
+	followPartClientMu      sync.Mutex
+	followPartClient        *client.RobotClient
+	followPartClientAddress string
+
 	operations              *operation.Manager
 	sessionManager          session.Manager
 	packageManager          packages.ManagerSyncer
@@ -148,6 +153,12 @@ type localRobot struct {
 
 	// whether the robot is actively reconfiguring
 	reconfiguring atomic.Bool
+
+	// whether the maintenance sensor is holding back a config change that would change resources
+	reconfigureBlocked atomic.Bool
+	// resources of the last incoming config that got past the maintenance sensor, copied before default
+	// services are added, so reconfigureBlocked compares like with like
+	allowedResources atomic.Pointer[config.Config]
 
 	// whether the robot is still initializing. this value controls what state will be
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
@@ -315,6 +326,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 	r.activeBackgroundWorkers.Wait()
 	r.diskMonitor.stop() // nil-safe
 	r.sessionManager.Close()
+	r.evictFollowPartClient(ctx)
 
 	var err error
 	if r.cloudConnSvc != nil {
@@ -1797,6 +1809,30 @@ func (r *localRobot) applyLocalModuleVersions(cfg *config.Config) {
 	}
 }
 
+// resourcesOf copies the resource sections of cfg. The slices are cloned because reconfigure edits
+// newConfig's modules and services in place.
+func resourcesOf(cfg *config.Config) *config.Config {
+	return &config.Config{
+		Remotes:    slices.Clone(cfg.Remotes),
+		Components: slices.Clone(cfg.Components),
+		Services:   slices.Clone(cfg.Services),
+		Processes:  slices.Clone(cfg.Processes),
+		Packages:   slices.Clone(cfg.Packages),
+		Modules:    slices.Clone(cfg.Modules),
+	}
+}
+
+// resourcesChangedSinceAllowed reports whether incoming changes resources compared to the last config
+// that got past the maintenance sensor. r.Config() can't be used here: it includes default services.
+func (r *localRobot) resourcesChangedSinceAllowed(incoming *config.Config) bool {
+	allowed := r.allowedResources.Load()
+	if allowed == nil {
+		return true
+	}
+	diff, err := config.DiffConfigs(*allowed, *incoming, false)
+	return err != nil || !diff.ResourcesEqual
+}
+
 func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, forceSync bool) {
 	defer func() {
 		// Always update the `initializing` value at the end of this function. Resources may
@@ -1807,6 +1843,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.mostRecentCfg.Store(*newConfig)
 	}()
 
+	incomingResources := resourcesOf(newConfig)
+
 	// No need to check whether reconfiguring is allowed if this is initialization.
 	var reconfigureAllowedErr error
 	if !r.initializing.Load() {
@@ -1814,12 +1852,15 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
 		if !reconfigureAllowed {
 			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
-			// or resources changed), otherwise silently return.
+			// or resources changed), otherwise silently return. Local module versions are applied
+			// first so unchanged local modules don't count as a change.
+			r.applyLocalModuleVersions(newConfig)
 			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
 			if err != nil {
 				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
 				return
 			}
+			r.reconfigureBlocked.Store(r.resourcesChangedSinceAllowed(incomingResources))
 			if diff != nil && !diff.NetworkEqual {
 				if reconfigureAllowedErr != nil {
 					r.logger.CInfow(
@@ -1841,6 +1882,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 			}
 			return
 		}
+		r.reconfigureBlocked.Store(false)
 	}
 
 	// If reconfigure is allowed, assume we are reconfiguring until this function
@@ -1866,6 +1908,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	//
 	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
 	r.applyLocalModuleVersions(newConfig)
+	applyModulePackageVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1944,11 +1987,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() && !initialDiff.ResourcesEqual {
 		var reconfigureAllowed bool
 		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		r.reconfigureBlocked.Store(!reconfigureAllowed && r.resourcesChangedSinceAllowed(incomingResources))
 		if !reconfigureAllowed {
 			r.logReconfigureNotAllowed(ctx, newConfig.MaintenanceConfig, reconfigureAllowedErr)
 			return
 		}
 	}
+	r.allowedResources.Store(incomingResources)
 
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
@@ -2074,6 +2119,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				"Reconfigure allowed despite error while checking",
 				"error",
 				reconfigureAllowedErr.Error(),
+			)
+		} else if fp := newConfig.MaintenanceConfig.FollowPart; fp != nil {
+			r.logger.CInfow(
+				ctx,
+				"Reconfigure allowed by followed part",
+				"address",
+				fp.Address,
 			)
 		} else {
 			r.logger.CInfow(
@@ -2424,16 +2476,8 @@ func (r *localRobot) packageManagerForModule(
 	if mod.Type != config.ModuleTypeRegistry {
 		return packages.NewNoopManager(), ""
 	}
-	// Registry module and package names differ, so match on the package directory that the
-	// ExePath's ${packages.module.<name>} placeholder resolved to.
-	for _, pkg := range pkgs {
-		if pkg.Type != config.PackageTypeModule {
-			continue
-		}
-		dir := pkg.LocalDataDirectory(config.DefaultPackagesDir())
-		if mod.ExePath == dir || strings.HasPrefix(mod.ExePath, dir+string(filepath.Separator)) {
-			return r.packageManager, packages.PackageName(pkg.Name)
-		}
+	if pkg, ok := modulePackage(mod, pkgs); ok {
+		return r.packageManager, packages.PackageName(pkg.Name)
 	}
 	r.logger.Warnw("no package found for registry module; its package state will not be reported",
 		"module", mod.Name, "exe_path", mod.ExePath)
@@ -2502,7 +2546,35 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	result.Packages = append(result.Packages, r.packageManager.PackageStatuses()...)
 	result.Packages = append(result.Packages, r.localPackages.PackageStatuses()...)
 
+	result.MaintenanceStatus = r.maintenanceStatus(ctx)
+
 	return result, nil
+}
+
+// maintenanceStatus repots the current maintenance status.
+func (r *localRobot) maintenanceStatus(ctx context.Context) *robot.MaintenanceStatus {
+	mCfg := r.mostRecentCfg.Load().(config.Config).MaintenanceConfig
+	// No maintenance config means allowed.
+	if mCfg == nil {
+		return &robot.MaintenanceStatus{Allowed: true}
+	}
+
+	// Don't cascade: when this machine itself follows another part, report allowed with a
+	// prefix-tagged reason. That lets a follower detect the chain and surface a
+	// configuration error. Follow chains can otherwise introduce cycles.
+	if mCfg.FollowPart != nil {
+		return &robot.MaintenanceStatus{
+			Allowed: true,
+			Reason:  robot.FollowingReasonPrefix + mCfg.FollowPart.Address,
+		}
+	}
+
+	allowed, err := r.reconfigureAllowed(ctx, mCfg)
+	status := &robot.MaintenanceStatus{Allowed: allowed}
+	if err != nil {
+		status.Reason = err.Error()
+	}
+	return status
 }
 
 // Version returns version information about the robot.
@@ -2516,6 +2588,19 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
 	if mCfg == nil {
 		return true, nil
+	}
+
+	// Ignore SensorName and MaintenanceAllowedKey if FollowPart is set.
+	if mCfg.FollowPart != nil {
+		if mCfg.SensorName != "" || mCfg.MaintenanceAllowedKey != "" {
+			r.logger.CWarnw(ctx,
+				"maintenance config sets both follow_part and sensor fields; follow_part wins and "+
+					"sensor_name / maintenance_allowed_key are ignored. Remove one to clear this warning",
+				"sensor_name", mCfg.SensorName,
+				"maintenance_allowed_key", mCfg.MaintenanceAllowedKey,
+				"follow_part_address", mCfg.FollowPart.Address)
+		}
+		return r.reconfigureAllowedFollowPart(ctx, mCfg.FollowPart)
 	}
 
 	// If the sensor name cannot be parsed or found on the machine, return true (reconfigure
@@ -2536,6 +2621,99 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
 	}
 	return canReconfigure, nil
+}
+
+var maintenanceProbeTimeout = 10 * time.Second
+
+// reconfigureAllowedFollowPart reads the MaintenanceStatus field from the listed part's
+// MachineStatus response and returns whether this machine is allowed to reconfigure.
+//   - Probe fails to dial/call: reconfigure blocked
+//   - Response says Allowed=true: reconfigure allowed
+//   - Response says Allowed=false: reconfigure blocked
+//   - Response has no MaintenanceStatus (older viam-server): reconfigure allowed with an
+//     error log saying upgrade viam-server
+//
+// A cached client is used where possible.
+func (r *localRobot) reconfigureAllowedFollowPart(ctx context.Context, ref *config.FollowPartRef) (bool, error) {
+	callCtx, cancel := context.WithTimeout(ctx, maintenanceProbeTimeout)
+	defer cancel()
+
+	followClient, err := r.getOrDialFollowPartClient(callCtx, ref)
+	if err != nil {
+		return false, fmt.Errorf("failed to dial follow_part %q: %w", ref.Address, err)
+	}
+
+	mStatus, err := followClient.MachineStatus(callCtx)
+	if err != nil {
+		// Drop the cached client so the next probe can redial.
+		r.evictFollowPartClient(ctx)
+		return false, fmt.Errorf("MachineStatus probe to follow_part %q failed: %w", ref.Address, err)
+	}
+	if mStatus.MaintenanceStatus == nil {
+		r.logger.CErrorw(ctx,
+			"follow_part reported no MaintenanceStatus; the followed viam-server is likely "+
+				"an older build that does not report maintenance status and should be upgraded. "+
+				"Treating as allowed", "address", ref.Address)
+		return true, nil
+	}
+	if strings.HasPrefix(mStatus.MaintenanceStatus.Reason, robot.FollowingReasonPrefix) {
+		chainedAddr := strings.TrimPrefix(mStatus.MaintenanceStatus.Reason, robot.FollowingReasonPrefix)
+		r.logger.CErrorw(ctx,
+			"follow_part target is itself following another part; follow chains are not supported. "+
+				"Reconfigure this machine's maintenance config to follow "+chainedAddr+" directly instead",
+			"address", ref.Address, "chained_address", chainedAddr)
+		// Fall through: still honor the target's reported Allowed.
+	}
+	if !mStatus.MaintenanceStatus.Allowed {
+		return false, fmt.Errorf("reconfigure blocked by follow_part %q: %s", ref.Address, mStatus.MaintenanceStatus.Reason)
+	}
+	return true, nil
+}
+
+// getOrDialFollowPartClient returns the cached follow_part client or makes a new one.
+func (r *localRobot) getOrDialFollowPartClient(ctx context.Context, ref *config.FollowPartRef) (*client.RobotClient, error) {
+	r.followPartClientMu.Lock()
+	defer r.followPartClientMu.Unlock()
+
+	if r.followPartClient != nil && r.followPartClientAddress == ref.Address {
+		return r.followPartClient, nil
+	}
+	if r.followPartClient != nil {
+		if err := r.followPartClient.Close(ctx); err != nil {
+			r.logger.CDebugw(ctx, "closing stale follow_part sideband client", "err", err)
+		}
+		r.followPartClient = nil
+		r.followPartClientAddress = ""
+	}
+
+	followedPart := config.Remote{
+		Name:    "maintenance-follow-part",
+		Address: ref.Address,
+		Auth:    ref.Auth,
+	}
+	dialOpts := remoteDialOptions(followedPart, r.manager.opts)
+	newClient, err := dialRobotClient(ctx, followedPart, r.logger.Sublogger("maintenance_follow_part"), dialOpts...)
+	if err != nil {
+		return nil, err
+	}
+	r.followPartClient = newClient
+	r.followPartClientAddress = ref.Address
+	return newClient, nil
+}
+
+// evictFollowPartClient closes the cached follow_part client, if any. The next probe will
+// dial afresh.
+func (r *localRobot) evictFollowPartClient(ctx context.Context) {
+	r.followPartClientMu.Lock()
+	defer r.followPartClientMu.Unlock()
+	if r.followPartClient == nil {
+		return
+	}
+	if err := r.followPartClient.Close(ctx); err != nil {
+		r.logger.CDebugw(ctx, "closing evicted follow_part sideband client", "err", err)
+	}
+	r.followPartClient = nil
+	r.followPartClientAddress = ""
 }
 
 func (r *localRobot) logReconfigureNotAllowed(ctx context.Context, mCfg *config.MaintenanceConfig, err error) {

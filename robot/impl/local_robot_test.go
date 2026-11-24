@@ -5390,17 +5390,54 @@ func TestMaintenanceConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorResource, test.ShouldNotBeNil)
 
+		// Maintenance sensor says no, but the config is unchanged so nothing is blocked
+		r.Reconfigure(ctx, &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
+			Components:        sensor1,
+		})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
 		// Maintenance sensor will block reconfig so sensor2 should not be added
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeTrue)
 
 		// removing maintenance config unblocks reconfig and allows sensor to be added
 		r.Reconfigure(ctx, cfgUnblock)
 		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+	})
+
+	t.Run("default services don't count as a held-back change", func(t *testing.T) {
+		defAPI := resource.APINamespaceRDK.WithServiceType("maintenance_default_" + utils.RandomAlphaString(5))
+		resource.RegisterDefaultService(defAPI, resource.DefaultServiceModel,
+			resource.Registration[resource.Resource, resource.NoNativeConfig]{
+				Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+					return &fakeDefaultSvc{Named: conf.ResourceName().AsNamed()}, nil
+				},
+			})
+		defer resource.Deregister(defAPI, resource.DefaultServiceModel)
+
+		maintenance := &config.MaintenanceConfig{SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet"}
+		r := setupLocalRobot(t, ctx, &config.Config{Components: sensor1}, logger)
+		_, err := r.ResourceByName(resource.NewName(defAPI, resource.DefaultServiceName))
+		test.That(t, err, test.ShouldBeNil)
+
+		r.Reconfigure(ctx, &config.Config{MaintenanceConfig: maintenance, Components: sensor1})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
+		r.Reconfigure(ctx, &config.Config{MaintenanceConfig: maintenance, Components: sensor1})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeFalse)
+
+		bothSensors := append(append([]resource.Config{}, sensor1...), sensor2...)
+		r.Reconfigure(ctx, &config.Config{MaintenanceConfig: maintenance, Components: bothSensors})
+		test.That(t, r.(*localRobot).reconfigureBlocked.Load(), test.ShouldBeTrue)
+		_, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("remote sensor successfully blocks reconfigure when remote name is specified and not specified", func(t *testing.T) {
@@ -5517,6 +5554,183 @@ func TestMaintenanceConfig(t *testing.T) {
 		sensorUnBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorUnBlocked, test.ShouldNotBeNil)
+	})
+}
+
+// TestMaintenanceConfigFollowPart exercises the `follow_part` path, where a subpart defers its
+// reconfigure decision to another part.
+func TestMaintenanceConfigFollowPart(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}},
+	)
+	defer resource.Deregister(sensor.API, model)
+
+	// A second sensor we can add to configs and check presence of to determine if
+	// reconfigure went through.
+	sensor2 := []resource.Config{{Name: "sensor2", API: sensor.API, Model: model}}
+
+	// Shrink the maintenanceProbeTimeout for tests.
+	origProbeTimeout := maintenanceProbeTimeout
+	maintenanceProbeTimeout = 500 * time.Millisecond
+	t.Cleanup(func() { maintenanceProbeTimeout = origProbeTimeout })
+
+	// Starts a main part with a maintenance config.
+	startMain := func(t *testing.T, mCfg *config.MaintenanceConfig) string {
+		t.Helper()
+		mainCfg := &config.Config{
+			MaintenanceConfig: mCfg,
+			Components:        []resource.Config{{Name: "sensor", Model: model, API: sensor.API}},
+		}
+		main := setupLocalRobot(t, context.Background(), mainCfg, logger)
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, main.StartWeb(ctx, options), test.ShouldBeNil)
+		return addr
+	}
+
+	// Creates a subpart config to follow part at `addr` and have components `comps`
+	// itself.
+	subpartFollowPartCfg := func(addr string, comps []resource.Config) *config.Config {
+		return &config.Config{
+			AllowInsecureCreds: true, // main doesn't have auth configured
+			MaintenanceConfig: &config.MaintenanceConfig{
+				FollowPart: &config.FollowPartRef{Address: addr},
+			},
+			Components: comps,
+		}
+	}
+
+	t.Run("main allows → subpart reconfigure proceeds", func(t *testing.T) {
+		// "ThatsNotMyWallet" reads true on the valid sensor → main reports allowed=true.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		subLogger, logs := logging.NewObservedTestLogger(t)
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), subLogger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+		test.That(t, logs.FilterMessage("Reconfigure allowed by followed part").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	t.Run("main blocks → subpart reconfigure blocked", func(t *testing.T) {
+		// "ThatsMyWallet" reads false on the valid sensor → main reports allowed=false.
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsMyWallet",
+		})
+
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+	})
+
+	t.Run("main with no maintenance config → subpart reconfigure proceeds", func(t *testing.T) {
+		// Main has no maintenance config, so it reports Allowed=true. The subpart proceeds.
+		addr := startMain(t, nil)
+
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(addr, nil), logger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("main unreachable → subpart reconfigure blocked", func(t *testing.T) {
+		// Pick an address nothing is listening on.
+		cfg := subpartFollowPartCfg("bad-address", nil)
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithReconfig := subpartFollowPartCfg("bad-address", sensor2)
+		r.Reconfigure(ctx, cfgWithReconfig)
+
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+	})
+
+	t.Run("borked follow_part address self-heals on next config push", func(t *testing.T) {
+		addr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		badAddrCfg := subpartFollowPartCfg("bad-address", nil)
+		r := setupLocalRobot(t, ctx, badAddrCfg, logger)
+
+		// Confirm the bad address blocks reconfigure.
+		r.Reconfigure(ctx, subpartFollowPartCfg("bad-address", sensor2))
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, got, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
+
+		// Push a corrected config. The next reconfigure uses the new address.
+		r.Reconfigure(ctx, subpartFollowPartCfg(addr, sensor2))
+		got, err = r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+	})
+
+	t.Run("main itself follows another part", func(t *testing.T) {
+		// A machine whose own maintenance is follow_part reports Allowed=true with a
+		// FollowingReasonPrefix so a reader can detect a chain.
+		cfg := subpartFollowPartCfg("random-address", nil)
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		status, err := r.MachineStatus(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status.MaintenanceStatus, test.ShouldNotBeNil)
+		test.That(t, status.MaintenanceStatus.Allowed, test.ShouldBeTrue)
+		test.That(t, status.MaintenanceStatus.Reason, test.ShouldStartWith, robot.FollowingReasonPrefix)
+		test.That(t, status.MaintenanceStatus.Reason, test.ShouldContainSubstring, "random-address")
+	})
+
+	t.Run("follow chain is loud but not blocking", func(t *testing.T) {
+		// When the followed part is itself a follower, the reader proceeds (it honors the
+		// reported Allowed=true) but logs an error naming the chained address.
+		obsLogger, logs := logging.NewObservedTestLogger(t)
+
+		// Leaf main allows reconfigure.
+		leafAddr := startMain(t, &config.MaintenanceConfig{
+			SensorName: "rdk:component:sensor/sensor", MaintenanceAllowedKey: "ThatsNotMyWallet",
+		})
+
+		// Middle main follows the leaf. Its reported status is Allowed=true, Reason="following <leafAddr>".
+		middleCfg := &config.Config{
+			AllowInsecureCreds: true,
+			MaintenanceConfig:  &config.MaintenanceConfig{FollowPart: &config.FollowPartRef{Address: leafAddr}},
+		}
+		middle := setupLocalRobot(t, context.Background(), middleCfg, obsLogger)
+		options, _, middleAddr := robottestutils.CreateBaseOptionsAndListener(t)
+		test.That(t, middle.StartWeb(ctx, options), test.ShouldBeNil)
+
+		// Subpart follows the _middle_ main.
+		r := setupLocalRobot(t, ctx, subpartFollowPartCfg(middleAddr, nil), obsLogger)
+		r.Reconfigure(ctx, subpartFollowPartCfg(middleAddr, sensor2))
+
+		// Reconfigure still proceeds: the middle main said Allowed=true.
+		got, err := r.ResourceByName(sensor.Named("sensor2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldNotBeNil)
+
+		// Error logs fire naming the chained address.
+		test.That(t, logs.FilterMessageSnippet("follow_part target is itself following another part").Len(), test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
 }
 

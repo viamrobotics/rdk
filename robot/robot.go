@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	datasyncpb "go.viam.com/api/app/datasync/v1"
+	apppb "go.viam.com/api/app/v1"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -211,6 +212,10 @@ type LocalRobot interface {
 	// UploadDataFromPath uploads a file or directory at path to the cloud via the data manager.
 	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 		UploadDataFromPathResult, error)
+
+	// FillAgentInfo adds the robot's running state, such as module versions and whether the
+	// maintenance sensor is holding back a config change, to the AgentInfo sent with each config request.
+	FillAgentInfo(info *apppb.AgentInfo)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
@@ -351,13 +356,24 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources   []resource.Status
-	Modules     []modulestatus.Status
-	Config      config.Revision
-	State       MachineState
-	JobStatuses map[string]JobStatus
-	Packages    []packages.PackageStatus
+	Resources         []resource.Status
+	Modules           []modulestatus.Status
+	Config            config.Revision
+	State             MachineState
+	JobStatuses       map[string]JobStatus
+	Packages          []packages.PackageStatus
+	MaintenanceStatus *MaintenanceStatus
 }
+
+// MaintenanceStatus reports whether the machine would currently allow a reconfigure.
+type MaintenanceStatus struct {
+	Allowed bool
+	Reason  string
+}
+
+// FollowingReasonPrefix is the prefix used in MaintenanceStatus.Reason when a machine's
+// maintenance config is itself a follow_part.
+const FollowingReasonPrefix = "following "
 
 // JobStatus encapsulates status information about a single JobManager job.
 type JobStatus struct {

@@ -623,17 +623,35 @@ func TestDiffSanitize(t *testing.T) {
 		},
 	}
 
+	followPart := &config.MaintenanceConfig{
+		FollowPart: &config.FollowPartRef{
+			Address: "127.0.0.1:8081",
+			Auth: config.RemoteAuth{
+				Credentials: &utils.Credentials{
+					Type:    "followauthtype",
+					Payload: "followpayload",
+				},
+				SignalingCreds: &utils.Credentials{
+					Type:    "followauthtypesig",
+					Payload: "followpayloadsig",
+				},
+			},
+		},
+	}
+
 	left := config.Config{}
 	leftOrig := config.Config{}
 	right := config.Config{
-		Cloud:   cloud1,
-		Auth:    auth1,
-		Remotes: remotes1,
+		Cloud:             cloud1,
+		Auth:              auth1,
+		Remotes:           remotes1,
+		MaintenanceConfig: followPart,
 	}
 	rightOrig := config.Config{
-		Cloud:   cloud1,
-		Auth:    auth1,
-		Remotes: remotes1,
+		Cloud:             cloud1,
+		Auth:              auth1,
+		Remotes:           remotes1,
+		MaintenanceConfig: followPart,
 	}
 
 	diff, err := config.DiffConfigs(left, right, true)
@@ -660,6 +678,8 @@ func TestDiffSanitize(t *testing.T) {
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.Credentials.Payload)
 		test.That(t, diffStr, test.ShouldNotContainSubstring, rem.Auth.SignalingCreds.Payload)
 	}
+	test.That(t, diffStr, test.ShouldNotContainSubstring, followPart.FollowPart.Auth.Credentials.Payload)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, followPart.FollowPart.Auth.SignalingCreds.Payload)
 }
 
 func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {

@@ -27,12 +27,18 @@ type Watcher interface {
 
 // NewWatcher returns an optimally selected Watcher based on the
 // given config.
-func NewWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) (Watcher, error) {
+func NewWatcher(
+	ctx context.Context,
+	config *Config,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+	fillAgentInfo AgentInfoFunc,
+) (Watcher, error) {
 	if err := config.Ensure(false, logger); err != nil {
 		return nil, err
 	}
 	if config.Cloud != nil {
-		return newCloudWatcher(ctx, config, logger, conn), nil
+		return newCloudWatcher(ctx, config, logger, conn, fillAgentInfo), nil
 	}
 	if config.ConfigFilePath != "" {
 		return newFSWatcher(ctx, config.ConfigFilePath, logger, conn)
@@ -51,7 +57,13 @@ const checkForNewCertInterval = time.Hour
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger, conn rpc.ClientConn) *cloudWatcher {
+func newCloudWatcher(
+	ctx context.Context,
+	config *Config,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+	fillAgentInfo AgentInfoFunc,
+) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
@@ -82,7 +94,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			if time.Now().After(nextCheckForNewCert) {
 				checkForNewCert = true
 			}
-			newConfig, err := readFromCloud(cancelCtx, machineID, prevCloudConfig, checkForNewCert, logger, conn)
+			newConfig, err := readFromCloud(cancelCtx, machineID, prevCloudConfig, checkForNewCert, logger, conn, fillAgentInfo)
 			if err != nil {
 				// A malformed config is a legitimate error. The robot keeps running its current config,
 				// but we surface it loudly. A transient failure to reach the cloud stays at debug since
