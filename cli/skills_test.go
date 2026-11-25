@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,6 +80,33 @@ func TestInstallSkillReplacesEarlierCopy(t *testing.T) {
 	test.That(t, len(entries), test.ShouldEqual, 1)
 }
 
+func TestInstallSkillKeepsOldCopyWhenRestoreFails(t *testing.T) {
+	skillsDir := t.TempDir()
+	_, err := installSkill(skillsDir)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The first rename (moving the old copy aside) succeeds; swapping in the new copy and moving
+	// the old one back both fail.
+	calls := 0
+	oldRename := skillsRename
+	skillsRename = func(from, to string) error {
+		calls++
+		if calls == 1 {
+			return os.Rename(from, to)
+		}
+		return errors.New("locked")
+	}
+	t.Cleanup(func() { skillsRename = oldRename })
+
+	_, err = installSkill(skillsDir)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "the earlier copy is kept at")
+
+	kept, err := filepath.Glob(filepath.Join(skillsDir, ".using-viam-*", viamSkillName, "SKILL.md"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, kept, test.ShouldHaveLength, 1)
+}
+
 func TestSkillsInstallAction(t *testing.T) {
 	t.Run("installs into each detected agent folder", func(t *testing.T) {
 		home := useFakeSkillsHome(t, ".claude", ".agents")
@@ -103,6 +131,18 @@ func TestSkillsInstallAction(t *testing.T) {
 		test.That(t, SkillsInstallAction(context.Background(), cmd, skillsInstallArgs{Dir: dir}), test.ShouldBeNil)
 		_, err := os.Stat(filepath.Join(dir, viamSkillName, "SKILL.md"))
 		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("replaces a state file that does not parse", func(t *testing.T) {
+		home := useFakeSkillsHome(t, ".claude")
+		test.That(t, os.WriteFile(skillsStatePath(), []byte(`{"prompted": tr`), 0o600), test.ShouldBeNil)
+		cmd, _ := newSkillsTestCommand("")
+		test.That(t, SkillsInstallAction(context.Background(), cmd, skillsInstallArgs{}), test.ShouldBeNil)
+		state, err := readSkillsState()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, state.Prompted, test.ShouldBeTrue)
+		test.That(t, state.Installed, test.ShouldHaveLength, 1)
+		test.That(t, state.Installed[0].Dir, test.ShouldEqual, filepath.Join(home, ".claude", "skills", viamSkillName))
 	})
 
 	t.Run("fails with no agent folder and no --dir", func(t *testing.T) {

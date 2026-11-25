@@ -39,6 +39,7 @@ var agentDirs = []string{".claude", ".agents"}
 var (
 	skillsHomeDir   = os.UserHomeDir
 	skillsStatePath = func() string { return filepath.Join(rutils.ViamDotDir, skillsStateFileName) }
+	skillsRename    = os.Rename
 	// Both ends must be a terminal: with stdout redirected, the question would land in the output.
 	skillPromptInteractive = func() bool { return isInteractive() && isOutputTTY() }
 )
@@ -61,9 +62,11 @@ func readSkillsState() (*skillsState, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A file that does not parse is treated as empty so the next write replaces it. Its records are
+	// lost, so the offer may show once more and older installs stop refreshing until reinstalled.
 	var s skillsState
 	if err := json.Unmarshal(b, &s); err != nil {
-		return nil, errors.Wrapf(err, "failed to parse %s", skillsStatePath())
+		return &skillsState{}, nil //nolint:nilerr
 	}
 	return &s, nil
 }
@@ -173,21 +176,26 @@ func installSkill(skillsDir string) (string, error) {
 			return "", err
 		}
 		oldDest := filepath.Join(old, viamSkillName)
+		removeOld := true
 		defer func() {
-			//nolint:errcheck
-			os.RemoveAll(old)
+			if removeOld {
+				//nolint:errcheck
+				os.RemoveAll(old)
+			}
 		}()
-		if err := os.Rename(dest, oldDest); err != nil {
+		if err := skillsRename(dest, oldDest); err != nil {
 			return "", err
 		}
-		if err := os.Rename(staging, dest); err != nil {
-			//nolint:errcheck
-			os.Rename(oldDest, dest)
+		if err := skillsRename(staging, dest); err != nil {
+			if restoreErr := skillsRename(oldDest, dest); restoreErr != nil {
+				removeOld = false
+				return "", errors.Wrapf(err, "failed to replace the Viam skill; the earlier copy is kept at %s", oldDest)
+			}
 			return "", err
 		}
 		return dest, nil
 	}
-	if err := os.Rename(staging, dest); err != nil {
+	if err := skillsRename(staging, dest); err != nil {
 		return "", err
 	}
 	return dest, nil
