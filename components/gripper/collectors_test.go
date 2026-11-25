@@ -62,6 +62,41 @@ func TestIsHoldingSomethingCollector(t *testing.T) {
 	buf.Close()
 }
 
+func TestGetPercentOpenCollector(t *testing.T) {
+	start := time.Now()
+	buf := tu.NewMockBuffer(t)
+	params := data.CollectorParams{
+		DataType:      data.CaptureTypeTabular,
+		ComponentName: componentName,
+		Interval:      captureInterval,
+		Logger:        logging.NewTestLogger(t),
+		Clock:         clock.New(),
+		Target:        buf,
+	}
+	collector := data.CollectorLookup(data.MethodMetadata{
+		API:        gripper.API,
+		MethodName: "GetPercentOpen",
+	})
+	test.That(t, collector, test.ShouldNotBeNil)
+	col, err := collector(newGripper(), params)
+	test.That(t, err, test.ShouldBeNil)
+
+	defer col.Close()
+	col.Collect()
+
+	// A fully closed reading must still be captured, not dropped as a zero value.
+	expectedData, err := structpb.NewStruct(map[string]any{"percent_open": 0.0})
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	tu.CheckMockBufferWrites(t, ctx, start, buf.Writes, []*datasyncpb.SensorData{{
+		Metadata: &datasyncpb.SensorMetadata{},
+		Data:     &datasyncpb.SensorData_Struct{Struct: expectedData},
+	}})
+	buf.Close()
+}
+
 func TestDoCommandCollector(t *testing.T) {
 	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
 		ComponentName:   componentName,
@@ -79,6 +114,9 @@ func newGripper() gripper.Gripper {
 			IsHoldingSomething: true,
 			Meta:               map[string]interface{}{"pressure": 0.8},
 		}, nil
+	}
+	g.PercentOpenFunc = func(ctx context.Context, extra map[string]interface{}) (float64, error) {
+		return 0, nil
 	}
 	g.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 		return doCommandMap, nil

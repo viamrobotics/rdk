@@ -100,6 +100,49 @@ func (c *client) IsHoldingSomething(ctx context.Context, extra map[string]interf
 	}, nil
 }
 
+func (c *client) SetPercentOpen(ctx context.Context, percentOpen float64, extra map[string]interface{}) error {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	_, err = c.client.SetPercentOpen(ctx, &pb.SetPercentOpenRequest{
+		Name:        c.name,
+		PercentOpen: percentOpen,
+		Extra:       ext,
+	})
+	return err
+}
+
+func (c *client) PercentOpen(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := c.client.GetPercentOpen(ctx, &pb.GetPercentOpenRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return resp.PercentOpen, nil
+}
+
+func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (Properties, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return Properties{}, err
+	}
+	resp, err := c.client.GetProperties(ctx, &pb.GetPropertiesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return Properties{}, err
+	}
+	return Properties{PercentOpenSupported: resp.PercentOpenSupported}, nil
+}
+
 func (c *client) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {

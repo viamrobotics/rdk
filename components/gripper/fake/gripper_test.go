@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"go.viam.com/test"
@@ -41,6 +42,73 @@ func TestNoModelPath(t *testing.T) {
 	geoms, err := g.Geometries(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(geoms), test.ShouldEqual, 0)
+
+	props, err := g.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.PercentOpenSupported, test.ShouldBeTrue)
+
+	// With no DoF the fake still tracks its opening, 0 = closed.
+	pos, err := g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.0)
+	test.That(t, g.SetPercentOpen(ctx, 0.4, nil), test.ShouldBeNil)
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.4)
+	test.That(t, g.Open(ctx, nil), test.ShouldBeNil)
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 1.0)
+	_, err = g.Grab(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.0)
+
+	test.That(t, g.SetPercentOpen(ctx, -0.1, nil), test.ShouldNotBeNil)
+	test.That(t, g.SetPercentOpen(ctx, math.NaN(), nil), test.ShouldNotBeNil)
+}
+
+func TestPercentOpenWithModelPath(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	cfg := resource.Config{
+		Name:                "testGripper",
+		ConvertedAttributes: &Config{ModelFilePath: testGripperModelPath},
+	}
+	g, err := NewGripper(ctx, nil, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Inputs start at the minimum (0), which is closed.
+	pos, err := g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.0)
+
+	// SetPercentOpen moves every input to that fraction of its 0-50 range.
+	test.That(t, g.SetPercentOpen(ctx, 0.5, nil), test.ShouldBeNil)
+	inputs, err := g.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{25, 25})
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.5)
+
+	// Open, Grab and GoToInputs keep PercentOpen in step with the inputs.
+	test.That(t, g.Open(ctx, nil), test.ShouldBeNil)
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 1.0)
+
+	test.That(t, g.GoToInputs(ctx, []referenceframe.Input{10, 10}), test.ShouldBeNil)
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.2)
+
+	_, err = g.Grab(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pos, err = g.PercentOpen(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldEqual, 0.0)
 }
 
 func TestWithModelPath(t *testing.T) {

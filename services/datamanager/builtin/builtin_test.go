@@ -96,6 +96,7 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "GetPercentOpen"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "IsHoldingSomething"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "DoCommand"},

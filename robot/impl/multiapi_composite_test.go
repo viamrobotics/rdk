@@ -424,6 +424,18 @@ func (f gripperFacade) IsHoldingSomething(
 	return gripper.HoldingStatus{}, nil
 }
 
+func (f gripperFacade) SetPercentOpen(context.Context, float64, map[string]interface{}) error {
+	return nil
+}
+
+func (f gripperFacade) PercentOpen(context.Context, map[string]interface{}) (float64, error) {
+	return 0, nil
+}
+
+func (f gripperFacade) Properties(context.Context, map[string]interface{}) (gripper.Properties, error) {
+	return gripper.Properties{}, nil
+}
+
 func (f gripperFacade) Geometries(
 	context.Context, map[string]interface{},
 ) ([]spatialmath.Geometry, error) {
