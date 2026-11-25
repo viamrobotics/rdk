@@ -92,20 +92,20 @@ func (c *client) Power(ctx context.Context, extra map[string]interface{}) (float
 	return resp.Watts, nil
 }
 
-// BatteryPercent returns the remaining battery charge as a percentage from 0 to 100.
-func (c *client) BatteryPercent(ctx context.Context, extra map[string]interface{}) (float64, error) {
+// BatteryPercent returns the remaining battery charge as a percentage from 0 to 100 and whether it is charging.
+func (c *client) BatteryPercent(ctx context.Context, extra map[string]interface{}) (float64, bool, error) {
 	ext, err := structpb.NewStruct(extra)
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
 	resp, err := c.client.GetBatteryPercent(ctx, &pb.GetBatteryPercentRequest{
 		Name:  c.name,
 		Extra: ext,
 	})
 	if err != nil {
-		return 0, err
+		return 0, false, err
 	}
-	return resp.Percent, nil
+	return resp.Percent, resp.IsCharging, nil
 }
 
 // Properties returns the supported properties of the power sensor.
