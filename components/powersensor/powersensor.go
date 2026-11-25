@@ -88,7 +88,7 @@ func AsSub(r PowerSensor) resource.Sub { return resource.AsSub(API, r) }
 // BatteryPercent example:
 //
 //	// Get the remaining battery charge as a percentage from 0 to 100.
-//	percent, err := myPowerSensor.BatteryPercent(context.Background(), nil)
+//	percent, isCharging, err := myPowerSensor.BatteryPercent(context.Background(), nil)
 //
 // Properties example:
 //
@@ -111,8 +111,8 @@ type PowerSensor interface {
 	// Power returns the power reading in watts.
 	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
 
-	// BatteryPercent returns the remaining battery charge as a percentage from 0 to 100.
-	BatteryPercent(ctx context.Context, extra map[string]interface{}) (float64, error)
+	// BatteryPercent returns the remaining battery charge as a percentage from 0 to 100 and a bool returning true if the battery is charging.
+	BatteryPercent(ctx context.Context, extra map[string]interface{}) (float64, bool, error)
 
 	// Properties returns the supported properties of the power sensor.
 	Properties(ctx context.Context, extra map[string]interface{}) (*Properties, error)
