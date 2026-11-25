@@ -18,6 +18,7 @@ jobs:
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
+      ARTIFACTORY_GOLANG_KEY: ${{ secrets.ARTIFACTORY_GOLANG_KEY }}
 
   staticbuild-build:
     uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
@@ -25,6 +26,7 @@ jobs:
       release_type: 'rc'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+      ARTIFACTORY_GOLANG_KEY: ${{ secrets.ARTIFACTORY_GOLANG_KEY }}
 
   staticbuild-deploy:
     needs: [test, staticbuild-build]
@@ -42,6 +44,7 @@ jobs:
       release_type: 'rc'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+      ARTIFACTORY_GOLANG_KEY: ${{ secrets.ARTIFACTORY_GOLANG_KEY }}
 
   slack-workflow-status:
     if: ${{ !success() }}

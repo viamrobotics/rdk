@@ -25,9 +25,15 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+      ARTIFACTORY_GOLANG_KEY:
+        required: false
 
 permissions:
   contents: read
+
+env:
+  # Empty without the secret; Go treats an empty GOPROXY as unset and uses its default proxy.
+  GOPROXY: ${{ secrets.ARTIFACTORY_GOLANG_KEY && format('https://{0}:{1}@viam.jfrog.io/artifactory/api/go/golang', vars.ARTIFACTORY_GOLANG_USER, secrets.ARTIFACTORY_GOLANG_KEY) || '' }}
 
 jobs:
   focal-static:
@@ -158,6 +164,7 @@ jobs:
         chmod -R a+rwX .
         docker run --platform linux/arm/v7 \
           -e BUILD_CHANNEL='${{ steps.meta.outputs.channel }}' \
+          -e GOPROXY \
           -v "$(pwd)":/rdk \
           ghcr.io/viamrobotics/rdk-focal:armhf-cache \
           bash /rdk/etc/focal-armhf-build.sh

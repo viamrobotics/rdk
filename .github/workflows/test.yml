@@ -18,9 +18,13 @@ on:
         required: true
       DOCKER_PUBLIC_READONLY_PAT:
         required: true
+      ARTIFACTORY_GOLANG_KEY:
+        required: false
 
 env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
+  # Empty without the secret; Go treats an empty GOPROXY as unset and uses its default proxy.
+  GOPROXY: ${{ secrets.ARTIFACTORY_GOLANG_KEY && format('https://{0}:{1}@viam.jfrog.io/artifactory/api/go/golang', vars.ARTIFACTORY_GOLANG_USER, secrets.ARTIFACTORY_GOLANG_KEY) || '' }}
 
 jobs:
   check-changes:
@@ -653,6 +657,7 @@ jobs:
             -e MISE_INSTALL_ARCH \
             -e MISE_GO_SET_GOBIN \
             -e MISE_ENV \
+            -e GOPROXY \
             -e CI=1 \
             ghcr.io/viamrobotics/rdk-devenv:armhf \
             bash -lc 'curl -fsSL https://mise.run | sh && apt-get update && apt-get install -y python3-venv && cd /rdk && eval "$($HOME/.local/bin/mise activate bash)" && env && make tool-install test-go-no-race'

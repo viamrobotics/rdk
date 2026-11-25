@@ -22,3 +22,5 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/motion-benchmarks.yml@main
     with:
       pr_number: ${{ github.event.pull_request.number }}
+    secrets:
+      ARTIFACTORY_GOLANG_KEY: ${{ secrets.ARTIFACTORY_GOLANG_KEY }}
