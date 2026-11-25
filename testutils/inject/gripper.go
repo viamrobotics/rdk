@@ -19,6 +19,9 @@ type Gripper struct {
 	GrabFunc               func(ctx context.Context, extra map[string]interface{}) (bool, error)
 	StopFunc               func(ctx context.Context, extra map[string]interface{}) error
 	IsHoldingSomethingFunc func(ctx context.Context, extra map[string]interface{}) (gripper.HoldingStatus, error)
+	SetPercentOpenFunc     func(ctx context.Context, percentOpen float64, extra map[string]interface{}) error
+	PercentOpenFunc        func(ctx context.Context, extra map[string]interface{}) (float64, error)
+	PropertiesFunc         func(ctx context.Context, extra map[string]interface{}) (gripper.Properties, error)
 	IsMovingFunc           func(context.Context) (bool, error)
 	CloseFunc              func(ctx context.Context) error
 	GeometriesFunc         func(ctx context.Context) ([]spatialmath.Geometry, error)
@@ -59,6 +62,30 @@ func (g *Gripper) IsHoldingSomething(ctx context.Context, extra map[string]inter
 		return g.Gripper.IsHoldingSomething(ctx, extra)
 	}
 	return g.IsHoldingSomethingFunc(ctx, extra)
+}
+
+// SetPercentOpen calls the injected SetPercentOpen or the real version.
+func (g *Gripper) SetPercentOpen(ctx context.Context, percentOpen float64, extra map[string]interface{}) error {
+	if g.SetPercentOpenFunc == nil {
+		return g.Gripper.SetPercentOpen(ctx, percentOpen, extra)
+	}
+	return g.SetPercentOpenFunc(ctx, percentOpen, extra)
+}
+
+// PercentOpen calls the injected PercentOpen or the real version.
+func (g *Gripper) PercentOpen(ctx context.Context, extra map[string]interface{}) (float64, error) {
+	if g.PercentOpenFunc == nil {
+		return g.Gripper.PercentOpen(ctx, extra)
+	}
+	return g.PercentOpenFunc(ctx, extra)
+}
+
+// Properties calls the injected Properties or the real version.
+func (g *Gripper) Properties(ctx context.Context, extra map[string]interface{}) (gripper.Properties, error) {
+	if g.PropertiesFunc == nil {
+		return g.Gripper.Properties(ctx, extra)
+	}
+	return g.PropertiesFunc(ctx, extra)
 }
 
 // Stop calls the injected Stop or the real version.

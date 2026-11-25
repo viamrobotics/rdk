@@ -6,4 +6,5 @@ var (
 	NewIsHoldingSomethingCollector = newIsHoldingSomethingCollector
 	NewDoCommandCollector          = newDoCommandCollector
 	NewGetWorldPoseCollector       = newGetWorldPoseCollector
+	NewGetPercentOpenCollector     = newGetPercentOpenCollector
 )

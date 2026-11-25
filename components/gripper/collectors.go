@@ -15,6 +15,7 @@ const (
 	doCommand method = iota
 	getWorldPose
 	isHoldingSomething
+	getPercentOpen
 )
 
 func (m method) String() string {
@@ -25,6 +26,8 @@ func (m method) String() string {
 		return "DoCommand"
 	case getWorldPose:
 		return "GetWorldPose"
+	case getPercentOpen:
+		return "GetPercentOpen"
 	}
 	return "Unknown"
 }
@@ -56,6 +59,36 @@ func newIsHoldingSomethingCollector(resource any, params data.CollectorParams) (
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, gripperIsHolding(status))
+	})
+	return data.NewCollector(cFunc, params)
+}
+
+// gripperPercentOpen is the captured GetPercentOpen result. We use this instead of
+// pb.GetPercentOpenResponse because omitempty would drop a fully closed (0.0) reading.
+type gripperPercentOpen struct {
+	PercentOpen float64 `json:"percent_open"`
+}
+
+// newGetPercentOpenCollector returns a collector to register a GetPercentOpen method.
+// RegisterCollector will panic if one is already registered with the same MethodMetadata.
+func newGetPercentOpenCollector(resource any, params data.CollectorParams) (data.Collector, error) {
+	gripper, err := assertGripper(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
+		timeRequested := time.Now()
+		var res data.CaptureResult
+		percentOpen, err := gripper.PercentOpen(ctx, data.FromDMExtraMap)
+		if err != nil {
+			if data.IsNoCaptureToStoreError(err) {
+				return res, err
+			}
+			return res, data.NewFailedToReadError(params.ComponentName, getPercentOpen.String(), err)
+		}
+		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return data.NewTabularCaptureResult(ts, gripperPercentOpen{PercentOpen: percentOpen})
 	})
 	return data.NewCollector(cFunc, params)
 }

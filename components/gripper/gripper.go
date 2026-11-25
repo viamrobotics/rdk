@@ -37,6 +37,10 @@ func init() {
 		API:        API,
 		MethodName: getWorldPose.String(),
 	}, newGetWorldPoseCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getPercentOpen.String(),
+	}, newGetPercentOpenCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string.
@@ -60,6 +64,12 @@ type HoldingStatus struct {
 	Meta               map[string]interface{}
 }
 
+// Properties describes the capabilities of a gripper.
+type Properties struct {
+	// PercentOpenSupported is true if the gripper implements SetPercentOpen and PercentOpen.
+	PercentOpenSupported bool
+}
+
 // A Gripper represents a physical robotic gripper.
 // For more information, see the [gripper component docs].
 //
@@ -81,6 +91,27 @@ type HoldingStatus struct {
 //
 // For more information, see the [Grab method docs].
 //
+// SetPercentOpen example:
+//
+//	myGripper, err := gripper.FromProvider(machine, "my_gripper")
+//
+//	// Move the gripper to half open.
+//	err := myGripper.SetPercentOpen(context.Background(), 0.5, nil)
+//
+// PercentOpen example:
+//
+//	myGripper, err := gripper.FromProvider(machine, "my_gripper")
+//
+//	// Read how far open the gripper is, from 0.0 (closed) to 1.0 (open).
+//	percentOpen, err := myGripper.PercentOpen(context.Background(), nil)
+//
+// Properties example:
+//
+//	myGripper, err := gripper.FromProvider(machine, "my_gripper")
+//
+//	// Check whether the gripper supports SetPercentOpen and PercentOpen.
+//	props, err := myGripper.Properties(context.Background(), nil)
+//
 // [gripper component docs]: https://docs.viam.com/reference/apis/components/gripper/
 // [Open method docs]: https://docs.viam.com/reference/apis/components/gripper/#open
 // [Grab method docs]: https://docs.viam.com/reference/apis/components/gripper/#grab
@@ -101,6 +132,21 @@ type Gripper interface {
 
 	// IsHoldingSomething returns whether the gripper is currently holding onto an object.
 	IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (HoldingStatus, error)
+
+	// SetPercentOpen moves the gripper to a normalized opening, where 0.0 is fully closed
+	// (where Grab moves to) and 1.0 is fully open (where Open moves to). The gripper maps the
+	// value linearly onto its range of motion and owns any inversion of its hardware scale.
+	// This will block until done or a new operation cancels this one.
+	// Grippers that cannot do this return grpc.UnimplementedError; the gRPC server then falls
+	// back to Grab for percentOpen < 0.5 and Open for percentOpen >= 0.5.
+	SetPercentOpen(ctx context.Context, percentOpen float64, extra map[string]interface{}) error
+
+	// PercentOpen returns the measured opening of the gripper on the same 0.0 (closed) to
+	// 1.0 (open) scale as SetPercentOpen.
+	PercentOpen(ctx context.Context, extra map[string]interface{}) (float64, error)
+
+	// Properties returns the capabilities of the gripper.
+	Properties(ctx context.Context, extra map[string]interface{}) (Properties, error)
 }
 
 // Deprecated: FromRobot is a helper for getting the named Gripper from the given Robot.
