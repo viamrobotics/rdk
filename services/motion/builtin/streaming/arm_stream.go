@@ -15,7 +15,7 @@ type armStream struct {
 
 	// These are used to estimate how much runway the arm has buffered on its side.
 	timeInTrajectoryClockOfLastSentPVAT time.Duration
-	timeFirstBatchWasSent               time.Time
+	wallTimeAtTrajectoryClockZero       time.Time
 
 	// State for the underlying RPC stream.
 	batchesCh   chan []arm.TrajectoryPoint
@@ -73,6 +73,9 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 		})
 	}
 
+	armHasNothingToExecute := s.currentEstimatedRunwayInArm() <= 0
+	previousLastSent := s.timeInTrajectoryClockOfLastSentPVAT
+
 	sendStart := time.Now()
 	select {
 	case <-ctx.Done():
@@ -84,9 +87,9 @@ func (s *armStream) send(ctx context.Context, pvats []pvat) error {
 	s.diagnostics.RecordSendToArmLatency(sendStart, time.Since(sendStart))
 
 	s.timeInTrajectoryClockOfLastSentPVAT = batch[len(batch)-1].Time
-	if s.timeFirstBatchWasSent.IsZero() {
-		// First batch was just sent; assume the arm begins executing around now.
-		s.timeFirstBatchWasSent = time.Now()
+	if armHasNothingToExecute {
+		// The arm was at the end of what it had been sent; assume it starts on this batch around now.
+		s.wallTimeAtTrajectoryClockZero = time.Now().Add(-previousLastSent)
 	}
 	return nil
 }
@@ -101,12 +104,12 @@ func (s *armStream) close() error {
 
 func (s *armStream) currentEstimatedRunwayInArm() time.Duration {
 	// Nothing sent yet. We can't fall through to below because
-	// time.Since(s.timeFirstBatchWasSent) (i.e., time.Since(0)) would be very large.
-	if s.timeFirstBatchWasSent.IsZero() {
+	// time.Since(s.wallTimeAtTrajectoryClockZero) (i.e., time.Since(0)) would be very large.
+	if s.wallTimeAtTrajectoryClockZero.IsZero() {
 		return 0
 	}
 
-	estimatedArmPositionInTrajectoryClock := time.Since(s.timeFirstBatchWasSent)
+	estimatedArmPositionInTrajectoryClock := time.Since(s.wallTimeAtTrajectoryClockZero)
 
 	return s.timeInTrajectoryClockOfLastSentPVAT - estimatedArmPositionInTrajectoryClock
 }
