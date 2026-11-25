@@ -33,6 +33,18 @@ if [[ -n "$GO_BUILD_TAGS_EXTRA" ]]; then
 	GO_TAGS="$GO_TAGS,$(echo $GO_BUILD_TAGS_EXTRA | tr ' ' ',')"
 fi
 
+# On 32-bit arm the cgo test binaries exceed the 32MB BL range, so some calls into
+# runtime need trampolines. The Go linker's reachability check is one instruction
+# more permissive than GNU ld's for a backward call with an addend (runtime.duff*
+# entry points): at the edge of the range ld emits a veneer to the symbol but still
+# applies the addend to the branch, which lands the call in unrelated code and
+# corrupts the stack at runtime. Force Go-side trampolines for cross-package calls
+# so ld never has to resolve one. See https://github.com/golang/go/issues/58425.
+LDFLAGS=
+if [[ "$(go env GOARCH)" == "arm" ]]; then
+	LDFLAGS="-ldflags=-debugtramp=2"
+fi
+
 # Race is unsupported on some linux/arm64 hosts. See https://github.com/golang/go/issues/29948.
 # To run without race, use `make test-no-race` or `make test-go-no-race`.
 # Running race and cover at the same time results in DRAMATIC test slowdowns, especially with parallel processing.
@@ -52,7 +64,7 @@ if test -n "$GITHUB_RUN_ID"; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=$GO_TAGS -timeout 40m $RACE $COVER $TEST_TARGET
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=$GO_TAGS $LDFLAGS -timeout 40m $RACE $COVER $TEST_TARGET
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then
