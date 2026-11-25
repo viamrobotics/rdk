@@ -195,6 +195,16 @@ func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
 	return R3VectorAlmostEqual(a.Point(), b.Point(), epsilon)
 }
 
+// PathLengthMm returns the total Euclidean distance in millimeters traversed by a sequence of poses, summing the
+// straight-line distances between consecutive poses. Orientation is ignored. Returns 0 for fewer than two poses.
+func PathLengthMm(poses []Pose) float64 {
+	var total float64
+	for i := 1; i < len(poses); i++ {
+		total += poses[i].Point().Sub(poses[i-1].Point()).Norm()
+	}
+	return total
+}
+
 // distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a
 // distancePose, use a dualQuaternion instead.
 // A distancePose is useful when you need to return e.g. a computed point within a pose without converting back to a DQ.
