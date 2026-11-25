@@ -98,6 +98,10 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			if err != nil {
 				return linearTraj, i, err
 			}
+			newTraj, err = pm.sequentialize(ctx, linearTraj[len(linearTraj)-1], newTraj, to)
+			if err != nil {
+				return linearTraj, i, err
+			}
 			linearTraj = append(linearTraj, newTraj...)
 		} else {
 			subGoals, cbirrtAllowed, err := pm.generateWaypoints(ctx, start, to)
@@ -123,6 +127,10 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 					return linearTraj, i, err
 				}
 				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
+				newTraj, err = pm.sequentialize(ctx, linearTraj[len(linearTraj)-1], newTraj, sg)
+				if err != nil {
+					return linearTraj, i, err
+				}
 				linearTraj = append(linearTraj, newTraj...)
 			}
 		}
