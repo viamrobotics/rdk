@@ -29,6 +29,7 @@ const defaultTeleopSmoothAlpha = 0.5
 type teleopComponent struct {
 	name        string
 	moveReqBase motion.MoveReq
+	arms        []string // arms in the chain from name to world, claimed in the registry
 	latestPose  atomic.Pointer[referenceframe.PoseInFrame]
 }
 
@@ -456,6 +457,43 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 // stop shuts down the pipeline goroutines.
 func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
+	ms.reg.releaseKind(holderTeleop)
+}
+
+// chainFrames returns the frames from name up to world.
+func chainFrames(fs *referenceframe.FrameSystem, name string) ([]referenceframe.Frame, error) {
+	f := fs.Frame(name)
+	if f == nil {
+		return nil, fmt.Errorf("frame %q not found in the frame system", name)
+	}
+	return fs.TracebackFrame(f)
+}
+
+// claimTeleopArms claims every movable frame in name's chain for teleop, all or none. A teleop claim on an
+// arm that teleop already holds is a no-op; any other holder is an error.
+func (ms *builtIn) claimTeleopArms(fs *referenceframe.FrameSystem, name string) ([]string, error) {
+	chain, err := chainFrames(fs, name)
+	if err != nil {
+		return nil, err
+	}
+	var arms, fresh []string
+	for _, f := range chain {
+		if len(f.DoF()) == 0 {
+			continue
+		}
+		arms = append(arms, f.Name())
+		_, held := ms.reg.get(f.Name())
+		if err := ms.reg.claim(f.Name(), holder{kind: holderTeleop}); err != nil {
+			for _, a := range fresh {
+				ms.reg.release(a, holderTeleop)
+			}
+			return nil, err
+		}
+		if !held {
+			fresh = append(fresh, f.Name())
+		}
+	}
+	return arms, nil
 }
 
 // addTeleopComponent adds a component to the teleop pipeline, creating the pipeline if needed.
@@ -486,6 +524,11 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 		}
 		ms.mu.RUnlock()
 
+		arms, err := ms.claimTeleopArms(frameSys, req.ComponentName)
+		if err != nil {
+			return err
+		}
+
 		tp := &teleopPipeline{
 			logger:           ms.logger.Sublogger("teleop"),
 			cachedFrameSys:   frameSys,
@@ -500,6 +543,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 		comp := &teleopComponent{
 			name:        req.ComponentName,
 			moveReqBase: req,
+			arms:        arms,
 		}
 		comp.latestPose.Store(req.Destination)
 		tp.components[req.ComponentName] = comp
@@ -518,10 +562,15 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 
 		// Add component to existing pipeline.
 		tp := ms.teleopPipeline
+		arms, err := ms.claimTeleopArms(tp.cachedFrameSys, req.ComponentName)
+		if err != nil {
+			return err
+		}
 		tp.componentsMu.Lock()
 		comp := &teleopComponent{
 			name:        req.ComponentName,
 			moveReqBase: req,
+			arms:        arms,
 		}
 		comp.latestPose.Store(req.Destination)
 		tp.components[req.ComponentName] = comp
@@ -546,9 +595,23 @@ func (ms *builtIn) removeTeleopComponent(ctx context.Context, componentName stri
 	}
 
 	tp.componentsMu.Lock()
+	removed := tp.components[componentName]
 	delete(tp.components, componentName)
 	remaining := len(tp.components)
+	inUse := map[string]bool{}
+	for _, c := range tp.components {
+		for _, a := range c.arms {
+			inUse[a] = true
+		}
+	}
 	tp.componentsMu.Unlock()
+	if removed != nil {
+		for _, a := range removed.arms {
+			if !inUse[a] {
+				ms.reg.release(a, holderTeleop)
+			}
+		}
+	}
 
 	if remaining == 0 {
 		tp.stop(ctx, ms)

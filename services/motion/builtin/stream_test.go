@@ -100,10 +100,7 @@ func waitForSession(t *testing.T, ms *builtIn, armName string) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
-		ms.streamMu.RLock()
-		_, ok := ms.streams[armName]
-		ms.streamMu.RUnlock()
-		if ok {
+		if h, ok := ms.reg.get(armName); ok && h.kind == holderStream {
 			return
 		}
 		if time.Now().After(deadline) {

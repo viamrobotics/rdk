@@ -2,11 +2,14 @@
 package builtin
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,6 +37,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
+	"go.viam.com/rdk/services/motion/builtin/servo"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -253,10 +257,8 @@ type builtIn struct {
 	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
 
-	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
-	// (separate from mu to simplify lock ordering).
-	streamMu sync.RWMutex
-	streams  map[string]*stream
+	// Arm ownership: one holder (servo session, teleop or stream) per arm. Has its own lock.
+	reg registry
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -288,6 +290,17 @@ func (ms *builtIn) BuiltInReconfigure(
 	}
 	ms.teleopMu.Unlock()
 
+	// Servo sessions this reconfigure stops are awaited after ms.mu is released (the ramp never takes it),
+	// then their ended-session records dropped, so a removed arm's handle isn't kept alive.
+	var stopping []*servoEntry
+	var gone []string
+	defer func() {
+		// ponytail: if a wait times out, last may hold one stale entry per arm until the next session on that name ends.
+		_ = ms.waitServos(ctx, stopping) //nolint:errcheck // waitServos logs each failure
+		for _, a := range gone {
+			ms.reg.forget(a)
+		}
+	}()
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 	config, err := resource.NativeConfig[*Config](conf)
@@ -321,9 +334,68 @@ func (ms *builtIn) BuiltInReconfigure(
 	ms.movementSensors = movementSensors
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
+	for name := range ms.components {
+		if _, ok := componentMap[name]; !ok {
+			gone = append(gone, name)
+		}
+	}
+	ms.reg.bumpGen()
+	for arm, h := range ms.reg.all(holderServo) {
+		e := h.servo
+		if e.session.Stopping() { // an earlier reconfigure or stop is already ending it
+			stopping = append(stopping, e) // still wait, so forget runs after its release
+			continue
+		}
+		if ms.servoSurvives(ctx, ms.components[arm], componentMap[arm], e) {
+			ms.logger.Infof("servo session %s on %q kept across reconfigure", e.id, arm)
+			continue
+		}
+		ms.logger.Infof("servo session %s on %q stopped across reconfigure", e.id, arm)
+		e.session.BeginStop(servo.StateStopped)
+		stopping = append(stopping, e)
+	}
 	ms.components = componentMap
 
 	return nil
+}
+
+// servoSurvives reports whether a session started on old can keep running on cur: the same resource value
+// whose kinematics config is unchanged.
+func (ms *builtIn) servoSurvives(ctx context.Context, old, cur resource.Resource, e *servoEntry) bool {
+	if old == nil || cur == nil || !reflect.TypeOf(cur).Comparable() || !reflect.TypeOf(old).Comparable() || old != cur {
+		return false
+	}
+	a, ok := cur.(arm.Arm)
+	if !ok {
+		return false
+	}
+	kin, err := a.Kinematics(ctx)
+	if err != nil {
+		return false
+	}
+	cfg, err := json.Marshal(kin)
+	return err == nil && bytes.Equal(cfg, e.config)
+}
+
+// Stop ramps every servo session to a stop and waits for them (motion.Service is an Actuator).
+func (ms *builtIn) Stop(ctx context.Context, extra map[string]interface{}) error {
+	var es []*servoEntry
+	ms.reg.bumpGen()
+	for _, h := range ms.reg.all(holderServo) {
+		h.servo.session.BeginStop(servo.StateStopped)
+		es = append(es, h.servo)
+	}
+	return ms.waitServos(ctx, es)
+}
+
+// IsMoving reports whether any servo session is running.
+func (ms *builtIn) IsMoving(ctx context.Context) (bool, error) {
+	for _, h := range ms.reg.all(holderServo) {
+		if h.servo.session.Status().State == servo.StateRunning {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
@@ -334,9 +406,13 @@ func (ms *builtIn) Close(ctx context.Context) error {
 	}
 	ms.teleopMu.Unlock()
 
+	// Refuse starts still in flight, then stop what is visible. Each wait is bounded by the session's budget.
+	ms.reg.close()
+	err := ms.Stop(ctx, nil)
 	ms.abortStreams(ctx)
+	ms.reg.forgetAll()
 
-	return nil
+	return err
 }
 
 func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
@@ -344,6 +420,12 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	defer ms.mu.RUnlock()
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
+	// Servo sessions on arms in the component's chain are stopped, and their streams closed, before planning
+	// starts. The wait happens under ms.mu.RLock and is bounded by waitEntry; the servo ramp and session
+	// goroutine must therefore never take ms.mu.
+	if err := ms.stopServoForMove(ctx, req); err != nil {
+		return false, err
+	}
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
@@ -378,6 +460,13 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
+	if e, ok := ms.reg.getServo(req.ComponentName); ok {
+		if e.session == nil {
+			return fmt.Errorf("arm %q is starting a servo session", req.ComponentName)
+		}
+		e.session.BeginStop(servo.StateStopped)
+		return waitEntry(ctx, &e)
+	}
 	return fmt.Errorf("StopPlan not supported by builtin")
 }
 
@@ -430,6 +519,11 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 	// Handle arm-streaming commands (they manage their own locking).
 	if resp, handled, err := ms.handleStreamCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
+	// Handle servo commands (they manage their own locking, and must not queue behind ms.mu).
+	if resp, handled, err := ms.handleServoCommand(ctx, cmd); handled {
 		return resp, err
 	}
 

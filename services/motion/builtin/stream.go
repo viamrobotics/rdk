@@ -44,36 +44,16 @@ type stream struct {
 }
 
 func (ms *builtIn) registerStream(armName string, s *stream) error {
-	ms.streamMu.Lock()
-	defer ms.streamMu.Unlock()
-	if _, ok := ms.streams[armName]; ok {
-		return fmt.Errorf("a stream is already running for arm %q", armName)
-	}
-	if ms.streams == nil {
-		ms.streams = make(map[string]*stream)
-	}
-	ms.streams[armName] = s
-	return nil
+	return ms.reg.claim(armName, holder{kind: holderStream, stream: s})
 }
 
-func (ms *builtIn) unregisterStream(armName string) {
-	ms.streamMu.Lock()
-	defer ms.streamMu.Unlock()
-	delete(ms.streams, armName)
-}
+func (ms *builtIn) unregisterStream(armName string) { ms.reg.release(armName, holderStream) }
 
 func (ms *builtIn) abortStreams(ctx context.Context) {
-	ms.streamMu.RLock()
-	streams := make([]*stream, 0, len(ms.streams))
-	for _, s := range ms.streams {
-		streams = append(streams, s)
-	}
-	ms.streamMu.RUnlock()
-
-	for _, s := range streams {
-		s.cancel()
+	for _, h := range ms.reg.all(holderStream) {
+		h.stream.cancel()
 		select {
-		case <-s.done:
+		case <-h.stream.done:
 		case <-ctx.Done():
 			return
 		}
@@ -230,12 +210,11 @@ func (ms *builtIn) streamDiagnosticsMetadataTags(ctx context.Context) ([]string,
 }
 
 func (ms *builtIn) streamStatus(armName string) map[string]any {
-	ms.streamMu.RLock()
-	s, ok := ms.streams[armName]
-	ms.streamMu.RUnlock()
-	if !ok {
+	h, ok := ms.reg.get(armName)
+	if !ok || h.kind != holderStream {
 		return map[string]any{}
 	}
+	s := h.stream
 	status := map[string]any{streamKeyDiagnosticsWindowSecs: s.opts.DiagnosticsWindowSecs}
 	if s.opts.DiagnosticsWindowSecs > 0 {
 		status[streamKeyLastWindowDetails] = s.diagnostics.LastWindowDetails()
