@@ -164,7 +164,7 @@ func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
 	// sees, and edgeVox caches world-space swept volumes per structure, so a roadmap built at one
 	// frozen pose would be reused unchecked at another. Keying on the chain root's world pose would
 	// let frozen plans use the roadmap.
-	if c := psc.pc.request.Constraints; c != nil && len(c.FrozenFrames) > 0 {
+	if c := psc.pc.request.Constraints; c != nil && len(c.FrozenFrameConstraint) > 0 {
 		return nil
 	}
 	frames := movingFrameNamesWithDoF(psc)

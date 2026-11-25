@@ -58,14 +58,18 @@ func freezeFrames(
 }
 
 // frozenRequest returns a copy of req that plans against a frame system with
-// req.Constraints.FrozenFrames frozen at their start inputs, and those inputs. The copy's start
+// req.Constraints.FrozenFrameConstraint frames frozen at their start inputs, and those inputs. The copy's start
 // and goal configurations omit the frozen frames. req itself is left untouched: PlanMotionSequence
 // reuses requests and keys backtracking on their *PlanState pointers.
 func frozenRequest(req *PlanRequest) (*PlanRequest, referenceframe.FrameSystemInputs, error) {
-	if req.Constraints == nil || len(req.Constraints.FrozenFrames) == 0 {
+	if req.Constraints == nil || len(req.Constraints.FrozenFrameConstraint) == 0 {
 		return req, nil, nil
 	}
-	frozenFS, frozen, err := freezeFrames(req.FrameSystem, req.Constraints.FrozenFrames, req.StartState.Configuration())
+	names := make([]string, 0, len(req.Constraints.FrozenFrameConstraint))
+	for _, c := range req.Constraints.FrozenFrameConstraint {
+		names = append(names, c.Frame)
+	}
+	frozenFS, frozen, err := freezeFrames(req.FrameSystem, names, req.StartState.Configuration())
 	if err != nil {
 		return nil, nil, err
 	}

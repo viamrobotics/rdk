@@ -24,10 +24,8 @@ type Constraints struct {
 	PseudolinearConstraint []PseudolinearConstraint `json:"pseudolinear_constraints"`
 	OrientationConstraint  []OrientationConstraint  `json:"orientation_constraints"`
 	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
-	// FrozenFrames names frames held at their start-state configuration for the whole plan. They
-	// remain collision obstacles, and returned trajectories carry their start inputs at every step.
 	// Not supported over gRPC: MoveReq.ToProto rejects it.
-	FrozenFrames []string `json:"frozen_frames,omitempty"`
+	FrozenFrameConstraint []FrozenFrameConstraint `json:"frozen_frame_constraints,omitempty"`
 }
 
 // NewEmptyConstraints creates a new, empty Constraints object.
@@ -68,6 +66,12 @@ type LinearConstraint struct {
 type PseudolinearConstraint struct {
 	LineToleranceFactor        float64
 	OrientationToleranceFactor float64
+}
+
+// FrozenFrameConstraint holds Frame at its start-state configuration for the whole plan. The frame
+// remains a collision obstacle, and returned trajectories carry its start inputs at every step.
+type FrozenFrameConstraint struct {
+	Frame string
 }
 
 // OrientationConstraint specifies that the components being moved will not deviate orientation beyond some threshold.
@@ -301,6 +305,11 @@ func (c *Constraints) AddPseudolinearConstraint(plinConstraint PseudolinearConst
 // AddOrientationConstraint appends a OrientationConstraint to a Constraints object.
 func (c *Constraints) AddOrientationConstraint(orientConstraint OrientationConstraint) {
 	c.OrientationConstraint = append(c.OrientationConstraint, orientConstraint)
+}
+
+// AddFrozenFrameConstraint appends a FrozenFrameConstraint to a Constraints object.
+func (c *Constraints) AddFrozenFrameConstraint(frozenConstraint FrozenFrameConstraint) {
+	c.FrozenFrameConstraint = append(c.FrozenFrameConstraint, frozenConstraint)
 }
 
 // AddCollisionSpecification appends a CollisionSpecification to a Constraints object.

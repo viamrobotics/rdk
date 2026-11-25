@@ -3,6 +3,7 @@ package armplanning
 import (
 	"context"
 	"maps"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -138,11 +139,15 @@ func frozenPlanRequest(
 	t.Helper()
 	opts := NewBasicPlannerOptions()
 	opts.RandomSeed = 1
+	constraints := motionplan.NewEmptyConstraints()
+	for _, name := range frozen {
+		constraints.AddFrozenFrameConstraint(motionplan.FrozenFrameConstraint{Frame: name})
+	}
 	return &PlanRequest{
 		FrameSystem:    fs,
 		StartState:     NewPlanState(nil, start),
 		Goals:          goals,
-		Constraints:    &motionplan.Constraints{FrozenFrames: frozen},
+		Constraints:    constraints,
 		PlannerOptions: opts,
 	}
 }
@@ -275,7 +280,7 @@ func TestPlanMotionFrozenPartialPlanCarriesInputs(t *testing.T) {
 	assertInputsConstant(t, plan, "gantryX", start["gantryX"])
 }
 
-func TestConstraintsFrozenFramesJSON(t *testing.T) {
+func TestFrozenFrameConstraintJSON(t *testing.T) {
 	fs := makeTestFS(t)
 	start := frozenPlanStart(fs)
 	req := frozenPlanRequest(t, fs, start, []string{"gantryX"}, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100}))
@@ -283,7 +288,11 @@ func TestConstraintsFrozenFramesJSON(t *testing.T) {
 	test.That(t, req.WriteToFile(path), test.ShouldBeNil)
 	got, err := ReadRequestFromFile(path)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, got.Constraints.FrozenFrames, test.ShouldResemble, []string{"gantryX"})
+	test.That(t, got.Constraints.FrozenFrameConstraint, test.ShouldResemble,
+		[]motionplan.FrozenFrameConstraint{{Frame: "gantryX"}})
+	raw, err := os.ReadFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, string(raw), test.ShouldContainSubstring, `"frozen_frame_constraints"`)
 }
 
 func TestFrozenRequestCarriesRejectedSolutions(t *testing.T) {
