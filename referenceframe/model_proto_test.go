@@ -37,6 +37,7 @@ var protoRoundTripFixtures = []struct {
 	{"mimic_serial", "referenceframe/testfiles/test_mimic_serial.json"},
 	{"ur5e_urdf", "referenceframe/testfiles/ur5e.urdf"},
 	{"capsule_urdf", "referenceframe/testfiles/capsule.urdf"},
+	{"cylinder_urdf", "referenceframe/testfiles/cylinder.urdf"},
 	{"mimic_serial_urdf", "referenceframe/testfiles/test_mimic_serial.urdf"},
 }
 

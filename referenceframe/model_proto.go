@@ -482,13 +482,18 @@ func geometryConfigToProto(gc *spatial.GeometryConfig) (*commonpb.Geometry, erro
 		pb.GeometryType = &commonpb.Geometry_Sphere{Sphere: &commonpb.Sphere{RadiusMm: gc.R}}
 	case spatial.CapsuleType:
 		pb.GeometryType = &commonpb.Geometry_Capsule{Capsule: &commonpb.Capsule{RadiusMm: gc.R, LengthMm: gc.L}}
+	case spatial.CylinderType:
+		if gc.Capped != nil && !*gc.Capped {
+			return nil, errors.New("an open (uncapped) cylinder has no representation in common.v1.Geometry")
+		}
+		pb.GeometryType = &commonpb.Geometry_Cylinder{Cylinder: &commonpb.Cylinder{RadiusMm: gc.R, LengthMm: gc.L}}
 	case spatial.MeshType:
 		mesh := &commonpb.Mesh{ContentType: gc.MeshContentType, Mesh: gc.MeshData}
 		if gc.MeshFilePath != "" {
 			mesh.OriginalFileSourcePathDiagnostic = proto.String(gc.MeshFilePath)
 		}
 		pb.GeometryType = &commonpb.Geometry_Mesh{Mesh: mesh}
-	case spatial.CylinderType, spatial.PointType, spatial.UnknownType:
+	case spatial.PointType, spatial.UnknownType:
 		return nil, fmt.Errorf("geometry type %q has no representation in common.v1.Geometry", gType)
 	default:
 		return nil, fmt.Errorf("geometry type %q has no representation in common.v1.Geometry", gType)
@@ -542,6 +547,10 @@ func geometryConfigFromProto(pb *commonpb.Geometry) (*spatial.GeometryConfig, er
 		gc.Type = spatial.CapsuleType
 		gc.R = g.Capsule.GetRadiusMm()
 		gc.L = g.Capsule.GetLengthMm()
+	case *commonpb.Geometry_Cylinder:
+		gc.Type = spatial.CylinderType
+		gc.R = g.Cylinder.GetRadiusMm()
+		gc.L = g.Cylinder.GetLengthMm()
 	case *commonpb.Geometry_Mesh:
 		gc.Type = spatial.MeshType
 		gc.MeshData = g.Mesh.GetMesh()

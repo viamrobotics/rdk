@@ -627,14 +627,14 @@ func TestNarrowJointLimitsKeepsAFileItCannotRewrite(t *testing.T) {
 	test.That(t, jointByID(t, resp.GetModel(), "spin").GetLimits().GetMaxVelocity(), test.ShouldAlmostEqual, 90)
 }
 
-// A cylinder has no shape in the message, so this model never had a typed form and the file is
-// all a client gets. It still has to carry the narrowed limit.
+// An open cylinder has no shape in the message, so this model never had a typed form and the file
+// is all a client gets. It still has to carry the narrowed limit.
 func TestNarrowJointLimitsRewritesAFileTheMessageCannotCarry(t *testing.T) {
 	sm := simpleModelFromJSON(t, `{
   "name": "arm",
   "kinematic_param_type": "SVA",
   "links": [
-    {"id": "base", "parent": "world", "geometry": {"type": "cylinder", "r": 10, "l": 20}},
+    {"id": "base", "parent": "world", "geometry": {"type": "cylinder", "r": 10, "l": 20, "capped": false}},
     {"id": "tip", "parent": "j1"}
   ],
   "joints": [
