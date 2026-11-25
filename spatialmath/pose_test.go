@@ -256,3 +256,16 @@ func TestProjectOrientationTo2dRotationPoles(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot project to 2d")
 	}
 }
+
+func TestPathLengthMm(t *testing.T) {
+	test.That(t, PathLengthMm(nil), test.ShouldEqual, 0)
+	test.That(t, PathLengthMm([]Pose{NewPoseFromPoint(r3.Vector{X: 5})}), test.ShouldEqual, 0)
+
+	poses := []Pose{
+		NewPoseFromPoint(r3.Vector{}),
+		NewPoseFromPoint(r3.Vector{X: 3, Y: 4}),
+		NewPose(r3.Vector{X: 3, Y: 4, Z: 12}, &OrientationVectorDegrees{OX: 1, Theta: 90}),
+		NewPoseFromPoint(r3.Vector{X: 3, Y: 4, Z: 12}),
+	}
+	test.That(t, PathLengthMm(poses), test.ShouldAlmostEqual, 17)
+}

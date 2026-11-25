@@ -34,16 +34,17 @@ func init() {
 // NewBuiltIn returns a new shell service for the given robot.
 func NewBuiltIn(name resource.Name, logger logging.Logger) (shell.Service, error) {
 	return &builtIn{
-		Named:  name.AsNamed(),
-		logger: logger,
+		Named:   name.AsNamed(),
+		logger:  logger,
+		workers: utils.NewBackgroundStoppableWorkers(),
 	}, nil
 }
 
 type builtIn struct {
 	resource.Named
 	resource.TriviallyReconfigurable
-	logger                  logging.Logger
-	activeBackgroundWorkers sync.WaitGroup
+	logger  logging.Logger
+	workers *utils.StoppableWorkers
 }
 
 // DoCommand answers environment queries a client cannot resolve on its own,
@@ -55,7 +56,7 @@ func (svc *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (
 	return nil, resource.ErrDoUnimplemented
 }
 
-func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
+func (svc *builtIn) Shell(clientCtx context.Context, extra map[string]interface{}) (
 	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
 ) {
 	defaultShellPath, ok := os.LookupEnv("SHELL")
@@ -74,23 +75,34 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		shellEnv = nil
 	}
 
-	ctxCancel, cancel := context.WithCancel(ctx)
-	//nolint: gosec,noctx
-	cmd := exec.Command(defaultShellPath, shellArgs...)
+	// Combine `clientCtx` (client's context) with `svc.workers.Context()` (this shell
+	// service's lifetime context) by using AfterFunc. When either of `clientCtx` or
+	// `svc.workers.Context()` is done, jointClientAndServerCtx will be marked done.
+	//
+	// Use this jointClientAndServerCtx in all added stoppable workers. The passed-in
+	// context will just be `svc.workers.Context()`.
+	jointClientAndServerCtx, jointClientAndServerCtxCancel := context.WithCancel(svc.workers.Context())
+	context.AfterFunc(clientCtx, jointClientAndServerCtxCancel)
+
+	//nolint: gosec
+	cmd := exec.CommandContext(jointClientAndServerCtx, defaultShellPath, shellArgs...)
 	cmd.Env = shellEnv
 	// xpty gives a unix pty or a Windows ConPTY behind one interface.
 	f, err := xpty.NewPty(80, 24)
 	if err != nil {
-		cancel()
+		jointClientAndServerCtxCancel()
 		return nil, nil, nil, err
 	}
 	// xpty.Start doesn't give the child a controlling terminal, so interactive shells lose job control on unix
 	setControllingTTY(cmd)
 	if err := f.Start(cmd); err != nil {
-		cancel()
+		jointClientAndServerCtxCancel()
 		utils.UncheckedError(f.Close())
 		return nil, nil, nil, err
 	}
+
+	// Close the PTY on ctx cancel.
+	context.AfterFunc(jointClientAndServerCtx, func() { utils.UncheckedError(f.Close()) })
 
 	var sizeLock sync.Mutex
 	lastSet := time.Time{}
@@ -102,26 +114,26 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		case "window-change":
 			cols, ok := data["cols"].(float64)
 			if !ok {
-				svc.logger.CErrorw(ctx, "invalid window-change message; expected cols to be float64", "value", data["cols"])
+				svc.logger.CErrorw(jointClientAndServerCtx, "invalid window-change message; expected cols to be float64", "value", data["cols"])
 				return
 			}
 			rows, ok := data["rows"].(float64)
 			if !ok {
-				svc.logger.CErrorw(ctx, "invalid window-change message; expected rows to be float64", "value", data["rows"])
+				svc.logger.CErrorw(jointClientAndServerCtx, "invalid window-change message; expected rows to be float64", "value", data["rows"])
 				return
 			}
 			sizeLock.Lock()
 			defer sizeLock.Unlock()
 			if time.Since(lastSet) < 200*time.Millisecond {
-				svc.logger.CDebug(ctx, "too many resizes")
+				svc.logger.CDebug(jointClientAndServerCtx, "too many resizes")
 				return
 			}
 			lastSet = time.Now()
 			if err := f.Resize(int(cols), int(rows)); err != nil {
-				svc.logger.CErrorw(ctx, "error setting pty window size", "error", err)
+				svc.logger.CErrorw(jointClientAndServerCtx, "error setting pty window size", "error", err)
 			}
 		default:
-			svc.logger.CDebugw(ctx, "will not process OOB data")
+			svc.logger.CDebugw(jointClientAndServerCtx, "will not process OOB data")
 		}
 	}
 	if msgs, ok := extra["messages"].([]interface{}); ok {
@@ -134,20 +146,13 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		}
 	}
 
-	svc.activeBackgroundWorkers.Add(2)
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-		defer cancel()
-		<-ctx.Done()
-	})
-	utils.PanicCapturingGo(func() {
-		defer svc.activeBackgroundWorkers.Done()
-		defer cancel()
-		if err := xpty.WaitProcess(ctxCancel, cmd); err != nil {
-			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
+	svc.workers.Add(func(_ context.Context) {
+		defer jointClientAndServerCtxCancel()
+		if err := xpty.WaitProcess(jointClientAndServerCtx, cmd); err != nil {
+			svc.logger.CDebugw(jointClientAndServerCtx, "error waiting for shell process", "error", err)
 		}
 		if err := f.Close(); err != nil {
-			svc.logger.CDebugw(ctx, "error closing pty", "error", err)
+			svc.logger.CDebugw(jointClientAndServerCtx, "error closing pty", "error", err)
 		}
 	})
 
@@ -155,22 +160,22 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	oobInput := make(chan map[string]interface{})
 	output := make(chan shell.Output)
 
-	utils.PanicCapturingGo(func() {
+	svc.workers.Add(func(_ context.Context) {
 		defer close(output)
 		var data [4096]byte
 		for {
 			select {
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				return
 			default:
 			}
 			n, err := f.Read(data[:])
 			if err != nil {
 				if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
-					svc.logger.CErrorw(ctx, "error reading output", "error", err)
+					svc.logger.CErrorw(jointClientAndServerCtx, "error reading output", "error", err)
 				}
 				select {
-				case <-ctx.Done():
+				case <-jointClientAndServerCtx.Done():
 					return
 				case output <- shell.Output{EOF: true}:
 				}
@@ -182,39 +187,38 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			// a rune can split across pty reads; coerce so the proto send stays valid UTF-8
 			text := shell.ValidUTF8(string(data[:n]))
 			select {
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				return
 			case output <- shell.Output{Output: text}:
 			}
 		}
 	})
 
-	utils.PanicCapturingGo(func() {
+	svc.workers.Add(func(_ context.Context) {
 		for {
 			select {
 			case inputData, ok := <-input:
 				if ok {
 					if _, err := f.Write([]byte(inputData)); err != nil {
-						svc.logger.CErrorw(ctx, "error writing data", "error", err)
+						svc.logger.CErrorw(jointClientAndServerCtx, "error writing data", "error", err)
 						return
 					}
 				} else {
 					if _, err := f.Write([]byte{4}); err != nil {
-						svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
-						return
+						svc.logger.CErrorw(jointClientAndServerCtx, "error writing EOT", "error", err)
 					}
 					return
 				}
-			case <-ctx.Done():
+			case <-jointClientAndServerCtx.Done():
 				if _, err := f.Write([]byte{4}); err != nil {
-					svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
-					return
+					svc.logger.CErrorw(jointClientAndServerCtx, "error writing EOT", "error", err)
 				}
+				return
 			}
 		}
 	})
 
-	utils.PanicCapturingGo(func() {
+	svc.workers.Add(func(_ context.Context) {
 		for {
 			select {
 			case oobInputData, ok := <-oobInput:
@@ -222,7 +226,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 					return
 				}
 				procOOB(oobInputData)
-			case <-ctxCancel.Done():
+			case <-jointClientAndServerCtx.Done():
 				return
 			}
 		}
@@ -273,6 +277,6 @@ func (svc *builtIn) CopyFilesFromMachine(
 }
 
 func (svc *builtIn) Close(ctx context.Context) error {
-	svc.activeBackgroundWorkers.Wait()
+	svc.workers.Stop()
 	return nil
 }
