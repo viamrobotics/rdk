@@ -1,11 +1,16 @@
 package armplanning
 
 import (
+	"context"
 	"maps"
+	"path/filepath"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -110,4 +115,185 @@ func TestFreezeFramesDoesNotMutateInput(t *testing.T) {
 	_, _, err := freezeFrames(fs, []string{"gantryX"}, frozenTestStart())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.Frame("gantryX").DoF()), test.ShouldEqual, 1)
+}
+
+func frozenPlanStart(fs *frame.FrameSystem) frame.FrameSystemInputs {
+	start := frame.NewNeutralFrameSystemInputs(fs)
+	start["gantryX"] = []frame.Input{100}
+	start["gantryY"] = []frame.Input{-50}
+	start["xArm6"] = []frame.Input{0, -0.3, -0.5, 0, 0.8, 0}
+	return start
+}
+
+func framePoseInWorld(t *testing.T, fs *frame.FrameSystem, in frame.FrameSystemInputs, name string) spatialmath.Pose {
+	t.Helper()
+	tf, err := fs.Transform(in.ToLinearInputs(), frame.NewZeroPoseInFrame(name), frame.World)
+	test.That(t, err, test.ShouldBeNil)
+	return tf.(*frame.PoseInFrame).Pose()
+}
+
+func frozenPlanRequest(t *testing.T, fs *frame.FrameSystem, start frame.FrameSystemInputs, frozen []string, goals ...*PlanState) *PlanRequest {
+	t.Helper()
+	opts := NewBasicPlannerOptions()
+	opts.RandomSeed = 1
+	return &PlanRequest{
+		FrameSystem:    fs,
+		StartState:     NewPlanState(nil, start),
+		Goals:          goals,
+		Constraints:    &motionplan.Constraints{FrozenFrames: frozen},
+		PlannerOptions: opts,
+	}
+}
+
+func xArmOffsetGoal(t *testing.T, fs *frame.FrameSystem, start frame.FrameSystemInputs, offset r3.Vector) *PlanState {
+	t.Helper()
+	p := framePoseInWorld(t, fs, start, "xArm6")
+	goal := spatialmath.NewPose(p.Point().Add(offset), p.Orientation())
+	return NewPlanState(frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}, nil)
+}
+
+func assertInputsConstant(t *testing.T, plan motionplan.Plan, name string, want []frame.Input) {
+	t.Helper()
+	traj := plan.Trajectory()
+	test.That(t, len(traj), test.ShouldBeGreaterThan, 0)
+	for _, step := range traj {
+		test.That(t, step[name], test.ShouldResemble, want)
+	}
+}
+
+func TestPlanMotionFrozenGantry(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	goal := xArmOffsetGoal(t, fs, start, r3.Vector{X: 100})
+	plan, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t),
+		frozenPlanRequest(t, fs, start, []string{"gantryX", "gantryY"}, goal))
+	test.That(t, err, test.ShouldBeNil)
+	assertInputsConstant(t, plan, "gantryX", start["gantryX"])
+	assertInputsConstant(t, plan, "gantryY", start["gantryY"])
+
+	traj := plan.Trajectory()
+	end := framePoseInWorld(t, fs, traj[len(traj)-1], "xArm6")
+	test.That(t, end.Point().Distance(goal.Poses()["xArm6"].Pose().Point()), test.ShouldBeLessThan, 1.0)
+}
+
+func TestPlanMotionFrozenArm(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	p := framePoseInWorld(t, fs, start, "UR5e")
+	goal := NewPlanState(frame.FrameSystemPoses{"UR5e": frame.NewPoseInFrame(frame.World,
+		spatialmath.NewPose(p.Point().Add(r3.Vector{Z: -100}), p.Orientation()))}, nil)
+	plan, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t),
+		frozenPlanRequest(t, fs, start, []string{"xArm6"}, goal))
+	test.That(t, err, test.ShouldBeNil)
+	assertInputsConstant(t, plan, "xArm6", start["xArm6"])
+}
+
+func TestPlanMotionFrozenGeometryIsObstacle(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	forearm, ok := geometriesByLabel(t, fs, start)["UR5e:forearm_link"]
+	test.That(t, ok, test.ShouldBeTrue)
+	p := framePoseInWorld(t, fs, start, "xArm6")
+	goal := NewPlanState(frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World,
+		spatialmath.NewPose(forearm.Pose().Point(), p.Orientation()))}, nil)
+
+	_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t), frozenPlanRequest(t, fs, start, nil, goal))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, _, err = PlanMotion(context.Background(), logging.NewTestLogger(t),
+		frozenPlanRequest(t, fs, start, []string{"UR5e"}, goal))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "UR5e:forearm_link")
+}
+
+func TestPlanMotionFrozenGoalConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		gantryX []frame.Input
+		wantErr bool
+	}{
+		{"matches start", []frame.Input{100}, false},
+		{"differs from start", []frame.Input{200}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := makeTestFS(t)
+			start := frozenPlanStart(fs)
+			goalConf := maps.Clone(start)
+			goalConf["xArm6"] = []frame.Input{0.2, -0.3, -0.5, 0, 0.8, 0}
+			goalConf["gantryX"] = tc.gantryX
+			_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t),
+				frozenPlanRequest(t, fs, start, []string{"gantryX"}, NewPlanState(nil, goalConf)))
+			if tc.wantErr {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "frozen")
+				test.That(t, err.Error(), test.ShouldContainSubstring, "gantryX")
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+			}
+		})
+	}
+}
+
+func TestPlanMotionFrozenImmovableGoal(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	goal := xArmOffsetGoal(t, fs, start, r3.Vector{X: 100})
+	_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t),
+		frozenPlanRequest(t, fs, start, []string{"xArm6", "gantryX", "gantryY"}, goal))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `no DoF moves "xArm6"`)
+}
+
+func TestPlanMotionFrozenDoesNotMutateRequest(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	goalConf := maps.Clone(start)
+	goalConf["xArm6"] = []frame.Input{0.2, -0.3, -0.5, 0, 0.8, 0}
+	goal := NewPlanState(nil, goalConf)
+	req := frozenPlanRequest(t, fs, start, []string{"gantryX"}, goal)
+	_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, req.FrameSystem, test.ShouldEqual, fs)
+	test.That(t, len(fs.Frame("gantryX").DoF()), test.ShouldEqual, 1)
+	test.That(t, req.StartState.Configuration()["gantryX"], test.ShouldResemble, []frame.Input{100})
+	test.That(t, req.Goals[0], test.ShouldEqual, goal)
+	test.That(t, goal.Configuration()["gantryX"], test.ShouldResemble, []frame.Input{100})
+}
+
+func TestPlanMotionFrozenPartialPlanCarriesInputs(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	reachable := xArmOffsetGoal(t, fs, start, r3.Vector{X: 100})
+	unreachable := xArmOffsetGoal(t, fs, start, r3.Vector{Y: 21000})
+	req := frozenPlanRequest(t, fs, start, []string{"gantryX", "gantryY"}, reachable, unreachable)
+	req.PlannerOptions.ReturnPartialPlan = true
+	plan, meta, err := PlanMotion(context.Background(), logging.NewTestLogger(t), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, meta.Partial, test.ShouldBeTrue)
+	assertInputsConstant(t, plan, "gantryX", start["gantryX"])
+}
+
+func TestConstraintsFrozenFramesJSON(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	req := frozenPlanRequest(t, fs, start, []string{"gantryX"}, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100}))
+	path := filepath.Join(t.TempDir(), "req.json")
+	test.That(t, req.WriteToFile(path), test.ShouldBeNil)
+	got, err := ReadRequestFromFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, got.Constraints.FrozenFrames, test.ShouldResemble, []string{"gantryX"})
+}
+
+func TestFrozenRequestCarriesRejectedSolutions(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	req := frozenPlanRequest(t, fs, start, []string{"gantryX"}, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100}))
+	rejected := maps.Clone(start)
+	req.rejectedSolutions = map[*PlanState][]frame.FrameSystemInputs{req.StartState: {rejected}}
+
+	planReq, _, err := frozenRequest(req)
+	test.That(t, err, test.ShouldBeNil)
+	got := planReq.rejectedSolutions[planReq.StartState]
+	test.That(t, got, test.ShouldResemble, []frame.FrameSystemInputs{withoutFrames(rejected, "gantryX")})
+	test.That(t, req.rejectedSolutions[req.StartState], test.ShouldResemble, []frame.FrameSystemInputs{rejected})
 }
