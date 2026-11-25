@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -72,6 +74,9 @@ const (
 	// visualizerNoAutoUpdateEnv stops the app from updating itself, so a cached version directory
 	// keeps holding the version it is named for.
 	visualizerNoAutoUpdateEnv = "VIAM_VISUALIZER_NO_AUTO_UPDATE"
+	// visualizerMinTokenLifetime is how long a user token must have left when it is handed to the
+	// app. The launch file carries no refresh token, so a shorter one is refreshed first.
+	visualizerMinTokenLifetime = 5 * time.Minute
 )
 
 // buildLaunchConfig maps a resolved part and the CLI's stored auth to the launch file contents.
@@ -160,8 +165,9 @@ func visualizerEnv(cached bool) []string {
 	return append(os.Environ(), visualizerNoAutoUpdateEnv+"=1")
 }
 
-// runVisualizer starts binary with --launch-file path and waits for it. Ctrl+C cancels ctx and
-// closes the app. cached says the binary came from the CLI's install cache.
+// runVisualizer starts binary with --launch-file path and waits for it. ctx must already be
+// cancelled by Ctrl+C, which closes the app. cached says the binary came from the CLI's install
+// cache.
 func runVisualizer(ctx context.Context, cmd *cli.Command, binary, launchFilePath string, cached bool) error {
 	// The app deletes the file on read, so a missing file here is the expected outcome.
 	defer func() {
@@ -198,31 +204,32 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 		return err
 	}
 
-	// An explicit path wins and is checked before any network call. Otherwise the CLI's own cache
-	// is used, downloading a release when it has none.
 	binary, err := resolveVisualizerBinary(args.AppPath, os.Getenv(visualizerPathEnv), os.Stat)
 	cached := errors.Is(err, errNoVisualizerPath)
-	if cached {
-		binary, err = ensureVisualizer(ctx, defaultVisualizerInstallOptions(cmd.Root().ErrWriter, args.AppVersion, args.Update))
-	}
-	if err != nil {
+	if err != nil && !cached {
 		return err
+	}
+	if cached && args.AppVersion != "" {
+		if args.AppVersion, err = normalizeVisualizerVersion(args.AppVersion); err != nil {
+			return err
+		}
 	}
 
 	if err := c.ensureLoggedIn(ctx); err != nil {
 		return err
 	}
-	if err := c.selectOrganization(ctx, args.Organization); err != nil {
-		return err
-	}
-	if err := c.selectLocation(ctx, args.Location); err != nil {
-		return err
-	}
-	part, err := c.robotPart(ctx, c.selectedOrg.Id, c.selectedLoc.Id, args.Machine, args.Part)
+	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
 		return err
 	}
-	if _, err := c.refreshAuthIfExpired(ctx); err != nil {
+	if cached {
+		opts := defaultVisualizerInstallOptions(cmd.Root().ErrWriter, args.AppVersion, args.Update)
+		if binary, err = ensureVisualizer(ctx, opts); err != nil {
+			return err
+		}
+	}
+	// Refreshed after the install, which can take a while, so the app gets the freshest token.
+	if err := c.refreshAuthForLaunch(ctx); err != nil {
 		return err
 	}
 
@@ -235,6 +242,9 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 	if err != nil {
 		return err
 	}
+	// Without this, Ctrl+C kills the CLI before runVisualizer can delete the credentials file.
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	path, err := writeLaunchFile(os.TempDir(), cfg)
 	if err != nil {
 		return err
@@ -242,4 +252,22 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 
 	printf(cmd.Root().Writer, "Launching visualizer for part %s on machine %s (%s)", part.Name, machineName, binary)
 	return runVisualizer(ctx, cmd, binary, path, cached)
+}
+
+// refreshAuthForLaunch refreshes a user token that has less than visualizerMinTokenLifetime left,
+// beyond the CLI's usual just-expired check, and persists it. API keys are left as they are.
+func (c *viamClient) refreshAuthForLaunch(ctx context.Context) error {
+	if _, err := c.refreshAuthIfExpired(ctx); err != nil {
+		return err
+	}
+	tok, ok := c.conf.Auth.(*token)
+	if !ok || time.Until(tok.ExpiresAt) >= visualizerMinTokenLifetime || !tok.canRefresh() {
+		return nil
+	}
+	refreshed, err := c.authFlow.refreshToken(ctx, tok)
+	if err != nil {
+		return errors.Wrap(err, "refreshing login for the visualizer")
+	}
+	c.conf.Auth = refreshed
+	return errors.Wrap(storeConfigToCache(c.conf), "caching refreshed token")
 }

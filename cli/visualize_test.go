@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -204,4 +205,41 @@ func TestRunVisualizerEnv(t *testing.T) {
 		_, err = os.Stat(launch)
 		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
 	}
+}
+
+func TestRefreshAuthForLaunch(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		left      time.Duration
+		refresh   bool
+		wantHits  int32
+		wantToken string
+	}{
+		{"plenty left", time.Hour, true, 0, "stale-access-token"},
+		{"nearly expired", time.Minute, true, 1, "fresh-access-token"},
+		{"nearly expired without refresh token", time.Minute, false, 0, "stale-access-token"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			useTempCLICache(t)
+			srv, hits := newRefreshTokenServer(t, "fresh-access-token")
+			_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "token")
+			ac.authFlow = newCLIAuthFlow(io.Discard, true)
+			tokenURL := ""
+			if tc.refresh {
+				tokenURL = srv.URL
+			}
+			tok := expiredToken(tokenURL)
+			tok.ExpiresAt = time.Now().Add(tc.left)
+			ac.conf.Auth = tok
+
+			test.That(t, ac.refreshAuthForLaunch(t.Context()), test.ShouldBeNil)
+			test.That(t, hits.Load(), test.ShouldEqual, tc.wantHits)
+			test.That(t, ac.conf.Auth.(*token).AccessToken, test.ShouldEqual, tc.wantToken)
+		})
+	}
+
+	t.Run("api key", func(t *testing.T) {
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, nil, nil, nil, "apiKey")
+		test.That(t, ac.refreshAuthForLaunch(t.Context()), test.ShouldBeNil)
+	})
 }

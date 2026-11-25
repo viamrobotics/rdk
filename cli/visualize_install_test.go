@@ -250,3 +250,87 @@ func TestEnsureVisualizer(t *testing.T) {
 		test.That(t, f.requests.Load(), test.ShouldEqual, 0)
 	})
 }
+
+func TestNormalizeVisualizerVersion(t *testing.T) {
+	for in, want := range map[string]string{"1.2.3": "1.2.3", "v1.2.3": "1.2.3", "2.0.0-rc.1": "2.0.0-rc.1"} {
+		got, err := normalizeVisualizerVersion(in)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldEqual, want)
+	}
+	for _, in := range []string{"1.2", "latest", "../x", "1.2.3/../../x", ""} {
+		_, err := normalizeVisualizerVersion(in)
+		test.That(t, err, test.ShouldNotBeNil)
+	}
+}
+
+func TestEnsureVisualizerRejectsBadVersion(t *testing.T) {
+	f := newFakeRelease(t, "1.0.0", "linux", "amd64", nil, "")
+	opts := f.opts(t.TempDir(), "linux", "amd64", &bytes.Buffer{})
+	opts.version = "../x"
+	_, err := ensureVisualizer(t.Context(), opts)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, f.requests.Load(), test.ShouldEqual, 0)
+}
+
+func TestMaybeHintUpdateStampsOnFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	root := t.TempDir()
+	var out bytes.Buffer
+	opts := visualizerInstallOptions{root: root, apiURL: srv.URL, client: srv.Client(), out: &out}
+	opts.applyDefaults()
+	opts.maybeHintUpdate(t.Context(), "1.0.0")
+	_, err := os.Stat(filepath.Join(root, visualizerLastCheckFile))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.String(), test.ShouldEqual, "")
+}
+
+func writeTarball(t *testing.T, entries ...*tar.Header) string {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	for _, hdr := range entries {
+		test.That(t, tw.WriteHeader(hdr), test.ShouldBeNil)
+		if hdr.Size > 0 {
+			_, err := tw.Write(bytes.Repeat([]byte("x"), int(hdr.Size)))
+			test.That(t, err, test.ShouldBeNil)
+		}
+	}
+	test.That(t, tw.Close(), test.ShouldBeNil)
+	test.That(t, gz.Close(), test.ShouldBeNil)
+	path := filepath.Join(t.TempDir(), "a.tar.gz")
+	test.That(t, os.WriteFile(path, buf.Bytes(), 0o600), test.ShouldBeNil)
+	return path
+}
+
+func TestUntarVisualizer(t *testing.T) {
+	file := &tar.Header{Name: "app/bin", Mode: 0o755, Size: 3, Typeflag: tar.TypeReg}
+
+	t.Run("hard link inside", func(t *testing.T) {
+		dir := t.TempDir()
+		archive := writeTarball(t, file, &tar.Header{Name: "app/bin2", Linkname: "app/bin", Typeflag: tar.TypeLink})
+		test.That(t, untarVisualizer(archive, dir), test.ShouldBeNil)
+		data, err := os.ReadFile(filepath.Join(dir, "app", "bin2"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(data), test.ShouldEqual, "xxx")
+	})
+
+	for _, tc := range []struct {
+		name  string
+		entry *tar.Header
+	}{
+		{"absolute symlink", &tar.Header{Name: "app/l", Linkname: "/etc/passwd", Typeflag: tar.TypeSymlink}},
+		{"escaping symlink", &tar.Header{Name: "app/l", Linkname: "../../outside", Typeflag: tar.TypeSymlink}},
+		{"escaping hard link", &tar.Header{Name: "app/l", Linkname: "../outside", Typeflag: tar.TypeLink}},
+		{"escaping entry", &tar.Header{Name: "../outside", Mode: 0o644, Typeflag: tar.TypeReg}},
+		{"unsupported type", &tar.Header{Name: "app/fifo", Mode: 0o644, Typeflag: tar.TypeFifo}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			archive := writeTarball(t, file, tc.entry)
+			test.That(t, untarVisualizer(archive, t.TempDir()), test.ShouldNotBeNil)
+		})
+	}
+}

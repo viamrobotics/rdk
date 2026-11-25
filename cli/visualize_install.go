@@ -103,6 +103,11 @@ func (opts *visualizerInstallOptions) applyDefaults() {
 func ensureVisualizer(ctx context.Context, opts visualizerInstallOptions) (string, error) {
 	opts.applyDefaults()
 	if opts.version != "" {
+		version, err := normalizeVisualizerVersion(opts.version)
+		if err != nil {
+			return "", err
+		}
+		opts.version = version
 		bin := installedVisualizerBinary(opts.root, opts.version, opts.goos)
 		if _, err := os.Stat(bin); err == nil {
 			return bin, nil
@@ -127,6 +132,16 @@ func ensureVisualizer(ctx context.Context, opts visualizerInstallOptions) (strin
 	return installedVisualizerBinary(opts.root, installed, opts.goos), nil
 }
 
+// normalizeVisualizerVersion strips a leading v and rejects anything that is not a full semver,
+// since the version becomes both a cache directory name and part of the download URL.
+func normalizeVisualizerVersion(version string) (string, error) {
+	trimmed := strings.TrimPrefix(version, "v")
+	if _, err := semver.StrictNewVersion(trimmed); err != nil {
+		return "", errors.Errorf("invalid --%s %q: want a release version such as 1.2.3", visualizeFlagAppVersion, version)
+	}
+	return trimmed, nil
+}
+
 // versionNewer reports whether candidate is a higher semver than current.
 func versionNewer(candidate, current string) bool {
 	c, err := semver.NewVersion(candidate)
@@ -140,6 +155,9 @@ func versionNewer(candidate, current string) bool {
 	return c.GreaterThan(cur)
 }
 
+// visualizerHintTimeout bounds the update hint's release lookup so an offline launch is not held up.
+const visualizerHintTimeout = 2 * time.Second
+
 // maybeHintUpdate prints a throttled "newer version" hint. It never fails or blocks launch on error.
 func (opts visualizerInstallOptions) maybeHintUpdate(ctx context.Context, installed string) {
 	stamp := filepath.Join(opts.root, visualizerLastCheckFile)
@@ -149,11 +167,14 @@ func (opts visualizerInstallOptions) maybeHintUpdate(ctx context.Context, instal
 			return
 		}
 	}
+	// Stamped before the lookup so a failing network is retried at most once per interval.
+	os.WriteFile(stamp, []byte(time.Now().UTC().Format(time.RFC3339)), 0o600) //nolint:errcheck
+	ctx, cancel := context.WithTimeout(ctx, visualizerHintTimeout)
+	defer cancel()
 	latest, err := latestReleaseVersion(ctx, opts.client, opts.apiURL)
 	if err != nil {
 		return
 	}
-	os.WriteFile(stamp, []byte(time.Now().UTC().Format(time.RFC3339)), 0o600) //nolint:errcheck
 	if versionNewer(latest, installed) {
 		fmt.Fprintf(opts.out, "A newer Viam Visualizer (%s) is available. Run with --update to install it.\n", latest) //nolint:errcheck
 	}
@@ -409,10 +430,11 @@ func extractVisualizerEntry(tr *tar.Reader, hdr *tar.Header, dir string) error {
 		}
 		return out.Close()
 	case tar.TypeSymlink:
-		linkTarget := hdr.Linkname
-		if !filepath.IsAbs(linkTarget) {
-			linkTarget = filepath.Join(filepath.Dir(target), linkTarget) //nolint:gosec
+		// Absolute targets would point into the .tmp directory, which is renamed after unpacking.
+		if filepath.IsAbs(hdr.Linkname) {
+			return errors.Errorf("archive symlink %q has an absolute target", hdr.Name)
 		}
+		linkTarget := filepath.Join(filepath.Dir(target), hdr.Linkname) //nolint:gosec
 		if !strings.HasPrefix(linkTarget, dir+string(filepath.Separator)) {
 			return errors.Errorf("archive symlink %q escapes the install directory", hdr.Name)
 		}
@@ -420,8 +442,17 @@ func extractVisualizerEntry(tr *tar.Reader, hdr *tar.Header, dir string) error {
 			return err
 		}
 		return os.Symlink(hdr.Linkname, target)
+	case tar.TypeLink:
+		linkTarget := filepath.Join(dir, hdr.Linkname) //nolint:gosec
+		if !strings.HasPrefix(linkTarget, dir+string(filepath.Separator)) {
+			return errors.Errorf("archive hard link %q escapes the install directory", hdr.Name)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+			return err
+		}
+		return os.Link(linkTarget, target)
 	default:
-		return nil
+		return errors.Errorf("archive entry %q has unsupported type %q", hdr.Name, hdr.Typeflag)
 	}
 }
 
