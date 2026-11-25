@@ -132,7 +132,9 @@ func framePoseInWorld(t *testing.T, fs *frame.FrameSystem, in frame.FrameSystemI
 	return tf.(*frame.PoseInFrame).Pose()
 }
 
-func frozenPlanRequest(t *testing.T, fs *frame.FrameSystem, start frame.FrameSystemInputs, frozen []string, goals ...*PlanState) *PlanRequest {
+func frozenPlanRequest(
+	t *testing.T, fs *frame.FrameSystem, start frame.FrameSystemInputs, frozen []string, goals ...*PlanState,
+) *PlanRequest {
 	t.Helper()
 	opts := NewBasicPlannerOptions()
 	opts.RandomSeed = 1

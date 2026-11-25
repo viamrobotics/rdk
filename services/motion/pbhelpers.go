@@ -22,6 +22,9 @@ var ErrEmptyComponentName = errors.New("component name cannot be empty")
 // ToProto converts a MoveReq to a pb.MoveRequest
 // the name argument should correspond to the name of the motion service the request will be used with.
 func (r MoveReq) ToProto(name string) (*pb.MoveRequest, error) {
+	if r.Constraints != nil && len(r.Constraints.FrozenFrames) > 0 {
+		return nil, errors.New("frozen_frames constraints are only supported by armplanning and cannot be sent over the motion service API")
+	}
 	ext, err := vprotoutils.StructToStructPb(r.Extra)
 	if err != nil {
 		return nil, err
