@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -431,7 +432,7 @@ func extractVisualizerEntry(tr *tar.Reader, hdr *tar.Header, dir string) error {
 		return out.Close()
 	case tar.TypeSymlink:
 		// Absolute targets would point into the .tmp directory, which is renamed after unpacking.
-		if filepath.IsAbs(hdr.Linkname) {
+		if path.IsAbs(hdr.Linkname) || filepath.IsAbs(hdr.Linkname) {
 			return errors.Errorf("archive symlink %q has an absolute target", hdr.Name)
 		}
 		linkTarget := filepath.Join(filepath.Dir(target), hdr.Linkname) //nolint:gosec

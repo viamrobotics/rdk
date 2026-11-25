@@ -203,6 +203,10 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 	if _, err := getGlobalArgs(cmd); err != nil {
 		return err
 	}
+	// Without this, Ctrl+C kills the CLI outright, skipping removal of the credentials file and of
+	// a partial download.
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	binary, err := resolveVisualizerBinary(args.AppPath, os.Getenv(visualizerPathEnv), os.Stat)
 	cached := errors.Is(err, errNoVisualizerPath)
@@ -242,9 +246,6 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 	if err != nil {
 		return err
 	}
-	// Without this, Ctrl+C kills the CLI before runVisualizer can delete the credentials file.
-	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	defer stop()
 	path, err := writeLaunchFile(os.TempDir(), cfg)
 	if err != nil {
 		return err
