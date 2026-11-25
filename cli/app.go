@@ -501,6 +501,7 @@ func formatAcceptedValues(description string, values ...string) string {
 var app = &cli.Command{
 	Name:                  "viam",
 	Usage:                 "interact with your Viam machines",
+	Before:                refreshSkillsBefore,
 	UsageText:             "viam [global options] <command> [command options]",
 	EnableShellCompletion: true,
 	HideHelpCommand:       true,
@@ -674,7 +675,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:   "prevent opening the default browser during login",
 				},
 			},
-			Action: createActionCommandWithT[loginActionArgs](LoginAction),
+			Action: withSkillOffer(createActionCommandWithT[loginActionArgs](LoginAction)),
 			Commands: []*cli.Command{
 				{
 					Name:      "print-access-token",
@@ -4995,7 +4996,36 @@ NOTES:
 					Usage: "hide progress during update",
 				},
 			},
-			Action: createActionCommandWithT[updateArgs](UpdateCLIAction),
+			Action: withSkillOffer(createActionCommandWithT[updateArgs](UpdateCLIAction)),
+		},
+		{
+			Name:            "skills",
+			Usage:           "install the Viam skill for AI coding agents",
+			UsageText:       createUsageText("skills", nil, false, true),
+			HideHelpCommand: true,
+			Commands: []*cli.Command{
+				{
+					Name:  "install",
+					Usage: "install the Viam skill, which teaches AI coding agents how to use Viam and the viam CLI",
+					Description: `Writes the skill to the skills folder of each agent found in your home directory:
+~/.claude/skills/using-viam (Claude Code) and ~/.agents/skills/using-viam (agents that read the shared folder).
+An earlier copy in those folders is replaced. Later CLI versions refresh the installed copies.
+
+Examples:
+  viam skills install
+  # install into another agent's skills folder, or a project's
+  viam skills install --dir=./.claude/skills`,
+					UsageText: createUsageText("skills install", nil, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:      skillsFlagDir,
+							Usage:     "skills folder to install into instead of the detected agents' folders; the skill goes in <dir>/using-viam",
+							TakesFile: true,
+						},
+					},
+					Action: createActionCommandWithT[skillsInstallArgs](SkillsInstallAction),
+				},
+			},
 		},
 		{
 			Name:  "parse-ftdc",
