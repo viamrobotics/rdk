@@ -356,6 +356,41 @@ func TestMotorABNoEncoder(t *testing.T) {
 	})
 }
 
+// With min_power_pct set, an A/B-only motor (no PWM pin) must still reach full power.
+// The A/B branch drives while the PWM pin is low, so the drive is 1 - duty.
+func TestMotorABMinPowerPct(t *testing.T) {
+	ctx := context.Background()
+	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
+	logger := logging.NewTestLogger(t)
+	mc := resource.Config{
+		Name: "fake_motor",
+	}
+
+	m, err := NewMotor(b, Config{
+		Pins:        PinConfig{A: "1", B: "2"},
+		MaxRPM:      maxRPM,
+		PWMFreq:     4000,
+		MinPowerPct: 0.2,
+	}, mc.ResourceName(), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		power float64
+		pin   string
+		duty  float64
+	}{
+		{1.0, "2", 0},
+		{0.9, "2", 0.1},
+		{0.5, "2", 0.5},
+		{0.1, "2", 0.8}, // raised to min_power_pct: 20% drive
+		{-1.0, "1", 0},
+	} {
+		test.That(t, m.SetPower(ctx, tc.power, nil), test.ShouldBeNil)
+		test.That(t, mustGetGPIOPinByName(b, tc.pin).PWM(ctx), test.ShouldAlmostEqual, tc.duty)
+		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
+	}
+}
+
 func TestGoForInterruptionAB(t *testing.T) {
 	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := logging.NewTestLogger(t)
