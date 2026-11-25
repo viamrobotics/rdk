@@ -26,7 +26,7 @@ type Constraints struct {
 	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
 	// FrozenFrames names frames held at their start-state configuration for the whole plan. They
 	// remain collision obstacles, and returned trajectories carry their start inputs at every step.
-	// Only armplanning honors this; it cannot be sent over the motion service API.
+	// Not supported over gRPC: MoveReq.ToProto rejects it.
 	FrozenFrames []string `json:"frozen_frames,omitempty"`
 }
 

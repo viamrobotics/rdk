@@ -160,6 +160,13 @@ func roadmapKeyFor(psc *PlanSegmentContext, frames []string) string {
 // getRoadmap returns the (possibly freshly built) structure for this segment
 // context, or nil when the chain is unsuitable.
 func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
+	// TODO: frozen frames become static transforms that neither roadmapKeyFor nor roadmapSceneKey
+	// sees, and edgeVox caches world-space swept volumes per structure, so a roadmap built at one
+	// frozen pose would be reused unchecked at another. Keying on the chain root's world pose would
+	// let frozen plans use the roadmap.
+	if c := psc.pc.request.Constraints; c != nil && len(c.FrozenFrames) > 0 {
+		return nil
+	}
 	frames := movingFrameNamesWithDoF(psc)
 	if len(frames) == 0 || len(psc.goal) != 1 {
 		return nil

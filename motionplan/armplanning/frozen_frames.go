@@ -6,13 +6,12 @@ import (
 	"slices"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // freezeFrames returns a clone of fs in which each named frame is a 0-DoF static frame at its pose
-// for its inputs in start. Its geometries, placed at those inputs, move to a static sibling frame
-// named <name>_frozen_geometry so they stay collision obstacles under their original labels. The
-// frozen inputs are returned keyed by frame name.
+// for its inputs in start, carrying its geometries as placed at those inputs under their original
+// labels, so they stay collision obstacles and collision allows naming the frame or its geometries
+// still match. The frozen inputs are returned keyed by frame name.
 func freezeFrames(
 	fs *referenceframe.FrameSystem, names []string, start referenceframe.FrameSystemInputs,
 ) (*referenceframe.FrameSystem, referenceframe.FrameSystemInputs, error) {
@@ -40,31 +39,18 @@ func freezeFrames(
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot freeze frame %q: %w", name, err)
 		}
-		// Geometries come back expressed in the parent frame, so they hang off the parent at a zero
-		// pose rather than off the frozen frame, which would apply pose twice.
 		gif, err := f.Geometries(inputs)
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot freeze frame %q: %w", name, err)
 		}
-		parent, err := frozenFS.Parent(f)
-		if err != nil {
-			return nil, nil, err
-		}
-		static, err := referenceframe.NewStaticFrame(name, pose)
+		// Frame geometries are expressed in the parent frame for every frame type, so these carry
+		// over to the static frame unchanged.
+		static, err := referenceframe.NewStaticFrameWithGeometries(name, pose, gif.Geometries())
 		if err != nil {
 			return nil, nil, err
 		}
 		if err := frozenFS.ReplaceFrame(static); err != nil {
 			return nil, nil, err
-		}
-		if geoms := gif.Geometries(); len(geoms) > 0 {
-			geomFrame, err := referenceframe.NewStaticFrameWithGeometries(name+"_frozen_geometry", spatialmath.NewZeroPose(), geoms)
-			if err != nil {
-				return nil, nil, err
-			}
-			if err := frozenFS.AddFrame(geomFrame, frozenFS.Frame(parent.Name())); err != nil {
-				return nil, nil, err
-			}
 		}
 		frozen[name] = inputs
 	}

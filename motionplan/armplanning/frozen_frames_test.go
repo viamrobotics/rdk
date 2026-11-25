@@ -299,3 +299,33 @@ func TestFrozenRequestCarriesRejectedSolutions(t *testing.T) {
 	test.That(t, got, test.ShouldResemble, []frame.FrameSystemInputs{withoutFrames(rejected, "gantryX")})
 	test.That(t, req.rejectedSolutions[req.StartState], test.ShouldResemble, []frame.FrameSystemInputs{rejected})
 }
+
+// The roadmap caches world-space swept volumes per chain, and a frozen frame's pose lives only in a
+// static transform the roadmap keys never see, so roadmap results from one frozen pose would be
+// reused at another without collision checks.
+func TestFrozenFramesSkipRoadmap(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	goal := xArmOffsetGoal(t, fs, start, r3.Vector{X: 100})
+	planReq, _, err := frozenRequest(frozenPlanRequest(t, fs, start, []string{"gantryX", "gantryY"}, goal))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planReq.validatePlanRequest(), test.ShouldBeNil)
+
+	ctx := context.Background()
+	pc, err := NewPlanContext(ctx, logging.NewTestLogger(t), planReq, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+	psc, err := NewPlanSegmentContext(ctx, pc, planReq.StartState.LinearConfiguration(), goal.Poses())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, getRoadmap(psc, logging.NewTestLogger(t)), test.ShouldBeNil)
+}
+
+func TestPlanMotionFrozenAllowByFrameName(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	req := frozenPlanRequest(t, fs, start, []string{"UR5e"}, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100}))
+	req.Constraints.CollisionSpecification = []motionplan.CollisionSpecification{{
+		Allows: []motionplan.CollisionSpecificationAllowedFrameCollisions{{Frame1: "UR5e", Frame2: "xArm6"}},
+	}}
+	_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t), req)
+	test.That(t, err, test.ShouldBeNil)
+}
