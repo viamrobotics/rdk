@@ -27,7 +27,7 @@ func TestArmStreamSend(t *testing.T) {
 
 	// Empty PVAT list: nothing sent, wall clock not anchored.
 	test.That(t, s.send(ctx, nil), test.ShouldBeNil)
-	test.That(t, s.timeFirstBatchWasSent.IsZero(), test.ShouldBeTrue)
+	test.That(t, s.wallTimeAtTrajectoryClockZero.IsZero(), test.ShouldBeTrue)
 
 	pvats := []pvat{
 		{
@@ -44,7 +44,7 @@ func TestArmStreamSend(t *testing.T) {
 		},
 	}
 	test.That(t, s.send(ctx, pvats), test.ShouldBeNil)
-	test.That(t, s.timeFirstBatchWasSent.IsZero(), test.ShouldBeFalse)
+	test.That(t, s.wallTimeAtTrajectoryClockZero.IsZero(), test.ShouldBeFalse)
 	test.That(t, s.timeInTrajectoryClockOfLastSentPVAT, test.ShouldEqual, 10*time.Millisecond)
 
 	// close waits for the RPC goroutine to finish, so the recorder is settled;
@@ -80,4 +80,22 @@ func TestArmStreamCurrentEstimatedRunwayInArm(t *testing.T) {
 		test.That(t, cur, test.ShouldBeLessThanOrEqualTo, prev)
 		prev = cur
 	}
+}
+
+func TestArmStreamRunwayRestartsAfterArmRunsOut(t *testing.T) {
+	inj, _ := newFakeStreamingArm()
+	ctx := context.Background()
+	s := newArmStream(ctx, inj, diagnostics.New(0))
+
+	test.That(t, s.send(ctx, []pvat{testPVAT(0), testPVAT(10 * time.Millisecond)}), test.ShouldBeNil)
+
+	s.wallTimeAtTrajectoryClockZero = time.Now().Add(-time.Second)
+	test.That(t, s.currentEstimatedRunwayInArm(), test.ShouldBeLessThan, -900*time.Millisecond)
+
+	test.That(t, s.send(ctx, []pvat{testPVAT(60 * time.Millisecond)}), test.ShouldBeNil)
+	runway := s.currentEstimatedRunwayInArm()
+	test.That(t, runway, test.ShouldBeGreaterThan, 30*time.Millisecond)
+	test.That(t, runway, test.ShouldBeLessThanOrEqualTo, 50*time.Millisecond)
+
+	test.That(t, s.close(), test.ShouldBeNil)
 }

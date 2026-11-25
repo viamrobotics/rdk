@@ -175,7 +175,7 @@ func stopArm(ctx context.Context, a arm.Arm) error {
 }
 
 func (s *armStream) topUp(ctx context.Context, ts *trajexSession, targetRunway time.Duration) error {
-	deficit := targetRunway - s.currentEstimatedRunwayInArm()
+	deficit := targetRunway - max(s.currentEstimatedRunwayInArm(), 0)
 	if deficit <= 0 {
 		return nil
 	}

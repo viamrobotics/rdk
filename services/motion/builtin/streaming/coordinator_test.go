@@ -278,3 +278,45 @@ func TestRunEndsOnArmError(t *testing.T) {
 		t.Fatal("Run did not return after the arm RPC failed")
 	}
 }
+
+func TestRunKeepsTrajectoryBackAfterPauseInTargets(t *testing.T) {
+	inj, rec := newFakeStreamingArm()
+	jpCh := make(chan []referenceframe.Input)
+	opts := runTestOptions()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- Run(
+			context.Background(), logging.NewTestLogger(t), inj, opts, jpCh,
+			[]referenceframe.Input{0}, diagnostics.New(0), ignoredAcks(t),
+		)
+	}()
+	lastSent := func() time.Duration {
+		batches := rec.get()
+		if len(batches) == 0 {
+			return 0
+		}
+		last := batches[len(batches)-1]
+		return last[len(last)-1].Time
+	}
+
+	jpCh <- []referenceframe.Input{0.05}
+	time.Sleep(time.Second)
+	beforeSecondTarget := lastSent()
+
+	secondTargetSent := time.Now()
+	jpCh <- []referenceframe.Input{1}
+	time.Sleep(200 * time.Millisecond)
+	sent := lastSent() - beforeSecondTarget
+	elapsed := time.Since(secondTargetSent)
+
+	test.That(t, sent, test.ShouldBeGreaterThan, time.Duration(0))
+	test.That(t, sent, test.ShouldBeLessThan, elapsed+2*opts.ArmSideTargetRunway)
+
+	close(jpCh)
+	select {
+	case err := <-errCh:
+		test.That(t, err, test.ShouldBeNil)
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not finish after jpCh was closed")
+	}
+}
