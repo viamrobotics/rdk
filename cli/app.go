@@ -675,7 +675,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:   "prevent opening the default browser during login",
 				},
 			},
-			Action: withSkillOffer(createActionCommandWithT[loginActionArgs](LoginAction)),
+			Action: createActionCommandWithT[loginActionArgs](LoginAction),
 			Commands: []*cli.Command{
 				{
 					Name:      "print-access-token",
@@ -4996,7 +4996,7 @@ NOTES:
 					Usage: "hide progress during update",
 				},
 			},
-			Action: withSkillOffer(createActionCommandWithT[updateArgs](UpdateCLIAction)),
+			Action: createActionCommandWithT[updateArgs](UpdateCLIAction),
 		},
 		{
 			Name:            "skills",

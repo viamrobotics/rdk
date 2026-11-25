@@ -37,9 +37,10 @@ const (
 var agentDirs = []string{".claude", ".agents"}
 
 var (
-	skillsHomeDir          = os.UserHomeDir
-	skillsStatePath        = func() string { return filepath.Join(rutils.ViamDotDir, skillsStateFileName) }
-	skillPromptInteractive = isInteractive
+	skillsHomeDir   = os.UserHomeDir
+	skillsStatePath = func() string { return filepath.Join(rutils.ViamDotDir, skillsStateFileName) }
+	// Both ends must be a terminal: with stdout redirected, the question would land in the output.
+	skillPromptInteractive = func() bool { return isInteractive() && isOutputTTY() }
 )
 
 type skillsState struct {
@@ -274,15 +275,10 @@ func offerSkillInstall(cmd *cli.Command) {
 	}
 }
 
-// withSkillOffer runs an action and, when it succeeds, offers to install the skill.
-func withSkillOffer(action cli.ActionFunc) cli.ActionFunc {
-	return func(ctx context.Context, cmd *cli.Command) error {
-		if err := action(ctx, cmd); err != nil {
-			return err
-		}
-		offerSkillInstall(cmd)
-		return nil
-	}
+// OfferSkillInstall asks once whether to install the skill. main calls it after a command succeeds,
+// so the question follows the command's own output.
+func OfferSkillInstall(app *cli.Command) {
+	offerSkillInstall(app)
 }
 
 // refreshInstalledSkills rewrites installed copies made by an older CLI. A copy whose folder was
