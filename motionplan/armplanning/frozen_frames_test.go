@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -337,4 +338,96 @@ func TestPlanMotionFrozenAllowByFrameName(t *testing.T) {
 	}}
 	_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t), req)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func frozenSegmentContext(t *testing.T, frozen []string) *PlanSegmentContext {
+	t.Helper()
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	goal := xArmOffsetGoal(t, fs, start, r3.Vector{X: 100})
+	planReq, _, err := frozenRequest(frozenPlanRequest(t, fs, start, frozen, goal))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planReq.validatePlanRequest(), test.ShouldBeNil)
+	ctx := context.Background()
+	pc, err := NewPlanContext(ctx, logging.NewTestLogger(t), planReq, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+	psc, err := NewPlanSegmentContext(ctx, pc, planReq.StartState.LinearConfiguration(), goal.Poses())
+	test.That(t, err, test.ShouldBeNil)
+	return psc
+}
+
+func TestFrozenFramesSkipPeekRoadmap(t *testing.T) {
+	psc := frozenSegmentContext(t, []string{"gantryX", "gantryY"})
+	frames := movingFrameNamesWithDoF(psc)
+	sort.Strings(frames)
+	key := roadmapKeyFor(psc, frames)
+	rm := &roadmap{frames: frames, key: key}
+	rm.built.Store(true)
+	roadmapRegistry.Store(key, rm)
+	defer roadmapRegistry.Delete(key)
+	test.That(t, peekRoadmap(psc), test.ShouldBeNil)
+}
+
+func TestPlanMotionFrozenCableConstraintFrame(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		frames []string
+	}{
+		{"frozen frame among others", []string{"xArm6", "UR5e"}},
+		{"only the frozen frame", []string{"UR5e"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fs := makeTestFS(t)
+			start := frozenPlanStart(fs)
+			req := frozenPlanRequest(t, fs, start, []string{"UR5e"}, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100}))
+			req.PlannerOptions.CableConstraint = true
+			req.PlannerOptions.CableConstraintFrames = tc.frames
+			req.PlannerOptions.CableTwistReferenceDegs = map[string][]float64{"UR5e": {0, 0, 0, 0, 0, 0}}
+			opts := *req.PlannerOptions
+			_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t), req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, req.PlannerOptions.CableConstraintFrames, test.ShouldResemble, opts.CableConstraintFrames)
+		})
+	}
+}
+
+func TestFrozenRequestDropsCableConstraintWhenOnlyFrozenFramesNamed(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	req := frozenPlanRequest(t, fs, start, []string{"UR5e"}, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100}))
+	req.PlannerOptions.CableConstraint = true
+	req.PlannerOptions.CableConstraintFrames = []string{"UR5e"}
+	planReq, _, err := frozenRequest(req)
+	test.That(t, err, test.ShouldBeNil)
+	// An emptied list would mean "every model", widening the constraint to frames the caller excluded.
+	test.That(t, planReq.PlannerOptions.CableConstraint, test.ShouldBeFalse)
+	test.That(t, req.PlannerOptions.CableConstraint, test.ShouldBeTrue)
+}
+
+func TestPlanMotionFrozenGoalConfigWithinTolerance(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	goalConf := maps.Clone(start)
+	goalConf["xArm6"] = []frame.Input{0.2, -0.3, -0.5, 0, 0.8, 0}
+	goalConf["gantryX"] = []frame.Input{100 + 1e-9}
+	_, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t),
+		frozenPlanRequest(t, fs, start, []string{"gantryX"}, NewPlanState(nil, goalConf)))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPlanMotionFrozenGoalNamingOnlyFrozenFrames(t *testing.T) {
+	fs := makeTestFS(t)
+	start := frozenPlanStart(fs)
+	noop := NewPlanState(nil, frame.FrameSystemInputs{"gantryX": start["gantryX"]})
+	plan, _, err := PlanMotion(context.Background(), logging.NewTestLogger(t),
+		frozenPlanRequest(t, fs, start, []string{"gantryX"}, noop, xArmOffsetGoal(t, fs, start, r3.Vector{X: 100})))
+	test.That(t, err, test.ShouldBeNil)
+	assertInputsConstant(t, plan, "gantryX", start["gantryX"])
+}
+
+func TestFreezeFramesDuplicateName(t *testing.T) {
+	start := frozenTestStart()
+	_, frozen, err := freezeFrames(makeTestFS(t), []string{"gantryX", "gantryX"}, start)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, frozen, test.ShouldResemble, frame.FrameSystemInputs{"gantryX": start["gantryX"]})
 }

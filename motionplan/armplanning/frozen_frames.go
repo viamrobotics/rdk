@@ -24,6 +24,9 @@ func freezeFrames(
 	}
 	frozen := referenceframe.FrameSystemInputs{}
 	for _, name := range names {
+		if _, done := frozen[name]; done {
+			continue
+		}
 		f := frozenFS.Frame(name)
 		if f == nil {
 			return nil, nil, fmt.Errorf("cannot freeze frame %q: %w", name, referenceframe.NewFrameMissingError(name))
@@ -43,8 +46,7 @@ func freezeFrames(
 		if err != nil {
 			return nil, nil, fmt.Errorf("cannot freeze frame %q: %w", name, err)
 		}
-		// Frame geometries are expressed in the parent frame for every frame type, so these carry
-		// over to the static frame unchanged.
+		// Every frame type expresses its geometries in its parent frame, so they carry over unchanged.
 		static, err := referenceframe.NewStaticFrameWithGeometries(name, pose, gif.Geometries())
 		if err != nil {
 			return nil, nil, err
@@ -57,10 +59,18 @@ func freezeFrames(
 	return frozenFS, frozen, nil
 }
 
-// frozenRequest returns a copy of req that plans against a frame system with
-// req.Constraints.FrozenFrameConstraint frames frozen at their start inputs, and those inputs. The copy's start
-// and goal configurations omit the frozen frames. req itself is left untouched: PlanMotionSequence
-// reuses requests and keys backtracking on their *PlanState pointers.
+// frozenRequest returns a copy of req that plans against a frame system with the frames named by
+// req.Constraints.FrozenFrameConstraint frozen at their start inputs, and those inputs. req itself is
+// left untouched: PlanMotionSequence reuses requests and keys backtracking on their *PlanState pointers.
+//
+// In the copy:
+//   - start and goal configurations omit frozen frames. A goal value for a frozen frame must be within
+//     PlannerOptions.InputIdentDist of its start value; a goal naming only frozen frames becomes a
+//     no-op goal at the start configuration.
+//   - rejectedSolutions is re-keyed to the copy's StartState and stripped of frozen frames, since the
+//     plan manager looks rejections up by pointer and compares only the frames each one names.
+//   - frozen frames are dropped from the cable constraint, which needs kinematic models. When that
+//     empties CableConstraintFrames the constraint is turned off, as an empty list means every model.
 func frozenRequest(req *PlanRequest) (*PlanRequest, referenceframe.FrameSystemInputs, error) {
 	if req.Constraints == nil || len(req.Constraints.FrozenFrameConstraint) == 0 {
 		return req, nil, nil
@@ -73,25 +83,29 @@ func frozenRequest(req *PlanRequest) (*PlanRequest, referenceframe.FrameSystemIn
 	if err != nil {
 		return nil, nil, err
 	}
+	startConf := withoutInputs(req.StartState.Configuration(), frozen)
 
 	goals := make([]*PlanState, len(req.Goals))
 	for i, goal := range req.Goals {
 		conf := goal.Configuration()
 		for name, want := range frozen {
 			got, ok := conf[name]
-			if ok && !slices.Equal(got, want) {
+			if ok && referenceframe.InputsLinfDistance(got, want) > req.PlannerOptions.InputIdentDist {
 				return nil, nil, fmt.Errorf("goal %d sets configuration %v for frame %q, which is frozen at %v", i, got, name, want)
 			}
 		}
-		goals[i] = NewPlanState(goal.Poses(), withoutInputs(conf, frozen))
+		goalConf := withoutInputs(conf, frozen)
+		if len(conf) > 0 && len(goalConf) == 0 && len(goal.Poses()) == 0 {
+			goalConf = startConf
+		}
+		goals[i] = NewPlanState(goal.Poses(), goalConf)
 	}
 
 	planReq := *req
 	planReq.FrameSystem = frozenFS
-	planReq.StartState = NewPlanState(req.StartState.Poses(), withoutInputs(req.StartState.Configuration(), frozen))
+	planReq.StartState = NewPlanState(req.StartState.Poses(), startConf)
 	planReq.Goals = goals
-	// The plan manager looks rejections up by StartState pointer and compares only the frames
-	// present in each rejected configuration, so both the key and the contents must match the copy.
+	planReq.PlannerOptions = withoutFrozenCableFrames(req.PlannerOptions, frozen)
 	if rejected, ok := req.rejectedSolutions[req.StartState]; ok {
 		stripped := make([]referenceframe.FrameSystemInputs, len(rejected))
 		for i, sol := range rejected {
@@ -100,6 +114,21 @@ func frozenRequest(req *PlanRequest) (*PlanRequest, referenceframe.FrameSystemIn
 		planReq.rejectedSolutions = map[*PlanState][]referenceframe.FrameSystemInputs{planReq.StartState: stripped}
 	}
 	return &planReq, frozen, nil
+}
+
+func withoutFrozenCableFrames(opts *PlannerOptions, frozen referenceframe.FrameSystemInputs) *PlannerOptions {
+	if !opts.CableConstraint {
+		return opts
+	}
+	out := *opts
+	out.CableTwistReferenceDegs = maps.Clone(opts.CableTwistReferenceDegs)
+	maps.DeleteFunc(out.CableTwistReferenceDegs, func(name string, _ []float64) bool { _, ok := frozen[name]; return ok })
+	if len(opts.CableConstraintFrames) > 0 {
+		out.CableConstraintFrames = slices.DeleteFunc(slices.Clone(opts.CableConstraintFrames),
+			func(name string) bool { _, ok := frozen[name]; return ok })
+		out.CableConstraint = len(out.CableConstraintFrames) > 0
+	}
+	return &out
 }
 
 func withoutInputs(conf, drop referenceframe.FrameSystemInputs) referenceframe.FrameSystemInputs {

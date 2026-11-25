@@ -157,13 +157,14 @@ func roadmapKeyFor(psc *PlanSegmentContext, frames []string) string {
 	return sb.String()
 }
 
-// getRoadmap returns the (possibly freshly built) structure for this segment
-// context, or nil when the chain is unsuitable.
-func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
-	// TODO: frozen frames become static transforms that neither roadmapKeyFor nor roadmapSceneKey
-	// sees, and edgeVox caches world-space swept volumes per structure, so a roadmap built at one
-	// frozen pose would be reused unchecked at another. Keying on the chain root's world pose would
-	// let frozen plans use the roadmap.
+// roadmapFrames returns the sorted moving frames a roadmap for psc would be built over, or nil when
+// the segment is unsuitable for a roadmap.
+//
+// TODO: plans with frozen frames are unsuitable because a frozen frame is a static transform that
+// neither roadmapKeyFor nor roadmapSceneKey sees, and edgeVox caches world-space swept volumes per
+// structure, so a roadmap built at one frozen pose would be reused unchecked at another. Keying on
+// the chain root's world pose would let frozen plans use the roadmap.
+func roadmapFrames(psc *PlanSegmentContext) []string {
 	if c := psc.pc.request.Constraints; c != nil && len(c.FrozenFrameConstraint) > 0 {
 		return nil
 	}
@@ -172,6 +173,16 @@ func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
 		return nil
 	}
 	sort.Strings(frames)
+	return frames
+}
+
+// getRoadmap returns the (possibly freshly built) structure for this segment
+// context, or nil when the chain is unsuitable.
+func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
+	frames := roadmapFrames(psc)
+	if frames == nil {
+		return nil
+	}
 	key := roadmapKeyFor(psc, frames)
 	v, _ := roadmapRegistry.LoadOrStore(key, &roadmap{frames: frames, key: key})
 	rm := v.(*roadmap)
@@ -192,11 +203,10 @@ func getRoadmap(psc *PlanSegmentContext, logger logging.Logger) *roadmap {
 // or nil. Unlike getRoadmap it never builds, so cheap callers (IK seeding)
 // don't pay the build cost for plans that may never need the roadmap.
 func peekRoadmap(psc *PlanSegmentContext) *roadmap {
-	frames := movingFrameNamesWithDoF(psc)
-	if len(frames) == 0 || len(psc.goal) != 1 {
+	frames := roadmapFrames(psc)
+	if frames == nil {
 		return nil
 	}
-	sort.Strings(frames)
 	v, ok := roadmapRegistry.Load(roadmapKeyFor(psc, frames))
 	if !ok {
 		return nil

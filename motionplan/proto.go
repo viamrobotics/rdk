@@ -120,6 +120,8 @@ func ConstraintsFromProtobuf(pbConstraint *motionpb.Constraints) *Constraints {
 }
 
 // ToProtobuf takes an existing Constraints object and converts it to a protobuf.
+// FrozenFrameConstraint has no protobuf form and is dropped; callers that send constraints over
+// the wire must reject it first, as MoveReq.ToProto does.
 func (c *Constraints) ToProtobuf() *motionpb.Constraints {
 	if c == nil {
 		return nil
