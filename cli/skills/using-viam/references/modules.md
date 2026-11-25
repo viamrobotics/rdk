@@ -4,7 +4,7 @@ A module is a program that adds models (components or services) to a machine. Mo
 
 ## Commands
 
-- `viam module generate` scaffolds a module. Run without a terminal, it needs `--name`, `--language` (`python`, `go` or `cpp`), `--visibility`, `--public-namespace`, `--resource-subtype` and `--model-name`, or it stops to prompt. `--register` also creates the module in the registry.
+- `viam module generate` scaffolds a module. Run without a terminal, it needs `--name`, `--language` (`python`, `go` or `cpp`), `--public-namespace`, `--resource-subtype` and `--model-name`, or it exits with an error. `--register` also creates the module in the registry.
 - `viam module create --name=<name>` registers an existing directory and writes `meta.json`; `--local-only` writes the file without registering.
 - `viam module add-model` adds another model to an existing module.
 - `viam module lint-manifest` checks `meta.json` offline. Passing does not guarantee an upload succeeds.

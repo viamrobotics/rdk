@@ -34,7 +34,7 @@ A new machine or part exists only in the cloud until `viam-server` runs on a com
 
 Every change saves straight to the cloud config, and the part applies it within seconds when online. A save can succeed and still fail on the machine: a missing dependency, a bad attribute, or a model whose module is not in the config. The part's status and logs show it. When the config sets a `maintenance` sensor, the part holds new config until that sensor reports maintenance is allowed.
 
-Editing a fragment changes every machine that imports it without a pinned version. `set-up-obstacles/references/fragments.md` covers fragment imports, variables, prefixes and builder overrides in detail.
+Editing a fragment changes every machine that imports it without a pinned version. With the MCP server connected, `retrieve_skill` with name `set-up-obstacles` and path `references/fragments.md` covers fragment imports, variables, prefixes and builder overrides in detail.
 
 ## Inside a running machine
 

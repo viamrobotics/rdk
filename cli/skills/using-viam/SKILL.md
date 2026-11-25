@@ -9,7 +9,7 @@ Viam runs robots and other machines from the cloud. This skill is the map: how a
 
 ## How Viam is organized
 
-- **Organization → location → machine → part.** A machine has one or more parts, and each part runs `viam-server`. Most actions need a part ID, not a machine name.
+- **Organization → location → machine → part.** A machine has one or more parts, and each part runs `viam-server`. Most actions act on a part, not the whole machine.
 - **Components and services** are the resources in a part's config. An arm, camera or motor is a component; motion, vision or navigation is a service.
 - **Modules** add resource models that are not built in. They come from the Viam registry or are written by the user.
 - **Fragments** are reusable blocks of config that many machines import.
@@ -101,7 +101,7 @@ For filters, tags, deletes, datasets, sequences, data pipelines and training, re
 
 ## Using the CLI from an agent
 
-- Output is text written for people. Only `viam machines logs --format=json` (machine-level logs, not `machines part logs`) and `machines part run` print JSON. Match on known lines such as `created new machine with id <uuid>`.
+- Output is text written for people. Only `viam machines logs --format=json` (machine-level logs, not `machines part logs`), `machines part run`, `machines part config` and `fragment get` print JSON. Match on known lines such as `created new machine with id <uuid>`.
 - The exit code is non-zero on failure.
 - Commands that open a form when run in a terminal (`module generate`, `machines part add-trigger`) need all their flags instead. `machines part cp` needs `--no-progress`.
 
