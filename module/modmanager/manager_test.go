@@ -143,6 +143,13 @@ func TestCrashShortCircuit(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldContainSubstring, "module test exited too quickly after attempted startup")
 			} else {
 				// exits with err from checkReady (short circuit after detecting module crashed)
+				//
+				// If this flakes with "exited too quickly" or with an Unimplemented "unknown service
+				// viam.module.v1.ModuleService" error, the likely cause is another process taking the
+				// module's port. viam-server picks a free port and releases it before the module
+				// binds it, so a gRPC server started in that gap (e.g. by a test in another package)
+				// can end up on it. The module then fails to bind (it logs "testmodule_crash: failed
+				// to listen") or the ready request is answered by that other server.
 				test.That(t, err.Error(), test.ShouldContainSubstring,
 					"error while waiting for module to be ready test: module process exited unexpectedly")
 			}
