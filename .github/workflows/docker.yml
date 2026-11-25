@@ -104,6 +104,7 @@ jobs:
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
+      ARTIFACTORY_GOLANG_KEY: ${{ secrets.ARTIFACTORY_GOLANG_KEY }}
 
   slack-workflow-status:
     name: Post Workflow Status To Slack
