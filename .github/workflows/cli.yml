@@ -16,6 +16,12 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+      ARTIFACTORY_GOLANG_KEY:
+        required: false
+
+env:
+  # Empty without the secret; Go treats an empty GOPROXY as unset and uses its default proxy.
+  GOPROXY: ${{ secrets.ARTIFACTORY_GOLANG_KEY && format('https://{0}:{1}@viam.jfrog.io/artifactory/api/go/golang', vars.ARTIFACTORY_GOLANG_USER, secrets.ARTIFACTORY_GOLANG_KEY) || '' }}
 
 jobs:
   viam-cli:

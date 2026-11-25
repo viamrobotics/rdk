@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds and boot-tests armhf viam-server inside the rdk-focal container.
-# Invoked via docker run from focal-build.yml; BUILD_CHANNEL comes from the env.
+# Invoked via docker run from focal-build.yml; BUILD_CHANNEL and GOPROXY come from the env.
 set -euxo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -23,7 +23,7 @@ sudo -Hu testbot bash -lc '
   ~/.local/bin/mise settings set auto_install false
 '
 
-sudo -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
+sudo --preserve-env=GOPROXY -Hu testbot bash -lc "make BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=armv7l VERSION_SUFFIX=+focal static-release"
 
 sudo -Hu testbot bash -lc '
   set -euo pipefail
