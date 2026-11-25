@@ -311,6 +311,167 @@ func (server *serviceServer) TempStreamArmJointPositions(stream pb.MotionService
 	return implErr
 }
 
+// StreamServo serves one Cartesian servo session for an arm.
+//
+// The first message must be Init; it names the motion service to use, the arm, the mode and the
+// session options. Every message after it must be an Update that carries a command.
+//
+// This handler completes cleanly if the client closes its send side (CloseSend), and none of the
+// errors below occurs. In that case, this handler signals the impl to complete cleanly, then
+// waits for the impl to return; the impl ramps the arm to zero and waits for it to stop. Unlike
+// TempStreamArmJointPositions, closing the send side stops the arm rather than draining.
+//
+// The following classes of error can occur:
+//
+// "Invalid Init":
+// The first message is not Init, names a motion service that does not exist, omits the arm's
+// component name, leaves the mode unspecified, or the stream ends before an Init arrives. The
+// handler returns an error without calling the impl; no arm motion has been commanded, so there
+// is nothing to stop.
+//
+// "Something above the impl causes the stream to abort":
+// This encompasses various errors such as stream.Recv returning an error besides io.EOF (including
+// if the client cancels or the connection is lost), a second Init, an unknown message or an Update
+// with no command, or stream.Send returning an error. The handler cancels the impl's context and
+// waits until the impl returns; the impl ramps the arm to zero and returns once the arm has stopped.
+//
+// "The impl errors":
+// If the impl fails on its own, the impl stops the arm and waits until the arm has stopped. The
+// handler waits until the impl returns, then returns the impl's error. The impl may also return nil
+// while the client's send side is still open, when the session ended on its own (dead-man, Move,
+// Stop or StopPlan); the RPC then ends OK.
+//
+// If more than one of these happen, this handler returns the error detected above the impl,
+// because the impl's own error is usually only its echo.
+func (server *serviceServer) StreamServo(stream pb.MotionService_StreamServoServer) (retErr error) {
+	ctx, cancel := context.WithCancelCause(stream.Context())
+	defer cancel(nil)
+
+	// Receive the first message, which must be an Init message.
+	// This is done outside the recv goroutine, because the Init message contains
+	// the service whose impl to call and the config with which to call it.
+	first, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	init := first.GetInit()
+	if init == nil {
+		return status.Error(codes.InvalidArgument, "first message must be Init")
+	}
+	svc, err := server.coll.Resource(first.GetName())
+	if err != nil {
+		return err
+	}
+	armName := init.GetComponentName()
+	if armName == "" {
+		return status.Error(codes.InvalidArgument, "Init.component_name is required")
+	}
+	if init.GetMode() == pb.ServoMode_SERVO_MODE_UNSPECIFIED {
+		return status.Error(codes.InvalidArgument, "Init.mode is required")
+	}
+	cfg := servoConfigFromProto(init)
+	extra := init.GetExtra().AsMap()
+
+	updatesCh := make(chan ServoUpdate)
+	responsesCh := make(chan ServoResponse)
+
+	// Per grpc-go's ServerStream contract (https://pkg.go.dev/google.golang.org/grpc#ServerStream),
+	// this handler writes messages to the client via Send, but sets an error status on the call by
+	// returning an error. (The client receives both via its Recv.) This handler's recv and send
+	// goroutines cancel the context with a cause, so that the handler can return the original cause. An
+	// error from either goroutine takes precedence over an error from the impl, because usually the
+	// cancel is what made the impl return, so the impl's error is only its echo. In the rare race where
+	// the impl finished or failed on its own at the same time, the cause still names something that ended
+	// the call.
+
+	// "recv goroutine": stream.Recv()'s updates from the client and sends them to the impl.
+	utils.PanicCapturingGo(func() {
+		// Every exit below overwrites err; if none did, the goroutine panicked.
+		err := errors.New("motion servo server recv goroutine panicked")
+		defer func() {
+			if err != nil {
+				cancel(err)
+			}
+		}()
+
+		for {
+			// A successful Recv must not touch err, so that the panic sentinel survives a panic below.
+			req, recvErr := stream.Recv()
+			if recvErr != nil {
+				err = recvErr
+				// io.EOF from Recv means the client closed its send side. Close updatesCh to give the
+				// impl a clean end of input.
+				if errors.Is(err, io.EOF) {
+					err = nil
+					close(updatesCh)
+				}
+				return
+			}
+			update := req.GetUpdate()
+			if update == nil {
+				err = status.Errorf(codes.InvalidArgument, "expected Update, got %T", req.GetMessage())
+				return
+			}
+			u, convErr := servoUpdateFromProto(update)
+			if convErr != nil {
+				err = convErr
+				return
+			}
+			select {
+			case updatesCh <- u:
+			case <-ctx.Done():
+				// Whoever canceled already set the cause.
+				err = nil
+				return
+			}
+		}
+	})
+
+	// "send goroutine": receives responses from the impl and stream.Send()'s them to the client.
+	sendDone := make(chan struct{})
+	utils.PanicCapturingGo(func() {
+		err := errors.New("motion servo server send goroutine panicked")
+		defer func() {
+			if err != nil {
+				cancel(err)
+			}
+			close(sendDone)
+		}()
+
+		for resp := range responsesCh {
+			if resp.Started == nil && resp.Status == nil {
+				err = status.Error(codes.Internal, "empty ServoResponse")
+				return
+			}
+			if err = stream.Send(servoResponseToProto(resp)); err != nil {
+				return
+			}
+		}
+		err = nil
+	})
+
+	// Release the send goroutine and wait for it, so that nothing Sends after this handler returns,
+	// then pick the return value. This is deferred so that it also runs if the impl panics: the rpc
+	// server recovers handler panics, and without this the send goroutine would be left blocked on
+	// responsesCh forever. The recv goroutine is not waited for: it may be parked in Recv, which
+	// only the client acting or this handler returning can wake, so it exits on its own after we
+	// return, with its error (if any) already delivered as the cancel cause.
+	var implErr error
+	defer func() {
+		close(responsesCh)
+		<-sendDone
+
+		if cause := context.Cause(ctx); cause != nil {
+			retErr = cause
+			return
+		}
+		retErr = implErr
+	}()
+
+	implErr = svc.StreamServo(ctx, armName, cfg, updatesCh, responsesCh, extra)
+	return implErr
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

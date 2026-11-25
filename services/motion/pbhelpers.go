@@ -3,12 +3,15 @@ package motion
 import (
 	"math"
 
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/motionplan"
@@ -436,4 +439,155 @@ func tempStreamResponseToProto(r TempStreamResponse) *pb.TempStreamArmJointPosit
 
 func tempStreamResponseFromProto(r *pb.TempStreamArmJointPositionsResponse) TempStreamResponse {
 	return TempStreamResponse{MotionSideCurrentRunwayMs: r.MotionSideCurrentRunwayMs}
+}
+
+func servoConfigToProto(c ServoConfig) *pb.StreamServoRequest_Init {
+	init := &pb.StreamServoRequest_Init{
+		Mode:                    pb.ServoMode(c.Mode),
+		MaxAngularVelDegsPerSec: c.MaxAngularVelDegsPerSec,
+		TimeoutMs:               c.TimeoutMs,
+		MaxTargetStepMm:         c.MaxTargetStepMM,
+		MaxTargetStepDeg:        c.MaxTargetStepDeg,
+	}
+	if c.Limits != nil {
+		init.Limits = c.Limits.ToProtobuf()
+	}
+	return init
+}
+
+func servoConfigFromProto(i *pb.StreamServoRequest_Init) ServoConfig {
+	return ServoConfig{
+		Mode:                    ServoMode(i.GetMode()),
+		Limits:                  arm.MoveOptionsFromProtobuf(i.GetLimits()),
+		MaxAngularVelDegsPerSec: i.MaxAngularVelDegsPerSec,
+		TimeoutMs:               i.TimeoutMs,
+		MaxTargetStepMM:         i.MaxTargetStepMm,
+		MaxTargetStepDeg:        i.MaxTargetStepDeg,
+	}
+}
+
+func vector3ToProto(v r3.Vector) *commonpb.Vector3 {
+	return &commonpb.Vector3{X: v.X, Y: v.Y, Z: v.Z}
+}
+
+func servoTwistToProto(t *ServoTwist) *pb.Twist {
+	if t == nil {
+		return nil
+	}
+	return &pb.Twist{
+		LinearMmPerSec:    vector3ToProto(t.LinearMMPerSec),
+		AngularDegsPerSec: vector3ToProto(t.AngularDegsPerSec),
+		ReferenceFrame:    t.ReferenceFrame,
+	}
+}
+
+func servoTwistFromProto(t *pb.Twist) *ServoTwist {
+	if t == nil {
+		return nil
+	}
+	lin, ang := t.GetLinearMmPerSec(), t.GetAngularDegsPerSec()
+	return &ServoTwist{
+		LinearMMPerSec:    r3.Vector{X: lin.GetX(), Y: lin.GetY(), Z: lin.GetZ()},
+		AngularDegsPerSec: r3.Vector{X: ang.GetX(), Y: ang.GetY(), Z: ang.GetZ()},
+		ReferenceFrame:    t.GetReferenceFrame(),
+	}
+}
+
+// servoUpdateToProto errors unless exactly one of u.Target and u.Velocity is set.
+func servoUpdateToProto(u ServoUpdate) (*pb.StreamServoRequest_Update, error) {
+	switch {
+	case u.Target != nil && u.Velocity == nil:
+		return &pb.StreamServoRequest_Update{Command: &pb.StreamServoRequest_Update_Target{
+			Target: &pb.PoseTarget{
+				Pose:        referenceframe.PoseInFrameToProtobuf(u.Target),
+				FeedForward: servoTwistToProto(u.FeedForward),
+			},
+		}}, nil
+	case u.Velocity != nil && u.Target == nil && u.FeedForward == nil:
+		return &pb.StreamServoRequest_Update{Command: &pb.StreamServoRequest_Update_Velocity{
+			Velocity: servoTwistToProto(u.Velocity),
+		}}, nil
+	default:
+		return nil, errors.New("servo update must set exactly one of Target and Velocity, and FeedForward only with Target")
+	}
+}
+
+// servoUpdateFromProto returns an InvalidArgument error when the command is unset or malformed.
+func servoUpdateFromProto(u *pb.StreamServoRequest_Update) (ServoUpdate, error) {
+	switch c := u.GetCommand().(type) {
+	case *pb.StreamServoRequest_Update_Target:
+		if c.Target.GetPose().GetPose() == nil {
+			return ServoUpdate{}, status.Error(codes.InvalidArgument, "Update.target.pose is required")
+		}
+		return ServoUpdate{
+			Target:      referenceframe.ProtobufToPoseInFrame(c.Target.GetPose()),
+			FeedForward: servoTwistFromProto(c.Target.FeedForward),
+		}, nil
+	case *pb.StreamServoRequest_Update_Velocity:
+		if c.Velocity == nil {
+			return ServoUpdate{}, status.Error(codes.InvalidArgument, "Update.velocity is required")
+		}
+		return ServoUpdate{Velocity: servoTwistFromProto(c.Velocity)}, nil
+	default:
+		return ServoUpdate{}, status.Error(codes.InvalidArgument, "Update has no command")
+	}
+}
+
+func servoResponseToProto(r ServoResponse) *pb.StreamServoResponse {
+	switch {
+	case r.Started != nil:
+		s := r.Started
+		return &pb.StreamServoResponse{Message: &pb.StreamServoResponse_Started_{Started: &pb.StreamServoResponse_Started{
+			Limits:                  s.Limits.ToProtobuf(),
+			MaxAngularVelDegsPerSec: s.MaxAngularVelDegsPerSec,
+			TimeoutMs:               s.TimeoutMs,
+			RateHz:                  s.RateHz,
+		}}}
+	case r.Status != nil:
+		s := r.Status
+		st := &pb.StreamServoResponse_Status{
+			State:    pb.ServoState(s.State),
+			ErrMm:    s.ErrMM,
+			ErrDeg:   s.ErrDeg,
+			Ack:      s.Ack,
+			Rejected: s.Rejected,
+		}
+		for _, l := range s.LimitedBy {
+			st.LimitedBy = append(st.LimitedBy, pb.ServoLimit(l))
+		}
+		return &pb.StreamServoResponse{Message: &pb.StreamServoResponse_Status_{Status: st}}
+	default:
+		return &pb.StreamServoResponse{}
+	}
+}
+
+func servoResponseFromProto(r *pb.StreamServoResponse) ServoResponse {
+	switch m := r.GetMessage().(type) {
+	case *pb.StreamServoResponse_Started_:
+		s := m.Started
+		out := &ServoStarted{
+			MaxAngularVelDegsPerSec: s.GetMaxAngularVelDegsPerSec(),
+			TimeoutMs:               s.GetTimeoutMs(),
+			RateHz:                  s.GetRateHz(),
+		}
+		if l := arm.MoveOptionsFromProtobuf(s.GetLimits()); l != nil {
+			out.Limits = *l
+		}
+		return ServoResponse{Started: out}
+	case *pb.StreamServoResponse_Status_:
+		s := m.Status
+		out := &ServoStatus{
+			State:    ServoState(s.GetState()),
+			ErrMM:    s.GetErrMm(),
+			ErrDeg:   s.GetErrDeg(),
+			Ack:      s.Ack,
+			Rejected: s.Rejected,
+		}
+		for _, l := range s.GetLimitedBy() {
+			out.LimitedBy = append(out.LimitedBy, ServoLimit(l))
+		}
+		return ServoResponse{Status: out}
+	default:
+		return ServoResponse{}
+	}
 }

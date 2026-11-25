@@ -14,6 +14,8 @@ import (
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -1551,6 +1553,108 @@ func TestTempStreamOptions(t *testing.T) {
 			MoveOptions:           moveOpts,
 		}
 		test.That(t, tempStreamOptionsFromProto(tempStreamOptionsToProto(input)), test.ShouldResemble, input)
+	})
+}
+
+func TestServoConversions(t *testing.T) {
+	t.Run("config round trip", func(t *testing.T) {
+		in := ServoConfig{
+			Mode:                    ServoModeVelocity,
+			Limits:                  &arm.MoveOptions{MaxVelRads: 1.5, MaxAccRads: 2.5, MaxTCPSpeedMPerSec: ptr(0.25)},
+			MaxAngularVelDegsPerSec: ptr(45.0),
+			TimeoutMs:               ptr(uint32(300)),
+			MaxTargetStepMM:         ptr(50.0),
+			MaxTargetStepDeg:        ptr(10.0),
+		}
+		out := servoConfigFromProto(servoConfigToProto(in))
+		test.That(t, out.Mode, test.ShouldEqual, in.Mode)
+		test.That(t, out.Limits.MaxVelRads, test.ShouldAlmostEqual, 1.5)
+		test.That(t, out.Limits.MaxAccRads, test.ShouldAlmostEqual, 2.5)
+		test.That(t, *out.Limits.MaxTCPSpeedMPerSec, test.ShouldEqual, 0.25)
+		test.That(t, out.MaxAngularVelDegsPerSec, test.ShouldResemble, in.MaxAngularVelDegsPerSec)
+		test.That(t, out.TimeoutMs, test.ShouldResemble, in.TimeoutMs)
+		test.That(t, out.MaxTargetStepMM, test.ShouldResemble, in.MaxTargetStepMM)
+		test.That(t, out.MaxTargetStepDeg, test.ShouldResemble, in.MaxTargetStepDeg)
+
+		empty := servoConfigFromProto(servoConfigToProto(ServoConfig{Mode: ServoModePose}))
+		test.That(t, empty, test.ShouldResemble, ServoConfig{Mode: ServoModePose})
+	})
+
+	twist := &ServoTwist{
+		LinearMMPerSec:    r3.Vector{X: 1, Y: 2, Z: 3},
+		AngularDegsPerSec: r3.Vector{X: 4, Y: 5, Z: 6},
+		ReferenceFrame:    "tool",
+	}
+	pose := referenceframe.NewPoseInFrame("world",
+		spatialmath.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.OrientationVectorDegrees{OZ: 1}))
+
+	t.Run("update round trip", func(t *testing.T) {
+		for name, in := range map[string]ServoUpdate{
+			"target":                  {Target: pose},
+			"target with feedforward": {Target: pose, FeedForward: twist},
+			"velocity":                {Velocity: twist},
+		} {
+			t.Run(name, func(t *testing.T) {
+				p, err := servoUpdateToProto(in)
+				test.That(t, err, test.ShouldBeNil)
+				out, err := servoUpdateFromProto(p)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, out.FeedForward, test.ShouldResemble, in.FeedForward)
+				test.That(t, out.Velocity, test.ShouldResemble, in.Velocity)
+				if in.Target == nil {
+					test.That(t, out.Target, test.ShouldBeNil)
+				} else {
+					test.That(t, out.Target.Parent(), test.ShouldEqual, in.Target.Parent())
+					test.That(t, spatialmath.PoseAlmostEqual(out.Target.Pose(), in.Target.Pose()), test.ShouldBeTrue)
+				}
+			})
+		}
+	})
+
+	t.Run("bad updates", func(t *testing.T) {
+		_, err := servoUpdateFromProto(&pb.StreamServoRequest_Update{})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.InvalidArgument)
+		_, err = servoUpdateFromProto(&pb.StreamServoRequest_Update{Command: &pb.StreamServoRequest_Update_Target{Target: &pb.PoseTarget{}}})
+		test.That(t, status.Code(err), test.ShouldEqual, codes.InvalidArgument)
+		noPose := &pb.StreamServoRequest_Update{Command: &pb.StreamServoRequest_Update_Target{
+			Target: &pb.PoseTarget{Pose: &commonpb.PoseInFrame{ReferenceFrame: "world"}},
+		}}
+		_, err = servoUpdateFromProto(noPose)
+		test.That(t, status.Code(err), test.ShouldEqual, codes.InvalidArgument)
+		_, err = servoUpdateToProto(ServoUpdate{})
+		test.That(t, err, test.ShouldNotBeNil)
+		_, err = servoUpdateToProto(ServoUpdate{Target: pose, Velocity: twist})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("response round trip", func(t *testing.T) {
+		ack, rej := uint64(7), "step too large"
+		started := ServoResponse{Started: &ServoStarted{
+			Limits:                  arm.MoveOptions{MaxVelRads: 1.5, MaxAccRads: 2.5},
+			MaxAngularVelDegsPerSec: 90, TimeoutMs: 500, RateHz: 50,
+		}}
+		out := servoResponseFromProto(servoResponseToProto(started))
+		test.That(t, out.Status, test.ShouldBeNil)
+		test.That(t, out.Started.Limits.MaxVelRads, test.ShouldAlmostEqual, 1.5)
+		test.That(t, out.Started.Limits.MaxAccRads, test.ShouldAlmostEqual, 2.5)
+		test.That(t, out.Started.MaxAngularVelDegsPerSec, test.ShouldEqual, 90)
+		test.That(t, out.Started.TimeoutMs, test.ShouldEqual, 500)
+		test.That(t, out.Started.RateHz, test.ShouldEqual, 50)
+
+		for name, st := range map[string]ServoStatus{
+			"ack": {
+				State: ServoStateRunning, ErrMM: 1.5, ErrDeg: 2.5, Ack: &ack,
+				LimitedBy: []ServoLimit{ServoLimitJointSpeed, ServoLimitTCPSpeed},
+			},
+			"rejected":     {State: ServoStateStalled, Ack: &ack, Rejected: &rej},
+			"state change": {State: ServoStateStoppedTimeout},
+		} {
+			t.Run(name, func(t *testing.T) {
+				out := servoResponseFromProto(servoResponseToProto(ServoResponse{Status: &st}))
+				test.That(t, out.Started, test.ShouldBeNil)
+				test.That(t, *out.Status, test.ShouldResemble, st)
+			})
+		}
 	})
 }
 

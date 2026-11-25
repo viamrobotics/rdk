@@ -382,6 +382,186 @@ func (c *client) TempStreamArmJointPositions(
 	return nil
 }
 
+// StreamServo opens a servo session for the arm against the server.
+//
+// The caller owns the updates channel and responses channel; this function does not close
+// them.
+//
+// The caller must keep receiving from the responses channel for the duration of this call:
+// an unread response blocks this call from receiving anything further from the server,
+// including the status that would let it return. The caller must close the responses channel
+// only after this call has returned.
+//
+// The caller should push into the updates channel using a select that also watches for this
+// call's completion: a servo session can end on its own (dead-man, a fault, or Move, Stop or
+// StopPlan taking the arm) while updates is still open, and then this call returns and pushes
+// into the updates channel will block forever.
+//
+// The caller can end the session by closing the updates channel or canceling the context.
+//
+// If the caller closes the updates channel (and does not then cancel the context), the server
+// ramps the arm to zero, unlike TempStreamArmJointPositions, which drains its queued path. This
+// call blocks until the arm has stopped, or the session fails:
+// If the return value is nil, the session ended without error and the arm has stopped. This
+// includes a session that ended on its own with the updates channel still open; the final Status
+// on the responses channel says why.
+// If the return value is an error:
+// - If the error came from the server (a fault, or an invalid Init or Update), the arm will have
+// stopped.
+// - If the error came from this client, including if the connection failed, the server will
+// stop the arm, but this call will return the error immediately (before guaranteeing that
+// the arm has stopped).
+// Note that the "from the server" and "from the client" error cases are not explicitly
+// distinguishable by the caller, beyond what the status code suggests.
+//
+// If the caller cancels the context at any point, including after closing the updates channel,
+// the server will ramp the arm to zero. However, this call will return with the context's error
+// immediately (before guaranteeing that the arm has stopped).
+//
+// Starting a new session while a previous session is still running on the server, including if
+// the previous StreamServo has returned but the server is still waiting for the arm to stop, will
+// error until the arm has stopped.
+func (c *client) StreamServo(
+	ctx context.Context,
+	componentName string,
+	cfg ServoConfig,
+	updates <-chan ServoUpdate,
+	responses chan<- ServoResponse,
+	extra map[string]interface{},
+) error {
+	ext, err := vprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
+	init := servoConfigToProto(cfg)
+	init.ComponentName = componentName
+	init.Extra = ext
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Opens the HTTP/2 stream to the server; does not send any messages yet.
+	stream, err := c.client.StreamServo(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Per grpc-go's ClientStream contract (https://pkg.go.dev/google.golang.org/grpc#ClientStream),
+	// the server's status is the single source of truth for how the call ended, and it reaches the
+	// client only through Recv. So the recv goroutine's error is the default result. The exception is
+	// an error that happens inside this client when trying to send a message, i.e. a message that
+	// fails to marshal or exceeds the max send size. The server never learns of those, so grpc-go
+	// returns them directly from Send instead of via Recv, and our send goroutine reports them.
+
+	// "send goroutine": receives updates from the client; stream.Send()'s them to the server.
+	sendResult := make(chan error, 1)
+	goutils.PanicCapturingGo(func() {
+		// Every exit below overwrites err; if none did, the goroutine panicked.
+		err := errors.New("motion servo client send goroutine panicked")
+		defer func() {
+			if err != nil {
+				cancel()
+			}
+			sendResult <- err
+		}()
+
+		// Send the initial Init message.
+		if err = stream.Send(&pb.StreamServoRequest{
+			Name:    c.name,
+			Message: &pb.StreamServoRequest_Init_{Init: init},
+		}); err != nil {
+			// io.EOF from Send means the stream had already ended.
+			// Do not return an error from this send goroutine; the recv side will have the stream's status.
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
+			return
+		}
+
+		for {
+			select {
+			case u, ok := <-updates:
+				if !ok {
+					// CloseSend always returns nil.
+					// Do not return an error from this send goroutine; the recv side will have the stream's status.
+					//nolint:errcheck
+					stream.CloseSend()
+					err = nil
+					return
+				}
+				// An update that does not convert is a caller bug; fail the call without sending it.
+				update, convErr := servoUpdateToProto(u)
+				if convErr != nil {
+					err = convErr
+					return
+				}
+				if err = stream.Send(&pb.StreamServoRequest{
+					Message: &pb.StreamServoRequest_Update_{Update: update},
+				}); err != nil {
+					// io.EOF from Send means the stream had already ended.
+					// Do not return an error from this send goroutine; the recv side will have the stream's status.
+					if errors.Is(err, io.EOF) {
+						err = nil
+					}
+					return
+				}
+			case <-ctx.Done():
+				// Either the parent ctx was canceled or the recv goroutine ended the stream.
+				// Since the recv goroutine knows which occurred, let it report the error.
+				err = nil
+				return
+			}
+		}
+	})
+
+	// "recv goroutine": stream.Recv()'s responses from the server and sends them to the client.
+	recvResult := make(chan error, 1)
+	goutils.PanicCapturingGo(func() {
+		err := errors.New("motion servo client recv goroutine panicked")
+		defer func() {
+			// Every exit of this goroutine means the stream is done, so alert the send goroutine.
+			cancel()
+			recvResult <- err
+		}()
+		for {
+			// A successful Recv must not touch err, so that the panic sentinel survives a panic below.
+			resp, recvErr := stream.Recv()
+			if recvErr != nil {
+				err = recvErr
+				// io.EOF from Recv means the stream ended cleanly.
+				if errors.Is(err, io.EOF) {
+					err = nil
+				} else if ctxErr := ctx.Err(); ctxErr != nil {
+					// An error from Recv after ctx is done is just the wire's echo of that cancellation.
+					// Surface the ctx error so callers can errors.Is on it.
+					err = ctxErr
+				}
+				return
+			}
+			select {
+			case responses <- servoResponseFromProto(resp):
+			case <-ctx.Done():
+				err = ctx.Err()
+				return
+			}
+		}
+	})
+
+	// Get the goroutines' ending errors.
+	sendErr := <-sendResult
+	recvErr := <-recvResult
+
+	// Prefer the send goroutine's error, since it only ends with an error when the error originated there.
+	if sendErr != nil {
+		return sendErr
+	}
+	if recvErr != nil {
+		return recvErr
+	}
+	return nil
+}
+
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }

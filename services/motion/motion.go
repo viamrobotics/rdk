@@ -427,6 +427,31 @@ type Service interface {
 		responses chan<- TempStreamResponse,
 		extra map[string]interface{},
 	) error
+
+	// StreamServo runs one Cartesian servo session on componentName until updates is closed (the
+	// session ramps to zero and ends STOPPED), ctx is canceled (it ramps to zero), or the session
+	// ends on its own (dead-man, fault, or Move/Stop/StopPlan taking the arm). It returns only once
+	// the arm has stopped. It writes a ServoResponse with Started first, then a Status for every
+	// update and every state change, then a final Status with the terminal state; then it returns
+	// nil, except after FAULTED, when it returns the cause, and on a canceled ctx, when it returns
+	// ctx's error. An error before Started means nothing moved.
+	//
+	// Acknowledgements arrive in order. Once the session begins to end, updates still in flight are
+	// not acknowledged; the final Status (no ack, terminal state) ends the stream, and any update after
+	// the last ack was not applied.
+	//
+	// The framework owns both channels: it writes and closes updates, and closes responses after
+	// StreamServo returns. Implementations only read updates and only write responses. Every write to
+	// responses must also select on ctx.Done(): after ctx is canceled the framework may no longer read
+	// responses, and no final Status is sent in that case.
+	StreamServo(
+		ctx context.Context,
+		componentName string,
+		cfg ServoConfig,
+		updates <-chan ServoUpdate,
+		responses chan<- ServoResponse,
+		extra map[string]interface{},
+	) error
 }
 
 // ObstacleDetectorName pairs a vision service name with a camera name.

@@ -55,6 +55,14 @@ type MotionService struct {
 		responses chan<- motion.TempStreamResponse,
 		extra map[string]interface{},
 	) error
+	StreamServoFunc func(
+		ctx context.Context,
+		componentName string,
+		cfg motion.ServoConfig,
+		updates <-chan motion.ServoUpdate,
+		responses chan<- motion.ServoResponse,
+		extra map[string]interface{},
+	) error
 	DoCommandFunc func(
 		ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error,
@@ -160,6 +168,21 @@ func (mgs *MotionService) TempStreamArmJointPositions(
 		return mgs.Service.TempStreamArmJointPositions(ctx, armName, opts, targets, responses, extra)
 	}
 	return mgs.TempStreamArmJointPositionsFunc(ctx, armName, opts, targets, responses, extra)
+}
+
+// StreamServo calls the injected StreamServo or the real variant.
+func (mgs *MotionService) StreamServo(
+	ctx context.Context,
+	componentName string,
+	cfg motion.ServoConfig,
+	updates <-chan motion.ServoUpdate,
+	responses chan<- motion.ServoResponse,
+	extra map[string]interface{},
+) error {
+	if mgs.StreamServoFunc == nil {
+		return mgs.Service.StreamServo(ctx, componentName, cfg, updates, responses, extra)
+	}
+	return mgs.StreamServoFunc(ctx, componentName, cfg, updates, responses, extra)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.
