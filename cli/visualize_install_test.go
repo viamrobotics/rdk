@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -38,7 +39,7 @@ func TestReleaseAssetName(t *testing.T) {
 func TestInstalledVisualizerBinary(t *testing.T) {
 	root := filepath.Join("r", "x")
 	test.That(t, installedVisualizerBinary(root, "1.0.0", "darwin"), test.ShouldEqual,
-		filepath.Join(root, "1.0.0", "Viam Visualizer.app", "Contents", "MacOS", "viam-visualizer"))
+		filepath.Join(root, "1.0.0", "Viam Visualizer.app", "Contents", "MacOS", "Viam Visualizer"))
 	test.That(t, installedVisualizerBinary(root, "1.0.0", "linux"), test.ShouldEqual,
 		filepath.Join(root, "1.0.0", "viam-visualizer.AppImage"))
 	test.That(t, installedVisualizerBinary(root, "1.0.0", "windows"), test.ShouldEqual,
@@ -122,13 +123,24 @@ func (f *fakeRelease) opts(root, goos, goarch string, out *bytes.Buffer) visuali
 	}
 }
 
+// assertExecutable checks the 0755 mode an install sets. Windows has no unix modes, so it only
+// checks that the file exists there.
+func assertExecutable(t *testing.T, path string) {
+	t.Helper()
+	info, err := os.Stat(path)
+	test.That(t, err, test.ShouldBeNil)
+	if runtime.GOOS != "windows" {
+		test.That(t, info.Mode().Perm(), test.ShouldEqual, os.FileMode(0o755))
+	}
+}
+
 func buildAppTarball(t *testing.T, content string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
 	test.That(t, tw.WriteHeader(&tar.Header{
-		Name: "Viam Visualizer.app/Contents/MacOS/viam-visualizer", Mode: 0o755, Size: int64(len(content)), Typeflag: tar.TypeReg,
+		Name: "Viam Visualizer.app/Contents/MacOS/Viam Visualizer", Mode: 0o755, Size: int64(len(content)), Typeflag: tar.TypeReg,
 	}), test.ShouldBeNil)
 	_, err := tw.Write([]byte(content))
 	test.That(t, err, test.ShouldBeNil)
@@ -147,9 +159,7 @@ func TestEnsureVisualizer(t *testing.T) {
 		bin, err := ensureVisualizer(ctx, f.opts(root, "linux", "amd64", &out))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, bin, test.ShouldEqual, installedVisualizerBinary(root, "1.0.0", "linux"))
-		info, err := os.Stat(bin)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, info.Mode().Perm(), test.ShouldEqual, os.FileMode(0o755))
+		assertExecutable(t, bin)
 		test.That(t, out.String(), test.ShouldContainSubstring,
 			"Downloading Viam Visualizer 1.0.0 (viam-visualizer-1.0.0-linux-x86_64.AppImage)...")
 		test.That(t, out.String(), test.ShouldContainSubstring, "Installed Viam Visualizer 1.0.0")
@@ -166,9 +176,7 @@ func TestEnsureVisualizer(t *testing.T) {
 		data, err := os.ReadFile(bin)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(data), test.ShouldEqual, "bin")
-		info, err := os.Stat(bin)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, info.Mode().Perm(), test.ShouldEqual, os.FileMode(0o755))
+		assertExecutable(t, bin)
 	})
 
 	t.Run("checksum mismatch", func(t *testing.T) {

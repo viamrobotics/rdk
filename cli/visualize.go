@@ -63,8 +63,16 @@ type launchConfig struct {
 	ExpiresAt        string            `json:"expiresAt,omitempty"`
 }
 
-// visualizerBundleBinary is the executable inside a macOS .app bundle.
-const visualizerBundleBinary = "viam-visualizer"
+const (
+	// visualizerBundleBinary is the executable inside a macOS .app bundle. electron-builder names it
+	// after the product, the same as the bundle.
+	visualizerBundleBinary = "Viam Visualizer"
+	// visualizerCachedBinary is the file name stem the install cache uses on linux and windows.
+	visualizerCachedBinary = "viam-visualizer"
+	// visualizerNoAutoUpdateEnv stops the app from updating itself, so a cached version directory
+	// keeps holding the version it is named for.
+	visualizerNoAutoUpdateEnv = "VIAM_VISUALIZER_NO_AUTO_UPDATE"
+)
 
 // buildLaunchConfig maps a resolved part and the CLI's stored auth to the launch file contents.
 // It performs no I/O.
@@ -143,9 +151,18 @@ func writeLaunchFile(dir string, cfg launchConfig) (string, error) {
 	return path, nil
 }
 
+// visualizerEnv is the app's environment. A binary from the CLI's install cache gets
+// VIAM_VISUALIZER_NO_AUTO_UPDATE so it never overwrites itself; nil means inherit the CLI's.
+func visualizerEnv(cached bool) []string {
+	if !cached {
+		return nil
+	}
+	return append(os.Environ(), visualizerNoAutoUpdateEnv+"=1")
+}
+
 // runVisualizer starts binary with --launch-file path and waits for it. Ctrl+C cancels ctx and
-// closes the app.
-func runVisualizer(ctx context.Context, cmd *cli.Command, binary, launchFilePath string) error {
+// closes the app. cached says the binary came from the CLI's install cache.
+func runVisualizer(ctx context.Context, cmd *cli.Command, binary, launchFilePath string, cached bool) error {
 	// The app deletes the file on read, so a missing file here is the expected outcome.
 	defer func() {
 		if err := os.Remove(launchFilePath); err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -155,6 +172,7 @@ func runVisualizer(ctx context.Context, cmd *cli.Command, binary, launchFilePath
 
 	//nolint:gosec
 	child := exec.CommandContext(ctx, binary, "--launch-file", launchFilePath)
+	child.Env = visualizerEnv(cached)
 	child.Stdout = cmd.Root().Writer
 	child.Stderr = cmd.Root().ErrWriter
 	if err := child.Run(); err != nil {
@@ -183,7 +201,8 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 	// An explicit path wins and is checked before any network call. Otherwise the CLI's own cache
 	// is used, downloading a release when it has none.
 	binary, err := resolveVisualizerBinary(args.AppPath, os.Getenv(visualizerPathEnv), os.Stat)
-	if errors.Is(err, errNoVisualizerPath) {
+	cached := errors.Is(err, errNoVisualizerPath)
+	if cached {
 		binary, err = ensureVisualizer(ctx, defaultVisualizerInstallOptions(cmd.Root().ErrWriter, args.AppVersion, args.Update))
 	}
 	if err != nil {
@@ -222,5 +241,5 @@ func (c *viamClient) visualizePart(ctx context.Context, cmd *cli.Command, args v
 	}
 
 	printf(cmd.Root().Writer, "Launching visualizer for part %s on machine %s (%s)", part.Name, machineName, binary)
-	return runVisualizer(ctx, cmd, binary, path)
+	return runVisualizer(ctx, cmd, binary, path, cached)
 }

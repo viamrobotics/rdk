@@ -56,8 +56,8 @@ func installedVisualizerBinary(root, version, goos string) string {
 	case osDarwin:
 		return filepath.Join(dir, visualizerBundleName, "Contents", "MacOS", visualizerBundleBinary)
 	case osWindows:
-		return filepath.Join(dir, visualizerBundleBinary+".exe")
+		return filepath.Join(dir, visualizerCachedBinary+".exe")
 	default:
-		return filepath.Join(dir, visualizerBundleBinary+".AppImage")
+		return filepath.Join(dir, visualizerCachedBinary+".AppImage")
 	}
 }

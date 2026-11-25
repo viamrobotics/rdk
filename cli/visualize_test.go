@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -88,7 +89,7 @@ func TestResolveVisualizerBinary(t *testing.T) {
 	t.Run("app bundle", func(t *testing.T) {
 		got, err := resolveVisualizerBinary(bundle, "", os.Stat)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, got, test.ShouldEqual, filepath.Join(bundle, "Contents", "MacOS", "viam-visualizer"))
+		test.That(t, got, test.ShouldEqual, filepath.Join(bundle, "Contents", "MacOS", "Viam Visualizer"))
 	})
 	t.Run("missing", func(t *testing.T) {
 		missing := filepath.Join(dir, "nope")
@@ -169,4 +170,38 @@ func TestMachinesPartVisualizeAction(t *testing.T) {
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "main-part")
 	test.That(t, out.messages[0], test.ShouldContainSubstring, "my-machine")
 	test.That(t, out.messages[0], test.ShouldNotContainSubstring, testToken)
+}
+
+func TestVisualizerEnv(t *testing.T) {
+	test.That(t, visualizerEnv(false), test.ShouldBeNil)
+	env := visualizerEnv(true)
+	test.That(t, env, test.ShouldContain, visualizerNoAutoUpdateEnv+"=1")
+	test.That(t, len(env), test.ShouldEqual, len(os.Environ())+1)
+}
+
+func TestRunVisualizerEnv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell script as the fake app")
+	}
+	dir := t.TempDir()
+	envOut := filepath.Join(dir, "env")
+	script := filepath.Join(dir, "fake-app.sh")
+	test.That(t, os.WriteFile(script,
+		[]byte("#!/bin/sh\nprintf '%s' \"$"+visualizerNoAutoUpdateEnv+"\" > \""+envOut+"\"\n"), 0o755), test.ShouldBeNil)
+	cmd := &cli.Command{}
+
+	for _, tc := range []struct {
+		cached bool
+		want   string
+	}{{true, "1"}, {false, ""}} {
+		t.Setenv(visualizerNoAutoUpdateEnv, "")
+		launch := filepath.Join(dir, "launch.json")
+		test.That(t, os.WriteFile(launch, []byte("{}"), 0o600), test.ShouldBeNil)
+		test.That(t, runVisualizer(t.Context(), cmd, script, launch, tc.cached), test.ShouldBeNil)
+		data, err := os.ReadFile(envOut)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(data), test.ShouldEqual, tc.want)
+		_, err = os.Stat(launch)
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
+	}
 }
