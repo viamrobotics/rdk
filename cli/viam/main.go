@@ -13,4 +13,5 @@ func main() {
 	if err := app.Run(context.Background(), os.Args); err != nil {
 		cli.Errorf(app.ErrWriter, err.Error())
 	}
+	cli.OfferSkillInstall(app)
 }
