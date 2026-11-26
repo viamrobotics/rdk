@@ -26,7 +26,6 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/discovery"
 )
 
 // NewServer returns a new (module specific) rpc.Server.
@@ -177,10 +176,12 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 		rpcAPI := &resource.RPCAPI{
 			API: api,
 		}
-		// due to how tagger is setup in the api we cannot use reflection on the discovery service currently
-		// for now we will skip the reflection step for discovery until the issue is resolved.
-		// TODO(RSDK-9718) - remove the skip.
-		if api != discovery.API {
+		// A service descriptor is only needed for APIs this process does not know, so that a
+		// generic client can be built for them. Registered APIs use the local descriptor, and
+		// asking the module for one would fail startup whenever the module's own proto registry
+		// cannot serve the full dependency chain, which depends only on the SDK version the
+		// module was built against.
+		if _, known := resource.LookupGenericAPIRegistration(api); !known {
 			symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
 			if err != nil {
 				errs = multierr.Combine(errs, err)
