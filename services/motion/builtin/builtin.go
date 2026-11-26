@@ -97,19 +97,8 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
-	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
-	// When false (the default) each batch of joint targets is sent with interpolate=false and
-	// waitAtEnd=false, giving the lowest latency and the most responsive motion. When true,
-	// targets are sent with interpolate=true and waitAtEnd=true, which produces smoother motion
-	// at the cost of latency because each call blocks until the move completes. Set it when you
-	// want the arm's own interpolation in place of the pipeline's EMA smoothing.
-	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
-	// TeleopSmoothAlpha is the smoothing factor for the exponential moving average (EMA) the
-	// pipeline applies to each joint's commanded position before sending it to the arm:
-	// out = alpha*target + (1-alpha)*previous. Lower alpha means heavier smoothing (less jitter,
-	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
-	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
-	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
+	// TeleopStream tunes the arm streams teleop drives; see TeleopStreamConfig.
+	TeleopStream TeleopStreamConfig `json:"teleop_stream"`
 
 	// CableConstraint, MaxCableTwistDegs, CableTwistReferenceDegs and CableConstraintFrames are
 	// the defaults for the planner options of the same names; a Move request's extra overrides
@@ -170,21 +159,8 @@ func armsCarryingCameras(fs *referenceframe.FrameSystem, components map[string]r
 		if r.Name().API != cameraAPI {
 			continue
 		}
-		f := fs.Frame(name)
-		if f == nil {
-			continue
-		}
-		chain, err := fs.TracebackFrame(f)
-		if err != nil {
-			continue
-		}
-		for _, ancestor := range chain[1:] {
-			if _, isModel := ancestor.(referenceframe.Model); !isModel {
-				continue
-			}
-			if a, ok := components[ancestor.Name()]; ok && a.Name().API == arm.API {
-				found[ancestor.Name()] = true
-			}
+		for _, armName := range armsCarrying(fs, components, name) {
+			found[armName] = true
 		}
 	}
 	arms := make([]string, 0, len(found))
@@ -192,6 +168,27 @@ func armsCarryingCameras(fs *referenceframe.FrameSystem, components map[string]r
 		arms = append(arms, name)
 	}
 	slices.Sort(arms)
+	return arms
+}
+
+func armsCarrying(fs *referenceframe.FrameSystem, components map[string]resource.Resource, name string) []string {
+	f := fs.Frame(name)
+	if f == nil {
+		return nil
+	}
+	chain, err := fs.TracebackFrame(f)
+	if err != nil {
+		return nil
+	}
+	var arms []string
+	for _, link := range chain {
+		if _, isModel := link.(referenceframe.Model); !isModel {
+			continue
+		}
+		if a, ok := components[link.Name()]; ok && a.Name().API == arm.API {
+			arms = append(arms, link.Name())
+		}
+	}
 	return arms
 }
 
@@ -222,9 +219,8 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 		return nil, nil, errors.New("need a stream_diagnostics_file_path if you set stream_diagnostics_metadata_keys_to_use_as_file_tags")
 	}
 
-	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
-	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
-		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
+	if err := c.TeleopStream.validate(); err != nil {
+		return nil, nil, err
 	}
 
 	if c.MaxCableTwistDegs < 0 {
@@ -246,8 +242,9 @@ type builtIn struct {
 	logger          logging.Logger
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
-	teleopMu       sync.RWMutex
-	teleopPipeline *teleopPipeline
+	teleopMu           sync.RWMutex
+	teleopPipeline     *teleopPipeline
+	teleopRunArmStream teleopArmStreamRunner
 
 	// Arm-streaming sessions, one per arm at a time, keyed by arm name. Protected by streamMu
 	// (separate from mu to simplify lock ordering).
