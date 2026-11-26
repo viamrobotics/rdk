@@ -1,0 +1,172 @@
+package statemachine
+
+import (
+	"context"
+
+	commonpb "go.viam.com/api/common/v1"
+	pb "go.viam.com/api/service/statemachine/v1"
+	taskpb "go.viam.com/api/service/task/v1"
+	"go.viam.com/utils/protoutils"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/logging"
+	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/task"
+)
+
+type serviceServer struct {
+	pb.UnimplementedStateMachineServiceServer
+	coll resource.APIResourceGetter[Service]
+}
+
+// NewRPCServiceServer constructs a state machine gRPC service server.
+// It is intentionally untyped to prevent use outside of tests.
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
+	return &serviceServer{coll: coll}
+}
+
+// GetState returns the machine's active state.
+func (server *serviceServer) GetState(ctx context.Context, req *pb.GetStateRequest) (*pb.GetStateResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	st, err := svc.GetState(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	contextPb, err := protoutils.StructToStructPb(st.Context)
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.GetStateResponse{
+		Path:         st.Path,
+		Status:       StatusToProto(st.Status),
+		Context:      contextPb,
+		TaskProgress: task.ProgressToProto(st.TaskProgress),
+		JobId:        st.JobID,
+	}
+	if !st.EnteredAt.IsZero() {
+		resp.EnteredAt = timestamppb.New(st.EnteredAt)
+	}
+	return resp, nil
+}
+
+// SendEvent delivers an event to the machine.
+func (server *serviceServer) SendEvent(ctx context.Context, req *pb.SendEventRequest) (*pb.SendEventResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	res, err := svc.SendEvent(ctx, req.Event, req.Payload.AsMap(), req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.SendEventResponse{Handled: res.Handled, Path: res.Path}, nil
+}
+
+// GetHistory returns the retained transitions grouped by job.
+func (server *serviceServer) GetHistory(ctx context.Context, req *pb.GetHistoryRequest) (*pb.GetHistoryResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	jobs, err := svc.GetHistory(ctx, req.JobId, int(req.Limit), req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	resp := &pb.GetHistoryResponse{Jobs: make([]*pb.JobHistory, 0, len(jobs))}
+	for _, job := range jobs {
+		jobPb := &pb.JobHistory{JobId: job.JobID, Transitions: make([]*pb.Transition, 0, len(job.Transitions))}
+		if !job.StartedAt.IsZero() {
+			jobPb.StartedAt = timestamppb.New(job.StartedAt)
+		}
+		for _, tr := range job.Transitions {
+			trPb := &pb.Transition{
+				From: tr.From, To: tr.To, Trigger: tr.Trigger, Timestamp: timestamppb.New(tr.Timestamp),
+				Source: SourceToProto(tr.Source),
+			}
+			if tr.TaskResult != nil {
+				output, err := protoutils.StructToStructPb(tr.TaskResult.Output)
+				if err != nil {
+					return nil, err
+				}
+				trPb.TaskResult = &taskpb.Result{Outcome: tr.TaskResult.Outcome, Output: output}
+			}
+			jobPb.Transitions = append(jobPb.Transitions, trPb)
+		}
+		resp.Jobs = append(resp.Jobs, jobPb)
+	}
+	return resp, nil
+}
+
+// GetDefinition returns the configured graph.
+func (server *serviceServer) GetDefinition(ctx context.Context, req *pb.GetDefinitionRequest) (*pb.GetDefinitionResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	def, err := svc.GetDefinition(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return DefinitionToProto(def), nil
+}
+
+// GetCurrentJobId returns the id of the machine's current job.
+//
+//nolint:revive // the generated gRPC interface spells it Id.
+func (server *serviceServer) GetCurrentJobId(ctx context.Context, req *pb.GetCurrentJobIdRequest) (*pb.GetCurrentJobIdResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	jobID, err := svc.CurrentJobID(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetCurrentJobIdResponse{JobId: jobID}, nil
+}
+
+// Stop holds the machine.
+func (server *serviceServer) Stop(ctx context.Context, req *pb.StopRequest) (*pb.StopResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if err := svc.Stop(ctx, req.Extra.AsMap()); err != nil {
+		return nil, err
+	}
+	return &pb.StopResponse{}, nil
+}
+
+// Reset re-enters the initial state.
+func (server *serviceServer) Reset(ctx context.Context, req *pb.ResetRequest) (*pb.ResetResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if err := svc.Reset(ctx, req.Extra.AsMap()); err != nil {
+		return nil, err
+	}
+	return &pb.ResetResponse{}, nil
+}
+
+// DoCommand receives arbitrary commands.
+func (server *serviceServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRequest) (*commonpb.DoCommandResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.DoFromResourceServer(ctx, svc, req)
+}
+
+// GetStatus returns the status of the state machine resource.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	svc, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.GetStatusFromResourceServer(ctx, svc, req)
+}

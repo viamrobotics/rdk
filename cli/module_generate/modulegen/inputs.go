@@ -79,6 +79,8 @@ var ExcludedResources = []string{
 	"discovery service",
 	"video service",
 	"base_remote_control service",
+	"task service",
+	"state_machine service",
 }
 
 // GoModuleTmpl contains necessary information to fill out the go method stubs.
