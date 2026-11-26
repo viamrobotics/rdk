@@ -411,44 +411,63 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	if IsTooSmallForCache() {
 		return nil, nil, nil
 	}
-
-	if len(goal) > 1 {
-		return nil, nil, fmt.Errorf("smartSeedCache findSeed only works with 1 goal for now")
+	if len(goal) == 0 {
+		return nil, nil, nil
 	}
 
 	logger.Debugf("findSeeds goal: %v", goal)
 
-	goalFrame := ""
-	var goalPIF *referenceframe.PoseInFrame
-
-	for k, v := range goal {
-		goalFrame = k
-		goalPIF = v
+	// Per moving chain: find candidate seeds for that chain reaching its goal.
+	// For multi-frame goals (multi-arm, closed-chain tool), we iterate each
+	// (goal frame → moving chain) pairing and combine seeds pairwise below.
+	type chainSeeds struct {
+		movingFrame string
+		seeds       [][]referenceframe.Input
+		divisors    []float64
 	}
-
-	movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	logger.Debugf("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
-	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	fullSeeds := []*referenceframe.LinearInputs{}
-	for _, s := range seeds {
-		i := referenceframe.NewLinearInputs()
-		for k, v := range start.Items() {
-			i.Put(k, v)
+	chains := make([]chainSeeds, 0, len(goal))
+	for goalFrame, goalPIF := range goal {
+		movingFrame, movingPose, err := ssc.findMovingInfo(start, goalFrame, goalPIF)
+		if err != nil {
+			return nil, nil, err
 		}
-		i.Put(movingFrame, s)
-		fullSeeds = append(fullSeeds, i)
+		seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
+		if err != nil {
+			return nil, nil, err
+		}
+		if seeds == nil {
+			return nil, nil, nil
+		}
+		chains = append(chains, chainSeeds{movingFrame, seeds, divisors})
+	}
+
+	// Pairwise combine: candidate i uses the i'th seed from each chain. The
+	// seed lists are cost-sorted so i=0 pairs each chain's best seed. Length
+	// bounded by the shortest list — if one chain finds 5 seeds and another
+	// 20, we use 5.
+	minLen := len(chains[0].seeds)
+	for _, c := range chains[1:] {
+		if len(c.seeds) < minLen {
+			minLen = len(c.seeds)
+		}
+	}
+
+	fullSeeds := make([]*referenceframe.LinearInputs, 0, minLen)
+	for i := 0; i < minLen; i++ {
+		full := referenceframe.NewLinearInputs()
+		for k, v := range start.Items() {
+			full.Put(k, v)
+		}
+		for _, c := range chains {
+			full.Put(c.movingFrame, c.seeds[i])
+		}
+		fullSeeds = append(fullSeeds, full)
 	}
 
 	fullDivisors := start.CopyWithZeros()
-	fullDivisors.Put(movingFrame, divisors)
+	for _, c := range chains {
+		fullDivisors.Put(c.movingFrame, c.divisors)
+	}
 
 	return fullSeeds, fullDivisors.GetLinearizedInputs(), nil
 }

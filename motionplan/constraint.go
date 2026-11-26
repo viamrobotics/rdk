@@ -24,6 +24,7 @@ type Constraints struct {
 	PseudolinearConstraint []PseudolinearConstraint `json:"pseudolinear_constraints"`
 	OrientationConstraint  []OrientationConstraint  `json:"orientation_constraints"`
 	CollisionSpecification []CollisionSpecification `json:"collision_specifications"`
+	SharedFrames           []SharedFramesConstraint `json:"shared_frames,omitempty"`
 }
 
 // NewEmptyConstraints creates a new, empty Constraints object.
