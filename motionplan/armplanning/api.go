@@ -383,7 +383,12 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
+	planRequest, frozen, err := frozenRequest(request)
+	if err != nil {
+		return nil, meta, err
+	}
+
+	sfPlanner, err := newPlanManager(ctx, logger, planRequest, meta)
 	if err != nil {
 		return nil, meta, err
 	}
@@ -401,7 +406,7 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 
 	meta.GoalsProcessed = goalsProcessed
 
-	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
+	t, err := motionplan.NewSimplePlanFromTrajectory(withFrozenInputs(trajAsInps, frozen), request.FrameSystem)
 	if err != nil {
 		return nil, meta, err
 	}
