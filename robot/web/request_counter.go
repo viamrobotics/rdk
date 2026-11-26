@@ -61,6 +61,9 @@ type apiMethod struct {
 }
 
 func (m apiMethod) getResourceName(msg any) string {
+	if msg == nil {
+		return ""
+	}
 	return resource.GetResourceNameFromRequest(m.service, m.name, msg)
 }
 
@@ -126,6 +129,9 @@ type RequestCounter struct {
 	// associated with the offending client is passed so tests can observe or wait on its
 	// state.
 	beforeLogHook func(pc *webrtc.PeerConnection)
+
+	// duration is nil if its instrument could not be created.
+	duration *requestDuration
 }
 
 // apiMethod.full below are not rate-limited and do not contribute to the request counter
@@ -413,6 +419,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
+	resourceName := apiMethod.getResourceName(req)
 
 	if _, ok := inFlightLimitCheckExcluded[apiMethod.full]; !ok {
 		pc, pcSet := rpc.ContextPeerConnection(ctx)
@@ -420,7 +427,7 @@ func (rc *RequestCounter) UnaryInterceptor(
 			rc.setClientMetadataForPC(ctx, pc)
 		}
 
-		if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
+		if resource := buildResourceLimitKey(resourceName, apiMethod); resource != "" {
 			if ok := rc.incrInFlight(resource, pc); !ok {
 				numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
 				return nil, &RequestLimitExceededError{
@@ -433,7 +440,9 @@ func (rc *RequestCounter) UnaryInterceptor(
 		}
 	}
 
-	requestCounterKey := buildRCKey(req, apiMethod)
+	requestCounterKey := buildRCKey(resourceName, apiMethod)
+	// Panics are recovered by an outer interceptor, so deferred code sees a nil err for them.
+	panicked := true
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod.shortPath != "" {
 		rc.preRequestIncrement(requestCounterKey)
@@ -453,20 +462,27 @@ func (rc *RequestCounter) UnaryInterceptor(
 			//
 			// Perhaps the "perfect" solution is to track both "request started" and "request
 			// finished". And have latency graphs use "request finished".
+			elapsed := time.Since(start)
 			respSize := 0
 			if protoMsg, ok := resp.(proto.Message); ok {
 				respSize = proto.Size(protoMsg)
 			}
 			rc.postRequestIncrement(
 				requestCounterKey,
-				time.Since(start),
+				elapsed,
 				respSize,
 				err != nil,
 			)
+			recordErr := err
+			if panicked {
+				recordErr = errHandlerPanicked
+			}
+			rc.duration.record(ctx, requestCounterKey, resourceName, apiMethod, elapsed, recordErr)
 		}()
 	}
 
 	resp, err = handler(ctx, req)
+	panicked = false
 	return resp, err
 }
 
@@ -589,9 +605,23 @@ func (rc *RequestCounter) StreamInterceptor(
 			ServerStream: ss,
 			apiMethod:    apiMethod,
 			rc:           rc,
-			requestKey:   atomic.Pointer[string]{},
 		}
-		return handler(srv, &wrappedStream)
+		start := time.Now()
+		var err error
+		panicked := true
+		defer func() {
+			if panicked {
+				err = errHandlerPanicked
+			}
+			requestKey, resourceName := apiMethod.shortPath, ""
+			if target := wrappedStream.target.Load(); target != nil {
+				requestKey, resourceName = target.requestKey, target.resourceName
+			}
+			rc.duration.record(ss.Context(), requestKey, resourceName, apiMethod, time.Since(start), err)
+		}()
+		err = handler(srv, &wrappedStream)
+		panicked = false
+		return err
 	}
 	return handler(srv, ss)
 }
@@ -602,7 +632,11 @@ type wrappedStreamWithRC struct {
 	rc        *RequestCounter
 
 	// Set on the initial client request.
-	requestKey atomic.Pointer[string]
+	target atomic.Pointer[streamTarget]
+}
+
+type streamTarget struct {
+	requestKey, resourceName string
 }
 
 // RecvMsg increments the reference counter upon receiving the first message from the client.
@@ -611,9 +645,10 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 	// Unmarshalls into m (to populate fields).
 	err := w.ServerStream.RecvMsg(m)
 
-	if w.requestKey.Load() == nil {
-		requestKey := buildRCKey(m, w.apiMethod)
-		w.requestKey.Store(&requestKey)
+	if w.target.Load() == nil {
+		resourceName := w.apiMethod.getResourceName(m)
+		requestKey := buildRCKey(resourceName, w.apiMethod)
+		w.target.Store(&streamTarget{requestKey: requestKey, resourceName: resourceName})
 		// Dan: As above, we have to call the underlying handler first before
 		// `preRequestIncrement`. Because the message object has not been initialized yet. It's not
 		// clear to me what options we have to pull out the message's `name` field before
@@ -624,12 +659,12 @@ func (w *wrappedStreamWithRC) RecvMsg(m any) error {
 }
 
 func (w *wrappedStreamWithRC) SendMsg(m any) error {
-	if requestKeyPtr := w.requestKey.Load(); requestKeyPtr != nil {
+	if target := w.target.Load(); target != nil {
 		if protoMsg, ok := m.(proto.Message); ok {
-			w.rc.postRequestIncrement(*requestKeyPtr, 0, proto.Size(protoMsg), false)
+			w.rc.postRequestIncrement(target.requestKey, 0, proto.Size(protoMsg), false)
 		}
 	} else {
-		panic(fmt.Sprintf("Invariant failed. Key must exist for `postRequestIncrement`. Key: %v", w.requestKey.Load()))
+		panic("Invariant failed. Key must exist for `postRequestIncrement`.")
 	}
 
 	err := w.ServerStream.SendMsg(m)
@@ -671,24 +706,22 @@ func extractViamAPI(fullMethod string) apiMethod {
 }
 
 // buildRCKey builds the key to be used in the RequestCounter's counts map.
-// If the msg satisfies web.Namer, the key will be in the format "name.method",
+// If the request targets a resource, the key will be in the format "name.method",
 // Otherwise, the key will be just "method".
-func buildRCKey(clientMsg any, method apiMethod) string {
-	if clientMsg != nil {
-		if name := method.getResourceName(clientMsg); name != "" {
-			return fmt.Sprintf("%v.%v", name, method.shortPath)
-		}
+func buildRCKey(resourceName string, method apiMethod) string {
+	if resourceName != "" {
+		return resourceName + "." + method.shortPath
 	}
 	return method.shortPath
 }
 
-func buildResourceLimitKey(clientMsg any, method apiMethod) string {
+func buildResourceLimitKey(resourceName string, method apiMethod) string {
 	if method.shortPath == "" {
 		// Ignore for non-Viam APIs
 		return ""
 	}
-	if name := method.getResourceName(clientMsg); name != "" {
-		return name + "." + method.service
+	if resourceName != "" {
+		return resourceName + "." + method.service
 	}
 	if method.service == "viam.robot.v1.RobotService" {
 		return method.service
