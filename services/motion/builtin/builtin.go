@@ -4,6 +4,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -733,105 +734,103 @@ func (ms *builtIn) planTeleopMulti(
 	return plan, err
 }
 
-func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
-	// Batch GoToInputs calls if possible; components may want to blend between inputs
-	combinedSteps := []map[string][][]referenceframe.Input{}
-	currStep := map[string][][]referenceframe.Input{}
+// componentMove is consecutive waypoints that move a single component.
+type componentMove struct {
+	name   string
+	inputs [][]referenceframe.Input
+}
+
+// componentMoves turns a trajectory into the component moves to make, in trajectory order. The
+// first waypoint is where the components already are. Consecutive waypoints that move the same
+// component are batched into one move so the component can blend between them. Components move
+// one at a time, so a waypoint that moves more than one cannot be followed and is an error.
+func componentMoves(trajectory motionplan.Trajectory) ([]componentMove, error) {
+	var moves []componentMove
+	last := map[string][]referenceframe.Input{}
 	for i, step := range trajectory {
-		if i == 0 {
-			for name, inputs := range step {
-				if len(inputs) == 0 {
-					continue
-				}
-
-				res, ok := ms.components[name]
-				if !ok {
-					return fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
-				}
-				ie, ok := res.(framesystem.InputEnabled)
-				if !ok {
-					return fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
-				}
-				curr, err := ie.CurrentInputs(ctx)
-				if err != nil {
-					return err
-				}
-				if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
-					return fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
-						name, epsilon, inputs, curr)
-				}
-				currStep[name] = append(currStep[name], inputs)
-			}
-			continue
-		}
 		changed := ""
-		if len(currStep) > 0 {
-			reset := false
-			// Check if the current step moves only the same components as the previous step
-			// If so, batch the inputs
-			for name, inputs := range step {
-				if len(inputs) == 0 {
-					continue
-				}
-				if priorInputs, ok := currStep[name]; ok {
-					for i, input := range inputs {
-						if input != priorInputs[len(priorInputs)-1][i] {
-							if changed == "" {
-								changed = name
-							}
-							if changed != "" && changed != name {
-								// If the current step moves different components than the previous step, reset the batch
-								reset = true
-								break
-							}
-						}
-					}
-				} else {
-					// Previously moved components are no longer moving
-					reset = true
-				}
-				if reset {
-					break
-				}
-			}
-			if reset {
-				combinedSteps = append(combinedSteps, currStep)
-				currStep = map[string][][]referenceframe.Input{}
-			}
-			for name, inputs := range step {
-				if len(inputs) == 0 {
-					continue
-				}
-				currStep[name] = append(currStep[name], inputs)
-			}
-		}
-	}
-	combinedSteps = append(combinedSteps, currStep)
-
-	for _, step := range combinedSteps {
-		for name, inputs := range step {
-			if len(inputs) == 0 {
+		for _, name := range slices.Sorted(maps.Keys(step)) {
+			inputs := step[name]
+			prior, ok := last[name]
+			if !ok {
+				last[name] = inputs
 				continue
 			}
-			res, ok := ms.components[name]
-			if !ok {
-				return fmt.Errorf("plan had step for resource %s but it was not found in the motion", name)
+			if len(inputs) != len(prior) || referenceframe.InputsLinfDistance(prior, inputs) <= armplanning.SingleComponentEpsilon {
+				continue
 			}
-			ie, ok := res.(framesystem.InputEnabled)
-			if !ok {
-				return fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
+			if changed != "" {
+				return nil, fmt.Errorf("waypoint %d moves both %s and %s; components are moved one at a time, "+
+					"so each waypoint may move only one", i, changed, name)
 			}
-			if err := ie.GoToInputs(ctx, inputs...); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
-				if actuator, ok := ie.(inputEnabledActuator); ok {
-					//nolint:errcheck
-					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
-				}
-				return fmt.Errorf("error moving component %s to inputs %v: %w", name, inputs, err)
+			changed = name
+		}
+		if changed == "" {
+			continue
+		}
+		last[changed] = step[changed]
+		if n := len(moves); n > 0 && moves[n-1].name == changed {
+			moves[n-1].inputs = append(moves[n-1].inputs, step[changed])
+		} else {
+			moves = append(moves, componentMove{name: changed, inputs: [][]referenceframe.Input{step[changed]}})
+		}
+	}
+	return moves, nil
+}
+
+func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
+	if len(trajectory) == 0 {
+		return nil
+	}
+	for name, inputs := range trajectory[0] {
+		if len(inputs) == 0 {
+			continue
+		}
+		ie, err := ms.inputEnabled(name)
+		if err != nil {
+			return err
+		}
+		curr, err := ie.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+		if referenceframe.InputsLinfDistance(curr, inputs) > epsilon {
+			return fmt.Errorf("component %v is not within %v of the current position. Expected inputs %v current inputs %v",
+				name, epsilon, inputs, curr)
+		}
+	}
+
+	moves, err := componentMoves(trajectory)
+	if err != nil {
+		return err
+	}
+	for _, move := range moves {
+		ie, err := ms.inputEnabled(move.name)
+		if err != nil {
+			return err
+		}
+		if err := ie.GoToInputs(ctx, move.inputs...); err != nil {
+			// If there is an error on GoToInputs, stop the component if possible before returning the error
+			if actuator, ok := ie.(inputEnabledActuator); ok {
+				//nolint:errcheck
+				_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 			}
+			return fmt.Errorf("error moving component %s to inputs %v: %w", move.name, move.inputs, err)
 		}
 	}
 	return nil
+}
+
+func (ms *builtIn) inputEnabled(name string) (framesystem.InputEnabled, error) {
+	res, ok := ms.components[name]
+	if !ok {
+		return nil, fmt.Errorf("plan had step for resource %s but the motion service is not aware of a component of that name", name)
+	}
+	ie, ok := res.(framesystem.InputEnabled)
+	if !ok {
+		return nil, fmt.Errorf("plan had step for resource %s but it is not input-enabled", name)
+	}
+	return ie, nil
 }
 
 func waypointsFromRequest(
