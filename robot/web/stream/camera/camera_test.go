@@ -387,6 +387,39 @@ func TestVideoSourceFromCamera_SourceSelection(t *testing.T) {
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
 
+func TestVideoSourceFromCamera_MarksRequestsFromStreamServer(t *testing.T) {
+	sourceImg := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", utils.MimeTypePNG, data.Annotations{})
+	test.That(t, err, test.ShouldBeNil)
+
+	var extras []map[string]interface{}
+	cam := &inject.Camera{
+		ImagesFunc: func(
+			ctx context.Context,
+			sourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			extras = append(extras, extra)
+			return []camera.NamedImage{streamableImg}, resource.ResponseMetadata{}, nil
+		},
+	}
+
+	vs, err := camerautils.VideoSourceFromCamera(context.Background(), cam)
+	test.That(t, err, test.ShouldBeNil)
+	stream, err := vs.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	// The first frame selects a source; the second reads it by source name.
+	for i := 0; i < 2; i++ {
+		_, _, err = stream.Next(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+	}
+
+	test.That(t, len(extras), test.ShouldBeGreaterThanOrEqualTo, 2)
+	for _, extra := range extras {
+		test.That(t, extra[camerautils.FromStreamServerString], test.ShouldEqual, true)
+	}
+}
+
 func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 	sourceImg1 := image.NewRGBA(image.Rect(0, 0, 4, 4))
 	sourceImg2 := image.NewRGBA(image.Rect(0, 0, 6, 6))
