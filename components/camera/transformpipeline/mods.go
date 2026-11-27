@@ -6,7 +6,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/disintegration/imaging"
+	"github.com/boxes-ltd/imaging"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 	"golang.org/x/image/draw"
