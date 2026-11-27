@@ -6,7 +6,7 @@ import (
 	"math"
 	"sort"
 
-	"github.com/disintegration/imaging"
+	"github.com/boxes-ltd/imaging"
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"

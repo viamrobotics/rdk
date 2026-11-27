@@ -18,11 +18,11 @@ require (
 	github.com/bep/debounce v1.2.1
 	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bluenviron/mediacommon v1.9.2
+	github.com/boxes-ltd/imaging v1.7.5
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
 	github.com/charmbracelet/x/xpty v0.1.2
 	github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd
-	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
 	github.com/edaniels/golog v0.0.0-20250821172758-0d08e67686a9

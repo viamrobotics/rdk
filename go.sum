@@ -163,6 +163,8 @@ github.com/bluenviron/gortsplib/v4 v4.8.0 h1:nvFp6rHALcSep3G9uBFI0uogS9stVZLNq/9
 github.com/bluenviron/gortsplib/v4 v4.8.0/go.mod h1:+d+veuyvhvikUNp0GRQkk6fEbd/DtcXNidMRm7FQRaA=
 github.com/bluenviron/mediacommon v1.9.2 h1:EHcvoC5YMXRcFE010bTNf07ZiSlB/e/AdZyG7GsEYN0=
 github.com/bluenviron/mediacommon v1.9.2/go.mod h1:lt8V+wMyPw8C69HAqDWV5tsAwzN9u2Z+ca8B6C//+n0=
+github.com/boxes-ltd/imaging v1.7.5 h1:k4kYxJEhysoGhEEN1IEeKoSbnG8/8snjj7M48Ok0fnk=
+github.com/boxes-ltd/imaging v1.7.5/go.mod h1:+8H+oRvis3InOFtTpcoCCB1RDXqo6p9tQBtjZfWnrC8=
 github.com/bufbuild/protocompile v0.14.2-0.20260605203730-cd7c3c124e10 h1:N0ZOKMwHpKsFhMGSxnB6JiVkM7SbH8IAKlGGO0SpQBA=
 github.com/bufbuild/protocompile v0.14.2-0.20260605203730-cd7c3c124e10/go.mod h1:jPUiZUFWc8E3Kc2Y4SRlGAdjde4amGkHY0BUACNS43E=
 github.com/bytedance/sonic v1.13.1 h1:Jyd5CIvdFnkOWuKXr+wm4Nyk2h0yAFsr8ucJgEasO3g=
@@ -275,7 +277,6 @@ github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f/go.mod h1:xH/i4TFM
 github.com/dgottlieb/smarty-assertions v1.2.6 h1:YAXgSslRBbVtd54iTqM4yGT2k1a2qS6cffNQo0SDxDY=
 github.com/dgottlieb/smarty-assertions v1.2.6/go.mod h1:x1wpV/RTxYWtN+vgrcRuCF4hjUmonK5NR59ZzQSym2k=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
-github.com/disintegration/imaging v1.6.2 h1:w1LecBlG2Lnp8B3jk5zSuNqd7b4DXhcjwek1ei82L+c=
 github.com/disintegration/imaging v1.6.2/go.mod h1:44/5580QXChDfwIclfc/PCwrr44amcmDAg8hxG0Ewe4=
 github.com/docker/go-units v0.5.0 h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=
 github.com/docker/go-units v0.5.0/go.mod h1:fgPhTUdO+D/Jk86RDLlptpiXQzgHJF7gydDDbaIK4Dk=

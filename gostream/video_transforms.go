@@ -4,7 +4,7 @@ import (
 	"context"
 	"image"
 
-	"github.com/disintegration/imaging"
+	"github.com/boxes-ltd/imaging"
 	"github.com/pion/mediadevices/pkg/prop"
 	"go.uber.org/multierr"
 )
